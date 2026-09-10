@@ -1,10 +1,10 @@
 # termite-warranty
 
-Purpose and users are not yet confirmed. This repository currently contains the initial project governance scaffold.
+House Solution Co., Ltd.向け白蟻保証業務管理システムのプロトタイプです。
 
 ## Status
 
-Initial governance established; requirements and implementation are not yet confirmed.
+確認済み要件のうち、保証期限・アラート判定と検索文字列の正規化／N-Gram生成を依存パッケージなしのドメイン層として実装しています。Nuxt、Vuetify、Firebaseのパッケージ版、Firestoreデータ契約、デプロイ設定は未決です。
 
 ## Documentation
 
@@ -25,7 +25,15 @@ Start with `AGENTS.md`, then use `docs/README.md` to select the documents requir
 
 ## Development
 
-No application setup or runtime command has been verified. Governance validation: `./scripts/check-governance.ps1`.
+ローカルで確認済みのNode.jsがある環境で、次のコマンドを実行します。
+
+```powershell
+npm test
+```
+
+Governance validation: `./scripts/check-governance.ps1`.
+
+Firebase Emulator Suiteを使う統合検証は、未決のパッケージ版とFirestoreデータ契約を確定した後に追加します。実Firebaseプロジェクト、Hosting、外部APIはローカル検証に使用しません。
 
 ## Security
 

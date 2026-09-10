@@ -2,15 +2,17 @@
 
 ## Current Availability
 
-[Implemented, planned, and unavailable capabilities.]
+- Implemented locally: dependency-free warranty expiry calculation, extension start-date calculation, alert eligibility, initial-enrolment-date derivation, and confirmed N-Gram normalization/token generation.
+- Planned but unavailable: Nuxt/Vuetify UI, Firebase Authentication, Firestore persistence and rules, Cloud Functions account management, Firebase Emulator Suite integration, and postal-code API integration. Package versions and the Firestore data contract are not selected.
 
 ## Preparation
 
-[Dependencies, configuration, access, and safe sample data.]
+- The domain test suite uses Node.js built-in test support and has no downloaded package dependency.
+- Tests use synthetic dates and names only. Do not add real homeowner, property, account, or credential data.
 
 ## Normal Operation
 
-[Verified steps only. Select required gates from the matrix below instead of listing every known command as unconditionally mandatory. Each selected validator, test, build, lint, migration check, or other gate must expose its result and exit status. If checks are grouped, require a verified fail-fast wrapper or verified aggregate runner that preserves each included gate's named result and exit status and exits nonzero when any check fails. Prohibit `;` or other status-masking chains as completion evidence. Label diagnostic batches and prohibit reusing them for completion, handoff, commit, integration, or release decisions.]
+Run `npm test` for the implemented dependency-free domain slice. Run `./scripts/check-governance.ps1` separately for the repository governance gate. Record each command's exit status independently.
 
 ## Verification Matrix
 
@@ -31,16 +33,17 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 | `build-release-deploy` | build configuration, packaging, release, install, deploy target or procedure | Project-defined configuration gate IDs | Project-defined build/package gate IDs | Project-defined artifact/rollback gate IDs | Publish/install/deploy/environment acceptance gate IDs | unrelated product/data gates only when impact analysis proves exclusion |
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
-- Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check]; unknownImpactGateIds=[governance-check]
+- Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test]; unknownImpactGateIds=[governance-check,domain-test]
 - RuntimeProfile: id=powershell; platform=windows; edition=PowerShell; executable=pwsh; versionRule=minimum-major=7; required=True; supportStatus=supported
 - Class: id=documentation-only; triggers=[Markdown or documentation files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Class: id=ui-css-layout; triggers=[UI\, CSS\, or layout files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=application-logic; triggers=[application source files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=data-contract-schema-migration; triggers=[schema\, migration\, or data-contract files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=application-logic; triggers=[application source files]; iterationGateIds=[domain-test]; targetedRegressionGateIds=[domain-test]; completionGateIds=[domain-test]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=data-contract-schema-migration; triggers=[schema\, migration\, or data-contract files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
 - Class: id=project-guidance-metadata; triggers=[project guidance and metadata files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=governance-permissions-agents; triggers=[governance\, permissions\, or agent configuration files,Explicit-only skill invocation policy or instruction-entrypoint routing]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=build-release-deploy; triggers=[build\, release\, or deploy configuration]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=governance-permissions-agents; triggers=[governance\, permissions\, or agent configuration files,Explicit-only skill invocation policy or instruction-entrypoint routing]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=build-release-deploy; triggers=[build\, release\, or deploy configuration]; iterationGateIds=[governance-check,domain-test]; targetedRegressionGateIds=[governance-check,domain-test]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
 - Gate: id=governance-check; command=./scripts/check-governance.ps1; stages=[iteration,targeted,completion,release]; includes=[]; invalidatedBy=[any governance input\, policy\, configuration\, or managed artifact change]; evidenceDestination=task completion report
+- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, test/**\, package.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
 <!-- END GENERATED VERIFICATION POLICY SUMMARY -->
 
 ### Gate Catalog and Inclusion

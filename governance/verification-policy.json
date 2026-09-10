@@ -1,10 +1,12 @@
 {
   "schemaVersion": "1.0",
   "comprehensiveGateIds": [
-    "governance-check"
+    "governance-check",
+    "domain-test"
   ],
   "unknownImpactGateIds": [
-    "governance-check"
+    "governance-check",
+    "domain-test"
   ],
   "runtimeProfiles": [
     {
@@ -60,13 +62,13 @@
         "application source files"
       ],
       "iterationGateIds": [
-        "governance-check"
+        "domain-test"
       ],
       "targetedRegressionGateIds": [
-        "governance-check"
+        "domain-test"
       ],
       "completionGateIds": [
-        "governance-check"
+        "domain-test"
       ],
       "releaseOnlyGateIds": [],
       "omittableGateIds": [],
@@ -84,7 +86,8 @@
         "governance-check"
       ],
       "completionGateIds": [
-        "governance-check"
+        "governance-check",
+        "domain-test"
       ],
       "releaseOnlyGateIds": [
         "governance-check"
@@ -123,7 +126,8 @@
         "governance-check"
       ],
       "completionGateIds": [
-        "governance-check"
+        "governance-check",
+        "domain-test"
       ],
       "releaseOnlyGateIds": [],
       "omittableGateIds": [],
@@ -135,13 +139,16 @@
         "build, release, or deploy configuration"
       ],
       "iterationGateIds": [
-        "governance-check"
+        "governance-check",
+        "domain-test"
       ],
       "targetedRegressionGateIds": [
-        "governance-check"
+        "governance-check",
+        "domain-test"
       ],
       "completionGateIds": [
-        "governance-check"
+        "governance-check",
+        "domain-test"
       ],
       "releaseOnlyGateIds": [
         "governance-check"
@@ -163,6 +170,20 @@
       "includes": [],
       "invalidatedBy": [
         "any governance input, policy, configuration, or managed artifact change"
+      ],
+      "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "domain-test",
+      "command": "npm test",
+      "stages": [
+        "iteration",
+        "targeted",
+        "completion"
+      ],
+      "includes": [],
+      "invalidatedBy": [
+        "src/domain/**, test/**, package.json, or the Node.js runtime changes"
       ],
       "evidenceDestination": "task completion report"
     }
