@@ -1,39 +1,12 @@
 <template>
   <v-row>
-    <v-col cols="12" lg="4">
-      <v-card :title="editingId ? `${title}を編集` : `${title}を登録`">
-        <v-card-text>
-          <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
-          <v-form @submit.prevent="save">
-            <v-text-field v-model="form.name" label="名称" required />
-            <v-text-field
-              v-if="masterType === 'warrantyService'"
-              v-model.number="form.defaultPeriodYears"
-              label="標準保証期間（年）"
-              type="number"
-              min="1"
-              step="1"
-              required
-            />
-            <template v-if="masterType === 'property'">
-              <v-select v-model="form.homeownerId" :items="references.homeowners" item-title="name" item-value="id" label="施主" required />
-              <v-select v-model="form.constructionCompanyId" :items="references.companies" item-title="name" item-value="id" label="工務店" required />
-              <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
-              <v-text-field v-model="form.prefecture" label="都道府県" required />
-              <v-text-field v-model="form.municipality" label="市区町村" required />
-              <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
-              <v-text-field v-model="form.buildingName" label="建物名（任意）" />
-            </template>
-            <v-btn type="submit" color="primary" block :loading="saving">{{ editingId ? '更新' : '登録' }}</v-btn>
-            <v-btn v-if="editingId" variant="text" block class="mt-2" @click="resetForm">編集をやめる</v-btn>
-          </v-form>
-        </v-card-text>
-      </v-card>
-    </v-col>
-
-    <v-col cols="12" lg="8">
+    <v-col cols="12">
+      <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
       <v-card :title="`${title}一覧`">
         <v-card-text>
+          <div class="d-flex justify-end mb-4">
+            <v-btn color="primary" @click="openCreate">新規登録</v-btn>
+          </div>
           <v-text-field
             v-model="filter"
             label="名称で絞り込み"
@@ -62,6 +35,40 @@
       </v-card>
     </v-col>
   </v-row>
+
+  <v-dialog v-model="dialogOpen" max-width="720" persistent>
+    <v-card :title="editingId ? `${title}を編集` : `${title}を登録`">
+      <v-card-text>
+        <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
+        <v-form @submit.prevent="save">
+          <v-text-field v-model="form.name" label="名称" required />
+          <v-text-field
+            v-if="masterType === 'warrantyService'"
+            v-model.number="form.defaultPeriodYears"
+            label="標準保証期間（年）"
+            type="number"
+            min="1"
+            step="1"
+            required
+          />
+          <template v-if="masterType === 'property'">
+            <v-select v-model="form.homeownerId" :items="references.homeowners" item-title="name" item-value="id" label="施主" required />
+            <v-select v-model="form.constructionCompanyId" :items="references.companies" item-title="name" item-value="id" label="工務店" required />
+            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
+            <v-text-field v-model="form.prefecture" label="都道府県" required />
+            <v-text-field v-model="form.municipality" label="市区町村" required />
+            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
+            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
+          </template>
+        </v-form>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn :disabled="saving" @click="cancelDialog">キャンセル</v-btn>
+        <v-btn color="primary" :loading="saving" @click="save">{{ editingId ? '更新' : '登録' }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -72,6 +79,8 @@ const props = defineProps<{ masterType: MasterType; title: string }>()
 const rows = ref<ManagedMaster[]>([])
 const filter = ref<string | null>('')
 const saving = ref(false)
+const dialogOpen = ref(false)
+const dialogMessage = ref('')
 const editingId = ref('')
 const editingRevision = ref(0)
 const message = ref('')
@@ -135,7 +144,20 @@ const resetForm = () => {
   editingRevision.value = 0
 }
 
-const beginEdit = (row: ManagedMaster) => {
+const openCreate = async () => {
+  resetForm()
+  dialogMessage.value = ''
+  await refreshReferences()
+  dialogOpen.value = true
+}
+
+const cancelDialog = () => {
+  dialogOpen.value = false
+  dialogMessage.value = ''
+  resetForm()
+}
+
+const beginEdit = async (row: ManagedMaster) => {
   editingId.value = row.id
   editingRevision.value = row.revision
   Object.assign(form, {
@@ -150,10 +172,13 @@ const beginEdit = (row: ManagedMaster) => {
     streetTownAndNumber: row.address?.streetTownAndNumber ?? '',
     buildingName: row.address?.buildingName ?? '',
   })
+  dialogMessage.value = ''
+  await refreshReferences(row)
+  dialogOpen.value = true
 }
 
-const refreshReferences = async () => {
-  if (props.masterType === 'property') Object.assign(references, await manager.loadPropertyReferences())
+const refreshReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {
+  if (props.masterType === 'property') Object.assign(references, await manager.loadPropertyReferences(include))
 }
 
 const save = async () => {
@@ -164,11 +189,12 @@ const save = async () => {
     else await manager.createMaster(fields())
     messageType.value = 'success'
     message.value = editingId.value ? '更新しました。' : '登録しました。'
+    dialogOpen.value = false
+    dialogMessage.value = ''
     resetForm()
     await refreshReferences()
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : '保存できませんでした。'
+    dialogMessage.value = error instanceof Error ? error.message : '保存できませんでした。'
   } finally {
     saving.value = false
   }

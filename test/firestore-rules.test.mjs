@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict'
 import { after, before, beforeEach, describe, test } from 'node:test'
 import { readFile } from 'node:fs/promises'
 import {
@@ -371,6 +372,17 @@ describe('business document validation', () => {
       homeownerId: 'homeowner-2',
       updatedAt: serverTimestamp(),
     }))
+    for (const immutableChange of [
+      { caseNumber: '000002' },
+      { sequenceValue: 2 },
+      { registrationWarrantyId: 'warranty-2' },
+      { registeredAt: Timestamp.fromMillis(1_800_000_000_000) },
+    ]) {
+      await assertFails(updateDoc(doc(db, 'cases', 'case-1'), {
+        ...immutableChange,
+        updatedAt: serverTimestamp(),
+      }))
+    }
     const periodBatch = writeBatch(db)
     periodBatch.update(doc(db, 'cases', 'case-1'), { updatedAt: serverTimestamp() })
     periodBatch.update(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'), {
@@ -378,6 +390,77 @@ describe('business document validation', () => {
       updatedAt: serverTimestamp(),
     })
     await assertFails(periodBatch.commit())
+  })
+
+  test('active case editing accepts active references and rejects arbitrary or inactive property references', async () => {
+    await seedStaff('enabled-user')
+    await seedRegistrationPrerequisites()
+    await seedDocument('cases/case-1', validCase())
+    await testEnvironment.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore()
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'homeowners', 'homeowner-2'), {
+        name: 'Second homeowner', active: true, nameSearch: validNameSearch,
+      })
+      batch.set(doc(db, 'constructionCompanies', 'company-2'), {
+        name: 'Second company', active: true, nameSearch: validNameSearch,
+      })
+      batch.set(doc(db, 'branches', 'branch-2'), { name: 'Second branch', active: true })
+      batch.set(doc(db, 'branches', 'branch-inactive'), { name: 'Inactive branch', active: false })
+      batch.set(doc(db, 'properties', 'property-2'), {
+        name: 'Second property', active: true, nameSearch: validNameSearch,
+        homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+        address: { postalCode: '1000002', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '2-2', buildingName: null },
+      })
+      batch.set(doc(db, 'properties', 'property-inactive'), {
+        name: 'Inactive property', active: false, nameSearch: validNameSearch,
+        homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+        address: { postalCode: '1000003', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '3-3', buildingName: null },
+      })
+      batch.set(doc(db, 'homeowners', 'homeowner-inactive'), {
+        name: 'Inactive homeowner', active: false, nameSearch: validNameSearch,
+      })
+      batch.set(doc(db, 'properties', 'property-inactive-homeowner'), {
+        name: 'Bad property', active: true, nameSearch: validNameSearch,
+        homeownerId: 'homeowner-inactive', constructionCompanyId: 'company-2',
+        address: { postalCode: '1000004', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '4-4', buildingName: null },
+      })
+      batch.set(doc(db, 'constructionCompanies', 'company-inactive'), {
+        name: 'Inactive company', active: false, nameSearch: validNameSearch,
+      })
+      batch.set(doc(db, 'properties', 'property-inactive-company'), {
+        name: 'Bad company property', active: true, nameSearch: validNameSearch,
+        homeownerId: 'homeowner-2', constructionCompanyId: 'company-inactive',
+        address: { postalCode: '1000005', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '5-5', buildingName: null },
+      })
+      await batch.commit()
+    })
+    const db = contextFor('enabled-user')
+    const caseRef = doc(db, 'cases', 'case-1')
+
+    await assertSucceeds(updateDoc(caseRef, {
+      constructionCompanyId: 'company-2', updatedAt: serverTimestamp(),
+    }))
+    assert.equal((await getDoc(caseRef)).data()?.constructionCompanyId, 'company-2')
+    await assertFails(updateDoc(caseRef, {
+      responsibleBranchId: 'branch-inactive', updatedAt: serverTimestamp(),
+    }))
+    await assertSucceeds(updateDoc(caseRef, {
+      propertyId: 'property-2', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+      responsibleBranchId: 'branch-2', updatedAt: serverTimestamp(),
+    }))
+    assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-2')
+
+    for (const invalid of [
+      { propertyId: 'missing', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
+      { propertyId: 'property-inactive', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
+      { propertyId: 'property-inactive-homeowner', homeownerId: 'homeowner-inactive', constructionCompanyId: 'company-2' },
+      { propertyId: 'property-inactive-company', homeownerId: 'homeowner-2', constructionCompanyId: 'company-inactive' },
+      { propertyId: 'property-1', homeownerId: 'homeowner-2', constructionCompanyId: 'company-1' },
+    ]) {
+      await assertFails(updateDoc(caseRef, { ...invalid, updatedAt: serverTimestamp() }))
+      assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-2')
+    }
   })
 
   test('an applied-warranty mutation must atomically update its parent case', async () => {

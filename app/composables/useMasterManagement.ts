@@ -26,6 +26,11 @@ export interface ManagedMaster {
   }
 }
 
+export interface MasterMutationResult {
+  id: string
+  revision: number
+}
+
 const COLLECTION_BY_TYPE: Record<MasterType, string> = {
   constructionCompany: 'constructionCompanies',
   homeowner: 'homeowners',
@@ -58,7 +63,10 @@ export function useMasterManagement(masterType: MasterType) {
     )
 
   const createMaster = async (fields: Record<string, unknown>) => {
-    const callable = httpsCallable($firebase.functions, 'createMaster')
+    const callable = httpsCallable<
+      { masterType: MasterType; fields: Record<string, unknown> },
+      MasterMutationResult
+    >($firebase.functions, 'createMaster')
     return (await callable({ masterType, fields })).data
   }
   const updateMaster = async (id: string, expectedRevision: number, fields: Record<string, unknown>) => {
@@ -69,14 +77,16 @@ export function useMasterManagement(masterType: MasterType) {
     const callable = httpsCallable($firebase.functions, 'setMasterActive')
     return (await callable({ masterType, id, expectedRevision, active })).data
   }
-  const loadPropertyReferences = async () => {
+  const loadPropertyReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {
     const [homeowners, companies] = await Promise.all([
       getDocs(collection($firebase.firestore, 'homeowners')),
       getDocs(collection($firebase.firestore, 'constructionCompanies')),
     ])
     return {
-      homeowners: homeowners.docs.map((item) => asMaster(item.id, item.data())).filter((item) => item.active),
-      companies: companies.docs.map((item) => asMaster(item.id, item.data())).filter((item) => item.active),
+      homeowners: homeowners.docs.map((item) => asMaster(item.id, item.data()))
+        .filter((item) => item.active || item.id === include.homeownerId),
+      companies: companies.docs.map((item) => asMaster(item.id, item.data()))
+        .filter((item) => item.active || item.id === include.constructionCompanyId),
     }
   }
 

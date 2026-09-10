@@ -1,12 +1,18 @@
 import {
   collection,
+  doc,
   getDocs,
   onSnapshot,
+  runTransaction,
+  serverTimestamp,
+  Timestamp,
   type DocumentData,
+  type Firestore,
   type Unsubscribe,
 } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
-import { projectCaseRows } from '../../src/domain/case-rows.mjs'
+import { matchesCaseUpdateBaseline, projectCaseRows } from '../../src/domain/case-rows.mjs'
+import { selectActiveMasterCatalog } from '../../src/domain/case-filters.mjs'
 
 export interface MasterOption {
   id: string
@@ -24,21 +30,105 @@ export interface CaseRegistration {
 export interface CaseRow {
   id: string
   caseNumber: string
+  propertyId: string
+  homeownerId: string
+  constructionCompanyId: string
+  responsibleBranchId: string
+  status: string
+  statusReason: string | null
+  updatedAtBaseline: Timestamp | null
+  propertyName: string
   homeownerName: string
+  propertyPrefecture: string
+  propertyMunicipality: string
   propertyAddress: string
   constructionCompanyName: string
   branchName: string
+  appliedWarranties: Array<{
+    id: string
+    warrantyServiceId: string
+    expiryDate: string
+    notificationStatus: string
+    status: string
+  }>
   hasNotNotified: boolean
   isAlertEligible: boolean
 }
 
-const masterCollections = [
+export interface CaseUpdate {
+  id: string
+  baselineUpdatedAt: Timestamp
+  propertyId: string
+  constructionCompanyId: string
+  responsibleBranchId: string
+  status: 'active' | 'cancelled' | 'invalid'
+  statusReason: string | null
+}
+
+export interface CaseFilters {
+  caseNumber: string | null
+  homeownerId: string | null
+  propertyId: string | null
+  constructionCompanyId: string | null
+  responsibleBranchId: string | null
+  warrantyServiceId: string | null
+  prefecture: string | null
+  municipality: string | null
+  notificationStatus: string | null
+  expiryDate: string | null
+}
+
+export class CaseEditConflictError extends Error {
+  constructor() {
+    super('他のユーザーが案件を更新しました。最新データを確認してやり直してください。')
+    this.name = 'CaseEditConflictError'
+  }
+}
+
+export async function updateCaseTransaction(firestore: Firestore, input: CaseUpdate) {
+  return runTransaction(firestore, async (transaction) => {
+    const caseRef = doc(firestore, 'cases', input.id)
+    const snapshot = await transaction.get(caseRef)
+    if (!snapshot.exists()) throw new Error('対象の案件が見つかりません。')
+    const current = snapshot.data()
+    if (!matchesCaseUpdateBaseline(current.updatedAt, input.baselineUpdatedAt)) {
+      throw new CaseEditConflictError()
+    }
+    if (current.status !== 'active') throw new CaseEditConflictError()
+
+    let homeownerId = String(current.homeownerId ?? '')
+    let constructionCompanyId = input.constructionCompanyId
+    if (input.propertyId !== current.propertyId) {
+      const propertySnapshot = await transaction.get(doc(firestore, 'properties', input.propertyId))
+      const property = propertySnapshot.data()
+      if (!propertySnapshot.exists() || property?.active !== true) throw new Error('有効な物件を選択してください。')
+      homeownerId = String(property.homeownerId ?? '')
+      constructionCompanyId = String(property.constructionCompanyId ?? '')
+    }
+    const statusReason = input.status === 'active' ? null : input.statusReason?.trim() || null
+    if (input.status !== 'active' && !statusReason) throw new Error('取消・無効には理由が必要です。')
+
+    transaction.update(caseRef, {
+      propertyId: input.propertyId,
+      homeownerId,
+      constructionCompanyId,
+      responsibleBranchId: input.responsibleBranchId,
+      status: input.status,
+      statusReason,
+      updatedAt: serverTimestamp(),
+    })
+  })
+}
+
+export const masterCollections = [
   'branches',
   'constructionCompanies',
   'homeowners',
   'properties',
   'warrantyServices',
 ] as const
+export type MasterCollection = (typeof masterCollections)[number]
+export type MasterCatalog = Record<MasterCollection, MasterOption[]>
 
 const toMaster = (id: string, data: DocumentData): MasterOption => ({ id, ...data, name: String(data.name ?? '') })
 
@@ -67,27 +157,22 @@ export const parseCanonicalLocalDate = (value: string) => {
 export function usePrototypeData() {
   const { $firebase } = useNuxtApp()
 
-  const loadActiveMasters = async () => {
+  const loadAllMasters = async () => {
     const result = await Promise.all(
       masterCollections.map(async (name) => {
         const snapshot = await getDocs(collection($firebase.firestore, name))
         return [
           name,
-          snapshot.docs
-            .map((item) => toMaster(item.id, item.data()))
-            .filter((item) => item.active === true),
+          snapshot.docs.map((item) => toMaster(item.id, item.data())),
         ] as const
       }),
     )
-    const masters = Object.fromEntries(result) as Record<(typeof masterCollections)[number], MasterOption[]>
-    const activeHomeowners = new Set(masters.homeowners.map(({ id }) => id))
-    const activeCompanies = new Set(masters.constructionCompanies.map(({ id }) => id))
-    masters.properties = masters.properties.filter((property) =>
-      activeHomeowners.has(String(property.homeownerId))
-      && activeCompanies.has(String(property.constructionCompanyId)),
-    )
-    return masters
+    return Object.fromEntries(result) as MasterCatalog
   }
+
+  const activeMasters = (allMasters: MasterCatalog) => selectActiveMasterCatalog(allMasters) as MasterCatalog
+
+  const loadActiveMasters = async () => activeMasters(await loadAllMasters())
 
   const registerCase = async (input: CaseRegistration) => {
     const callable = httpsCallable<CaseRegistration, { id: string; caseNumber: string }>(
@@ -97,7 +182,13 @@ export function usePrototypeData() {
     return (await callable(input)).data
   }
 
-  const subscribeCaseRows = (onRows: (rows: CaseRow[]) => void, onError?: () => void) => {
+  const updateCase = async (input: CaseUpdate) => updateCaseTransaction($firebase.firestore, input)
+
+  const subscribeCaseRows = (
+    onRows: (rows: CaseRow[]) => void,
+    onError?: () => void,
+    onMasters?: (masters: MasterCatalog) => void,
+  ) => {
     const cases = new Map<string, DocumentData>()
     const warranties = new Map<string, DocumentData[]>()
     const masters = new Map<string, Map<string, DocumentData>>()
@@ -112,6 +203,10 @@ export function usePrototypeData() {
 
     const emit = () => {
       onRows(projectCaseRows({ cases, warranties, masters, today: currentLocalDate() }))
+      onMasters?.(Object.fromEntries(masterCollections.map((name) => [
+        name,
+        [...(masters.get(name)?.entries() ?? [])].map(([id, data]) => toMaster(id, data)),
+      ])) as MasterCatalog)
     }
 
     for (const name of masterCollections) {
@@ -147,7 +242,10 @@ export function usePrototypeData() {
                 onSnapshot(
                   collection(item.ref, 'appliedWarranties'),
                   (warrantySnapshot) => {
-                    warranties.set(item.id, warrantySnapshot.docs.map((warranty) => warranty.data()))
+                    warranties.set(item.id, warrantySnapshot.docs.map((warranty) => ({
+                      id: warranty.id,
+                      ...warranty.data(),
+                    })))
                     emit()
                   },
                   fail,
@@ -166,5 +264,5 @@ export function usePrototypeData() {
     }
   }
 
-  return { loadActiveMasters, registerCase, subscribeCaseRows }
+  return { activeMasters, loadAllMasters, loadActiveMasters, registerCase, updateCase, subscribeCaseRows }
 }

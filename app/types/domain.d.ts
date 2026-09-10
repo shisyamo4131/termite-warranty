@@ -17,6 +17,7 @@ declare module '*src/domain/search-tokens.mjs' {
 }
 
 declare module '*src/domain/case-rows.mjs' {
+  export function matchesCaseUpdateBaseline(current: unknown, expected: unknown): boolean
   export function projectCaseRows(input: {
     cases: Map<string, Record<string, any>>
     warranties: Map<string, Record<string, any>[]>
@@ -25,11 +26,51 @@ declare module '*src/domain/case-rows.mjs' {
   }): Array<{
     id: string
     caseNumber: string
+    propertyId: string
+    homeownerId: string
+    constructionCompanyId: string
+    responsibleBranchId: string
+    status: string
+    statusReason: string | null
+    updatedAtBaseline: unknown
+    propertyName: string
     homeownerName: string
+    propertyPrefecture: string
+    propertyMunicipality: string
     propertyAddress: string
     constructionCompanyName: string
     branchName: string
+    appliedWarranties: Array<{
+      id: string
+      warrantyServiceId: string
+      expiryDate: string
+      notificationStatus: string
+      status: string
+    }>
     hasNotNotified: boolean
     isAlertEligible: boolean
   }>
+}
+
+declare module '*src/domain/case-filters.mjs' {
+  export function selectActiveMasterCatalog<T extends Record<string, Array<{
+    id: string
+    active?: boolean
+    homeownerId?: unknown
+    constructionCompanyId?: unknown
+  }>>>(masters: T): T
+  export function filterCaseRows<T extends {
+    caseNumber: string
+    homeownerId: string
+    propertyId: string
+    constructionCompanyId: string
+    responsibleBranchId: string
+    propertyPrefecture: string
+    propertyMunicipality: string
+    appliedWarranties: Array<{
+      warrantyServiceId: string
+      notificationStatus: string
+      expiryDate: string
+    }>
+  }>(rows: T[], filters: Record<string, string | null | undefined>): T[]
 }

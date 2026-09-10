@@ -30,6 +30,8 @@ The case-registration flow is the expected primary business starting point.
 - The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties.
 - Branch management remains an initial-release requirement but is outside this four-master increment.
 - In these screens, a delete action means reversible inactivation. No physical-delete control is provided.
+- Registration and editing forms for the four current masters open as dialogs from their respective registration and row-edit buttons.
+- The case-registration dialog can open the required four-master creation dialogs without discarding the unsaved case input. Branch creation remains outside this increment.
 
 ## Master Name Search
 
@@ -55,4 +57,3 @@ Master records that are already referenced by a case are not physically deleted.
 - Editing rules, including which fields can change after a master is used by a case.
 - Duplicate records are permitted without a warning or merge requirement.
 - Separate master search/list filters, display columns, sort order, and pagination.
-- Whether creation from case registration occurs in a dialog, a separate page, or another interaction pattern.

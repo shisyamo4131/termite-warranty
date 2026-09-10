@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
-- Last updated: 2026-09-10
-- Specification version: 0.1.2
+- Last updated: 2026-09-11
+- Specification version: 0.1.3
 - Status: Prototype implementation
 - Current phase: Implement the confirmed initial-release prototype and verify it locally with Firebase Emulator Suite until the development Firebase environment is provided
 
@@ -73,7 +73,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - The case list and dashboard display a marker when a case has at least one applied warranty with notification status `not notified`.
 - The fixed default ordering is case update date descending, then case registration date descending when update dates are equal.
 - Adding, editing, cancelling, invalidating, or changing notification status on an applied warranty updates its parent case's update date.
-- Staff can create required master records from a case-registration flow and can separately access list/management screens for each master.
+- Staff can create required master records from a case-registration flow and can separately access list/management screens for each master. Master creation/editing and case creation/editing open as button-triggered dialogs rather than permanent inline forms.
 - The application opens on the dashboard after login and uses a Navigation Drawer for business menus. The current local prototype increment exposes separate drawer entries for construction-company, homeowner, warranty-service, and property management; branch management remains part of the broader initial-release scope but is not included in this increment.
 - Use a Vuetify date-selection component for warranty date entry instead of relying only on the browser-native date field, while preserving the canonical `YYYY-MM-DD` value sent to the registration service.
 - Master records referenced by a case are not physically deleted. They can be changed between active and inactive states.

@@ -1,8 +1,20 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { projectCaseRows } from '../src/domain/case-rows.mjs'
+import { matchesCaseUpdateBaseline, projectCaseRows } from '../src/domain/case-rows.mjs'
 
 const timestamp = (value) => ({ toMillis: () => value })
+
+test('stale baseline comparison uses full timestamp equality rather than milliseconds', () => {
+  const firestoreTimestamp = (seconds, nanoseconds) => ({
+    seconds,
+    nanoseconds,
+    isEqual: (other) => seconds === other?.seconds && nanoseconds === other?.nanoseconds,
+  })
+  const baseline = firestoreTimestamp(10, 100)
+  assert.equal(matchesCaseUpdateBaseline(firestoreTimestamp(10, 100), baseline), true)
+  assert.equal(matchesCaseUpdateBaseline(firestoreTimestamp(10, 101), baseline), false)
+  assert.equal(matchesCaseUpdateBaseline(null, baseline), false)
+})
 
 test('projects one row per case using current masters and all applied warranties', () => {
   const cases = new Map([['case-1', {
@@ -11,11 +23,11 @@ test('projects one row per case using current masters and all applied warranties
     updatedAt: timestamp(20), registeredAt: timestamp(10),
   }]])
   const warranties = new Map([['case-1', [
-    { status: 'active', notificationStatus: 'notified', expiryDate: '2026-12-31' },
-    { status: 'active', notificationStatus: 'not notified', expiryDate: '2026-10-10' },
+    { id: 'warranty-1', warrantyServiceId: 'service-1', status: 'active', notificationStatus: 'notified', expiryDate: '2026-12-31' },
+    { id: 'warranty-2', warrantyServiceId: 'service-2', status: 'active', notificationStatus: 'not notified', expiryDate: '2026-10-10' },
   ]]])
   const masters = new Map([
-    ['properties', new Map([['property-1', { active: false, address: {
+    ['properties', new Map([['property-1', { active: false, name: '現在の物件名', address: {
       prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '千代田1-1', buildingName: '現行棟',
     } }]])],
     ['homeowners', new Map([['homeowner-1', { active: false, name: '現在の施主名' }]])],
@@ -27,7 +39,15 @@ test('projects one row per case using current masters and all applied warranties
   assert.equal(rows.length, 1)
   assert.deepEqual(rows[0], {
     id: 'case-1', caseNumber: '000001', homeownerName: '現在の施主名',
+    propertyId: 'property-1', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1',
+    responsibleBranchId: 'branch-1', status: 'active', statusReason: null,
+    updatedAtBaseline: cases.get('case-1').updatedAt,
+    propertyName: '現在の物件名', propertyPrefecture: '東京都', propertyMunicipality: '千代田区',
     propertyAddress: '東京都千代田区千代田1-1現行棟', constructionCompanyName: '現在の工務店名',
+    appliedWarranties: [
+      { id: 'warranty-1', warrantyServiceId: 'service-1', expiryDate: '2026-12-31', notificationStatus: 'notified', status: 'active' },
+      { id: 'warranty-2', warrantyServiceId: 'service-2', expiryDate: '2026-10-10', notificationStatus: 'not notified', status: 'active' },
+    ],
     branchName: '現在の支店名', hasNotNotified: true, isAlertEligible: true,
   })
 })

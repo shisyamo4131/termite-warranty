@@ -2,9 +2,9 @@
 
 ## Current Availability
 
-- Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, Firestore emulator persistence and rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration, current-master case-list joins, dashboard alert evaluation and Navigation Drawer, trusted reversible CRUD for four masters, and Vuetify date selection.
+- Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, Firestore emulator persistence and rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration, button-triggered create/edit dialogs for four masters and cases, four-master quick creation that preserves the case draft, transactional active-case editing, client-side case filters, current-master case-list joins, dashboard alert evaluation and Navigation Drawer, trusted reversible CRUD for four masters, and Vuetify date selection.
 - Prototype-only: the exact dependency set, fictional `demo-termite-warranty` ID, and Firestore contract are approved only for local Emulator Suite work.
-- Planned but unavailable: branch/account/full case management, postal-code API integration, production-scale property-reference propagation, FileMaker migration, real development/production Firebase projects, Hosting, deployment, production security hardening, monitoring, and backup/recovery.
+- Planned but unavailable: branch/account management, applied-warranty addition/editing and complete case-detail management, postal-code API integration, production-scale property-reference propagation, FileMaker migration, real development/production Firebase projects, Hosting, deployment, production security hardening, monitoring, and backup/recovery.
 
 ## Preparation
 
@@ -15,7 +15,7 @@
 
 ## Normal Operation
 
-Use `demo.admin@example.invalid` / `Demo-only-password-123` only against the local Auth emulator. Register a case from the seeded masters and verify one case row and its alert marker. Stop the emulator and development-server processes with Ctrl+C when finished.
+Use `demo.admin@example.invalid` / `Demo-only-password-123` only against the local Auth emulator. Open each master from the Navigation Drawer to verify its create/edit dialog and name filter. On the dashboard, register a case from the dialog, optionally create one of the four supported masters without losing the case draft, verify the case row and alert marker, exercise the search filters, and edit an active case. Stop the emulator and development-server processes with Ctrl+C when finished.
 
 For this initial mixed implementation, run each selected verification command separately and record its exit status: `npm test`, `npm run typecheck`, `npm run build`, `npm run test:rules`, `node scripts/check-functions-syntax.mjs`, `node --check scripts/seed-emulator.mjs`, and `./scripts/check-governance.ps1`. For later work, select only the gates required by every applicable class in the policy below.
 

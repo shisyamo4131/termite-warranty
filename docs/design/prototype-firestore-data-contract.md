@@ -7,7 +7,7 @@
 
 ## Scope and Safety Boundary
 
-This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function registration with one applied warranty, case list, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
+This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted dialog-based management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration with one applied warranty, direct transactional editing of active case fields, case search/list, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
 
 It must not be used to select or create a real Firebase project, deploy Hosting or Functions, call the postal-code API, or store real customer, property, account, or credential data.
 
@@ -52,6 +52,7 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 - Direct client writes to construction-company, homeowner, warranty-service, and property masters are denied. Local-only trusted master callables validate fields, derive N-Gram maps where applicable, enforce optimistic revisions, and perform lifecycle changes.
 - Direct client creation of cases and applied warranties, and all client writes to case-number counters and reservations, are denied. Only the local trusted callable registration path may perform the initial atomic registration.
 - The UI registers cases through a callable function so concurrent counter contention uses the Admin SDK transaction retry path; the function independently verifies an enabled staff account and active referenced masters.
+- Enabled staff edit only active case-level fields through a client Firestore transaction. The transaction rejects a stale `updatedAt` baseline, derives the homeowner and construction company from a changed active property, validates active changed references, and writes a server timestamp. It does not edit immutable identifiers or applied warranties.
 - Physical deletes of cases, applied warranties, masters, counters, and reservations are denied.
 - Account-management role enforcement remains a Cloud Functions responsibility and is not implemented by general business-data rules.
 
@@ -60,10 +61,11 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 - The minimum slice subscribes to cases, current master records, and each returned case's applied warranties; it then sorts by `updatedAt` descending and `registeredAt` descending and produces one row per case in the client.
 - The same in-memory rows evaluate the confirmed 30-day alert rule and `not notified` marker. Collection-group query, pagination, batching, and final index design remain deferred pending representative-data evidence.
 - Master search data is written in this slice. The final Firestore token-query/index strategy remains open and must not be inferred from this contract.
+- The local case list filters its subscribed rows in memory. As reversible prototype assumptions, populated filters are combined with AND, an expiry-date value is an exact calendar-date match, and combined warranty-service, notification-status, and expiry-date criteria must be satisfied by the same applied warranty. These assumptions are not production requirements and remain replaceable when the open search behavior is confirmed.
 
 ## Explicitly Deferred
 
-- Production schema and Firebase identifiers, Hosting/deployment configuration, migration mapping, legacy-number collision handling, pagination, combined filters, and performance targets.
+- Production schema and Firebase identifiers, Hosting/deployment configuration, migration mapping, legacy-number collision handling, pagination, final combined-filter semantics, and performance targets.
 - Production-scale property-homeowner propagation, batching, retry, and recovery beyond the local 400-case atomic limit.
 - Final account-disable partial-failure recovery and full account-management Functions.
 - Postal-code external API calls, production monitoring, backup/recovery, broader authorization, audit logs, attachments, and construction-company submission.

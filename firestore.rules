@@ -82,7 +82,11 @@ service cloud.firestore {
             && exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId))
             && get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.active == true
             && request.resource.data.homeownerId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.homeownerId
-            && request.resource.data.constructionCompanyId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.constructionCompanyId))
+            && request.resource.data.constructionCompanyId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.constructionCompanyId
+            && exists(/databases/$(database)/documents/homeowners/$(request.resource.data.homeownerId))
+            && get(/databases/$(database)/documents/homeowners/$(request.resource.data.homeownerId)).data.active == true
+            && exists(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId))
+            && get(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId)).data.active == true))
         && (request.resource.data.constructionCompanyId == resource.data.constructionCompanyId
           || (exists(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId))
             && get(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId)).data.active == true))
