@@ -1,0 +1,45 @@
+# Security and Access Posture
+
+## Status
+
+This is a provisional, explicitly risk-bearing posture for the initial delivery. It is not evidence that the production system has adequate authorization, data protection, or attack resistance.
+
+## Confirmed Provisional Requirements
+
+- House Solution staff accounts are required.
+- The application roles are developer superuser, House Solution administrator, and general staff.
+- Staff sign in with Firebase Authentication email/password using browser-session persistence. Closing the browser window clears the authentication state and requires login at the next access. No inactivity-time automatic logout is required in the initial release.
+- The developer-owned developer superuser account can create, edit, and disable House Solution administrator accounts only; it does not manage general-staff accounts.
+- A House Solution administrator can create, edit, and disable general-staff accounts through the system. A general-staff account's editable fields are email address, display name, and enabled/disabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, a House Solution administrator may select only roles other than `House Solution administrator` and `developer superuser`.
+- Account creation sends a password-setup email; email-address verification is not required initially, and staff can reset their passwords.
+- Bootstrap the initial developer-superuser account manually in Firebase Console without custom claims. Create both its Firebase Authentication user and the matching enabled staff-account record; do not grant business-data access to an Authentication-only record.
+- Disabling an account must make it unusable immediately, including for an already signed-in session.
+- Cloud Functions for Firebase with Firebase Admin SDK performs Firebase Authentication user administration and enforces the account-management role boundary.
+- Role-based feature restrictions are limited to controlling the UI and button visibility.
+- The application does not provisionally restrict business-data CRUD operations in an API or domain layer by role. Every enabled authenticated account is intended to have the same business-data-operation access.
+- For direct Cloud Firestore client access, require authentication and an enabled staff-account record for application collections/documents. This is the bounded control needed to enforce immediate disabled-account access revocation; do not add role- or record-level authorization.
+- Introduction of controls intended to block malicious browser-external access is deferred.
+- Start with all enabled authenticated users having the same business-data CRUD access. Account management is the bounded, server-enforced role-specific exception. Tighten other access only as role-specific functional requirements are confirmed.
+- Actual homeowner data may be handled in the developer-owned development environment and migration testing only after a separate confidentiality agreement is concluded. Do not commit it to source control or place it in documentation, test fixtures, or logs.
+- Operation-history and audit-log records are not an initial-release requirement. This does not remove the existing registration and update timestamps or the account-disable controls.
+
+## Consequences and Residual Risks
+
+- UI visibility is not an authorization boundary. An authenticated user can use a browser's developer tools or a direct client request to attempt operations that the UI hides. Account-management Cloud Functions must independently reject a caller whose role is not permitted to manage the target account.
+- With a Firestore rule equivalent to `request.auth != null`, every signed-in account permitted by that rule can read and write the matched data. It does not distinguish administrator from general staff, and it does not validate intended business operations.
+- The provisional approach therefore exposes customer names and addresses to any authenticated account that can access the relevant data, and permits unintended modification or deletion if the rules allow it.
+- Firebase documents state that Firestore client access is governed by Security Rules; authentication-only read/write access for all signed-in users is not recommended for an entire database. Server client libraries bypass Firestore Security Rules and require separate IAM control if they are later used.
+- Firebase documentation states that disabled users and revoked refresh tokens can leave a previously issued ID token valid for up to its one-hour lifetime. To meet the immediate-disable requirement, the secure server-side disable operation must first or atomically mark the staff-account record disabled so Firestore denies subsequent access, then disable the Firebase Authentication user and revoke refresh tokens. The exact transaction/retry/recovery design must be tested before implementation.
+
+## Future Hardening Trigger — Open Decision
+
+Account-management screens are a confirmed role-specific function. The account-lifecycle controls needed for creation, password setup/reset, immediate disable, and browser-session persistence are a bounded, server-enforced exception to the UI-only posture. When another business-data role-specific functional restriction is confirmed, decide its enforcement method and update this posture. No general access-control hardening milestone is currently committed before production release. This does not remove the stated residual risks or make UI visibility an authorization boundary.
+
+## Technical References
+
+- [Firebase: Writing conditions for Cloud Firestore Security Rules](https://firebase.google.com/docs/firestore/security/rules-conditions)
+- [Firebase: Fix insecure rules](https://firebase.google.com/docs/firestore/security/insecure-rules)
+- [Firebase: Secure data in Cloud Firestore](https://firebase.google.com/docs/firestore/security/overview)
+- [Firebase: Manage Users](https://firebase.google.com/docs/auth/admin/manage-users)
+- [Firebase: Manage User Sessions](https://firebase.google.com/docs/auth/admin/manage-sessions)
+- [Firebase: Authentication State Persistence](https://firebase.google.com/docs/auth/web/auth-state-persistence)
