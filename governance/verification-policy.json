@@ -1,191 +1,61 @@
 {
   "schemaVersion": "1.0",
-  "comprehensiveGateIds": [
-    "governance-check",
-    "domain-test"
-  ],
-  "unknownImpactGateIds": [
-    "governance-check",
-    "domain-test"
-  ],
+  "comprehensiveGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"],
+  "unknownImpactGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"],
   "runtimeProfiles": [
-    {
-      "id": "powershell",
-      "platform": "windows",
-      "edition": "PowerShell",
-      "executable": "pwsh",
-      "versionRule": "minimum-major=7",
-      "required": true,
-      "supportStatus": "supported"
-    }
+    {"id": "powershell", "platform": "windows", "edition": "PowerShell", "executable": "pwsh", "versionRule": "minimum-major=7", "required": true, "supportStatus": "supported"}
   ],
   "classes": [
     {
-      "id": "documentation-only",
-      "triggers": [
-        "Markdown or documentation files"
-      ],
-      "iterationGateIds": [
-        "governance-check"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check"
-      ],
-      "completionGateIds": [
-        "governance-check"
-      ],
-      "releaseOnlyGateIds": [],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "documentation-only", "triggers": ["Markdown or documentation files"],
+      "iterationGateIds": ["governance-check"], "targetedRegressionGateIds": ["governance-check"], "completionGateIds": ["governance-check"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "ui-css-layout",
-      "triggers": [
-        "UI, CSS, or layout files"
-      ],
-      "iterationGateIds": [
-        "governance-check"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check"
-      ],
-      "completionGateIds": [
-        "governance-check"
-      ],
-      "releaseOnlyGateIds": [],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "ui-css-layout", "triggers": ["UI, CSS, or layout files"],
+      "iterationGateIds": ["app-typecheck"], "targetedRegressionGateIds": ["app-typecheck"], "completionGateIds": ["app-typecheck", "app-build"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "application-logic",
-      "triggers": [
-        "application source files"
-      ],
-      "iterationGateIds": [
-        "domain-test"
-      ],
-      "targetedRegressionGateIds": [
-        "domain-test"
-      ],
-      "completionGateIds": [
-        "domain-test"
-      ],
-      "releaseOnlyGateIds": [],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "application-logic", "triggers": ["application source files, functions, or emulator seed logic"],
+      "iterationGateIds": ["domain-test", "app-typecheck"], "targetedRegressionGateIds": ["domain-test", "app-typecheck", "firestore-rules-test"], "completionGateIds": ["domain-test", "app-typecheck", "firestore-rules-test", "functions-syntax", "seed-syntax"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "data-contract-schema-migration",
-      "triggers": [
-        "schema, migration, or data-contract files"
-      ],
-      "iterationGateIds": [
-        "governance-check"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check"
-      ],
-      "completionGateIds": [
-        "governance-check",
-        "domain-test"
-      ],
-      "releaseOnlyGateIds": [
-        "governance-check"
-      ],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "data-contract-schema-migration", "triggers": ["Firestore rules, indexes, schema, migration, or data-contract files"],
+      "iterationGateIds": ["governance-check", "firestore-rules-test"], "targetedRegressionGateIds": ["governance-check", "domain-test", "firestore-rules-test"], "completionGateIds": ["governance-check", "domain-test", "firestore-rules-test"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "project-guidance-metadata",
-      "triggers": [
-        "project guidance and metadata files"
-      ],
-      "iterationGateIds": [
-        "governance-check"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check"
-      ],
-      "completionGateIds": [
-        "governance-check"
-      ],
-      "releaseOnlyGateIds": [],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "project-guidance-metadata", "triggers": ["descriptive project guidance and metadata files"],
+      "iterationGateIds": ["governance-check"], "targetedRegressionGateIds": ["governance-check"], "completionGateIds": ["governance-check"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "governance-permissions-agents",
-      "triggers": [
-        "governance, permissions, or agent configuration files",
-        "Explicit-only skill invocation policy or instruction-entrypoint routing"
-      ],
-      "iterationGateIds": [
-        "governance-check"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check"
-      ],
-      "completionGateIds": [
-        "governance-check",
-        "domain-test"
-      ],
-      "releaseOnlyGateIds": [],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "governance-permissions-agents", "triggers": ["governance, permissions, agent configuration, or verification policy files"],
+      "iterationGateIds": ["governance-check"], "targetedRegressionGateIds": ["governance-check"], "completionGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     },
     {
-      "id": "build-release-deploy",
-      "triggers": [
-        "build, release, or deploy configuration"
-      ],
-      "iterationGateIds": [
-        "governance-check",
-        "domain-test"
-      ],
-      "targetedRegressionGateIds": [
-        "governance-check",
-        "domain-test"
-      ],
-      "completionGateIds": [
-        "governance-check",
-        "domain-test"
-      ],
-      "releaseOnlyGateIds": [
-        "governance-check"
-      ],
-      "omittableGateIds": [],
-      "omissionRecord": "task completion report"
+      "id": "build-release-deploy", "triggers": ["build, dependency, release, or deploy configuration"],
+      "iterationGateIds": ["governance-check", "app-typecheck"], "targetedRegressionGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build"], "completionGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"], "releaseOnlyGateIds": [], "omittableGateIds": [], "omissionRecord": "task completion report"
     }
   ],
   "gates": [
     {
-      "id": "governance-check",
-      "command": "./scripts/check-governance.ps1",
-      "stages": [
-        "iteration",
-        "targeted",
-        "completion",
-        "release"
-      ],
-      "includes": [],
-      "invalidatedBy": [
-        "any governance input, policy, configuration, or managed artifact change"
-      ],
-      "evidenceDestination": "task completion report"
+      "id": "governance-check", "command": "./scripts/check-governance.ps1", "stages": ["iteration", "targeted", "completion", "release"], "includes": [], "invalidatedBy": ["any governance input, policy, configuration, or managed artifact change"], "evidenceDestination": "task completion report"
     },
     {
-      "id": "domain-test",
-      "command": "npm test",
-      "stages": [
-        "iteration",
-        "targeted",
-        "completion"
-      ],
-      "includes": [],
-      "invalidatedBy": [
-        "src/domain/**, test/**, package.json, or the Node.js runtime changes"
-      ],
-      "evidenceDestination": "task completion report"
+      "id": "domain-test", "command": "npm test", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["src/domain/**, functions/local-runtime.js, test domain/runtime files, package.json, package-lock.json, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "app-typecheck", "command": "npm run typecheck", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["app/**, nuxt.config.ts, tsconfig.json, package.json, or package-lock.json changes"], "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "app-build", "command": "npm run build", "stages": ["targeted", "completion"], "includes": [], "invalidatedBy": ["application, Nuxt, dependency, TypeScript, or build configuration changes"], "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "firestore-rules-test", "command": "npm run test:rules", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["firestore.rules, firebase.json, functions/**, data-contract, emulator tests, app persistence, or dependency changes"], "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "functions-syntax", "command": "node scripts/check-functions-syntax.mjs", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["functions/**, scripts/check-functions-syntax.mjs, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
+    },
+    {
+      "id": "seed-syntax", "command": "node --check scripts/seed-emulator.mjs", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["scripts/seed-emulator.mjs or the Node.js runtime changes"], "evidenceDestination": "task completion report"
     }
   ]
 }

@@ -2,17 +2,22 @@
 
 ## Current Availability
 
-- Implemented locally: dependency-free warranty expiry calculation, extension start-date calculation, alert eligibility, initial-enrolment-date derivation, and confirmed N-Gram normalization/token generation.
-- Planned but unavailable: Nuxt/Vuetify UI, Firebase Authentication, Firestore persistence and rules, Cloud Functions account management, Firebase Emulator Suite integration, and postal-code API integration. Package versions and the Firestore data contract are not selected.
+- Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, Firestore emulator persistence and rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration, current-master case-list joins, and dashboard alert evaluation.
+- Prototype-only: the exact dependency set, fictional `demo-termite-warranty` ID, and Firestore contract are approved only for local Emulator Suite work.
+- Planned but unavailable: full master/account/case management, postal-code API integration, FileMaker migration, real development/production Firebase projects, Hosting, deployment, production security hardening, monitoring, and backup/recovery.
 
 ## Preparation
 
-- The domain test suite uses Node.js built-in test support and has no downloaded package dependency.
-- Tests use synthetic dates and names only. Do not add real homeowner, property, account, or credential data.
+- Use Node.js 22, Java 21, and the exact npm version recorded in `packageManager`. Install with `npx --yes npm@11.19.1 ci`.
+- Start `npm run emulators:start` in one terminal. In another, run `npm run emulators:seed`, then `npm run dev`.
+- Dedicated local ports are Auth 9199, Firestore 8180, Functions 5101, and Emulator UI 4100. Do not change them to ports occupied by another project without checking first.
+- The seed is loopback- and `demo-*`-restricted and creates only synthetic names, dates, and the documented synthetic login. Do not add real homeowner, property, account, credential, or customer data.
 
 ## Normal Operation
 
-Run `npm test` for the implemented dependency-free domain slice. Run `./scripts/check-governance.ps1` separately for the repository governance gate. Record each command's exit status independently.
+Use `demo.admin@example.invalid` / `Demo-only-password-123` only against the local Auth emulator. Register a case from the seeded masters and verify one case row and its alert marker. Stop the emulator and development-server processes with Ctrl+C when finished.
+
+For this initial mixed implementation, run each selected verification command separately and record its exit status: `npm test`, `npm run typecheck`, `npm run build`, `npm run test:rules`, `node scripts/check-functions-syntax.mjs`, `node --check scripts/seed-emulator.mjs`, and `./scripts/check-governance.ps1`. For later work, select only the gates required by every applicable class in the policy below.
 
 ## Verification Matrix
 
@@ -33,17 +38,22 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 | `build-release-deploy` | build configuration, packaging, release, install, deploy target or procedure | Project-defined configuration gate IDs | Project-defined build/package gate IDs | Project-defined artifact/rollback gate IDs | Publish/install/deploy/environment acceptance gate IDs | unrelated product/data gates only when impact analysis proves exclusion |
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
-- Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test]; unknownImpactGateIds=[governance-check,domain-test]
+- Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; unknownImpactGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]
 - RuntimeProfile: id=powershell; platform=windows; edition=PowerShell; executable=pwsh; versionRule=minimum-major=7; required=True; supportStatus=supported
 - Class: id=documentation-only; triggers=[Markdown or documentation files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=ui-css-layout; triggers=[UI\, CSS\, or layout files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=application-logic; triggers=[application source files]; iterationGateIds=[domain-test]; targetedRegressionGateIds=[domain-test]; completionGateIds=[domain-test]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=data-contract-schema-migration; triggers=[schema\, migration\, or data-contract files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=project-guidance-metadata; triggers=[project guidance and metadata files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=governance-permissions-agents; triggers=[governance\, permissions\, or agent configuration files,Explicit-only skill invocation policy or instruction-entrypoint routing]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
-- Class: id=build-release-deploy; triggers=[build\, release\, or deploy configuration]; iterationGateIds=[governance-check,domain-test]; targetedRegressionGateIds=[governance-check,domain-test]; completionGateIds=[governance-check,domain-test]; releaseOnlyGateIds=[governance-check]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=ui-css-layout; triggers=[UI\, CSS\, or layout files]; iterationGateIds=[app-typecheck]; targetedRegressionGateIds=[app-typecheck]; completionGateIds=[app-typecheck,app-build]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=application-logic; triggers=[application source files\, functions\, or emulator seed logic]; iterationGateIds=[domain-test,app-typecheck]; targetedRegressionGateIds=[domain-test,app-typecheck,firestore-rules-test]; completionGateIds=[domain-test,app-typecheck,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=data-contract-schema-migration; triggers=[Firestore rules\, indexes\, schema\, migration\, or data-contract files]; iterationGateIds=[governance-check,firestore-rules-test]; targetedRegressionGateIds=[governance-check,domain-test,firestore-rules-test]; completionGateIds=[governance-check,domain-test,firestore-rules-test]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=project-guidance-metadata; triggers=[descriptive project guidance and metadata files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=governance-permissions-agents; triggers=[governance\, permissions\, agent configuration\, or verification policy files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
+- Class: id=build-release-deploy; triggers=[build\, dependency\, release\, or deploy configuration]; iterationGateIds=[governance-check,app-typecheck]; targetedRegressionGateIds=[governance-check,domain-test,app-typecheck,app-build]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Gate: id=governance-check; command=./scripts/check-governance.ps1; stages=[iteration,targeted,completion,release]; includes=[]; invalidatedBy=[any governance input\, policy\, configuration\, or managed artifact change]; evidenceDestination=task completion report
-- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, test/**\, package.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, test domain/runtime files\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=app-typecheck; command=npm run typecheck; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[app/**\, nuxt.config.ts\, tsconfig.json\, package.json\, or package-lock.json changes]; evidenceDestination=task completion report
+- Gate: id=app-build; command=npm run build; stages=[targeted,completion]; includes=[]; invalidatedBy=[application\, Nuxt\, dependency\, TypeScript\, or build configuration changes]; evidenceDestination=task completion report
+- Gate: id=firestore-rules-test; command=npm run test:rules; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[firestore.rules\, firebase.json\, functions/**\, data-contract\, emulator tests\, app persistence\, or dependency changes]; evidenceDestination=task completion report
+- Gate: id=functions-syntax; command=node scripts/check-functions-syntax.mjs; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[functions/**\, scripts/check-functions-syntax.mjs\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=seed-syntax; command=node --check scripts/seed-emulator.mjs; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[scripts/seed-emulator.mjs or the Node.js runtime changes]; evidenceDestination=task completion report
 <!-- END GENERATED VERIFICATION POLICY SUMMARY -->
 
 ### Gate Catalog and Inclusion

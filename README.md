@@ -4,7 +4,7 @@ House Solution Co., Ltd.向け白蟻保証業務管理システムのプロト�
 
 ## Status
 
-確認済み要件のうち、保証期限・アラート判定と検索文字列の正規化／N-Gram生成を依存パッケージなしのドメイン層として実装しています。Nuxt、Vuetify、Firebaseのパッケージ版、Firestoreデータ契約、デプロイ設定は未決です。
+確認済み要件のうち、保証期限・アラート判定、N-Gram生成、およびFirebase Emulator Suite上で動くログイン・マスタ選択・案件登録・一覧／アラート表示の最小縦切りを実装しています。Firestoreデータ契約と依存版はローカルプロトタイプ限定であり、本番スキーマや実Firebaseプロジェクトは未決です。
 
 ## Documentation
 
@@ -25,15 +25,28 @@ Start with `AGENTS.md`, then use `docs/README.md` to select the documents requir
 
 ## Development
 
-ローカルで確認済みのNode.jsがある環境で、次のコマンドを実行します。
+Node.js 22とJava 21がある環境で、依存をlockfileどおりに導入します。
 
 ```powershell
-npm test
+npx --yes npm@11.19.1 ci
 ```
 
-Governance validation: `./scripts/check-governance.ps1`.
+ターミナル1でEmulatorを起動し、ターミナル2で合成データを投入してアプリを起動します。
 
-Firebase Emulator Suiteを使う統合検証は、未決のパッケージ版とFirestoreデータ契約を確定した後に追加します。実Firebaseプロジェクト、Hosting、外部APIはローカル検証に使用しません。
+```powershell
+npm run emulators:start
+```
+
+```powershell
+npm run emulators:seed
+npm run dev
+```
+
+ローカル画面の合成アカウントは `demo.admin@example.invalid` / `Demo-only-password-123` です。実データや実際の資格情報を入力しないでください。
+
+この混合変更の完了ゲートは `npm test`、`npm run typecheck`、`npm run build`、`npm run test:rules`、Functions/seedの構文確認、`./scripts/check-governance.ps1` です。今後の変更では `governance/verification-policy.json` で影響クラスを選び、対象コマンドをそれぞれ単独で実行します。
+
+Firebase CLIには架空の `demo-termite-warranty` だけを渡します。実Firebaseプロジェクト、Hosting、外部APIはローカル検証に使用しません。
 
 ## Security
 

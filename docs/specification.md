@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-10
-- Specification version: 0.1.0
+- Specification version: 0.1.1
 - Status: Prototype implementation
 - Current phase: Implement the confirmed initial-release prototype and verify it locally with Firebase Emulator Suite until the development Firebase environment is provided
 
@@ -51,7 +51,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 ## Environment and Boundaries
 
 - The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
-- Authentication, database, and Firebase Hosting are selected for the prototype. Until the development Firebase environment is provided, use Firebase Emulator Suite locally for prototype verification; do not use or create a Firebase project identifier for this purpose. The development and production environments use separate Firebase projects when provisioned; the development project is owned by the developer, while production ownership is under confirmation. Detailed migration method and external-service boundaries remain unconfirmed.
+- Authentication, database, and Firebase Hosting are selected for the prototype. Until the development Firebase environment is provided, use Firebase Emulator Suite locally for prototype verification; do not use or create a real Firebase project for this purpose. The local implementation uses the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The development and production environments use separate real Firebase projects when provisioned; the development project is owned by the developer, while production ownership is under confirmation. Detailed migration method and external-service boundaries remain unconfirmed.
 
 ## Functional Requirements
 
@@ -137,7 +137,7 @@ Customer names and addresses are in scope. Actual homeowner data may be used in 
 ## Open Decisions
 
 - The approved prototype stack is Nuxt SPA, Vuetify, Firebase Hosting, Firestore with an application-maintained 1- and 2-character N-Gram token map for selected free-text fields, Firebase Authentication email/password with browser-session persistence, and Cloud Functions for Firebase. See [decision 0002](decisions/0002-prototype-stack-and-search.md), [decision 0005](decisions/0005-spa-and-session-persistence.md), and [search architecture](requirements/search-architecture.md).
-- Development and production use separate Firebase projects. The development project is developer-owned; production project ownership, Firebase project/region, package versions, deployment configuration, and production monitoring are not yet selected.
+- Development and production use separate Firebase projects. The development project is developer-owned; production project ownership, Firebase project/region, deployment configuration, production package promotion, and production monitoring are not yet selected. Exact local-prototype dependencies are pinned in `package.json` and `package-lock.json`; this does not approve production versions.
 - Firebase Admin SDK in a secure server-side mechanism manages staff accounts. Firestore access requires an authenticated and enabled staff account, the bounded exception necessary to make a disabled account immediately unusable. See [decision 0004](decisions/0004-account-lifecycle-enforcement.md).
 - PostgreSQL may replace Firestore after a documented reassessment of the data schema, migration method, search behavior, cost, and delivery impact.
 - The end of October 2026 is the mandatory production operating deadline, including data migration. See the [delivery roadmap](roadmaps/2026-initial-delivery.md).

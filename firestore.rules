@@ -1,0 +1,144 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAndEnabled() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/staffAccounts/$(request.auth.uid))
+        && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.enabled == true;
+    }
+
+    function nonEmptyString(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function nonBlankString(value) {
+      return nonEmptyString(value) && value.matches('.*\\S.*');
+    }
+
+    function validStatus(data) {
+      return data.status in ['active', 'cancelled', 'invalid']
+        && ((data.status == 'active' && data.statusReason == null)
+          || (data.status != 'active' && nonBlankString(data.statusReason)));
+    }
+
+    match /staffAccounts/{uid} {
+      allow read: if signedInAndEnabled() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /branches/{branchId} {
+      allow read: if signedInAndEnabled();
+      allow create, update: if signedInAndEnabled()
+        && request.resource.data.keys().hasOnly(['name', 'active'])
+        && nonEmptyString(request.resource.data.name)
+        && request.resource.data.active is bool;
+      allow delete: if false;
+    }
+
+    match /constructionCompanies/{companyId} {
+      allow read: if signedInAndEnabled();
+      allow create, update: if false;
+      allow delete: if false;
+    }
+
+    match /homeowners/{homeownerId} {
+      allow read: if signedInAndEnabled();
+      allow create, update: if false;
+      allow delete: if false;
+    }
+
+    match /properties/{propertyId} {
+      allow read: if signedInAndEnabled();
+      allow create, update: if false;
+      allow delete: if false;
+    }
+
+    match /warrantyServices/{serviceId} {
+      allow read: if signedInAndEnabled();
+      allow create, update: if signedInAndEnabled()
+        && request.resource.data.keys().hasOnly(['name', 'defaultPeriodYears', 'active'])
+        && nonEmptyString(request.resource.data.name)
+        && request.resource.data.defaultPeriodYears is int
+        && request.resource.data.defaultPeriodYears > 0
+        && request.resource.data.active is bool;
+      allow delete: if false;
+    }
+
+    match /cases/{caseId} {
+      allow read: if signedInAndEnabled();
+      allow create: if false;
+      allow update: if signedInAndEnabled()
+        && resource.data.status == 'active'
+        && request.resource.data.keys().hasOnly([
+          'caseNumber', 'sequenceValue', 'propertyId', 'homeownerId',
+          'constructionCompanyId', 'responsibleBranchId', 'status',
+          'statusReason', 'registrationWarrantyId', 'registeredAt', 'updatedAt'
+        ])
+        && request.resource.data.caseNumber == resource.data.caseNumber
+        && request.resource.data.sequenceValue == resource.data.sequenceValue
+        && request.resource.data.registrationWarrantyId == resource.data.registrationWarrantyId
+        && request.resource.data.registeredAt == resource.data.registeredAt
+        && request.resource.data.updatedAt == request.time
+        && validStatus(request.resource.data)
+        && ((request.resource.data.propertyId == resource.data.propertyId
+            && request.resource.data.homeownerId == resource.data.homeownerId)
+          || (request.resource.data.propertyId != resource.data.propertyId
+            && exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId))
+            && get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.active == true
+            && request.resource.data.homeownerId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.homeownerId
+            && request.resource.data.constructionCompanyId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.constructionCompanyId))
+        && (request.resource.data.constructionCompanyId == resource.data.constructionCompanyId
+          || (exists(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId))
+            && get(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId)).data.active == true))
+        && (request.resource.data.responsibleBranchId == resource.data.responsibleBranchId
+          || (exists(/databases/$(database)/documents/branches/$(request.resource.data.responsibleBranchId))
+            && get(/databases/$(database)/documents/branches/$(request.resource.data.responsibleBranchId)).data.active == true));
+      allow delete: if false;
+
+      match /appliedWarranties/{warrantyId} {
+        allow read: if signedInAndEnabled();
+        allow create: if false;
+        allow update: if signedInAndEnabled()
+          && resource.data.status == 'active'
+          && request.resource.data.keys().hasOnly([
+            'warrantyServiceId', 'periodYears', 'startDate', 'expiryDate',
+            'notificationStatus', 'status', 'statusReason', 'createdAt', 'updatedAt'
+          ])
+          && nonEmptyString(request.resource.data.warrantyServiceId)
+          && request.resource.data.periodYears is int
+          && request.resource.data.periodYears > 0
+          && request.resource.data.startDate is string
+          && request.resource.data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.expiryDate is string
+          && request.resource.data.expiryDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && request.resource.data.notificationStatus in ['not notified', 'notified', 'not required']
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp
+          && request.resource.data.warrantyServiceId == resource.data.warrantyServiceId
+          && request.resource.data.periodYears == resource.data.periodYears
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.updatedAt == request.time
+          && validStatus(request.resource.data)
+          && existsAfter(/databases/$(database)/documents/cases/$(caseId))
+          && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.status == 'active'
+          && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+
+    match /systemCounters/{counterId} {
+      allow read: if signedInAndEnabled() && counterId == 'caseNumber';
+      allow write: if false;
+    }
+
+    match /caseNumberReservations/{caseNumber} {
+      allow read: if signedInAndEnabled();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

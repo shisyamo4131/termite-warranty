@@ -20,6 +20,8 @@
 - [Security and access posture](requirements/security-and-access.md): provisional access policy and explicitly recorded residual risks.
 - [Delivery roadmap](roadmaps/2026-initial-delivery.md): planned milestones and verified progress for the mandatory 2026 release.
 - [Environments and authentication email](requirements/environments-and-authentication-email.md): Firebase project separation and password-email delivery requirements.
+- [Design index](design/README.md): implementation designs and explicitly provisional contracts.
+- [Prototype Firestore data contract](design/prototype-firestore-data-contract.md): local-emulator-only collection and invariant assumptions for the first vertical slice.
 
 ## How to Start Work
 

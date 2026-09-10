@@ -32,7 +32,7 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 - Japan Post's official Postal Code and Digital Address API is adopted for postal-code address lookup.
 - Provide the prototype in a developer-owned development environment. Development and production use separate Firebase projects; production project ownership and project identifiers are not selected yet.
 - File attachment is outside the initial-release scope, so storage for attachments is not an initial-release selection criterion.
-- This is not approval of Firebase project identifiers, deployment configuration, package versions, or a complete production architecture. Browser-session persistence is required for staff sign-in. Password emails use standard Firebase Authentication delivery initially; Cloud Functions account-management transaction/retry/recovery design remains open. See [decision 0004](../decisions/0004-account-lifecycle-enforcement.md), [decision 0005](../decisions/0005-spa-and-session-persistence.md), [decision 0006](../decisions/0006-account-management-roles.md), [decision 0007](../decisions/0007-development-and-production-isolation.md), and [environments and authentication email](environments-and-authentication-email.md).
+- Exact local-prototype dependency versions are pinned in `package.json` and `package-lock.json`. This is not approval of real Firebase project identifiers, deployment configuration, production package promotion, or a complete production architecture. Browser-session persistence is required for staff sign-in. Password emails use standard Firebase Authentication delivery initially; Cloud Functions account-management transaction/retry/recovery design remains open. See [decision 0004](../decisions/0004-account-lifecycle-enforcement.md), [decision 0005](../decisions/0005-spa-and-session-persistence.md), [decision 0006](../decisions/0006-account-management-roles.md), [decision 0007](../decisions/0007-development-and-production-isolation.md), and [environments and authentication email](environments-and-authentication-email.md).
 
 ## Confirmed Local Verification Direction
 
@@ -49,4 +49,4 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 
 - Confirm the minimum usable scope and release acceptance criteria for the mandatory operational deadline.
 - Inspect representative legacy data before approving the schema and migration approach.
-- Confirm Firebase Admin SDK deployment/failure recovery, Firebase Hosting and Cloud Functions deployment configuration, monitoring, package versions, and the production database based on prototype evidence, operating cost, security, and delivery constraints.
+- Confirm Firebase Admin SDK deployment/failure recovery, Firebase Hosting and Cloud Functions deployment configuration, monitoring, production package promotion, and the production database based on prototype evidence, operating cost, security, and delivery constraints.
