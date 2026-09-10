@@ -11,8 +11,8 @@
     "emulators:start": "firebase emulators:start --project demo-termite-warranty --only auth,firestore,functions",
     "emulators:seed": "node scripts/seed-emulator.mjs",
     "postinstall": "nuxt prepare",
-    "test": "node --test test/warranty.test.mjs test/search-tokens.test.mjs test/case-rows.test.mjs test/local-runtime.test.mjs",
-    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only firestore \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/registration.test.mjs\"",
+    "test": "node --test test/warranty.test.mjs test/search-tokens.test.mjs test/case-rows.test.mjs test/local-runtime.test.mjs test/master-data.test.mjs",
+    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only firestore \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/registration.test.mjs test/emulator/master-management.test.mjs\"",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {

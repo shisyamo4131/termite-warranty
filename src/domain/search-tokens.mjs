@@ -48,3 +48,12 @@ export function createSearchPlan(value) {
     requiredTwoCharacterTokens: tokens.twoCharacter,
   })
 }
+
+export function matchesSearchTokenMap(nameSearch, value) {
+  const plan = createSearchPlan(value)
+  const tokenMap = nameSearch?.two
+  if (tokenMap === null || typeof tokenMap !== 'object' || Array.isArray(tokenMap)) {
+    return false
+  }
+  return plan.requiredTwoCharacterTokens.every((token) => tokenMap[token] === true)
+}

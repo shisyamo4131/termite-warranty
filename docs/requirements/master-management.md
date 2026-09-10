@@ -2,7 +2,7 @@
 
 ## Status
 
-These are provisional initial-release requirements. They do not prescribe screen layout or database implementation.
+These are provisional initial-release requirements. The overall data behavior remains implementation-independent; the current local prototype navigation described below is confirmed separately.
 
 ## Required Master Types
 
@@ -23,6 +23,13 @@ These are provisional initial-release requirements. They do not prescribe screen
 - Each master type must also have a separate list/management screen.
 
 The case-registration flow is the expected primary business starting point.
+
+## Confirmed Local Prototype Navigation
+
+- After login, the top page is the dashboard and business menus are presented in a Navigation Drawer.
+- The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties.
+- Branch management remains an initial-release requirement but is outside this four-master increment.
+- In these screens, a delete action means reversible inactivation. No physical-delete control is provided.
 
 ## Master Name Search
 

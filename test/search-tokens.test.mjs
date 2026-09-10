@@ -4,6 +4,7 @@ import test from 'node:test'
 import {
   createSearchPlan,
   generateSearchTokens,
+  matchesSearchTokenMap,
   normalizeSearchText,
 } from '../src/domain/search-tokens.mjs'
 
@@ -41,4 +42,22 @@ test('exactly two normalized characters are accepted', () => {
     normalized: 'ab',
     requiredTwoCharacterTokens: ['ab'],
   })
+})
+
+test('token-map matching rejects one character and accepts two characters', () => {
+  const nameSearch = { two: { 'シロ': true, 'ロア': true, 'アリ': true } }
+  assert.throws(() => matchesSearchTokenMap(nameSearch, 'し'), RangeError)
+  assert.equal(matchesSearchTokenMap(nameSearch, 'しろ'), true)
+  assert.equal(matchesSearchTokenMap(nameSearch, 'ろ蟻'), false)
+})
+
+test('three-character searches require every bigram', () => {
+  assert.equal(matchesSearchTokenMap({ two: { ab: true, bc: true } }, 'abc'), true)
+  assert.equal(matchesSearchTokenMap({ two: { ab: true } }, 'abc'), false)
+})
+
+test('bigram AND matching does not require the tokens to be contiguous in the stored name', () => {
+  const stored = generateSearchTokens('abXbc')
+  const nameSearch = { two: Object.fromEntries(stored.twoCharacter.map((token) => [token, true])) }
+  assert.equal(matchesSearchTokenMap(nameSearch, 'abc'), true)
 })

@@ -3,6 +3,12 @@ import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { assertLocalPrototypeRuntime } from './local-runtime.js'
 import { registerCaseTransaction } from './register-case.js'
+import {
+  createMasterTransaction,
+  setMasterActiveTransaction,
+  updateMasterTransaction,
+} from './master-management.js'
+import { MasterDataError } from '../src/domain/master-data.mjs'
 
 assertLocalPrototypeRuntime()
 initializeApp()
@@ -42,3 +48,27 @@ export const registerCase = onCall(async (request) => {
     throw new HttpsError('failed-precondition', error instanceof Error ? error.message : 'Case registration failed.')
   }
 })
+
+const masterCallable = (operation) => onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
+  try {
+    return await operation(getFirestore(), request.data, request.auth.uid)
+  } catch (error) {
+    const allowedCodes = new Set([
+      'invalid-argument',
+      'permission-denied',
+      'not-found',
+      'aborted',
+      'failed-precondition',
+    ])
+    const code = allowedCodes.has(error?.code) ? error.code : 'internal'
+    const message = error instanceof MasterDataError || allowedCodes.has(error?.code)
+      ? error.message
+      : 'Master operation failed.'
+    throw new HttpsError(code, message)
+  }
+})
+
+export const createMaster = masterCallable(createMasterTransaction)
+export const updateMaster = masterCallable(updateMasterTransaction)
+export const setMasterActive = masterCallable(setMasterActiveTransaction)

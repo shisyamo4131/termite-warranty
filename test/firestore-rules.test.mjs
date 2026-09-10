@@ -209,6 +209,22 @@ describe('account access boundary', () => {
       enabled: true,
     }))
   })
+
+  test('all four managed masters require an enabled staff account for reads', async () => {
+    await seedRegistrationPrerequisites()
+    const paths = [
+      'constructionCompanies/company-1',
+      'homeowners/homeowner-1',
+      'warrantyServices/service-1',
+      'properties/property-1',
+    ]
+    const unauthenticated = testEnvironment.unauthenticatedContext().firestore()
+    for (const path of paths) await assertFails(getDoc(doc(unauthenticated, path)))
+
+    await seedStaff('enabled-user')
+    const enabled = contextFor('enabled-user')
+    for (const path of paths) await assertSucceeds(getDoc(doc(enabled, path)))
+  })
 })
 
 describe('business document validation', () => {
@@ -224,7 +240,7 @@ describe('business document validation', () => {
     }))
   })
 
-  test('direct client writes to name-indexed masters are denied until trusted token generation exists', async () => {
+  test('direct client writes to all four callable-managed masters are denied', async () => {
     await seedStaff('enabled-user')
     const db = contextFor('enabled-user')
 
@@ -248,6 +264,9 @@ describe('business document validation', () => {
     }))
     await assertFails(setDoc(doc(db, 'homeowners', 'homeowner-1'), {
       name: 'Test homeowner', active: true, nameSearch: validNameSearch,
+    }))
+    await assertFails(setDoc(doc(db, 'warrantyServices', 'service-1'), {
+      name: 'Test warranty', defaultPeriodYears: 5, active: true,
     }))
   })
 

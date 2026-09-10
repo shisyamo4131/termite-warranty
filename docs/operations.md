@@ -2,9 +2,9 @@
 
 ## Current Availability
 
-- Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, Firestore emulator persistence and rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration, current-master case-list joins, and dashboard alert evaluation.
+- Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, Firestore emulator persistence and rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration, current-master case-list joins, dashboard alert evaluation and Navigation Drawer, trusted reversible CRUD for four masters, and Vuetify date selection.
 - Prototype-only: the exact dependency set, fictional `demo-termite-warranty` ID, and Firestore contract are approved only for local Emulator Suite work.
-- Planned but unavailable: full master/account/case management, postal-code API integration, FileMaker migration, real development/production Firebase projects, Hosting, deployment, production security hardening, monitoring, and backup/recovery.
+- Planned but unavailable: branch/account/full case management, postal-code API integration, production-scale property-reference propagation, FileMaker migration, real development/production Firebase projects, Hosting, deployment, production security hardening, monitoring, and backup/recovery.
 
 ## Preparation
 

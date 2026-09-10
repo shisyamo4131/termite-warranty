@@ -7,7 +7,7 @@
 
 ## Scope and Safety Boundary
 
-This contract supports the first local vertical slice: emulator authentication, enabled-staff access, master selection, trusted callable-function registration with one applied warranty, case list, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
+This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function registration with one applied warranty, case list, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
 
 It must not be used to select or create a real Firebase project, deploy Hosting or Functions, call the postal-code API, or store real customer, property, account, or credential data.
 
@@ -19,10 +19,10 @@ All generated document IDs and field names are prototype choices.
 | --- | --- |
 | `staffAccounts/{firebaseUid}` | `email: string`, `displayName: string`, `role: developer_superuser \| house_solution_administrator \| general_staff`, `enabled: boolean` |
 | `branches/{branchId}` | `name: string`, `active: boolean` |
-| `constructionCompanies/{companyId}` | `name: string`, `active: boolean`, `nameSearch.normalized: string`, `nameSearch.one: map<string, true>`, `nameSearch.two: map<string, true>` |
-| `homeowners/{homeownerId}` | Same common and name-search fields as construction companies |
-| `properties/{propertyId}` | `name: string`, `homeownerId: string`, `constructionCompanyId: string`, `address.postalCode: string`, `address.prefecture: string`, `address.municipality: string`, `address.streetTownAndNumber: string`, `address.buildingName: string \| null`, `active: boolean`, and the same name-search fields |
-| `warrantyServices/{serviceId}` | `name: string`, `defaultPeriodYears: positive integer`, `active: boolean` |
+| `constructionCompanies/{companyId}` | `name: string`, `active: boolean`, `nameSearch.normalized: string`, `nameSearch.one: map<string, true>`, `nameSearch.two: map<string, true>`, `revision: positive integer`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
+| `homeowners/{homeownerId}` | Same common, lifecycle, revision, timestamp, and name-search fields as construction companies |
+| `properties/{propertyId}` | `name: string`, `homeownerId: string`, `constructionCompanyId: string`, `address.postalCode: normalized seven-digit string`, `address.prefecture: string`, `address.municipality: string`, `address.streetTownAndNumber: string`, `address.buildingName: string \| null`, `active: boolean`, the same name-search fields, `revision: positive integer`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
+| `warrantyServices/{serviceId}` | `name: string`, `defaultPeriodYears: positive integer`, `active: boolean`, `revision: positive integer`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
 | `cases/{caseId}` | `caseNumber: six-digit string`, `sequenceValue: integer`, `propertyId: string`, `homeownerId: string`, `constructionCompanyId: string`, `responsibleBranchId: string`, `status: active \| cancelled \| invalid`, `statusReason: string \| null`, `registrationWarrantyId: string`, `registeredAt: Timestamp`, `updatedAt: Timestamp` |
 | `cases/{caseId}/appliedWarranties/{warrantyId}` | `warrantyServiceId: string`, `periodYears: positive integer`, `startDate: YYYY-MM-DD string`, `expiryDate: YYYY-MM-DD string`, `notificationStatus: not notified \| notified \| not required`, `status: active \| cancelled \| invalid`, `statusReason: string \| null`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
 | `systemCounters/caseNumber` | `nextValue: integer`, `lastCaseId: string \| null` (atomic-registration rules linkage) |
@@ -40,12 +40,16 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 - Displayed homeowner, property, construction-company, branch, and service values are resolved from current master records. No name/address snapshot is stored on the case.
 - Case documents do not store case-wide expiry, warranty period, enrolment date, notification status, or alert status.
 - Master name and N-Gram search fields are written together. Search uses the confirmed normalization and unique one- and two-character tokens.
+- Trusted master callables allow only the four declared master types and server-defined fields. Create sets `revision` to 1 and server timestamps; update, inactivation, and reactivation require the caller's current revision, increment it once, and reject stale changes unchanged.
+- Master removal is reversible inactivation, not physical deletion. Management lists include inactive records; new-case selectors include only active masters and exclude properties whose referenced homeowner or construction company is inactive.
+- Changing a property's homeowner uses one Admin SDK transaction to update the property and every referencing case, including cancelled and invalid cases. It preserves each case's `updatedAt` and all other fields. Changing the property's construction company does not update existing cases.
+- The local prototype supports at most 400 case-reference updates in one property-homeowner change. Larger fan-out is rejected before writes so no partial state remains; production-scale retry or job processing remains deferred.
 
 ## Access Rules
 
 - Business reads and writes require Firebase Authentication plus an existing enabled `staffAccounts/{uid}` record.
 - Direct client writes to staff accounts are denied. An enabled user may read only their own staff record in this slice.
-- Direct client writes to construction-company, homeowner, and property masters are denied in this slice because Security Rules cannot prove that dynamic N-Gram token maps match the name. The synthetic seed uses the Admin SDK; a later trusted master-write function must generate both atomically before master management is exposed.
+- Direct client writes to construction-company, homeowner, warranty-service, and property masters are denied. Local-only trusted master callables validate fields, derive N-Gram maps where applicable, enforce optimistic revisions, and perform lifecycle changes.
 - Direct client creation of cases and applied warranties, and all client writes to case-number counters and reservations, are denied. Only the local trusted callable registration path may perform the initial atomic registration.
 - The UI registers cases through a callable function so concurrent counter contention uses the Admin SDK transaction retry path; the function independently verifies an enabled staff account and active referenced masters.
 - Physical deletes of cases, applied warranties, masters, counters, and reservations are denied.
@@ -60,7 +64,7 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 ## Explicitly Deferred
 
 - Production schema and Firebase identifiers, Hosting/deployment configuration, migration mapping, legacy-number collision handling, pagination, combined filters, and performance targets.
-- Property-homeowner propagation after a property is already referenced; its retry/recovery design must be selected first.
+- Production-scale property-homeowner propagation, batching, retry, and recovery beyond the local 400-case atomic limit.
 - Final account-disable partial-failure recovery and full account-management Functions.
 - Postal-code external API calls, production monitoring, backup/recovery, broader authorization, audit logs, attachments, and construction-company submission.
 
@@ -68,6 +72,8 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 
 - Unauthenticated, Authentication-only, missing-staff, and disabled-staff access is denied; enabled staff can use the intended business paths.
 - Direct staff-account mutation and all physical deletes are denied.
+- Four-master create, read, update, inactivate, and reactivate behavior preserves IDs, validates references, regenerates search tokens, and rejects stale revisions unchanged.
+- Property-homeowner changes atomically propagate to all locally supported referencing cases regardless of case status, while property construction-company changes do not propagate.
 - Concurrent registration produces distinct reservations and complete case/warranty records.
 - Alert boundaries, one-row dashboard behavior, current-master joins, N-Gram normalization, and case ordering match the confirmed requirements.
 - Emulator evidence does not replace later verification in the provided development Firebase environment.

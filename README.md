@@ -4,7 +4,7 @@ House Solution Co., Ltd.向け白蟻保証業務管理システムのプロト�
 
 ## Status
 
-確認済み要件のうち、保証期限・アラート判定、N-Gram生成、およびFirebase Emulator Suite上で動くログイン・マスタ選択・案件登録・一覧／アラート表示の最小縦切りを実装しています。Firestoreデータ契約と依存版はローカルプロトタイプ限定であり、本番スキーマや実Firebaseプロジェクトは未決です。
+確認済み要件のうち、保証期限・アラート判定、N-Gram生成、およびFirebase Emulator Suite上で動くログイン、ダッシュボードとNavigation Drawer、4種類のマスタ管理、マスタ選択、案件登録、一覧／アラート表示、Vuetify日付選択の縦切りを実装しています。マスタの削除は物理削除ではなく無効化します。Firestoreデータ契約と依存版はローカルプロトタイプ限定であり、本番スキーマや実Firebaseプロジェクトは未決です。
 
 ## Documentation
 

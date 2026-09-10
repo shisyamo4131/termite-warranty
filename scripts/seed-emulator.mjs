@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { generateSearchTokens } from '../src/domain/search-tokens.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -53,21 +53,11 @@ const withSearch = (name, fields = {}) => {
 const batch = firestore.batch()
 const counterRef = firestore.doc('systemCounters/caseNumber')
 const counterSnapshot = await counterRef.get()
-batch.set(firestore.doc(`staffAccounts/${user.uid}`), {
-  email,
-  displayName: 'デモ管理者',
-  role: 'house_solution_administrator',
-  enabled: true,
-})
-batch.set(firestore.doc('branches/demo-branch'), { name: 'デモ支店', active: true })
-batch.set(
-  firestore.doc('constructionCompanies/demo-builder'),
-  withSearch('デモ工務店'),
-)
-batch.set(firestore.doc('homeowners/demo-homeowner'), withSearch('デモ施主'))
-batch.set(
-  firestore.doc('properties/demo-property'),
-  withSearch('デモ住宅', {
+const now = Timestamp.now()
+const masterSeeds = [
+  [firestore.doc('constructionCompanies/demo-builder'), withSearch('デモ工務店')],
+  [firestore.doc('homeowners/demo-homeowner'), withSearch('デモ施主')],
+  [firestore.doc('properties/demo-property'), withSearch('デモ住宅', {
     homeownerId: 'demo-homeowner',
     constructionCompanyId: 'demo-builder',
     address: {
@@ -77,12 +67,32 @@ batch.set(
       streetTownAndNumber: '千代田1-1',
       buildingName: null,
     },
-  }),
-)
-batch.set(
-  firestore.doc('warrantyServices/demo-warranty'),
-  { name: 'デモ白蟻保証', defaultPeriodYears: 5, active: true },
-)
+  })],
+  [firestore.doc('warrantyServices/demo-warranty'), {
+    name: 'デモ白蟻保証', defaultPeriodYears: 5, active: true,
+  }],
+]
+const masterSnapshots = await firestore.getAll(...masterSeeds.map(([ref]) => ref))
+batch.set(firestore.doc(`staffAccounts/${user.uid}`), {
+  email,
+  displayName: 'デモ管理者',
+  role: 'house_solution_administrator',
+  enabled: true,
+})
+batch.set(firestore.doc('branches/demo-branch'), { name: 'デモ支店', active: true })
+masterSeeds.forEach(([ref, data], index) => {
+  const existing = masterSnapshots[index]
+  if (existing.exists) {
+    const current = existing.data()
+    batch.set(ref, {
+      revision: Number.isInteger(current.revision) && current.revision > 0 ? current.revision : 1,
+      createdAt: current.createdAt ?? now,
+      updatedAt: current.updatedAt ?? now,
+    }, { merge: true })
+  } else {
+    batch.set(ref, { ...data, revision: 1, createdAt: now, updatedAt: now })
+  }
+})
 if (!counterSnapshot.exists) {
   batch.set(counterRef, { nextValue: 1, lastCaseId: null })
 }

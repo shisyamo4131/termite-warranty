@@ -28,6 +28,7 @@ const submit = async () => {
   localError.value = ''
   try {
     await login(email.value, password.value)
+    await navigateTo('/')
   } catch (error) {
     localError.value = error instanceof Error ? error.message : 'ログインに失敗しました。'
   } finally {

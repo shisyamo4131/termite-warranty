@@ -44,8 +44,24 @@ const toMaster = (id: string, data: DocumentData): MasterOption => ({ id, ...dat
 
 export const currentLocalDate = () => {
   const now = new Date()
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60_000)
-  return local.toISOString().slice(0, 10)
+  return formatCanonicalLocalDate(now)
+}
+
+const padDatePart = (value: number) => String(value).padStart(2, '0')
+
+export const formatCanonicalLocalDate = (date: Date | null) => date
+  ? `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`
+  : ''
+
+export const parseCanonicalLocalDate = (value: string) => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+  if (!match) return null
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+  return date.getFullYear() === Number(match[1])
+    && date.getMonth() === Number(match[2]) - 1
+    && date.getDate() === Number(match[3])
+    ? date
+    : null
 }
 
 export function usePrototypeData() {
@@ -63,7 +79,14 @@ export function usePrototypeData() {
         ] as const
       }),
     )
-    return Object.fromEntries(result) as Record<(typeof masterCollections)[number], MasterOption[]>
+    const masters = Object.fromEntries(result) as Record<(typeof masterCollections)[number], MasterOption[]>
+    const activeHomeowners = new Set(masters.homeowners.map(({ id }) => id))
+    const activeCompanies = new Set(masters.constructionCompanies.map(({ id }) => id))
+    masters.properties = masters.properties.filter((property) =>
+      activeHomeowners.has(String(property.homeownerId))
+      && activeCompanies.has(String(property.constructionCompanyId)),
+    )
+    return masters
   }
 
   const registerCase = async (input: CaseRegistration) => {

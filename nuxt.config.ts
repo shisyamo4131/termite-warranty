@@ -16,6 +16,7 @@ export default defineNuxtConfig({
       importComposables: false,
     },
     vuetifyOptions: {
+      labComponents: ['VDateInput'],
       theme: {
         defaultTheme: 'termiteWarranty',
         themes: {

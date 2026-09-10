@@ -8,6 +8,14 @@ declare module '*src/domain/warranty.mjs' {
   }): boolean
 }
 
+declare module '*src/domain/search-tokens.mjs' {
+  export function normalizeSearchText(value: string): string
+  export function matchesSearchTokenMap(
+    nameSearch: { two: Record<string, true> } | null | undefined,
+    value: string,
+  ): boolean
+}
+
 declare module '*src/domain/case-rows.mjs' {
   export function projectCaseRows(input: {
     cases: Map<string, Record<string, any>>

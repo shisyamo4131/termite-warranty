@@ -1,6 +1,6 @@
 <template>
   <v-alert type="info" variant="tonal" class="mb-6">
-    ローカルEmulator専用です。アカウント管理・物件施主変更時の案件一括反映・郵便番号API・全検索条件・本番設定は未実装です。
+    ローカルEmulator専用です。アカウント管理・郵便番号API・全検索条件・本番設定は未実装です。
   </v-alert>
 
   <v-row>
@@ -32,7 +32,7 @@
             item-value="id"
             label="保証サービス"
           />
-          <v-text-field v-model="form.startDate" type="date" label="保証開始日" />
+          <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
           <v-btn color="primary" block :loading="saving" @click="save">案件を登録</v-btn>
         </v-card-text>
       </v-card>
@@ -67,7 +67,13 @@
 </template>
 
 <script setup lang="ts">
-import { currentLocalDate, type CaseRow, type MasterOption } from '../composables/usePrototypeData'
+import {
+  currentLocalDate,
+  formatCanonicalLocalDate,
+  parseCanonicalLocalDate,
+  type CaseRow,
+  type MasterOption,
+} from '../composables/usePrototypeData'
 
 const emptyMasters = () => ({
   branches: [] as MasterOption[],
@@ -89,6 +95,10 @@ const form = reactive({
   startDate: currentLocalDate(),
 })
 const { loadActiveMasters, registerCase, subscribeCaseRows } = usePrototypeData()
+const warrantyStartDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.startDate),
+  set: (value) => { form.startDate = formatCanonicalLocalDate(value) },
+})
 
 const applyProperty = () => {
   const property = masters.properties.find((item) => item.id === form.propertyId)
