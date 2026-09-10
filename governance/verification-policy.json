@@ -1,0 +1,170 @@
+{
+  "schemaVersion": "1.0",
+  "comprehensiveGateIds": [
+    "governance-check"
+  ],
+  "unknownImpactGateIds": [
+    "governance-check"
+  ],
+  "runtimeProfiles": [
+    {
+      "id": "powershell",
+      "platform": "windows",
+      "edition": "PowerShell",
+      "executable": "pwsh",
+      "versionRule": "minimum-major=7",
+      "required": true,
+      "supportStatus": "supported"
+    }
+  ],
+  "classes": [
+    {
+      "id": "documentation-only",
+      "triggers": [
+        "Markdown or documentation files"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "ui-css-layout",
+      "triggers": [
+        "UI, CSS, or layout files"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "application-logic",
+      "triggers": [
+        "application source files"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "data-contract-schema-migration",
+      "triggers": [
+        "schema, migration, or data-contract files"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [
+        "governance-check"
+      ],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "project-guidance-metadata",
+      "triggers": [
+        "project guidance and metadata files"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "governance-permissions-agents",
+      "triggers": [
+        "governance, permissions, or agent configuration files",
+        "Explicit-only skill invocation policy or instruction-entrypoint routing"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    },
+    {
+      "id": "build-release-deploy",
+      "triggers": [
+        "build, release, or deploy configuration"
+      ],
+      "iterationGateIds": [
+        "governance-check"
+      ],
+      "targetedRegressionGateIds": [
+        "governance-check"
+      ],
+      "completionGateIds": [
+        "governance-check"
+      ],
+      "releaseOnlyGateIds": [
+        "governance-check"
+      ],
+      "omittableGateIds": [],
+      "omissionRecord": "task completion report"
+    }
+  ],
+  "gates": [
+    {
+      "id": "governance-check",
+      "command": "./scripts/check-governance.ps1",
+      "stages": [
+        "iteration",
+        "targeted",
+        "completion",
+        "release"
+      ],
+      "includes": [],
+      "invalidatedBy": [
+        "any governance input, policy, configuration, or managed artifact change"
+      ],
+      "evidenceDestination": "task completion report"
+    }
+  ]
+}
