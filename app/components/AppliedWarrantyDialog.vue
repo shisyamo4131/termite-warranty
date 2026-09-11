@@ -1,12 +1,12 @@
 <template>
   <v-dialog v-model="open" max-width="600" persistent><v-card :title="warranty ? '適用保証を編集' : '適用保証を追加'"><v-card-text>
     <v-alert v-if="message" type="error" class="mb-3">{{ message }}</v-alert>
-    <v-select v-if="!warranty" v-model="form.warrantyServiceId" :items="services" item-title="name" item-value="id" label="保証サービス" />
-    <v-date-input v-model="startDate" label="保証開始日" prepend-icon="" />
-    <v-date-input v-if="warranty" v-model="expiryDate" label="満了日（手動補正可）" prepend-icon="" />
-    <v-select v-if="warranty" v-model="form.notificationStatus" :items="notifications" label="通知状態" />
-    <v-select v-if="warranty" v-model="form.status" :items="statuses" item-title="title" item-value="value" label="状態" />
-    <v-textarea v-if="warranty && form.status !== 'active'" v-model="form.statusReason" label="取消・無効理由" />
+    <v-select v-if="!warranty" v-model="form.warrantyServiceId" :items="services" item-title="name" item-value="id" label="保証サービス" required />
+    <v-date-input v-model="startDate" label="保証開始日" prepend-icon="" required />
+    <v-date-input v-if="warranty" v-model="expiryDate" label="満了日（手動補正可）" prepend-icon="" required />
+    <v-select v-if="warranty" v-model="form.notificationStatus" :items="notifications" label="通知状態" required />
+    <v-select v-if="warranty" v-model="form.status" :items="statuses" item-title="title" item-value="value" label="状態" required />
+    <v-textarea v-if="warranty && form.status !== 'active'" v-model="form.statusReason" label="取消・無効理由" required />
   </v-card-text><v-card-actions><v-spacer/><v-btn :disabled="saving" @click="close">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="save">保存</v-btn></v-card-actions></v-card></v-dialog>
 </template>
 <script setup lang="ts">

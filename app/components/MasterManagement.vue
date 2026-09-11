@@ -19,11 +19,11 @@
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
-              <td><NuxtLink :to="`/masters/${routeSegment}/${row.id}`">{{ row.name }}</NuxtLink><div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
+              <td>{{ row.name }}<div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
               <td v-if="hasAddress">{{ formatAddress(row) }}</td>
               <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
               <td>
-                <v-btn size="small" variant="text" @click="beginEdit(row)">編集</v-btn>
+                <v-btn size="small" variant="text" :to="`/masters/${routeSegment}/${row.id}`">詳細</v-btn>
                 <v-btn size="small" variant="text" :aria-label="row.active ? `${row.name}を無効化` : `${row.name}を再有効化`" @click="toggle(row)">
                   {{ row.active ? '無効化' : '再有効化' }}
                 </v-btn>
@@ -93,7 +93,6 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-  <MasterEditDialog v-model="editDialog" :master-type="masterType" :title="title" :row="editingRow" @saved="message = '更新しました。'; messageType = 'success'" />
 </template>
 
 <script setup lang="ts">
@@ -105,11 +104,9 @@ const rows = ref<ManagedMaster[]>([])
 const filter = ref<string | null>('')
 const saving = ref(false)
 const dialogOpen = ref(false)
-const editDialog = ref(false)
 const dialogMessage = ref('')
 const editingId = ref('')
 const editingRevision = ref(0)
-const editingRow = ref<ManagedMaster | null>(null)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
@@ -211,11 +208,6 @@ const cancelDialog = () => {
   dialogOpen.value = false
   dialogMessage.value = ''
   resetForm()
-}
-
-const beginEdit = (row: ManagedMaster) => {
-  editingRow.value = row
-  editDialog.value = true
 }
 
 const refreshReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {

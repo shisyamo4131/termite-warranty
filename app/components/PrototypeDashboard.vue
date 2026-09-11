@@ -20,7 +20,7 @@
             <v-chip v-if="row.hasNotNotified" color="error" size="small" class="mr-1">未通知</v-chip>
             <v-chip v-if="row.status !== 'active'" size="small">{{ row.status === 'cancelled' ? '取消' : '無効' }}</v-chip>
           </td>
-          <td><v-btn v-if="row.status === 'active'" size="small" variant="text" @click="openEdit(row)">編集</v-btn></td>
+          <td><v-btn size="small" variant="text" :to="`/cases/${row.id}`">詳細</v-btn></td>
         </tr>
         <tr v-if="filteredRows.length === 0"><td colspan="7" class="text-center py-8">条件に一致する案件はありません。</td></tr>
       </tbody>
@@ -31,28 +31,21 @@
     <v-card title="案件登録" subtitle="物件から施主・工務店を反映し、初回保証を登録します">
       <v-card-text>
         <v-alert v-if="registrationMessage" type="error" class="mb-4">{{ registrationMessage }}</v-alert>
-        <v-select v-model="registrationForm.propertyId" :items="selectableMasters.properties" item-title="name" item-value="id" label="物件" @update:model-value="applyProperty"><template #append-inner><quick-create-master-dialog master-type="property" title="物件" button-label="物件を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="物件を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
-        <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" @update:model-value="registrationForm.homeownerOverridden = true"><template #append-inner><quick-create-master-dialog master-type="homeowner" title="施主" button-label="施主を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="施主を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
-        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" @update:model-value="registrationForm.constructionCompanyOverridden = true"><template #append-inner><quick-create-master-dialog master-type="constructionCompany" title="工務店" button-label="工務店を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="工務店を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
-        <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" />
+        <v-select v-model="registrationForm.propertyId" :items="selectableMasters.properties" item-title="name" item-value="id" label="物件" required @update:model-value="applyProperty"><template #append><quick-create-master-dialog master-type="property" title="物件" button-label="物件を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="物件を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" required @update:model-value="registrationForm.homeownerOverridden = true"><template #append><quick-create-master-dialog master-type="homeowner" title="施主" button-label="施主を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="施主を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" required @update:model-value="registrationForm.constructionCompanyOverridden = true"><template #append><quick-create-master-dialog master-type="constructionCompany" title="工務店" button-label="工務店を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="工務店を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" required />
         <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
         <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
         <div class="text-subtitle-2 mt-4 mb-2">初回保証</div>
-        <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス"><template #append-inner><quick-create-master-dialog master-type="warrantyService" title="保証サービス" button-label="保証サービスを追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="保証サービスを追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
-        <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
+        <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス" required><template #append><quick-create-master-dialog master-type="warrantyService" title="保証サービス" button-label="保証サービスを追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="保証サービスを追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" required />
         <div class="text-caption">各選択欄の末尾にある追加アイコンから、入力内容を保ったままマスターを登録できます。</div>
       </v-card-text>
       <v-card-actions><v-spacer /><v-btn :disabled="saving" @click="cancelRegistration">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="saveRegistration">案件を登録</v-btn></v-card-actions>
     </v-card>
   </v-dialog>
 
-  <case-edit-dialog
-    v-model="editDialog"
-    :row="editingRow"
-    :all-masters="allMasters"
-    :selectable-masters="selectableMasters"
-    @saved="handleCaseSaved"
-  />
 </template>
 
 <script setup lang="ts">
@@ -70,8 +63,6 @@ const allMasters = reactive(emptyCatalog())
 const rows = ref<CaseRow[]>([])
 const saving = ref(false)
 const registrationDialog = ref(false)
-const editDialog = ref(false)
-const editingCaseId = ref<string | null>(null)
 const registrationMessage = ref('')
 const pageMessage = ref('')
 const pageMessageType = ref<'success' | 'error'>('success')
@@ -88,7 +79,6 @@ const filters = reactive<CaseFilters>({
 const { activeMasters, loadAllMasters, registerCase, subscribeCaseRows } = usePrototypeData()
 const selectableMasters = computed(() => activeMasters(allMasters))
 const filteredRows = computed(() => filterCaseRows(rows.value, filters))
-const editingRow = computed(() => rows.value.find(({ id }) => id === editingCaseId.value) ?? null)
 const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
   set: (value) => { registrationForm.startDate = formatCanonicalLocalDate(value) },
@@ -163,16 +153,6 @@ const saveRegistration = async () => {
     saving.value = false
   }
 }
-const openEdit = (row: CaseRow) => {
-  editingCaseId.value = row.id
-  editDialog.value = true
-}
-const handleCaseSaved = () => {
-  editingCaseId.value = null
-  pageMessage.value = '案件を更新しました。'
-  pageMessageType.value = 'success'
-}
-
 let unsubscribe: (() => void) | undefined
 onMounted(async () => {
   await refreshMasters()

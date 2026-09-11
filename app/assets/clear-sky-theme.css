@@ -67,6 +67,15 @@ html {
   color: var(--clear-sky-muted-text);
 }
 
+/* Mark fields that the application validates as required without changing their values. */
+.v-input:has(input:required, textarea:required) .v-label::after {
+  content: ' *';
+  color: rgb(var(--v-theme-error));
+  font-size: 0.75rem;
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
 .v-table > .v-table__wrapper > table > thead > tr > th {
   color: var(--clear-sky-text);
   background: var(--clear-sky-soft-surface);
@@ -109,6 +118,74 @@ a:hover {
 }
 
 .v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }
+
+.detail-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.detail-page-breadcrumbs {
+  color: var(--clear-sky-muted-text);
+  font-size: 0.8125rem;
+}
+
+.detail-page-title {
+  margin: 0;
+  color: var(--clear-sky-text);
+}
+
+.detail-page-subtitle {
+  margin-top: 0.25rem;
+  color: var(--clear-sky-muted-text);
+  font-size: 0.875rem;
+}
+
+.detail-summary {
+  border: 1px solid var(--clear-sky-border);
+  border-radius: 0.625rem;
+  background: #fff;
+}
+
+.detail-summary-label,
+.detail-field-label {
+  color: var(--clear-sky-muted-text);
+  font-size: 0.8125rem;
+}
+
+.detail-summary-value,
+.detail-field-value {
+  margin-top: 0.25rem;
+  color: var(--clear-sky-text);
+  font-weight: 600;
+}
+
+.detail-section-title {
+  color: var(--clear-sky-text);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.detail-fields {
+  border-top: 1px solid var(--clear-sky-border);
+}
+
+.detail-field {
+  padding: 0.75rem 0.25rem;
+  border-bottom: 1px solid var(--clear-sky-border);
+}
+
+@media (max-width: 599px) {
+  .detail-page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .detail-page-header > .v-btn {
+    align-self: stretch;
+  }
+}
 
 /* Keep dialog headings and actions fixed while the form area scrolls. */
 .v-dialog .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
