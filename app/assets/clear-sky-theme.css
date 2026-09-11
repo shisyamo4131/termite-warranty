@@ -117,6 +117,31 @@ a:hover {
   color: var(--clear-sky-primary-hover);
 }
 
+/* Route changes: let the old view clear, then lift the next view into place. */
+.page-leave-active {
+  transition: opacity 120ms ease-in;
+}
+
+.page-enter-active {
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.page-leave-to,
+.page-enter-from {
+  opacity: 0;
+}
+
+.page-enter-from {
+  transform: translateY(0.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-leave-active,
+  .page-enter-active {
+    transition: none;
+  }
+}
+
 .v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }
 
 .detail-page-header {

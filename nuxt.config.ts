@@ -1,6 +1,12 @@
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-10',
   ssr: false,
+  app: {
+    pageTransition: {
+      name: 'page',
+      mode: 'out-in',
+    },
+  },
   css: ['~/assets/clear-sky-theme.css'],
   modules: ['vuetify-nuxt-module'],
   devtools: { enabled: true },
