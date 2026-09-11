@@ -1,0 +1,39 @@
+name: Deploy Firebase development
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to termite-warranty-dev
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Hosting artifact
+        run: npm run build
+
+      - name: Deploy Firestore, Functions, and Hosting
+        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
