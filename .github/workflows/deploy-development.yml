@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Build Hosting artifact
-        run: npm run build
+        run: npx nuxt generate
 
       - name: Deploy Firestore, Functions, and Hosting
         run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive --force
