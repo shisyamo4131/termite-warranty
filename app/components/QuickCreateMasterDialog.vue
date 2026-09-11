@@ -1,5 +1,7 @@
 <template>
-  <v-btn size="small" variant="text" @click="open">{{ buttonLabel }}</v-btn>
+  <slot name="activator" :open="open">
+    <v-btn size="small" variant="text" @click="open">{{ buttonLabel }}</v-btn>
+  </slot>
   <v-dialog v-model="dialogOpen" max-width="720" persistent>
     <v-card :title="`${title}を新規登録`">
       <v-card-text>

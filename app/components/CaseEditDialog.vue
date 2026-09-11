@@ -6,9 +6,9 @@
         <v-text-field :model-value="row?.caseNumber" label="案件番号" disabled />
         <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
         <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
-        <v-select v-model="form.propertyId" :items="propertyOptions" item-title="name" item-value="id" label="物件" required @update:model-value="applyProperty" />
-        <v-select v-model="form.homeownerId" :items="homeownerOptions" item-title="name" item-value="id" label="施主" required @update:model-value="form.homeownerOverridden = true" />
-        <v-select v-model="form.constructionCompanyId" :items="companyOptions" item-title="name" item-value="id" label="工務店" required @update:model-value="form.constructionCompanyOverridden = true" />
+        <v-select v-model="form.propertyId" :items="propertyOptions" item-title="name" item-value="id" label="物件" required @update:model-value="applyProperty"><template #append-inner><quick-create-master-dialog master-type="property" title="物件" button-label="物件を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="物件を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="form.homeownerId" :items="homeownerOptions" item-title="name" item-value="id" label="施主" required @update:model-value="form.homeownerOverridden = true"><template #append-inner><quick-create-master-dialog master-type="homeowner" title="施主" button-label="施主を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="施主を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="form.constructionCompanyId" :items="companyOptions" item-title="name" item-value="id" label="工務店" required @update:model-value="form.constructionCompanyOverridden = true"><template #append-inner><quick-create-master-dialog master-type="constructionCompany" title="工務店" button-label="工務店を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="工務店を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
         <v-select v-model="form.responsibleBranchId" :items="branchOptions" item-title="name" item-value="id" label="担当支店" required />
         <v-select v-model="form.status" :items="statuses" item-title="title" item-value="value" label="状態" required />
         <v-textarea v-if="form.status !== 'active'" v-model="form.statusReason" label="取消・無効理由" required />
@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { formatCanonicalLocalDate, parseCanonicalLocalDate, type CaseRow, type MasterCatalog, type MasterOption } from '../composables/usePrototypeData'
+import type { MasterType } from '../composables/useMasterManagement'
 
 const props = defineProps<{
   row: CaseRow | null
@@ -85,6 +86,20 @@ const applyProperty = () => {
   form.homeownerOverridden = false
   form.constructionCompanyOverridden = false
   form.propertyDefaultsApplied = true
+}
+const handleQuickCreated = ({ masterType, id }: { masterType: MasterType; id: string }) => {
+  if (masterType === 'property') {
+    form.propertyId = id
+    applyProperty()
+  }
+  if (masterType === 'homeowner') {
+    form.homeownerId = id
+    form.homeownerOverridden = true
+  }
+  if (masterType === 'constructionCompany') {
+    form.constructionCompanyId = id
+    form.constructionCompanyOverridden = true
+  }
 }
 const initialize = () => {
   if (!props.row) return

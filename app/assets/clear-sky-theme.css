@@ -109,3 +109,9 @@ a:hover {
 }
 
 .v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }
+
+/* Keep dialog headings and actions fixed while the form area scrolls. */
+.v-dialog .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+.v-dialog .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.v-dialog .v-card > .v-card-actions,
+.v-dialog .v-card > .v-card-item { flex: 0 0 auto; }

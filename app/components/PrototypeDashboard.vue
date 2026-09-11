@@ -1,7 +1,5 @@
 <template>
-  <v-alert type="info" variant="tonal" class="mb-6">
-    ローカルEmulator専用です。アカウント管理・郵便番号API・本番設定は未実装です。
-  </v-alert>
+  <h1 class="text-h4 mb-6">案件一覧</h1>
   <v-alert v-if="pageMessage" :type="pageMessageType" class="mb-4">{{ pageMessage }}</v-alert>
 
   <div class="d-flex justify-end mb-4">
@@ -33,21 +31,15 @@
     <v-card title="案件登録" subtitle="物件から施主・工務店を反映し、初回保証を登録します">
       <v-card-text>
         <v-alert v-if="registrationMessage" type="error" class="mb-4">{{ registrationMessage }}</v-alert>
-        <v-select v-model="registrationForm.propertyId" :items="selectableMasters.properties" item-title="name" item-value="id" label="物件" @update:model-value="applyProperty" />
-        <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" @update:model-value="registrationForm.homeownerOverridden = true" />
-        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" @update:model-value="registrationForm.constructionCompanyOverridden = true" />
+        <v-select v-model="registrationForm.propertyId" :items="selectableMasters.properties" item-title="name" item-value="id" label="物件" @update:model-value="applyProperty"><template #append-inner><quick-create-master-dialog master-type="property" title="物件" button-label="物件を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="物件を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" @update:model-value="registrationForm.homeownerOverridden = true"><template #append-inner><quick-create-master-dialog master-type="homeowner" title="施主" button-label="施主を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="施主を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
+        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" @update:model-value="registrationForm.constructionCompanyOverridden = true"><template #append-inner><quick-create-master-dialog master-type="constructionCompany" title="工務店" button-label="工務店を追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="工務店を追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
         <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" />
         <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
         <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
-        <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス" />
+        <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス"><template #append-inner><quick-create-master-dialog master-type="warrantyService" title="保証サービス" button-label="保証サービスを追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="保証サービスを追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
         <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
-        <div class="text-caption mb-1">必要なマスターをこの入力内容を保ったまま追加できます。</div>
-        <div class="d-flex flex-wrap ga-1">
-          <quick-create-master-dialog master-type="constructionCompany" title="工務店" button-label="工務店を追加" @created="handleQuickCreated" />
-          <quick-create-master-dialog master-type="homeowner" title="施主" button-label="施主を追加" @created="handleQuickCreated" />
-          <quick-create-master-dialog master-type="property" title="物件" button-label="物件を追加" @created="handleQuickCreated" />
-          <quick-create-master-dialog master-type="warrantyService" title="保証サービス" button-label="保証サービスを追加" @created="handleQuickCreated" />
-        </div>
+        <div class="text-caption">各選択欄の末尾にある追加アイコンから、入力内容を保ったままマスターを登録できます。</div>
       </v-card-text>
       <v-card-actions><v-spacer /><v-btn :disabled="saving" @click="cancelRegistration">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="saveRegistration">案件を登録</v-btn></v-card-actions>
     </v-card>

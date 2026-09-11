@@ -28,6 +28,7 @@ const drawer = ref(true)
 const { profile, logout } = useSession()
 const menuItems = [
   { title: 'ダッシュボード', to: '/' },
+  { title: '案件一覧', to: '/cases' },
   { title: '工務店', to: '/masters/construction-companies' },
   { title: '施主', to: '/masters/homeowners' },
   { title: '保証サービス', to: '/masters/warranty-services' },
