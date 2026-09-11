@@ -16,8 +16,8 @@
 </template>
 
 <script setup lang="ts">
-const email = ref('demo.admin@example.invalid')
-const password = ref('Demo-only-password-123')
+const email = ref('')
+const password = ref('')
 const submitting = ref(false)
 const localError = ref('')
 const { login, errorMessage } = useSession()
