@@ -108,7 +108,6 @@ const saving = ref(false)
 const dialogOpen = ref(false)
 const dialogMessage = ref('')
 const editingId = ref('')
-const editingRevision = ref(0)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
@@ -196,7 +195,6 @@ const fields = () => {
 const resetForm = () => {
   Object.assign(form, emptyForm())
   editingId.value = ''
-  editingRevision.value = 0
 }
 
 const openCreate = async () => {
@@ -220,7 +218,7 @@ const save = async () => {
   saving.value = true
   message.value = ''
   try {
-    if (editingId.value) await manager.updateMaster(editingId.value, editingRevision.value, fields())
+    if (editingId.value) await manager.updateMaster(editingId.value, fields())
     else await manager.createMaster(fields())
     messageType.value = 'success'
     message.value = editingId.value ? '更新しました。' : '登録しました。'
@@ -238,7 +236,7 @@ const save = async () => {
 const toggle = async (row: ManagedMaster) => {
   message.value = ''
   try {
-    await manager.setMasterActive(row.id, row.revision, !row.active)
+    await manager.setMasterActive(row.id, !row.active)
     messageType.value = 'success'
     message.value = row.active ? '無効化しました。' : '再有効化しました。'
     await refreshReferences()

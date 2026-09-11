@@ -33,11 +33,13 @@ const assertEnabledStaff = async (transaction, firestore, actorUid) => {
   }
 }
 
-const assertCurrentRevision = (snapshot, expectedRevision) => {
+const assertCurrentRevision = (snapshot) => {
   if (!snapshot.exists) fail('not-found', '対象のマスターが見つかりません。')
-  if (snapshot.data()?.revision !== expectedRevision) {
-    fail('aborted', '他のユーザーが更新しました。最新データを読み直してください。')
+  const revision = snapshot.data()?.revision
+  if (!Number.isSafeInteger(revision) || revision < 1 || revision >= Number.MAX_SAFE_INTEGER) {
+    fail('failed-precondition', '対象のマスターのrevisionが不正です。')
   }
+  return revision
 }
 
 const assertPropertyReferences = async (transaction, firestore, fields, requireActive) => {
@@ -92,13 +94,13 @@ export async function updateMasterTransaction(firestore, rawInput, actorUid) {
     if (!staffSnapshot.exists || staffSnapshot.data()?.enabled !== true) {
       fail('permission-denied', '利用可能なスタッフアカウントを確認できません。')
     }
-    assertCurrentRevision(masterSnapshot, input.expectedRevision)
+    const currentRevision = assertCurrentRevision(masterSnapshot)
     const current = masterSnapshot.data()
     if (input.masterType === MASTER_TYPES.PROPERTY) {
       await assertPropertyReferences(transaction, firestore, input.fields, current.active === true)
     }
 
-    const revision = input.expectedRevision + 1
+    const revision = currentRevision + 1
     transaction.update(ref, {
       ...input.fields,
       revision,
@@ -120,11 +122,11 @@ export async function setMasterActiveTransaction(firestore, rawInput, actorUid) 
     if (!staffSnapshot.exists || staffSnapshot.data()?.enabled !== true) {
       fail('permission-denied', '利用可能なスタッフアカウントを確認できません。')
     }
-    assertCurrentRevision(masterSnapshot, input.expectedRevision)
+    const currentRevision = assertCurrentRevision(masterSnapshot)
     if (input.masterType === MASTER_TYPES.PROPERTY && input.active) {
       await assertPropertyReferences(transaction, firestore, masterSnapshot.data(), true)
     }
-    const revision = input.expectedRevision + 1
+    const revision = currentRevision + 1
     transaction.update(ref, {
       active: input.active,
       revision,

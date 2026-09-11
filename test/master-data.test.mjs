@@ -80,12 +80,25 @@ test('request parsers enforce exact action field allowlists', () => {
     () => parseCreateMasterRequest({ masterType: 'homeowner', fields: { name: 'A' }, active: true }),
     (error) => error instanceof MasterDataError && error.code === 'invalid-argument',
   )
-  assert.throws(
-    () => parseUpdateMasterRequest({ masterType: 'homeowner', id: 'a', expectedRevision: 0, fields: { name: 'A' } }),
-    /positive integer/,
+  assert.deepEqual(
+    parseUpdateMasterRequest({ masterType: 'warrantyService', id: 'a', fields: { name: 'A', defaultPeriodYears: 1 } }),
+    { masterType: 'warrantyService', id: 'a', fields: { name: 'A', defaultPeriodYears: 1 } },
   )
+  assert.deepEqual(
+    parseSetMasterActiveRequest({ masterType: 'homeowner', id: 'a', active: false }),
+    { masterType: 'homeowner', id: 'a', active: false },
+  )
+  for (const request of [
+    { masterType: 'warrantyService', id: 'a', expectedRevision: 1, fields: { name: 'A', defaultPeriodYears: 1 } },
+    { masterType: 'homeowner', id: 'a', expectedRevision: 1, active: false },
+  ]) {
+    assert.throws(
+      () => ('fields' in request ? parseUpdateMasterRequest(request) : parseSetMasterActiveRequest(request)),
+      (error) => error instanceof MasterDataError && error.code === 'invalid-argument',
+    )
+  }
   assert.throws(
-    () => parseSetMasterActiveRequest({ masterType: 'branch', id: 'a', expectedRevision: 1, active: false }),
+    () => parseSetMasterActiveRequest({ masterType: 'branch', id: 'a', active: false }),
     /Unsupported master type/,
   )
 })

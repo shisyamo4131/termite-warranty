@@ -99,13 +99,13 @@ export function useMasterManagement(masterType: MasterType) {
     >($firebase.functions, 'createMaster')
     return (await callable({ masterType, fields })).data
   }
-  const updateMaster = async (id: string, expectedRevision: number, fields: Record<string, unknown>) => {
+  const updateMaster = async (id: string, fields: Record<string, unknown>) => {
     const callable = httpsCallable($firebase.functions, 'updateMaster')
-    return (await callable({ masterType, id, expectedRevision, fields })).data
+    return (await callable({ masterType, id, fields })).data
   }
-  const setMasterActive = async (id: string, expectedRevision: number, active: boolean) => {
+  const setMasterActive = async (id: string, active: boolean) => {
     const callable = httpsCallable($firebase.functions, 'setMasterActive')
-    return (await callable({ masterType, id, expectedRevision, active })).data
+    return (await callable({ masterType, id, active })).data
   }
   const loadPropertyReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {
     const [homeowners, companies] = await Promise.all([

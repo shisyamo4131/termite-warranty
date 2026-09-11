@@ -77,11 +77,6 @@ export const assertMasterType = (value) => {
 
 export const normalizeDocumentId = (value) => requiredText(value, 'Document ID')
 
-export const normalizeExpectedRevision = (value) => {
-  if (!Number.isInteger(value) || value < 1) invalid('expectedRevision must be a positive integer.')
-  return value
-}
-
 export const createNameSearch = (name) => {
   const tokens = generateSearchTokens(name)
   if (tokens.normalized.length === 0) invalid('Name must contain searchable characters.')
@@ -158,24 +153,22 @@ export function parseCreateMasterRequest(input) {
 }
 
 export function parseUpdateMasterRequest(input) {
-  assertOnlyKeys(input, ['masterType', 'id', 'expectedRevision', 'fields'], 'request')
+  assertOnlyKeys(input, ['masterType', 'id', 'fields'], 'request')
   const masterType = assertMasterType(input.masterType)
   return {
     masterType,
     id: normalizeDocumentId(input.id),
-    expectedRevision: normalizeExpectedRevision(input.expectedRevision),
     fields: normalizeMasterFields(masterType, input.fields),
   }
 }
 
 export function parseSetMasterActiveRequest(input) {
-  assertOnlyKeys(input, ['masterType', 'id', 'expectedRevision', 'active'], 'request')
+  assertOnlyKeys(input, ['masterType', 'id', 'active'], 'request')
   const masterType = assertMasterType(input.masterType)
   if (typeof input.active !== 'boolean') invalid('active must be boolean.')
   return {
     masterType,
     id: normalizeDocumentId(input.id),
-    expectedRevision: normalizeExpectedRevision(input.expectedRevision),
     active: input.active,
   }
 }

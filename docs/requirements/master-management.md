@@ -57,7 +57,7 @@ The case-registration flow is the expected primary business starting point.
 ## Master Update Concurrency
 
 - Master update, inactivation, and reactivation use last-write-wins. The last trusted write that commits becomes the stored state; an edit is not rejected solely because another user updated the same master after the form was opened.
-- The current prototype still enforces an expected revision and therefore does not yet conform to this rule. Removing stale-revision rejection while retaining server-side validation and atomic writes is tracked as TR-001.
+- The trusted callable implementation conforms to this rule: clients do not submit a revision precondition, while the server retains and increments revision metadata inside the transaction. Input/reference validation and atomic writes remain enforced.
 
 ## Lifecycle Requirement
 

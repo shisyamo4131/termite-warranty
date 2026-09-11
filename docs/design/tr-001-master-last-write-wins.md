@@ -1,6 +1,6 @@
 # TR-001 Master Last-write-wins Detailed Design
 
-- Status: Approved for implementation
+- Status: Implemented and accepted
 - Decision authority: [ADR 0016](../decisions/0016-master-last-write-wins.md)
 - Remediation authority: [TR-001](../roadmaps/technical-remediation.md#tr-001-align-master-writes-with-last-write-wins)
 - Working branch: `codex/tr-001-master-last-write-wins`
@@ -35,7 +35,7 @@ The four masters are construction company, homeowner, warranty service, and prop
 - Preserve `{ id, revision }` responses for create, update, inactivation, and reactivation.
 - Preserve the stored positive-integer `revision` field for ordering and diagnostics.
 - Update/lifecycle transactions read the current stored revision and write `currentRevision + 1`.
-- If the current stored revision is not a positive integer, fail with `failed-precondition`; do not repair it implicitly or derive a value from the caller.
+- If the current stored revision is not a safe positive integer strictly below `Number.MAX_SAFE_INTEGER`, fail with `failed-precondition`; do not repair it implicitly or derive a value from the caller.
 - Continue to write `updatedAt` with a server timestamp. Preserve `createdAt`, document ID, and every field outside the operation's allowed mutation set.
 
 ### Last-write-wins transaction semantics
@@ -125,3 +125,11 @@ No deployment, Firebase project write, dependency installation, data migration, 
 - Exact per-agent token billing is not exposed in the repository workflow. Report token use as an explicitly labeled estimate or relative range, not as measured fact.
 - Counterfactual comparison: estimate how long and how many tokens the coordinator would likely have used to inspect, implement, test, diagnose, and document the same bounded change alone. It is not an experimental control and must be labeled as a projection.
 - Compare deliverable quality using the same acceptance contract and final gates; speed without passing the same contract does not count as an efficiency gain.
+
+## Efficiency Trial Result
+
+- Measured wall-clock interval from recovery-branch creation/design start through final implementation, independent review, documentation alignment, and selected completion gates: 2026-09-12 08:04:48–08:32:23 JST, approximately 28 minutes. Git integration followed this measurement.
+- The detailed-design commit was fixed at 08:10:26 JST, approximately 6 minutes after the start. Developer implementation, two review cycles, correction, and coordinator verification occupied the remaining approximately 22 minutes; those activities overlapped, so exact per-role active time is unavailable.
+- Exact token usage per role was not exposed. Relative estimate with a Sol-only implementation normalized to 100: Sol coordinator 60–80, Terra developer 25–40, and independent read-only reviews 30–50, for a combined 115–170. This suggests lower use of the coordinating Sol model but potentially higher total cross-agent token use.
+- Counterfactual Sol/Medium solo implementation estimate: approximately 30–45 minutes for inspection, implementation, tests, diagnosis, documentation, and final verification under the same acceptance contract. The observed path was therefore likely modestly faster in wall-clock time, but this is a projection rather than a controlled comparison.
+- Quality observation: the first developer result passed its own tests, but independent review found incomplete full-payload, operation-order, invalid-reference, callable-concurrency, staff/revision-boundary coverage, plus an unsafe revision-increment boundary. The second developer pass corrected them before acceptance. The workflow demonstrated a concrete quality benefit, while also showing that small changes carry substantial design/review overhead.

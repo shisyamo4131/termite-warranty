@@ -8,6 +8,7 @@ import {
   setMasterActiveTransaction,
   updateMasterTransaction,
 } from '../../functions/master-management.js'
+import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 
 const projectId = 'demo-termite-warranty'
 if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') {
@@ -44,6 +45,11 @@ const homeownerFields = (overrides = {}) => ({
   telephone: null, fax: null, notes: null,
   ...overrides,
 })
+const warrantyFields = (overrides = {}) => ({ name: 'Synthetic warranty', defaultPeriodYears: 5, ...overrides })
+const businessFields = (data) => {
+  const { active, revision, createdAt, updatedAt, ...fields } = data
+  return fields
+}
 
 async function seedBase() {
   const batch = firestore.batch()
@@ -126,7 +132,7 @@ test('trusted homeowner create and update normalize the required address and pre
   assert.equal(data.notes, 'note')
 
   await updateMasterTransaction(firestore, {
-    masterType: 'homeowner', id: created.id, expectedRevision: 1,
+    masterType: 'homeowner', id: created.id,
     fields: homeownerFields({ address: { postalCode: '1500001', prefecture: 'Tokyo', municipality: 'Shibuya', streetTownAndNumber: '2-2', buildingName: null }, telephone: '', fax: '', notes: '' }),
   }, 'staff-1')
   data = (await firestore.doc(`homeowners/${created.id}`).get()).data()
@@ -136,26 +142,83 @@ test('trusted homeowner create and update normalize the required address and pre
   assert.equal(data.notes, null)
 })
 
-test('update and activation use optimistic revision conflicts without partial writes', async () => {
+test('concurrent update and lifecycle mutations use commit-order revisions without partial writes', async () => {
   const created = await createMasterTransaction(firestore, {
     masterType: 'homeowner', fields: homeownerFields({ name: 'Original' }),
   }, 'staff-1')
-  const updated = await updateMasterTransaction(firestore, {
-    masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Updated' }),
-  }, 'staff-1')
-  assert.equal(updated.revision, 2)
-  await assert.rejects(
+  const [updated, toggled] = await Promise.all([
     updateMasterTransaction(firestore, {
-      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Stale' }),
+      masterType: 'homeowner', id: created.id, fields: homeownerFields({ name: 'Updated' }),
     }, 'staff-1'),
-    (error) => error?.code === 'aborted',
-  )
-  assert.equal((await firestore.doc(`homeowners/${created.id}`).get()).data().name, 'Updated')
-  const toggled = await setMasterActiveTransaction(firestore, {
-    masterType: 'homeowner', id: created.id, expectedRevision: 2, active: false,
-  }, 'staff-1')
-  assert.equal(toggled.revision, 3)
-  assert.equal((await firestore.doc(`homeowners/${created.id}`).get()).data().active, false)
+    setMasterActiveTransaction(firestore, {
+      masterType: 'homeowner', id: created.id, active: false,
+    }, 'staff-1'),
+  ])
+  assert.deepEqual(new Set([updated.revision, toggled.revision]), new Set([2, 3]))
+  const data = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+  assert.equal(data.revision, 3)
+  assert.equal(data.name, 'Updated')
+  assert.equal(data.active, false)
+})
+
+test('sequential update and lifecycle preserve the non-targeted state in either order', async () => {
+  const scenarios = [
+    ['update-then-lifecycle', async (id, fields) => {
+      await updateMasterTransaction(firestore, { masterType: 'homeowner', id, fields }, 'staff-1')
+      await setMasterActiveTransaction(firestore, { masterType: 'homeowner', id, active: false }, 'staff-1')
+    }],
+    ['lifecycle-then-update', async (id, fields) => {
+      await setMasterActiveTransaction(firestore, { masterType: 'homeowner', id, active: false }, 'staff-1')
+      await updateMasterTransaction(firestore, { masterType: 'homeowner', id, fields }, 'staff-1')
+    }],
+  ]
+  const fields = homeownerFields({ name: 'Changed', address: { postalCode: '150-0001', prefecture: 'Tokyo', municipality: 'Shibuya', streetTownAndNumber: '2-2', buildingName: 'Building' }, telephone: '1', fax: '2', notes: 'changed' })
+  for (const [, apply] of scenarios) {
+    const created = await createMasterTransaction(firestore, { masterType: 'homeowner', fields: homeownerFields({ name: 'Original' }) }, 'staff-1')
+    const before = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+    await apply(created.id, fields)
+    const after = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+    assert.equal(after.active, false)
+    assert.equal(after.revision, 3)
+    assert.equal(after.createdAt.isEqual(before.createdAt), true)
+    assert.deepEqual(businessFields(after), normalizeMasterFields('homeowner', fields))
+  }
+})
+
+test('concurrent updates for all four masters retain both committed revisions and the higher-revision payload', async () => {
+  const scenarios = [
+    ['constructionCompany', 'constructionCompanies', companyFields,
+      companyFields({ name: ' Company A ', address: { postalCode: '101-0001', prefecture: 'One', municipality: 'One City', streetTownAndNumber: '1-1', buildingName: 'A' }, telephone: '1', fax: '2', contactPerson: 'A', contactDetails: 'A details', email: 'a@example.invalid', notes: 'A note' }),
+      companyFields({ name: ' Company B ', address: { postalCode: '102-0002', prefecture: 'Two', municipality: 'Two City', streetTownAndNumber: '2-2', buildingName: 'B' }, telephone: '3', fax: '4', contactPerson: 'B', contactDetails: 'B details', email: 'b@example.invalid', notes: 'B note' })],
+    ['homeowner', 'homeowners', homeownerFields,
+      homeownerFields({ name: ' Homeowner A ', address: { postalCode: '103-0003', prefecture: 'Three', municipality: 'Three City', streetTownAndNumber: '3-3', buildingName: 'A' }, telephone: '5', fax: '6', notes: 'A note' }),
+      homeownerFields({ name: ' Homeowner B ', address: { postalCode: '104-0004', prefecture: 'Four', municipality: 'Four City', streetTownAndNumber: '4-4', buildingName: 'B' }, telephone: '7', fax: '8', notes: 'B note' })],
+    ['warrantyService', 'warrantyServices', warrantyFields,
+      warrantyFields({ name: 'Warranty A', defaultPeriodYears: 2 }),
+      warrantyFields({ name: 'Warranty B', defaultPeriodYears: 9 })],
+    ['property', 'properties', propertyFields,
+      propertyFields({ name: ' Property A ', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1', address: { postalCode: '105-0005', prefecture: 'Five', municipality: 'Five City', streetTownAndNumber: '5-5', buildingName: 'A' } }),
+      propertyFields({ name: ' Property B ', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2', address: { postalCode: '106-0006', prefecture: 'Six', municipality: 'Six City', streetTownAndNumber: '6-6', buildingName: 'B' } })],
+  ]
+  for (const [masterType, collection, makeFields, firstFields, secondFields] of scenarios) {
+    const created = await createMasterTransaction(firestore, {
+      masterType, fields: makeFields({ name: 'Original' }),
+    }, 'staff-1')
+    const createdData = (await firestore.doc(`${collection}/${created.id}`).get()).data()
+    const [first, second] = await Promise.all([
+      updateMasterTransaction(firestore, { masterType, id: created.id, fields: firstFields }, 'staff-1'),
+      updateMasterTransaction(firestore, { masterType, id: created.id, fields: secondFields }, 'staff-1'),
+    ])
+    assert.deepEqual(new Set([first.revision, second.revision]), new Set([2, 3]))
+    const data = (await firestore.doc(`${collection}/${created.id}`).get()).data()
+    assert.equal(data.revision, 3)
+    assert.equal(data.active, true)
+    assert.equal(data.createdAt.isEqual(createdData.createdAt), true)
+    assert.deepEqual(
+      businessFields(data),
+      normalizeMasterFields(masterType, first.revision > second.revision ? firstFields : secondFields),
+    )
+  }
 })
 
 test('all four masters retain IDs and increment revisions through update, inactivate, and reactivate', async () => {
@@ -183,14 +246,18 @@ test('all four masters retain IDs and increment revisions through update, inacti
     const created = await createMasterTransaction(firestore, {
       masterType: scenario.masterType, fields: scenario.createFields,
     }, 'staff-1')
+    const createdData = (await firestore.doc(`${scenario.collection}/${created.id}`).get()).data()
     const updated = await updateMasterTransaction(firestore, {
-      masterType: scenario.masterType, id: created.id, expectedRevision: 1, fields: scenario.updateFields,
+      masterType: scenario.masterType, id: created.id, fields: scenario.updateFields,
     }, 'staff-1')
     assert.equal(updated.id, created.id)
     assert.equal(updated.revision, 2)
 
     let data = (await firestore.doc(`${scenario.collection}/${created.id}`).get()).data()
     assert.equal(data.name, scenario.updateFields.name)
+    assert.equal(data.active, true)
+    assert.equal(data.createdAt.isEqual(createdData.createdAt), true)
+    assert.equal(data.updatedAt.isEqual(createdData.updatedAt), false)
     if (scenario.masterType !== 'warrantyService') {
       assert.deepEqual(data.nameSearch.two, { '新イ': true })
       assert.equal(data.nameSearch.two['旧ア'], undefined)
@@ -201,34 +268,70 @@ test('all four masters retain IDs and increment revisions through update, inacti
     }
 
     const inactive = await setMasterActiveTransaction(firestore, {
-      masterType: scenario.masterType, id: created.id, expectedRevision: 2, active: false,
+      masterType: scenario.masterType, id: created.id, active: false,
     }, 'staff-1')
     assert.deepEqual(inactive, { id: created.id, revision: 3 })
     data = (await firestore.doc(`${scenario.collection}/${created.id}`).get()).data()
     assert.equal(data.active, false)
     assert.equal(data.revision, 3)
+    assert.equal(data.createdAt.isEqual(createdData.createdAt), true)
+    assert.deepEqual(businessFields(data), normalizeMasterFields(scenario.masterType, scenario.updateFields))
     const active = await setMasterActiveTransaction(firestore, {
-      masterType: scenario.masterType, id: created.id, expectedRevision: 3, active: true,
+      masterType: scenario.masterType, id: created.id, active: true,
     }, 'staff-1')
     assert.deepEqual(active, { id: created.id, revision: 4 })
     data = (await firestore.doc(`${scenario.collection}/${created.id}`).get()).data()
     assert.equal(data.active, true)
     assert.equal(data.revision, 4)
+    assert.equal(data.createdAt.isEqual(createdData.createdAt), true)
+    assert.deepEqual(businessFields(data), normalizeMasterFields(scenario.masterType, scenario.updateFields))
   }
 })
 
-test('missing staff rejection leaves an existing master unchanged', async () => {
-  const created = await createMasterTransaction(firestore, {
-    masterType: 'homeowner', fields: homeownerFields({ name: 'Unchanged' }),
-  }, 'staff-1')
-  const before = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+test('missing or disabled staff reject update and lifecycle mutations atomically', async () => {
+  const operations = [
+    ['update', (id, actorUid) => updateMasterTransaction(firestore, { masterType: 'homeowner', id, fields: homeownerFields({ name: 'Rejected' }) }, actorUid)],
+    ['lifecycle', (id, actorUid) => setMasterActiveTransaction(firestore, { masterType: 'homeowner', id, active: false }, actorUid)],
+  ]
+  for (const [staffState, actorUid] of [['missing', 'missing-staff'], ['disabled', 'staff-1']]) {
+    for (const [, operation] of operations) {
+      const created = await createMasterTransaction(firestore, { masterType: 'homeowner', fields: homeownerFields({ name: 'Unchanged' }) }, 'staff-1')
+      if (staffState === 'disabled') await firestore.doc('staffAccounts/staff-1').update({ enabled: false })
+      const before = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+      await assert.rejects(operation(created.id, actorUid), (error) => error?.code === 'permission-denied')
+      assert.deepEqual((await firestore.doc(`homeowners/${created.id}`).get()).data(), before)
+      if (staffState === 'disabled') await firestore.doc('staffAccounts/staff-1').update({ enabled: true })
+    }
+  }
+})
+
+test('missing, invalid, or non-incrementable stored revisions reject update and lifecycle atomically', async () => {
+  const revisions = [
+    ['missing', undefined], ['zero', 0], ['fractional', 1.5], ['string', '1'],
+    ['max-safe', Number.MAX_SAFE_INTEGER], ['non-safe', Number.MAX_SAFE_INTEGER + 1],
+  ]
+  const operations = [
+    ['update', (id) => updateMasterTransaction(firestore, { masterType: 'homeowner', id, fields: homeownerFields({ name: 'Rejected' }) }, 'staff-1')],
+    ['lifecycle', (id) => setMasterActiveTransaction(firestore, { masterType: 'homeowner', id, active: false }, 'staff-1')],
+  ]
+  for (const [label, revision] of revisions) {
+    for (const [operationLabel, operation] of operations) {
+      const id = `${label}-${operationLabel}`
+      const data = {
+        ...homeownerFields({ name: 'Unchanged' }), active: true,
+        createdAt: Timestamp.fromMillis(1), updatedAt: Timestamp.fromMillis(1),
+      }
+      if (revision !== undefined) data.revision = revision
+      await firestore.doc(`homeowners/${id}`).set(data)
+      const before = (await firestore.doc(`homeowners/${id}`).get()).data()
+      await assert.rejects(operation(id), (error) => error?.code === 'failed-precondition')
+      assert.deepEqual((await firestore.doc(`homeowners/${id}`).get()).data(), before)
+    }
+  }
   await assert.rejects(
-    updateMasterTransaction(firestore, {
-      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Denied' }),
-    }, 'missing-staff'),
-    (error) => error?.code === 'permission-denied',
+    setMasterActiveTransaction(firestore, { masterType: 'homeowner', id: 'missing', active: false }, 'staff-1'),
+    (error) => error?.code === 'not-found',
   )
-  assert.deepEqual((await firestore.doc(`homeowners/${created.id}`).get()).data(), before)
 })
 
 test('usable property rejects inactive references and disabled staff', async () => {
@@ -243,6 +346,43 @@ test('usable property rejects inactive references and disabled staff', async () 
     createMasterTransaction(firestore, { masterType: 'homeowner', fields: homeownerFields({ name: 'Denied' }) }, 'staff-1'),
     (error) => error?.code === 'permission-denied',
   )
+})
+
+test('active property update rejects inactive or missing references without changing the property', async () => {
+  const property = await createMasterTransaction(firestore, { masterType: 'property', fields: propertyFields() }, 'staff-1')
+  const attempts = [
+    async () => firestore.doc('homeowners/homeowner-1').update({ active: false }),
+    async () => firestore.doc('constructionCompanies/company-1').delete(),
+  ]
+  for (const prepareReferenceFailure of attempts) {
+    await seedBase()
+    const before = (await firestore.doc(`properties/${property.id}`).get()).data()
+    await prepareReferenceFailure()
+    await assert.rejects(
+      updateMasterTransaction(firestore, { masterType: 'property', id: property.id, fields: propertyFields() }, 'staff-1'),
+      (error) => error?.code === 'failed-precondition',
+    )
+    assert.deepEqual((await firestore.doc(`properties/${property.id}`).get()).data(), before)
+  }
+})
+
+test('inactive property reactivation rejects inactive or missing current references without changing the property', async () => {
+  const attempts = [
+    async () => firestore.doc('homeowners/homeowner-1').update({ active: false }),
+    async () => firestore.doc('constructionCompanies/company-1').delete(),
+  ]
+  for (const prepareReferenceFailure of attempts) {
+    const property = await createMasterTransaction(firestore, { masterType: 'property', fields: propertyFields() }, 'staff-1')
+    await setMasterActiveTransaction(firestore, { masterType: 'property', id: property.id, active: false }, 'staff-1')
+    await prepareReferenceFailure()
+    const before = (await firestore.doc(`properties/${property.id}`).get()).data()
+    await assert.rejects(
+      setMasterActiveTransaction(firestore, { masterType: 'property', id: property.id, active: true }, 'staff-1'),
+      (error) => error?.code === 'failed-precondition',
+    )
+    assert.deepEqual((await firestore.doc(`properties/${property.id}`).get()).data(), before)
+    await seedBase()
+  }
 })
 
 test('property homeowner and company update never propagates to linked cases across statuses', async () => {
@@ -271,7 +411,7 @@ test('property homeowner and company update never propagates to linked cases acr
   await batch.commit()
 
   const result = await updateMasterTransaction(firestore, {
-    masterType: 'property', id: property.id, expectedRevision: 1,
+    masterType: 'property', id: property.id,
     fields: propertyFields({ homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' }),
   }, 'staff-1')
   assert.deepEqual(result, { id: property.id, revision: 2 })
@@ -299,7 +439,7 @@ test('inactive property rejects a missing homeowner reference without changing l
   await firestore.doc('cases/case-1').set({ propertyId: property.id, homeownerId: 'homeowner-1' })
   await assert.rejects(
     updateMasterTransaction(firestore, {
-      masterType: 'property', id: property.id, expectedRevision: 1,
+      masterType: 'property', id: property.id,
       fields: propertyFields({ homeownerId: 'missing-homeowner' }),
     }, 'staff-1'),
     /施主が見つかりません/,
