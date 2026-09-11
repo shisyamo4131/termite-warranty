@@ -19,6 +19,10 @@ export default defineNuxtConfig({
       importComposables: false,
     },
     vuetifyOptions: {
+      localeMessages: ['ja'],
+      locale: {
+        locale: 'ja',
+      },
       labComponents: ['VDateInput'],
       theme: {
         defaultTheme: 'termiteWarranty',

@@ -37,6 +37,7 @@
         <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" />
         <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
         <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
+        <div class="text-subtitle-2 mt-4 mb-2">初回保証</div>
         <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス"><template #append-inner><quick-create-master-dialog master-type="warrantyService" title="保証サービス" button-label="保証サービスを追加" @created="handleQuickCreated"><template #activator="{ open }"><v-btn icon="mdi-plus" size="x-small" variant="text" aria-label="保証サービスを追加" @click.stop="open" /></template></quick-create-master-dialog></template></v-select>
         <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
         <div class="text-caption">各選択欄の末尾にある追加アイコンから、入力内容を保ったままマスターを登録できます。</div>

@@ -27,7 +27,7 @@ let testEnvironment
 let adminApp
 let adminFirestore
 
-async function seed(enabledService = true) {
+async function seed(enabledService = true, includeCounter = true) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
     const batch = writeBatch(db)
@@ -72,7 +72,7 @@ async function seed(enabledService = true) {
     batch.set(doc(db, 'warrantyServices', 'service-1'), {
       name: 'Synthetic warranty', defaultPeriodYears: 5, active: enabledService,
     })
-    batch.set(doc(db, 'systemCounters', 'caseNumber'), { nextValue: 1, lastCaseId: null })
+    if (includeCounter) batch.set(doc(db, 'systemCounters', 'caseNumber'), { nextValue: 1, lastCaseId: null })
     await batch.commit()
   })
 }
@@ -119,6 +119,20 @@ test('concurrent app registrations allocate distinct complete case numbers', asy
     const counter = (await getDoc(doc(db, 'systemCounters', 'caseNumber'))).data()
     assert.equal(counter?.nextValue, 3)
     assert.equal(caseIds.has(counter?.lastCaseId), true)
+  })
+})
+
+test('registration creates the case-number counter when it is absent', async () => {
+  await seed(true, false)
+  const result = await registerCaseTransaction(adminFirestore, input, 'staff-1')
+  assert.equal(result.caseNumber, '000001')
+
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore()
+    assert.deepEqual((await getDoc(doc(db, 'systemCounters', 'caseNumber'))).data(), {
+      nextValue: 2,
+      lastCaseId: result.id,
+    })
   })
 })
 

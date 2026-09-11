@@ -18,18 +18,30 @@ const data = {
     ['development-demo-aoba', '青葉住宅建設株式会社', '東京都', '千代田区', '青葉町1-8'],
     ['development-demo-umibe', '海風工務店株式会社', '神奈川県', '横浜市西区', 'みなと町2-14'],
     ['development-demo-hokushin', '北辰ハウス株式会社', '埼玉県', 'さいたま市大宮区', '桜木町3-6'],
+    ['development-demo-yamabuki', '山吹建築株式会社', '千葉県', '船橋市', '若葉町6-4'],
   ],
   homeowners: [
     ['development-demo-morikawa', '森川 太郎', '東京都', '千代田区', '青葉町4-12'],
     ['development-demo-sakurai', '桜井 美咲', '神奈川県', '横浜市西区', '潮見台2-7'],
     ['development-demo-tachibana', '橘 恒一', '埼玉県', 'さいたま市大宮区', '若葉町1-19'],
     ['development-demo-fujimoto', '藤本 直子', '千葉県', '船橋市', '海神町5-3'],
+    ['development-demo-kuroda', '黒田 恒一', '東京都', '江東区', '木場町2-9'],
+    ['development-demo-endo', '遠藤 彩', '神奈川県', '川崎市中原区', '小杉町3-2'],
+    ['development-demo-ishida', '石田 恒一', '埼玉県', '川口市', '青木町1-16'],
+    ['development-demo-mizuno', '水野 真紀', '千葉県', '市川市', '真間町4-5'],
+    ['development-demo-takagi', '高木 遼', '東京都', '練馬区', '桜台町7-11'],
   ],
   properties: [
     ['development-demo-aozora', '青空の家', 'development-demo-morikawa', 'development-demo-aoba', '東京都', '千代田区', '青葉町4-12'],
     ['development-demo-shiokaze', '潮風の家', 'development-demo-sakurai', 'development-demo-umibe', '神奈川県', '横浜市西区', '潮見台2-7'],
     ['development-demo-komorebi', '木もれ日の家', 'development-demo-tachibana', 'development-demo-hokushin', '埼玉県', 'さいたま市大宮区', '若葉町1-19'],
     ['development-demo-harunoniwa', '春の庭の家', 'development-demo-fujimoto', 'development-demo-aoba', '千葉県', '船橋市', '海神町5-3'],
+    ['development-demo-koborebi', '木漏れ日の家', 'development-demo-kuroda', 'development-demo-yamabuki', '東京都', '江東区', '木場町2-9'],
+    ['development-demo-hoshizora', '星空の家', 'development-demo-endo', 'development-demo-umibe', '神奈川県', '川崎市中原区', '小杉町3-2'],
+    ['development-demo-midorigaoka', '緑ヶ丘の家', 'development-demo-ishida', 'development-demo-hokushin', '埼玉県', '川口市', '青木町1-16'],
+    ['development-demo-nagisa', '渚の家', 'development-demo-mizuno', 'development-demo-yamabuki', '千葉県', '市川市', '真間町4-5'],
+    ['development-demo-sakura', '桜並木の家', 'development-demo-takagi', 'development-demo-aoba', '東京都', '練馬区', '桜台町7-11'],
+    ['development-demo-hinata', '日向の家', 'development-demo-morikawa', 'development-demo-hokushin', '東京都', '千代田区', '青葉町8-3'],
   ],
   warrantyServices: [
     ['development-demo-standard', '住まい安心5年保証', 5],
@@ -59,10 +71,16 @@ const cases = [
 ]
 await firestore.runTransaction(async (transaction) => {
   const counterRef = firestore.doc('systemCounters/caseNumber')
-  const counter = await transaction.get(counterRef)
-  for (const [id, caseNumber, propertyId, homeownerId, constructionCompanyId, warrantyServiceId, periodYears, startDate, expiryDate, notificationStatus] of cases) {
-    const ref = firestore.doc(`cases/${id}`); const reservation = firestore.doc(`caseNumberReservations/${caseNumber}`)
-    const [existing, reserved] = await transaction.getAll(ref, reservation)
+  const plannedCases = cases.map(([id, caseNumber, propertyId, homeownerId, constructionCompanyId, warrantyServiceId, periodYears, startDate, expiryDate, notificationStatus]) => ({
+    id, caseNumber, propertyId, homeownerId, constructionCompanyId, warrantyServiceId, periodYears, startDate, expiryDate, notificationStatus,
+    ref: firestore.doc(`cases/${id}`), reservation: firestore.doc(`caseNumberReservations/${caseNumber}`),
+  }))
+  const snapshots = await transaction.getAll(counterRef, ...plannedCases.flatMap(({ ref, reservation }) => [ref, reservation]))
+  const counter = snapshots[0]
+  for (const [index, planned] of plannedCases.entries()) {
+    const { id, caseNumber, propertyId, homeownerId, constructionCompanyId, warrantyServiceId, periodYears, startDate, expiryDate, notificationStatus, ref, reservation } = planned
+    const existing = snapshots[1 + index * 2]
+    const reserved = snapshots[2 + index * 2]
     if (reserved.exists && reserved.data().caseId !== id) throw new Error(`Reservation conflict: ${caseNumber}`)
     if (!existing.exists) {
       transaction.create(ref, { caseNumber, sequenceValue: Number(caseNumber), applicationDate: '2026-09-01', handoverDate: '2026-09-03', propertyId, homeownerId, constructionCompanyId, responsibleBranchId: 'development-demo-east', status: 'active', statusReason: null, registrationWarrantyId: 'initial', registeredAt: now, updatedAt: now })

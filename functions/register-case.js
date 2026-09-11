@@ -51,7 +51,7 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
     )
     const property = propertySnapshot.data()
     const service = serviceSnapshot.data()
-    const nextValue = Number(counterSnapshot.data()?.nextValue)
+    const nextValue = counterSnapshot.exists ? Number(counterSnapshot.data()?.nextValue) : 1
     const periodYears = Number(service?.defaultPeriodYears)
 
     if (!staffSnapshot.exists || staffSnapshot.data()?.enabled !== true) {
@@ -59,7 +59,6 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
       error.code = 'permission-denied'
       throw error
     }
-    if (!counterSnapshot.exists) throw new Error('案件番号カウンターがありません。')
     if (!Number.isInteger(nextValue) || nextValue < 1 || nextValue > 999_999) throw new Error('案件番号カウンターが不正です。')
     if (!propertySnapshot.exists || property?.active !== true) throw new Error('有効な物件を選択してください。')
     if (!property.homeownerId || !property.constructionCompanyId) throw new Error('物件の参照情報が不足しています。')
@@ -93,7 +92,7 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
     if (reservationSnapshot.exists) throw new Error('案件番号はすでに予約されています。')
 
     const timestamp = Timestamp.now()
-    transaction.update(counterRef, { nextValue: nextValue + 1, lastCaseId: caseRef.id })
+    transaction.set(counterRef, { nextValue: nextValue + 1, lastCaseId: caseRef.id }, { merge: true })
     transaction.create(reservationRef, { caseId: caseRef.id })
     transaction.create(caseRef, {
       caseNumber,
