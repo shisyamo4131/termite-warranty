@@ -4,6 +4,8 @@
       <v-card-text>
         <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
         <v-text-field :model-value="row?.caseNumber" label="案件番号" disabled />
+        <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
+        <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
         <v-select v-model="form.propertyId" :items="propertyOptions" item-title="name" item-value="id" label="物件" required @update:model-value="applyProperty" />
         <v-select v-model="form.homeownerId" :items="homeownerOptions" item-title="name" item-value="id" label="施主" required @update:model-value="form.homeownerOverridden = true" />
         <v-select v-model="form.constructionCompanyId" :items="companyOptions" item-title="name" item-value="id" label="工務店" required @update:model-value="form.constructionCompanyOverridden = true" />
@@ -21,7 +23,7 @@
 </template>
 
 <script setup lang="ts">
-import type { CaseRow, MasterCatalog, MasterOption } from '../composables/usePrototypeData'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate, type CaseRow, type MasterCatalog, type MasterOption } from '../composables/usePrototypeData'
 
 const props = defineProps<{
   row: CaseRow | null
@@ -34,8 +36,8 @@ const { updateCase } = usePrototypeData()
 const saving = ref(false)
 const message = ref('')
 const baselineUpdatedAt = ref<CaseRow['updatedAtBaseline']>(null)
-const baselineHomeownerId = ref('')
 const form = reactive({
+  applicationDate: '', handoverDate: '',
   propertyId: '', homeownerId: '', constructionCompanyId: '', responsibleBranchId: '',
   homeownerOverridden: false, constructionCompanyOverridden: false, propertyDefaultsApplied: false,
   status: 'active' as 'active' | 'cancelled' | 'invalid', statusReason: '',
@@ -67,6 +69,14 @@ const branchOptions = computed(() => withCurrent(
   props.selectableMasters.branches, props.allMasters.branches, props.row?.responsibleBranchId,
 ))
 const selectedProperty = computed(() => props.allMasters.properties.find(({ id }) => id === form.propertyId))
+const applicationDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.applicationDate),
+  set: (value) => { form.applicationDate = formatCanonicalLocalDate(value) },
+})
+const handoverDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.handoverDate),
+  set: (value) => { form.handoverDate = formatCanonicalLocalDate(value) },
+})
 
 const applyProperty = () => {
   if (!props.row) return
@@ -79,8 +89,9 @@ const applyProperty = () => {
 const initialize = () => {
   if (!props.row) return
   baselineUpdatedAt.value = props.row.updatedAtBaseline
-  baselineHomeownerId.value = props.row.homeownerId
   Object.assign(form, {
+    applicationDate: props.row.applicationDate,
+    handoverDate: props.row.handoverDate,
     propertyId: props.row.propertyId,
     homeownerId: props.row.homeownerId,
     constructionCompanyId: props.row.constructionCompanyId,
@@ -109,7 +120,8 @@ const save = async () => {
     await updateCase({
       id: props.row.id,
       baselineUpdatedAt: baselineUpdatedAt.value,
-      baselineHomeownerId: baselineHomeownerId.value,
+      applicationDate: form.applicationDate,
+      handoverDate: form.handoverDate,
       propertyId: form.propertyId,
       homeownerId: form.homeownerId,
       constructionCompanyId: form.constructionCompanyId,

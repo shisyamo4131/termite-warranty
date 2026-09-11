@@ -67,6 +67,7 @@ beforeEach(async () => {
     batch.set(doc(db, 'cases', 'case-1'), {
       caseNumber: '000001', sequenceValue: 1, propertyId: 'property-1', homeownerId: 'homeowner-1',
       constructionCompanyId: 'company-1', responsibleBranchId: 'branch-1', status: 'active', statusReason: null,
+      applicationDate: '2026-09-08', handoverDate: '2026-09-09',
       registrationWarrantyId: 'warranty-1', registeredAt: baselineTime, updatedAt: baselineTime,
     })
     batch.set(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'), {
@@ -80,7 +81,8 @@ beforeEach(async () => {
 after(async () => testEnvironment?.cleanup())
 
 const input = (branchId) => ({
-  id: 'case-1', baselineUpdatedAt: baselineTime, baselineHomeownerId: 'homeowner-1', propertyId: 'property-1',
+  id: 'case-1', baselineUpdatedAt: baselineTime, propertyId: 'property-1',
+  applicationDate: '2026-09-08', handoverDate: '2026-09-09',
   homeownerId: 'homeowner-1',
   constructionCompanyId: 'company-1', responsibleBranchId: branchId,
   homeownerOverridden: false, constructionCompanyOverridden: false, propertyDefaultsApplied: false,
@@ -296,30 +298,38 @@ for (const scenario of [
   })
 }
 
-test('property-homeowner propagation preserves updatedAt but invalidates an open edit via its homeowner baseline', async () => {
+for (const scenario of [
+  { name: 'missing application date', changes: { applicationDate: '' }, pattern: /申込日/ },
+  { name: 'invalid application date', changes: { applicationDate: '2026-02-30' }, pattern: /申込日/ },
+  { name: 'non-canonical handover date', changes: { handoverDate: '2026-9-9' }, pattern: /引渡日/ },
+]) {
+  test(`${scenario.name} is rejected with the full case unchanged`, async () => {
+    const db = testEnvironment.authenticatedContext('staff-1').firestore()
+    const before = await readCase(db)
+    await assert.rejects(updateCaseTransaction(db, { ...input('branch-2'), ...scenario.changes }), scenario.pattern)
+    assert.deepEqual(await readCase(db), before)
+  })
+}
+
+test('normal edit backfills required dates on a readable legacy case', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    const legacy = await readCase(db)
+    delete legacy.applicationDate
+    delete legacy.handoverDate
     const batch = writeBatch(db)
-    batch.update(doc(db, 'properties', 'property-1'), { homeownerId: 'homeowner-2' })
-    batch.update(caseRef(db), { homeownerId: 'homeowner-2' })
+    batch.set(caseRef(db), legacy)
     await batch.commit()
   })
 
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
-  const propagated = await readCase(db)
-  assert.equal(propagated?.homeownerId, 'homeowner-2')
-  assert.equal(propagated?.updatedAt.isEqual(baselineTime), true)
-
-  await assert.rejects(updateCaseTransaction(db, input('branch-2')), CaseEditConflictError)
-  const unchanged = await readCase(db)
-  assert.equal(unchanged?.homeownerId, 'homeowner-2')
-  assert.equal(unchanged?.responsibleBranchId, 'branch-1')
-
-  await updateCaseTransaction(db, {
-    ...input('branch-2'), baselineHomeownerId: 'homeowner-2', homeownerId: 'homeowner-2',
-  })
+  const legacy = await readCase(db)
+  assert.equal('applicationDate' in legacy, false)
+  assert.equal('handoverDate' in legacy, false)
+  await updateCaseTransaction(db, input('branch-2'))
   const saved = await readCase(db)
-  assert.equal(saved?.homeownerId, 'homeowner-2')
+  assert.equal(saved?.applicationDate, '2026-09-08')
+  assert.equal(saved?.handoverDate, '2026-09-09')
   assert.equal(saved?.responsibleBranchId, 'branch-2')
   assertImmutableCaseFields(saved)
 })

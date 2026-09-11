@@ -24,6 +24,12 @@ export interface ManagedMaster {
     streetTownAndNumber: string
     buildingName: string | null
   }
+  telephone?: string | null
+  fax?: string | null
+  contactPerson?: string | null
+  contactDetails?: string | null
+  email?: string | null
+  notes?: string | null
 }
 
 export interface MasterMutationResult {
@@ -48,6 +54,12 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   homeownerId: data.homeownerId,
   constructionCompanyId: data.constructionCompanyId,
   address: data.address,
+  telephone: data.telephone ?? null,
+  fax: data.fax ?? null,
+  contactPerson: data.contactPerson ?? null,
+  contactDetails: data.contactDetails ?? null,
+  email: data.email ?? null,
+  notes: data.notes ?? null,
 })
 
 export const matchesManagedMasterName = (master: ManagedMaster, value: string) =>

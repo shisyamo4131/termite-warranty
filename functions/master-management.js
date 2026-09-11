@@ -6,8 +6,6 @@ import {
   parseUpdateMasterRequest,
 } from '../src/domain/master-data.mjs'
 
-export const PROPERTY_CASE_FANOUT_LIMIT = 400
-
 const COLLECTION_BY_TYPE = Object.freeze({
   [MASTER_TYPES.CONSTRUCTION_COMPANY]: 'constructionCompanies',
   [MASTER_TYPES.HOMEOWNER]: 'homeowners',
@@ -96,19 +94,8 @@ export async function updateMasterTransaction(firestore, rawInput, actorUid) {
     }
     assertCurrentRevision(masterSnapshot, input.expectedRevision)
     const current = masterSnapshot.data()
-    let affectedCases = []
-
     if (input.masterType === MASTER_TYPES.PROPERTY) {
       await assertPropertyReferences(transaction, firestore, input.fields, current.active === true)
-      if (current.homeownerId !== input.fields.homeownerId) {
-        const cases = await transaction.get(
-          firestore.collection('cases').where('propertyId', '==', input.id).limit(PROPERTY_CASE_FANOUT_LIMIT + 1),
-        )
-        if (cases.size > PROPERTY_CASE_FANOUT_LIMIT) {
-          fail('failed-precondition', `物件に紐づく案件が上限${PROPERTY_CASE_FANOUT_LIMIT}件を超えています。`)
-        }
-        affectedCases = cases.docs
-      }
     }
 
     const revision = input.expectedRevision + 1
@@ -117,10 +104,7 @@ export async function updateMasterTransaction(firestore, rawInput, actorUid) {
       revision,
       updatedAt: FieldValue.serverTimestamp(),
     })
-    for (const caseSnapshot of affectedCases) {
-      transaction.update(caseSnapshot.ref, { homeownerId: input.fields.homeownerId })
-    }
-    return { id: input.id, revision, affectedCaseCount: affectedCases.length }
+    return { id: input.id, revision }
   })
 }
 

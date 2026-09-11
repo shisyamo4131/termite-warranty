@@ -25,6 +25,7 @@
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
 | [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Accepted | 2026-09-10 |
 | [0013](0013-local-emulator-verification.md) | Local emulator verification before development environment | Accepted | 2026-09-10 |
+| [0014](0014-preserve-case-party-references.md) | Preserve existing case party references | Accepted | 2026-09-11 |
 
 ## Template
 

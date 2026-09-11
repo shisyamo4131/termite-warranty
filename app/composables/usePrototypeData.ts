@@ -21,6 +21,8 @@ export interface MasterOption {
 }
 
 export interface CaseRegistration {
+  applicationDate: string
+  handoverDate: string
   propertyId: string
   homeownerId: string
   constructionCompanyId: string
@@ -40,6 +42,8 @@ export interface CaseRow {
   responsibleBranchId: string
   status: string
   statusReason: string | null
+  applicationDate: string
+  handoverDate: string
   updatedAtBaseline: Timestamp | null
   propertyName: string
   homeownerName: string
@@ -62,7 +66,8 @@ export interface CaseRow {
 export interface CaseUpdate {
   id: string
   baselineUpdatedAt: Timestamp
-  baselineHomeownerId: string
+  applicationDate: string
+  handoverDate: string
   propertyId: string
   homeownerId: string
   constructionCompanyId: string
@@ -103,15 +108,14 @@ export async function updateCaseTransaction(firestore: Firestore, input: CaseUpd
     if (!matchesCaseUpdateBaseline(current.updatedAt, input.baselineUpdatedAt)) {
       throw new CaseEditConflictError()
     }
-    if (String(current.homeownerId ?? '') !== input.baselineHomeownerId) {
-      throw new CaseEditConflictError()
-    }
     if (current.status !== 'active') throw new CaseEditConflictError()
     if (typeof input.homeownerOverridden !== 'boolean'
       || typeof input.constructionCompanyOverridden !== 'boolean'
       || typeof input.propertyDefaultsApplied !== 'boolean') {
       throw new Error('案件の選択状態が不正です。')
     }
+    if (!parseCanonicalLocalDate(input.applicationDate)) throw new Error('申込日を正しい日付で入力してください。')
+    if (!parseCanonicalLocalDate(input.handoverDate)) throw new Error('引渡日を正しい日付で入力してください。')
 
     const propertyChanged = input.propertyId !== current.propertyId
     const resolvePropertyDefaults = propertyChanged || input.propertyDefaultsApplied
@@ -158,6 +162,8 @@ export async function updateCaseTransaction(firestore: Firestore, input: CaseUpd
       homeownerId,
       constructionCompanyId,
       responsibleBranchId: input.responsibleBranchId,
+      applicationDate: input.applicationDate,
+      handoverDate: input.handoverDate,
       status: input.status,
       statusReason,
       updatedAt: serverTimestamp(),

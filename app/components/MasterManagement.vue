@@ -16,11 +16,11 @@
           />
         </v-card-text>
         <v-table>
-          <thead><tr><th>名称</th><th v-if="masterType === 'property'">住所</th><th>状態</th><th>操作</th></tr></thead>
+          <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
               <td>{{ row.name }}<div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
-              <td v-if="masterType === 'property'">{{ formatAddress(row) }}</td>
+              <td v-if="hasAddress">{{ formatAddress(row) }}</td>
               <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
               <td>
                 <v-btn size="small" variant="text" @click="beginEdit(row)">編集</v-btn>
@@ -29,7 +29,7 @@
                 </v-btn>
               </td>
             </tr>
-            <tr v-if="filteredRows.length === 0"><td :colspan="masterType === 'property' ? 4 : 3" class="text-center py-8">該当するマスターはありません。</td></tr>
+            <tr v-if="filteredRows.length === 0"><td :colspan="hasAddress ? 4 : 3" class="text-center py-8">該当するマスターはありません。</td></tr>
           </tbody>
         </v-table>
       </v-card>
@@ -59,6 +59,19 @@
             <v-text-field v-model="form.municipality" label="市区町村" required />
             <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
             <v-text-field v-model="form.buildingName" label="建物名（任意）" />
+          </template>
+          <template v-if="masterType === 'constructionCompany'">
+            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
+            <v-text-field v-model="form.prefecture" label="都道府県" required />
+            <v-text-field v-model="form.municipality" label="市区町村" required />
+            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
+            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
+            <v-text-field v-model="form.telephone" label="TEL（任意）" />
+            <v-text-field v-model="form.fax" label="FAX（任意）" />
+            <v-text-field v-model="form.contactPerson" label="担当者（任意）" />
+            <v-textarea v-model="form.contactDetails" label="連絡先（任意）" />
+            <v-text-field v-model="form.email" label="メールアドレス（任意）" />
+            <v-textarea v-model="form.notes" label="備考（任意）" />
           </template>
         </v-form>
       </v-card-text>
@@ -97,9 +110,16 @@ const emptyForm = () => ({
   municipality: '',
   streetTownAndNumber: '',
   buildingName: '',
+  telephone: '',
+  fax: '',
+  contactPerson: '',
+  contactDetails: '',
+  email: '',
+  notes: '',
 })
 const form = reactive(emptyForm())
 const manager = useMasterManagement(props.masterType)
+const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany')
 const usesIndexedSearch = computed(() => props.masterType !== 'warrantyService')
 const normalizedFilter = computed(() => normalizeSearchText(filter.value ?? ''))
 const searchHint = computed(() =>
@@ -133,6 +153,24 @@ const fields = () => {
         streetTownAndNumber: form.streetTownAndNumber,
         buildingName: form.buildingName || null,
       },
+    }
+  }
+  if (props.masterType === 'constructionCompany') {
+    return {
+      name: form.name,
+      address: {
+        postalCode: form.postalCode,
+        prefecture: form.prefecture,
+        municipality: form.municipality,
+        streetTownAndNumber: form.streetTownAndNumber,
+        buildingName: form.buildingName || null,
+      },
+      telephone: form.telephone || null,
+      fax: form.fax || null,
+      contactPerson: form.contactPerson || null,
+      contactDetails: form.contactDetails || null,
+      email: form.email || null,
+      notes: form.notes || null,
     }
   }
   return { name: form.name }
@@ -171,6 +209,12 @@ const beginEdit = async (row: ManagedMaster) => {
     municipality: row.address?.municipality ?? '',
     streetTownAndNumber: row.address?.streetTownAndNumber ?? '',
     buildingName: row.address?.buildingName ?? '',
+    telephone: row.telephone ?? '',
+    fax: row.fax ?? '',
+    contactPerson: row.contactPerson ?? '',
+    contactDetails: row.contactDetails ?? '',
+    email: row.email ?? '',
+    notes: row.notes ?? '',
   })
   dialogMessage.value = ''
   await refreshReferences(row)

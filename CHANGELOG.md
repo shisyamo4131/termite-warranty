@@ -6,8 +6,10 @@
 
 - Added button-triggered create/edit dialogs for the four supported masters and case registration, including nested four-master creation that preserves the current case draft.
 - Added active-case editing with stale-update protection and property-derived homeowner/company references, plus exact case/master/address/warranty filters with Vuetify expiry-date input.
+- Added required case application and handover dates to registration, active-case editing, and the local Firestore contract.
+- Added required construction-company address fields and optional building, telephone, fax, contact-person, contact-details, email, and notes fields to full and quick-create dialogs.
 - Added dashboard-first Navigation Drawer navigation, trusted create/edit/inactivate/reactivate screens for construction-company, homeowner, warranty-service, and property masters, and Vuetify date selection for case registration.
-- Added optimistic master revisions, server-derived N-Gram updates, and atomic property-homeowner propagation to existing cases within a local 400-case safety limit.
+- Added optimistic master revisions and server-derived N-Gram updates.
 - Approved and documented a local-prototype-only Firestore data contract and fictional `demo-termite-warranty` emulator identifier without selecting a real Firebase project or production schema.
 - Pinned the official-package local prototype baseline for Nuxt 4, Vuetify 3, Firebase Web, Firebase CLI, Cloud Functions, Admin SDK, and rules testing in the manifest and lockfile.
 - Added a local-emulator-only Nuxt/Vuetify vertical slice with synthetic authentication, enabled-staff Firestore access, seeded master selection, atomic case/first-warranty registration, current-master list display, alert evaluation, and Firestore Rules regression tests.
@@ -15,7 +17,8 @@
 
 ### Changed
 
-- Made case homeowner and construction-company references independently editable after property-driven initial selection in both registration and active-case editing, with active-reference validation and homeowner-baseline conflict protection.
+- Made case homeowner and construction-company references independently editable after property-driven initial selection in both registration and active-case editing, with active-reference validation and stale-update protection.
+- Preserved every existing case's homeowner and construction-company references when either corresponding property reference changes; explicit property selection in case registration/editing still supplies editable defaults.
 - Moved the project into prototype implementation and selected Firebase Emulator Suite for local verification until the developer-owned development Firebase environment is provided.
 - Recorded the peak-call planning upper bound of 40 per day (approximately 1,200 per 30-day month and 14,400 per year if every call is a new case), adopted temporary parallel operation before cutover, and excluded operation-history/audit-log records from the initial release.
 - Defined extension-warranty start-date default as the day after the existing expiry, while permitting staff edits and overlap; required a House Solution-confirmed migration report before cutover; allowed actual homeowner data in development and migration testing after a separate confidentiality agreement.
@@ -25,7 +28,7 @@
 - Adopted Nuxt, Vuetify, and Firestore with a 1- and 2-character N-Gram token map for the prototype; added property names and defined two-character free-text matching for names.
 - Made property name required, fixed branch/service case filters as master-record selections, and recorded the reference N-Gram normalization behavior.
 - Replaced direct case-list name search with master-record filtering; retained the N-Gram capability and three-or-more-character AND-match rule for a future selected free-text feature.
-- Added homeowner ID to cases and required it to follow a referenced property's homeowner change.
+- Added homeowner ID to cases as an independently retained case reference.
 - Defined N-Gram master-name search for construction companies, homeowners, and properties, including case-filter selection dialogs.
 - Added email/password staff authentication, administrator account lifecycle UI, and password-reset requirements while retaining the provisional access-control boundary.
 - Adopted Firebase Authentication; required password-setup emails and immediate disabled-account access revocation, with enforcement design explicitly pending.
@@ -66,9 +69,9 @@
 - Added responsible-branch search, positive-integer warranty periods, and case update-date propagation from applied-warranty changes.
 - Replaced case-level construction-company snapshots with direct construction-company, homeowner, and property references whose displayed values follow master changes.
 - Permitted repeated applied-warranty products and defined the February-29 expiry rule.
-- Allowed property-homeowner changes to flow through existing cases, defined free-text cancellation/invalidation reasons, and deferred notification timestamps, attribution, and response handling.
+- Defined free-text cancellation/invalidation reasons and deferred notification timestamps, attribution, and response handling.
 - Locked cancelled/invalid cases against all edits while allowing confirmed active-case reference changes.
-- Defined non-propagation from a property-master company change and required property-address components.
+- Defined non-propagation from property-master homeowner and company changes and required property-address components.
 - Added automatic case numbering with list/dashboard display, responsible-branch display, and `not notified` as the default for newly added applied warranties.
 - Defined provisional fixed-width case numbering, legacy case-number retention during migration, and exact-match case-number search.
 

@@ -38,6 +38,8 @@ const validCase = (overrides = {}) => ({
   responsibleBranchId: 'branch-1',
   status: 'active',
   statusReason: null,
+  applicationDate: '2026-09-08',
+  handoverDate: '2026-09-09',
   registrationWarrantyId: 'warranty-1',
   registeredAt: Timestamp.fromMillis(1_700_000_000_000),
   updatedAt: Timestamp.fromMillis(1_700_000_000_000),
@@ -359,6 +361,52 @@ describe('business document validation', () => {
       caseWideExpiryDate: '2031-09-09',
       updatedAt: serverTimestamp(),
     }))
+  })
+
+  test('case business dates are editable in canonical shape', async () => {
+    await seedStaff('enabled-user')
+    await seedRegistrationPrerequisites()
+    await seedDocument('cases/case-1', validCase())
+    const db = contextFor('enabled-user')
+    const caseRef = doc(db, 'cases', 'case-1')
+
+    await assertSucceeds(updateDoc(caseRef, {
+      applicationDate: '2026-10-10', handoverDate: '2026-01-01', updatedAt: serverTimestamp(),
+    }))
+    await assertFails(updateDoc(caseRef, { applicationDate: '2026-2-3', updatedAt: serverTimestamp() }))
+    await assertFails(updateDoc(caseRef, { applicationDate: '2026-02-30', updatedAt: serverTimestamp() }))
+    await assertSucceeds(updateDoc(caseRef, { applicationDate: '2028-02-29', updatedAt: serverTimestamp() }))
+  })
+
+  test('legacy cases remain readable but a normal edit must backfill both business dates', async () => {
+    await seedStaff('enabled-user')
+    await seedRegistrationPrerequisites()
+    const legacy = validCase()
+    delete legacy.applicationDate
+    delete legacy.handoverDate
+    await seedDocument('cases/case-1', legacy)
+    await seedDocument('cases/case-1/appliedWarranties/warranty-1', validWarranty())
+    await seedDocument('branches/branch-2', { name: 'Second branch', active: true })
+    const db = contextFor('enabled-user')
+    const caseRef = doc(db, 'cases', 'case-1')
+
+    await assertSucceeds(getDoc(caseRef))
+    await assertFails(updateDoc(caseRef, { responsibleBranchId: 'branch-2', updatedAt: serverTimestamp() }))
+    await assertSucceeds(updateDoc(caseRef, {
+      responsibleBranchId: 'branch-2', applicationDate: '2026-09-08', handoverDate: '2026-09-09', updatedAt: serverTimestamp(),
+    }))
+  })
+
+  test('legacy case still permits an atomic warranty-only parent timestamp update', async () => {
+    await seedStaff('enabled-user')
+    await seedRegistrationPrerequisites()
+    const legacy = validCase()
+    delete legacy.applicationDate
+    delete legacy.handoverDate
+    await seedDocument('cases/case-1', legacy)
+    await seedDocument('cases/case-1/appliedWarranties/warranty-1', validWarranty())
+    const db = contextFor('enabled-user')
+    await assertSucceeds(warrantyUpdateBatch(db, { notificationStatus: 'notified' }).commit())
   })
 
   test('case identifiers and applied-warranty period are immutable', async () => {

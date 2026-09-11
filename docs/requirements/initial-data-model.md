@@ -10,11 +10,11 @@ This is a provisional business-record model for requirements discovery. It is no
 | --- | --- |
 | Branch (支店) | Name |
 | Staff account (利用者アカウント) | Firebase Authentication UID, email address, role (`developer superuser`, `House Solution administrator`, or `general staff`), enabled/disabled state |
-| Construction company (工務店) | Name, active/inactive state |
+| Construction company (工務店) | Name, postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional contact person, optional contact details, optional email, optional notes, active/inactive state |
 | Homeowner (施主) | Name, active/inactive state |
 | Property (物件) | Required name, homeowner ID, construction-company ID, five-part address, active/inactive state |
 | Warranty service / product (保証サービス) | Name, default warranty period in positive integer whole years, active/inactive state |
-| Case (案件) | Fixed-width auto-assigned case number (initially `000001` sequence; preserve legacy number when available), homeowner ID, property ID, construction-company ID, responsible branch ID, case status, cancellation/invalidation reason when applicable, registration date, update date |
+| Case (案件) | Fixed-width auto-assigned case number (initially `000001` sequence; preserve legacy number when available), required application date, required handover date, homeowner ID, property ID, construction-company ID, responsible branch ID, case status, cancellation/invalidation reason when applicable, registration timestamp, update timestamp |
 | Applied warranty (案件内適用保証) | Case ID, warranty-service ID, warranty period in whole years, warranty start date, expiry date, notification status, status, cancellation/invalidation reason when applicable |
 
 The current model holds separate property and case references. A case directly references its homeowner, property, and construction company. The selected property supplies the initial homeowner and construction-company values, but an active case may store independently selected values.
@@ -47,7 +47,7 @@ Permitted edits not explicitly confirmed below remain open decisions.
 
 ## Case Registration Requirement
 
-- Property, homeowner, construction company, responsible branch, and at least one applied warranty service are required. Selecting a property initially selects its homeowner and construction-company IDs for the case.
+- Application date, handover date, property, homeowner, construction company, responsible branch, and at least one applied warranty service are required. Selecting a property initially selects its homeowner and construction-company IDs for the case. No ordering rule between application date and handover date is currently specified.
 - Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Where available, preserve legacy case numbers during migration. The format may be revised after legacy-data inspection.
 - Selecting a property automatically selects its homeowner and construction-company IDs for a new case. Staff may change either selection before registration and while the case remains active.
 - Changing the property on an active case initially selects the newly selected property's homeowner and construction-company IDs. Staff may change either value before saving. Changing a property master's construction-company ID does not alter existing cases.
@@ -58,7 +58,7 @@ See [case warranties](case-warranties.md) for applied-warranty requirements, inc
 
 See [branches and addresses](branches-and-addresses.md) for branch and property-address requirements.
 
-## Open Relationship and Schema Decisions
+## Confirmed Relationship Behavior and Open Schema Decisions
 
 - The working direction is that a homeowner and a construction company have no parent-child relationship.
 - A case directly references its homeowner, construction company, and property. The property supplies the initial homeowner and construction-company selections, after which the active case can retain independently selected references. Construction-company and homeowner names, plus the property name and address, are read from their masters and follow master changes; they are not stored as case snapshots.
@@ -66,8 +66,7 @@ See [branches and addresses](branches-and-addresses.md) for branch and property-
 - A master referenced by a case is not physically deleted. It can be set inactive and later restored to active; the exact permitted edit rules are unconfirmed.
 - A case-wide enrolment date is not stored. If required, derive the initial enrolment date from the oldest warranty start date among active applied warranties.
 - A case's responsible-branch reference is editable. A branch name is displayed from the branch master and is not retained as a case snapshot.
-- A property's homeowner reference is editable even after the property is used by a case. When it changes, every case using that property updates its homeowner ID to the changed homeowner.
-- This automatic homeowner-ID propagation is not a staff case edit and applies even when the case is cancelled or invalid.
+- A property's homeowner and construction-company references are editable even after the property is used by a case. Changing either property reference changes only the property and does not rewrite any existing case reference. See [decision 0014](../decisions/0014-preserve-case-party-references.md).
 - An applied warranty's fixed period is not editable. Its start date is editable; changing it recalculates its expiry date before any subsequent manual correction.
 - A warranty-service name follows the master name. A master default positive-integer period change affects only newly added applied warranties and does not alter existing applied-warranty periods or expiry dates.
 - Map only the legacy records and fields that can feasibly be handled after the supplied data is inspected. House Solution retains the FileMaker data; complete historical migration is not required.

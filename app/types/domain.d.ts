@@ -32,6 +32,8 @@ declare module '*src/domain/case-rows.mjs' {
     responsibleBranchId: string
     status: string
     statusReason: string | null
+    applicationDate: string
+    handoverDate: string
     updatedAtBaseline: unknown
     propertyName: string
     homeownerName: string

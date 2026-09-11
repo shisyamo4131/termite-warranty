@@ -21,7 +21,7 @@ This direction is confirmed as a desired future workflow, but construction-compa
 - Staff can search and list registered information.
 - The system alerts for warranty services nearing expiry.
 
-The initial registration screen's remaining fields and validation rules remain open.
+The initial registration screen requires application date and handover date as case-level business dates, in addition to the required property, homeowner, construction company, responsible branch, and applied warranty information. No ordering rule between application date and handover date is currently specified. Remaining fields and validation rules remain open.
 
 Selecting a property automatically selects its registered homeowner and construction company for the case. Staff can change either selection before registration and while the case remains active. Changing the selected property on an active case reselects the homeowner and construction company registered on that property; staff can then change either value before saving.
 

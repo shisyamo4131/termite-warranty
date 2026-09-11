@@ -18,6 +18,8 @@ const input = {
   homeownerOverridden: false,
   constructionCompanyOverridden: false,
   branchId: 'branch-1',
+  applicationDate: '2026-09-08',
+  handoverDate: '2026-09-09',
   warrantyServiceId: 'service-1',
   startDate: '2026-09-10',
 }
@@ -106,6 +108,8 @@ test('concurrent app registrations allocate distinct complete case numbers', asy
       assert.equal(data.sequenceValue, Number(data.caseNumber))
       assert.equal(data.homeownerId, 'homeowner-1')
       assert.equal(data.constructionCompanyId, 'company-1')
+      assert.equal(data.applicationDate, '2026-09-08')
+      assert.equal(data.handoverDate, '2026-09-09')
       const warranty = await getDoc(doc(caseSnapshot.ref, 'appliedWarranties', data.registrationWarrantyId))
       assert.equal(warranty.exists(), true)
       assert.equal(warranty.data()?.periodYears, 5)
@@ -117,6 +121,19 @@ test('concurrent app registrations allocate distinct complete case numbers', asy
     assert.equal(caseIds.has(counter?.lastCaseId), true)
   })
 })
+
+for (const scenario of [
+  { name: 'missing application date', changes: { applicationDate: undefined }, pattern: /申込日/ },
+  { name: 'invalid application date', changes: { applicationDate: '2026-02-30' }, pattern: /申込日/ },
+  { name: 'non-canonical handover date', changes: { handoverDate: '2026-9-9' }, pattern: /引渡日/ },
+]) {
+  test(`${scenario.name} rejects registration atomically`, async () => {
+    await seed()
+    await assert.rejects(registerCaseTransaction(adminFirestore, { ...input, ...scenario.changes }, 'staff-1'), scenario.pattern)
+    assert.equal((await adminFirestore.collection('cases').get()).empty, true)
+    assert.deepEqual((await adminFirestore.doc('systemCounters/caseNumber').get()).data(), { nextValue: 1, lastCaseId: null })
+  })
+}
 
 test('validation failure leaves the counter and related collections unchanged', async () => {
   await seed(false)

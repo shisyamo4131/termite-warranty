@@ -23,6 +23,8 @@ export function projectCaseRows({ cases, warranties, masters, today }) {
       responsibleBranchId: String(item.responsibleBranchId ?? ''),
       status: String(item.status ?? ''),
       statusReason: item.statusReason == null ? null : String(item.statusReason),
+      applicationDate: String(item.applicationDate ?? ''),
+      handoverDate: String(item.handoverDate ?? ''),
       updatedAtBaseline: item.updatedAt ?? null,
       propertyName: String(property.name ?? '—'),
       homeownerName: String(homeowner.name ?? '—'),

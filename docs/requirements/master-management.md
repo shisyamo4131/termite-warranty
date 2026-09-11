@@ -17,6 +17,12 @@ These are provisional initial-release requirements. The overall data behavior re
 - Property name is required.
 - Postal code, prefecture, municipality, and street/town and number are required; building name is optional. See [branches and addresses](branches-and-addresses.md).
 
+## Required Construction-Company Fields
+
+- Construction-company name, postal code, prefecture, municipality, and street/town and number are required.
+- Building name, telephone, fax, contact person, contact details, email, and notes are optional.
+- No telephone, fax, or email format rule is currently specified. See [branches and addresses](branches-and-addresses.md).
+
 ## Required Entry Points
 
 - Staff must be able to create a needed master record while registering a case, without abandoning the case-registration flow.
@@ -45,10 +51,9 @@ Master records that are already referenced by a case are not physically deleted.
 - Inactive masters are excluded from selection for a new case.
 - Existing cases retain their master references and continue to display the current master name/address even after the master becomes inactive.
 - Construction-company names, homeowner names, and property names/addresses in existing cases follow the respective master changes; none is stored as a case snapshot.
-- A property's homeowner reference is editable after the property is used by a case. When it changes, the homeowner ID on every affected case follows the new homeowner.
-- This automatic reference update applies to every affected case, including a cancelled or invalid case; it does not make those case records staff-editable.
+- A property's homeowner and construction-company references remain editable after the property is used by a case. Changing either property reference changes only the property and does not rewrite an existing case, including a cancelled or invalid case.
 - A property holds homeowner and construction-company IDs. Selecting the property while registering a case, or changing the property on an active case, initially selects both references; staff may change either case value before saving.
-- Changing a property master's construction-company ID does not alter existing cases. The current provisional behavior for a property homeowner change still updates every linked case, including independently selected case homeowners; the long-term correction-versus-real-change behavior remains open.
+- Changing a property master's homeowner or construction-company ID does not alter existing cases. See [decision 0014](../decisions/0014-preserve-case-party-references.md).
 - An applied warranty displays the current name of its warranty-service master. A master-name change therefore appears on existing cases.
 - A warranty-service master's default warranty period is a positive integer number of whole years. Changing it affects only newly added applied warranties; existing applied warranties retain their fixed periods and expiry dates.
 

@@ -19,13 +19,34 @@ test('name search uses fixed normalization and token-map oracles', () => {
 
 test('supported master fields normalize into the trusted write shape', () => {
   const table = [
-    ['constructionCompany', { name: ' 工務店 ' }, { name: '工務店', nameSearch: createNameSearch('工務店') }],
     ['homeowner', { name: ' 施主 ' }, { name: '施主', nameSearch: createNameSearch('施主') }],
     ['warrantyService', { name: ' 保証 ', defaultPeriodYears: 5 }, { name: '保証', defaultPeriodYears: 5 }],
   ]
   for (const [masterType, input, expected] of table) {
     assert.deepEqual(normalizeMasterFields(masterType, input), expected)
   }
+})
+
+test('construction-company address and optional contact fields normalize into the strict write shape', () => {
+  const result = normalizeMasterFields('constructionCompany', {
+    name: ' 工務店 ',
+    address: {
+      postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ',
+      streetTownAndNumber: ' 千代田1-1 ', buildingName: ' ',
+    },
+    telephone: ' 03-1234-5678 ', fax: '', contactPerson: null,
+    contactDetails: ' 営業時間内 ', email: ' info@example.invalid ', notes: ' ',
+  })
+  assert.deepEqual(result, {
+    name: '工務店',
+    address: {
+      postalCode: '1000001', prefecture: '東京都', municipality: '千代田区',
+      streetTownAndNumber: '千代田1-1', buildingName: null,
+    },
+    telephone: '03-1234-5678', fax: null, contactPerson: null,
+    contactDetails: '営業時間内', email: 'info@example.invalid', notes: null,
+    nameSearch: createNameSearch('工務店'),
+  })
 })
 
 test('property fields normalize postal code and nullable building name', () => {
@@ -70,4 +91,14 @@ test('invalid required values are rejected table-wise', () => {
   for (const [masterType, fields] of invalidFields) {
     assert.throws(() => normalizeMasterFields(masterType, fields), MasterDataError)
   }
+})
+
+test('construction-company payload requires the complete declared shape', () => {
+  assert.throws(() => normalizeMasterFields('constructionCompany', { name: '工務店' }), MasterDataError)
+  assert.throws(() => normalizeMasterFields('constructionCompany', {
+    name: '工務店',
+    address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1', buildingName: null },
+    telephone: null, fax: null, contactPerson: null, contactDetails: null, email: null, notes: null,
+    unsupported: null,
+  }), MasterDataError)
 })

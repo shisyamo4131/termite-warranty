@@ -9,6 +9,9 @@ export const MASTER_TYPES = Object.freeze({
 
 const MASTER_TYPE_VALUES = Object.freeze(Object.values(MASTER_TYPES))
 const BASE_FIELDS = Object.freeze(['name'])
+const CONSTRUCTION_COMPANY_FIELDS = Object.freeze([
+  'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'email', 'notes',
+])
 const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address'])
 const WARRANTY_FIELDS = Object.freeze(['name', 'defaultPeriodYears'])
 const ADDRESS_FIELDS = Object.freeze([
@@ -52,6 +55,20 @@ const nullableText = (value, label) => {
   return value.trim() || null
 }
 
+const normalizeAddress = (address) => {
+  assertOnlyKeys(address, ADDRESS_FIELDS, 'address')
+  if (typeof address.postalCode !== 'string') invalid('Postal code is required.')
+  const postalCode = address.postalCode.replace('-', '')
+  if (!/^\d{7}$/.test(postalCode)) invalid('Postal code must contain seven digits with an optional hyphen.')
+  return {
+    postalCode,
+    prefecture: requiredText(address.prefecture, 'Prefecture'),
+    municipality: requiredText(address.municipality, 'Municipality'),
+    streetTownAndNumber: requiredText(address.streetTownAndNumber, 'Street/town and number'),
+    buildingName: nullableText(address.buildingName, 'Building name'),
+  }
+}
+
 export const assertMasterType = (value) => {
   if (!MASTER_TYPE_VALUES.includes(value)) invalid('Unsupported master type.')
   return value
@@ -78,9 +95,11 @@ export function normalizeMasterFields(masterType, fields) {
   assertMasterType(masterType)
   const allowed = masterType === MASTER_TYPES.PROPERTY
     ? PROPERTY_FIELDS
-    : masterType === MASTER_TYPES.WARRANTY_SERVICE
-      ? WARRANTY_FIELDS
-      : BASE_FIELDS
+    : masterType === MASTER_TYPES.CONSTRUCTION_COMPANY
+      ? CONSTRUCTION_COMPANY_FIELDS
+      : masterType === MASTER_TYPES.WARRANTY_SERVICE
+        ? WARRANTY_FIELDS
+        : BASE_FIELDS
   assertOnlyKeys(fields, allowed, 'fields')
   const name = requiredText(fields.name, 'Name')
 
@@ -91,22 +110,26 @@ export function normalizeMasterFields(masterType, fields) {
     return { name, defaultPeriodYears: fields.defaultPeriodYears }
   }
 
+  if (masterType === MASTER_TYPES.CONSTRUCTION_COMPANY) {
+    return {
+      name,
+      address: normalizeAddress(fields.address),
+      telephone: nullableText(fields.telephone, 'Telephone'),
+      fax: nullableText(fields.fax, 'Fax'),
+      contactPerson: nullableText(fields.contactPerson, 'Contact person'),
+      contactDetails: nullableText(fields.contactDetails, 'Contact details'),
+      email: nullableText(fields.email, 'Email'),
+      notes: nullableText(fields.notes, 'Notes'),
+      nameSearch: createNameSearch(name),
+    }
+  }
+
   if (masterType === MASTER_TYPES.PROPERTY) {
-    assertOnlyKeys(fields.address, ADDRESS_FIELDS, 'address')
-    if (typeof fields.address.postalCode !== 'string') invalid('Postal code is required.')
-    const postalCode = fields.address.postalCode.replace('-', '')
-    if (!/^\d{7}$/.test(postalCode)) invalid('Postal code must contain seven digits with an optional hyphen.')
     return {
       name,
       homeownerId: requiredText(fields.homeownerId, 'Homeowner'),
       constructionCompanyId: requiredText(fields.constructionCompanyId, 'Construction company'),
-      address: {
-        postalCode,
-        prefecture: requiredText(fields.address.prefecture, 'Prefecture'),
-        municipality: requiredText(fields.address.municipality, 'Municipality'),
-        streetTownAndNumber: requiredText(fields.address.streetTownAndNumber, 'Street/town and number'),
-        buildingName: nullableText(fields.address.buildingName, 'Building name'),
-      },
+      address: normalizeAddress(fields.address),
       nameSearch: createNameSearch(name),
     }
   }

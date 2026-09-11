@@ -37,6 +37,8 @@
         <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" @update:model-value="registrationForm.homeownerOverridden = true" />
         <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" @update:model-value="registrationForm.constructionCompanyOverridden = true" />
         <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" />
+        <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
+        <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
         <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス" />
         <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
         <div class="text-caption mb-1">必要なマスターをこの入力内容を保ったまま追加できます。</div>
@@ -82,6 +84,7 @@ const pageMessage = ref('')
 const pageMessageType = ref<'success' | 'error'>('success')
 const registrationForm = reactive({
   propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: currentLocalDate(),
+  applicationDate: '', handoverDate: '',
   homeownerOverridden: false, constructionCompanyOverridden: false,
 })
 const filters = reactive<CaseFilters>({
@@ -97,6 +100,14 @@ const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
   set: (value) => { registrationForm.startDate = formatCanonicalLocalDate(value) },
 })
+const applicationDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(registrationForm.applicationDate),
+  set: (value) => { registrationForm.applicationDate = formatCanonicalLocalDate(value) },
+})
+const handoverDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(registrationForm.handoverDate),
+  set: (value) => { registrationForm.handoverDate = formatCanonicalLocalDate(value) },
+})
 
 const applyProperty = () => {
   const property = selectableMasters.value.properties.find((item) => item.id === registrationForm.propertyId)
@@ -109,6 +120,7 @@ const resetRegistration = () => {
   Object.assign(registrationForm, {
     propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '',
     startDate: currentLocalDate(),
+    applicationDate: '', handoverDate: '',
     homeownerOverridden: false, constructionCompanyOverridden: false,
   })
   registrationMessage.value = ''
@@ -133,7 +145,8 @@ const handleQuickCreated = async ({ masterType, id }: { masterType: MasterType; 
 const saveRegistration = async () => {
   registrationMessage.value = ''
   if (!registrationForm.propertyId || !registrationForm.homeownerId || !registrationForm.constructionCompanyId || !registrationForm.branchId
-    || !registrationForm.warrantyServiceId || !registrationForm.startDate) {
+    || !registrationForm.warrantyServiceId || !registrationForm.startDate
+    || !registrationForm.applicationDate || !registrationForm.handoverDate) {
     registrationMessage.value = 'すべての必須項目を入力してください。'
     return
   }
@@ -145,6 +158,7 @@ const saveRegistration = async () => {
       homeownerOverridden: registrationForm.homeownerOverridden,
       constructionCompanyOverridden: registrationForm.constructionCompanyOverridden,
       warrantyServiceId: registrationForm.warrantyServiceId, startDate: registrationForm.startDate,
+      applicationDate: registrationForm.applicationDate, handoverDate: registrationForm.handoverDate,
     })
     registrationDialog.value = false
     resetRegistration()

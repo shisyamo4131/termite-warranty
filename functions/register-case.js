@@ -11,6 +11,20 @@ const requiredBoolean = (value, message) => {
   return value
 }
 
+const canonicalDate = (value, message) => {
+  const text = requiredString(value, message)
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text)
+  if (!match) throw new Error(message)
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const date = new Date(Date.UTC(year, month - 1, day))
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    throw new Error(message)
+  }
+  return text
+}
+
 export async function registerCaseTransaction(firestore, input, actorUid) {
   requiredString(actorUid, '利用可能なスタッフアカウントを確認できません。')
   const propertyId = requiredString(input?.propertyId, '有効な物件を選択してください。')
@@ -19,6 +33,8 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
   const homeownerOverridden = requiredBoolean(input?.homeownerOverridden, '施主の選択状態が不正です。')
   const constructionCompanyOverridden = requiredBoolean(input?.constructionCompanyOverridden, '工務店の選択状態が不正です。')
   const branchId = requiredString(input?.branchId, '有効な担当支店を選択してください。')
+  const applicationDate = canonicalDate(input?.applicationDate, '申込日を正しい日付で入力してください。')
+  const handoverDate = canonicalDate(input?.handoverDate, '引渡日を正しい日付で入力してください。')
   const warrantyServiceId = requiredString(input?.warrantyServiceId, '有効な保証サービスを選択してください。')
   const startDate = requiredString(input?.startDate, '保証開始日を入力してください。')
   const caseRef = firestore.collection('cases').doc()
@@ -86,6 +102,8 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
       propertyId,
       constructionCompanyId: effectiveCompanyId,
       responsibleBranchId: branchId,
+      applicationDate,
+      handoverDate,
       status: 'active',
       statusReason: null,
       registrationWarrantyId: warrantyRef.id,

@@ -55,7 +55,18 @@ const counterRef = firestore.doc('systemCounters/caseNumber')
 const counterSnapshot = await counterRef.get()
 const now = Timestamp.now()
 const masterSeeds = [
-  [firestore.doc('constructionCompanies/demo-builder'), withSearch('デモ工務店')],
+  [firestore.doc('constructionCompanies/demo-builder'), withSearch('デモ工務店', {
+    address: {
+      postalCode: '1000001', prefecture: '東京都', municipality: '千代田区',
+      streetTownAndNumber: '千代田1-1', buildingName: null,
+    },
+    telephone: null,
+    fax: null,
+    contactPerson: null,
+    contactDetails: null,
+    email: null,
+    notes: null,
+  })],
   [firestore.doc('homeowners/demo-homeowner'), withSearch('デモ施主')],
   [firestore.doc('properties/demo-property'), withSearch('デモ住宅', {
     homeownerId: 'demo-homeowner',
@@ -84,7 +95,11 @@ masterSeeds.forEach(([ref, data], index) => {
   const existing = masterSnapshots[index]
   if (existing.exists) {
     const current = existing.data()
+    const missingSeedFields = Object.fromEntries(
+      Object.entries(data).filter(([key]) => current[key] === undefined),
+    )
     batch.set(ref, {
+      ...missingSeedFields,
       revision: Number.isInteger(current.revision) && current.revision > 0 ? current.revision : 1,
       createdAt: current.createdAt ?? now,
       updatedAt: current.updatedAt ?? now,

@@ -20,6 +20,7 @@ test('projects one row per case using current masters and all applied warranties
   const cases = new Map([['case-1', {
     caseNumber: '000001', propertyId: 'property-1', homeownerId: 'homeowner-1',
     constructionCompanyId: 'company-1', responsibleBranchId: 'branch-1', status: 'active',
+    applicationDate: '2026-09-01', handoverDate: '2026-09-02',
     updatedAt: timestamp(20), registeredAt: timestamp(10),
   }]])
   const warranties = new Map([['case-1', [
@@ -41,6 +42,7 @@ test('projects one row per case using current masters and all applied warranties
     id: 'case-1', caseNumber: '000001', homeownerName: '現在の施主名',
     propertyId: 'property-1', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1',
     responsibleBranchId: 'branch-1', status: 'active', statusReason: null,
+    applicationDate: '2026-09-01', handoverDate: '2026-09-02',
     updatedAtBaseline: cases.get('case-1').updatedAt,
     propertyName: '現在の物件名', propertyPrefecture: '東京都', propertyMunicipality: '千代田区',
     propertyAddress: '東京都千代田区千代田1-1現行棟', constructionCompanyName: '現在の工務店名',
@@ -50,6 +52,14 @@ test('projects one row per case using current masters and all applied warranties
     ],
     branchName: '現在の支店名', hasNotNotified: true, isAlertEligible: true,
   })
+})
+
+test('legacy cases without business dates remain readable with empty projected values', () => {
+  const rows = projectCaseRows({
+    cases: new Map([['legacy', { status: 'active' }]]), warranties: new Map(), masters: new Map(), today: '2026-09-10',
+  })
+  assert.equal(rows[0].applicationDate, '')
+  assert.equal(rows[0].handoverDate, '')
 })
 
 test('sorts by updatedAt descending and then registeredAt descending', () => {
