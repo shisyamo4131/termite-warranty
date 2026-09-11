@@ -13,6 +13,8 @@ The project is for House Solution Co., Ltd. and its termite-warranty operations.
 
 Start with `governance/README.md` and `docs/README.md`, then read only the documents routed for the task. `docs/specification.md` is the current authoritative requirement summary; `docs/requirements/` holds the supporting, topic-specific requirement records. Operations and verification rules live in `docs/operations.md`; durable decisions live in `docs/decisions/`.
 
+Approved implementation remediation is tracked in `docs/roadmaps/technical-remediation.md`. Record confirmed defects and approved structural work there with their current implementation evidence, target state, completion contract, and validation. Do not use the remediation backlog as a substitute for confirmed product requirements or the unresolved-matter register.
+
 ## Unresolved-Matter Register
 
 - `docs/requirements/house-solution-confirmations.md` is the sole index of current unresolved matters. Its historical name is retained, but it covers both matters requiring confirmation by House Solution and project technical decisions.
@@ -29,6 +31,13 @@ Start with `governance/README.md` and `docs/README.md`, then read only the docum
 ## Product and Domain Boundaries
 
 The product boundary is a replacement business-management system for termite warranties. Existing-system data will not be migrated into the new system. System ownership, data ownership, detailed access model, and external-service boundaries remain unconfirmed. Do not infer them from the repository name or technology candidates.
+
+## List Query and Subscription Boundaries
+
+- When a list has no search or filter value, subscribe to at most the 20 documents with the freshest server-maintained update timestamp, in descending order, using document ID as a stable tie-breaker.
+- Do not implement an unfiltered list by subscribing to an entire business collection or by creating one child listener per parent record. A record type without a reliable server-maintained freshness field must gain one before this default can be implemented.
+- A filtered list must use a bounded query or another approved bounded read model. If the requested filter cannot be implemented without an unbounded read, stop and record the query/read-model decision rather than silently falling back to all-record client filtering.
+- Case-list month semantics are not confirmed by this rule. Route the choice of application month, handover month, applied-warranty expiry month, default month, and result-limit interaction through HSC-032.
 
 ## Project-specific Roles and Workstreams
 

@@ -27,6 +27,8 @@
 | [0013](0013-local-emulator-verification.md) | Local emulator verification before development environment | Accepted | 2026-09-10 |
 | [0014](0014-preserve-case-party-references.md) | Preserve existing case party references | Accepted | 2026-09-11 |
 | [0015](0015-no-legacy-data-migration.md) | No legacy-data migration | Accepted | 2026-09-11 |
+| [0016](0016-master-last-write-wins.md) | Master last-write-wins | Accepted | 2026-09-12 |
+| [0017](0017-bounded-default-list-subscriptions.md) | Bounded default list subscriptions | Accepted | 2026-09-12 |
 
 ## Template
 

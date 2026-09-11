@@ -54,6 +54,11 @@ The case-registration flow is the expected primary business starting point.
 - Construction-company, homeowner, and property master lists and their case-filter selection dialogs support name search using the adopted N-Gram normalization and token-generation behavior.
 - The case list itself does not directly perform a name-based free-text query; it filters cases by the selected master record IDs.
 
+## Master Update Concurrency
+
+- Master update, inactivation, and reactivation use last-write-wins. The last trusted write that commits becomes the stored state; an edit is not rejected solely because another user updated the same master after the form was opened.
+- The current prototype still enforces an expected revision and therefore does not yet conform to this rule. Removing stale-revision rejection while retaining server-side validation and atomic writes is tracked as TR-001.
+
 ## Lifecycle Requirement
 
 Master records that are already referenced by a case are not physically deleted. Staff can set them inactive and later restore them to active.

@@ -29,6 +29,7 @@
 - The provisional business-data access posture starts with the same CRUD access for all enabled authenticated users, defers browser-external attack mitigation, and requires a later enforcement decision if another business-data role-specific restriction is confirmed. Account management is already a server-enforced exception.
 - The timing of the new-registration switch and any permitted legacy-system stop are not yet confirmed.
 - Actual registration volume, historic record count, and concurrent-user count are unknown. The current upper-bound planning assumption is 40 telephone contacts per day, or approximately 1,200 per 30-day month and 14,400 per year if every contact is a new case.
+- The approved [technical remediation backlog](technical-remediation.md) must be completed in the affected areas before production acceptance. In particular, verification/deploy wiring and bounded list-query work are production-readiness dependencies; case month semantics remain unresolved under HSC-032.
 
 ## Evidence and Change Rules
 

@@ -43,6 +43,13 @@ The list has one row per case. It does not need to display warranty-period or ex
 - Sort by case update date in descending order.
 - When update dates are equal, sort by case registration date in descending order.
 
+## Default Bounded Result
+
+- When no search or filter value is specified, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp.
+- Use document ID as the stable tie-breaker when freshness timestamps are equal.
+- Do not load an entire collection or create one child listener per listed parent as the fallback for an unfiltered list.
+- Filtered-result limits and pagination remain to be confirmed. Case-list filtering by a selected year and month is likely, including a possible applied-warranty expiry-month condition, but the date meaning and default month are unresolved under HSC-032.
+
 ## Unresolved-Matter Routing
 
-See [HSC-007 case search/list behavior](house-solution-confirmations/HSC-007-case-search-list.md) and [HSC-026 scale/performance targets](house-solution-confirmations/HSC-026-scale-performance-targets.md) in the central register.
+See [HSC-007 case search/list behavior](house-solution-confirmations/HSC-007-case-search-list.md), [HSC-026 scale/performance targets](house-solution-confirmations/HSC-026-scale-performance-targets.md), and [HSC-032 case-list month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) in the central register.
