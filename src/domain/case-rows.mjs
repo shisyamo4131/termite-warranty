@@ -44,6 +44,10 @@ export function projectCaseRows({ cases, warranties, masters, today }) {
         expiryDate: String(warranty.expiryDate ?? ''),
         notificationStatus: String(warranty.notificationStatus ?? ''),
         status: String(warranty.status ?? ''),
+        statusReason: warranty.statusReason == null ? null : String(warranty.statusReason),
+        periodYears: Number(warranty.periodYears ?? 0),
+        startDate: String(warranty.startDate ?? ''),
+        warrantyServiceName: String(lookup('warrantyServices', warranty.warrantyServiceId).name ?? '—'),
       })),
       hasNotNotified: applied.some((warranty) => warranty.notificationStatus === 'not notified'),
       isAlertEligible: applied.some((warranty) => isAlertEligible({

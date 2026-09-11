@@ -1,4 +1,4 @@
-import { collection, getDocs, onSnapshot, type DocumentData } from 'firebase/firestore'
+import { collection, doc, getDocs, onSnapshot, query, where, type DocumentData } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
 
@@ -73,6 +73,24 @@ export function useMasterManagement(masterType: MasterType) {
       (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
       () => onError('マスターデータを読み込めませんでした。'),
     )
+  const subscribeById = (id: string, onRow: (row: ManagedMaster | null) => void, onError: (message: string) => void) => onSnapshot(
+    doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id),
+    (snapshot) => onRow(snapshot.exists() ? asMaster(snapshot.id, snapshot.data()) : null),
+    () => onError('マスターデータを読み込めませんでした。'),
+  )
+  const subscribeCompanyProperties = (companyId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) => onSnapshot(
+    query(collection($firebase.firestore, 'properties'), where('constructionCompanyId', '==', companyId)),
+    (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
+    () => onError('紐づく物件を読み込めませんでした。'),
+  )
+  const subscribePropertyReferences = (homeownerId: string, companyId: string, onRows: (rows: { homeowner: ManagedMaster | null; company: ManagedMaster | null }) => void, onError: (message: string) => void) => {
+    let homeowner: ManagedMaster | null = null; let company: ManagedMaster | null = null
+    const emit = () => onRows({ homeowner, company })
+    return [
+      onSnapshot(doc($firebase.firestore, 'homeowners', homeownerId), snapshot => { homeowner = snapshot.exists() ? asMaster(snapshot.id, snapshot.data()) : null; emit() }, () => onError('施主データを読み込めませんでした。')),
+      onSnapshot(doc($firebase.firestore, 'constructionCompanies', companyId), snapshot => { company = snapshot.exists() ? asMaster(snapshot.id, snapshot.data()) : null; emit() }, () => onError('工務店データを読み込めませんでした。')),
+    ]
+  }
 
   const createMaster = async (fields: Record<string, unknown>) => {
     const callable = httpsCallable<
@@ -102,5 +120,5 @@ export function useMasterManagement(masterType: MasterType) {
     }
   }
 
-  return { subscribe, createMaster, updateMaster, setMasterActive, loadPropertyReferences }
+  return { subscribe, subscribeById, subscribeCompanyProperties, subscribePropertyReferences, createMaster, updateMaster, setMasterActive, loadPropertyReferences }
 }

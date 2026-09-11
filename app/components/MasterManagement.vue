@@ -19,7 +19,7 @@
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
-              <td>{{ row.name }}<div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
+              <td><NuxtLink :to="`/masters/${routeSegment}/${row.id}`">{{ row.name }}</NuxtLink><div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
               <td v-if="hasAddress">{{ formatAddress(row) }}</td>
               <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
               <td>
@@ -37,7 +37,7 @@
   </v-row>
 
   <v-dialog v-model="dialogOpen" max-width="720" persistent>
-    <v-card :title="editingId ? `${title}を編集` : `${title}を登録`">
+    <v-card :title="`${title}を登録`">
       <v-card-text>
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
         <v-form @submit.prevent="save">
@@ -82,6 +82,7 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+  <MasterEditDialog v-model="editDialog" :master-type="masterType" :title="title" :row="editingRow" @saved="message = '更新しました。'; messageType = 'success'" />
 </template>
 
 <script setup lang="ts">
@@ -93,9 +94,11 @@ const rows = ref<ManagedMaster[]>([])
 const filter = ref<string | null>('')
 const saving = ref(false)
 const dialogOpen = ref(false)
+const editDialog = ref(false)
 const dialogMessage = ref('')
 const editingId = ref('')
 const editingRevision = ref(0)
+const editingRow = ref<ManagedMaster | null>(null)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
@@ -120,6 +123,7 @@ const emptyForm = () => ({
 const form = reactive(emptyForm())
 const manager = useMasterManagement(props.masterType)
 const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany')
+const routeSegment = computed(() => ({ constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }[props.masterType]))
 const usesIndexedSearch = computed(() => props.masterType !== 'warrantyService')
 const normalizedFilter = computed(() => normalizeSearchText(filter.value ?? ''))
 const searchHint = computed(() =>
@@ -195,30 +199,9 @@ const cancelDialog = () => {
   resetForm()
 }
 
-const beginEdit = async (row: ManagedMaster) => {
-  editingId.value = row.id
-  editingRevision.value = row.revision
-  Object.assign(form, {
-    ...emptyForm(),
-    name: row.name,
-    defaultPeriodYears: row.defaultPeriodYears ?? 1,
-    homeownerId: row.homeownerId ?? '',
-    constructionCompanyId: row.constructionCompanyId ?? '',
-    postalCode: row.address?.postalCode ?? '',
-    prefecture: row.address?.prefecture ?? '',
-    municipality: row.address?.municipality ?? '',
-    streetTownAndNumber: row.address?.streetTownAndNumber ?? '',
-    buildingName: row.address?.buildingName ?? '',
-    telephone: row.telephone ?? '',
-    fax: row.fax ?? '',
-    contactPerson: row.contactPerson ?? '',
-    contactDetails: row.contactDetails ?? '',
-    email: row.email ?? '',
-    notes: row.notes ?? '',
-  })
-  dialogMessage.value = ''
-  await refreshReferences(row)
-  dialogOpen.value = true
+const beginEdit = (row: ManagedMaster) => {
+  editingRow.value = row
+  editDialog.value = true
 }
 
 const refreshReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {

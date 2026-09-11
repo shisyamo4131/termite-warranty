@@ -38,6 +38,10 @@ The case-registration flow is the expected primary business starting point.
 - In these screens, a delete action means reversible inactivation. No physical-delete control is provided.
 - Registration and editing forms for the four current masters open as dialogs from their respective registration and row-edit buttons.
 - The case-registration dialog can open the required four-master creation dialogs without discarding the unsaved case input. Branch creation remains outside this increment.
+- Each of the four current master lists links to a separate detail screen at `/masters/{master-type}/{id}`.  The detail screen has a fixed link back to its master list and its edit button opens the same dialog used by the list; it does not provide a separate edit form.
+- An inactive current master remains readable from its list and detail URL.  A missing master ID shows an in-app not-found message and a link back to the corresponding list; a read failure is shown separately from not-found.
+- A construction-company detail screen lists every property whose stored construction-company ID matches the company, including inactive properties, and each row links to that property's detail screen.
+- A property detail screen shows its current homeowner and construction-company references as links when their records can be resolved.  Missing referenced records remain visibly unresolved rather than being inferred or recreated.
 
 ## Master Name Search
 

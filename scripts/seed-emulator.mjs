@@ -124,6 +124,8 @@ const warrantyServiceSeeds = warrantyPeriods.map((defaultPeriodYears, offset) =>
     active: true,
   }]
 })
+// Retained inactive property linked to an active demo company for lifecycle-screen checks.
+propertySeeds[5][1].active = false
 
 const masterSeeds = [
   ...constructionCompanySeeds,
@@ -183,6 +185,52 @@ if (!counterSnapshot.exists) {
 }
 await batch.commit()
 
+// Fixed, entirely fictional cases for local screen checks. Dates are intentionally anchored to 2026-09-11.
+const demoCases = [
+  ['demo-case-01', '000001', 'active', null, '2026-09-01', '2026-09-03', 'demo-warranty', 5, '2021-10-11', '2026-10-10', 'active', null, 'not notified'],
+  ['demo-case-02', '000002', 'active', null, '2026-08-20', '2026-08-25', 'demo-warranty', 5, '2021-10-06', '2026-10-05', 'active', null, 'notified'],
+  ['demo-case-03', '000003', 'active', null, '2024-03-01', '2024-03-15', 'demo-warranty', 5, '2029-04-01', '2034-03-31', 'active', null, 'not notified'],
+  ['demo-case-04', '000004', 'active', null, '2025-06-01', '2025-06-14', 'demo-warranty-02', 10, '2027-06-15', '2037-06-14', 'active', null, 'not required'],
+  ['demo-case-05', '000005', 'cancelled', 'デモ用の取消理由', '2025-01-10', '2025-01-20', 'demo-warranty-02', 10, '2021-01-21', '2031-01-20', 'active', null, 'not notified'],
+  ['demo-case-06', '000006', 'invalid', 'デモ用の無効理由', '2025-02-01', '2025-02-10', 'demo-warranty-03', 15, '2035-03-01', '2050-02-28', 'invalid', 'デモ用の保証無効理由', 'not notified'],
+]
+await firestore.runTransaction(async (transaction) => {
+  const counter = await transaction.get(counterRef)
+  const caseRefs = demoCases.map(([caseId]) => firestore.doc(`cases/${caseId}`))
+  const reservationRefs = demoCases.map(([, caseNumber]) => firestore.doc(`caseNumberReservations/${caseNumber}`))
+  const snapshots = await transaction.getAll(...caseRefs, ...reservationRefs)
+  for (let index = 0; index < demoCases.length; index += 1) {
+    const [caseId, caseNumber, status, statusReason, applicationDate, handoverDate, warrantyServiceId, periodYears, startDate, expiryDate, warrantyStatus, warrantyStatusReason, notificationStatus] = demoCases[index]
+    const existingCase = snapshots[index]
+    const reservation = snapshots[index + demoCases.length]
+    if (reservation.exists && reservation.data().caseId !== caseId) {
+      throw new Error(`Demo case reservation conflict for ${caseNumber}; existing data was not changed.`)
+    }
+    if (!existingCase.exists) {
+      const itemNumber = index + 1
+      transaction.create(existingCase.ref, {
+        caseNumber, sequenceValue: Number(caseNumber), applicationDate, handoverDate,
+        propertyId: seedId('demo-property', itemNumber), homeownerId: seedId('demo-homeowner', itemNumber),
+        constructionCompanyId: seedId('demo-builder', itemNumber), responsibleBranchId: 'demo-branch',
+        status, statusReason, registrationWarrantyId: `demo-applied-warranty-${pad2(itemNumber)}`,
+        registeredAt: now, updatedAt: now,
+      })
+      transaction.create(existingCase.ref.collection('appliedWarranties').doc(`demo-applied-warranty-${pad2(itemNumber)}`), {
+        warrantyServiceId, periodYears,
+        startDate, expiryDate, notificationStatus, status: warrantyStatus, statusReason: warrantyStatusReason,
+        createdAt: now, updatedAt: now,
+      })
+    }
+    if (!reservation.exists) transaction.create(reservation.ref, { caseId })
+  }
+  const current = counter.exists ? counter.data() : {}
+  const nextValue = Number(current.nextValue)
+  if (!Number.isInteger(nextValue) || nextValue < 7) {
+    transaction.set(counterRef, { nextValue: 7, lastCaseId: current.lastCaseId ?? null }, { merge: true })
+  }
+})
+
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
 console.log(`Synthetic password: ${password}`)
 console.log('Seeded demo masters: 10 construction companies, 20 homeowners, 30 properties, 5 warranty services')
+console.log('Seeded six synthetic demo cases anchored to 2026-09-11 (case numbers 000001-000006)')

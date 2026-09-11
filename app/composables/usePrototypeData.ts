@@ -58,6 +58,10 @@ export interface CaseRow {
     expiryDate: string
     notificationStatus: string
     status: string
+    statusReason: string | null
+    periodYears: number
+    startDate: string
+    warrantyServiceName: string
   }>
   hasNotNotified: boolean
   isAlertEligible: boolean
@@ -315,5 +319,19 @@ export function usePrototypeData() {
     }
   }
 
-  return { activeMasters, loadAllMasters, loadActiveMasters, registerCase, updateCase, subscribeCaseRows }
+  const subscribeCaseDetail = (
+    caseId: string,
+    onRow: (row: CaseRow | null) => void,
+    onError?: () => void,
+    onMasters?: (masters: MasterCatalog) => void,
+  ) => {
+    const cases = new Map<string, DocumentData>(); const warranties = new Map<string, DocumentData[]>(); const masters = new Map<string, Map<string, DocumentData>>(); const unsubscribes: Unsubscribe[] = []
+    const emit = () => { const projected = projectCaseRows({ cases, warranties, masters, today: currentLocalDate() }); onRow(projected[0] ?? null); onMasters?.(Object.fromEntries(masterCollections.map(name => [name, [...(masters.get(name)?.entries() ?? [])].map(([id, data]) => toMaster(id, data))])) as MasterCatalog) }
+    for (const name of masterCollections) unsubscribes.push(onSnapshot(collection($firebase.firestore, name), snapshot => { masters.set(name, new Map(snapshot.docs.map(item => [item.id, item.data()]))); emit() }, () => onError?.()))
+    let warrantyUnsubscribe: Unsubscribe | undefined
+    unsubscribes.push(onSnapshot(doc($firebase.firestore, 'cases', caseId), snapshot => { cases.clear(); warranties.clear(); warrantyUnsubscribe?.(); warrantyUnsubscribe = undefined; if (snapshot.exists()) { cases.set(snapshot.id, snapshot.data()); warrantyUnsubscribe = onSnapshot(collection(snapshot.ref, 'appliedWarranties'), warrantySnapshot => { warranties.set(caseId, warrantySnapshot.docs.map(item => ({ id: item.id, ...item.data() }))); emit() }, () => onError?.()) }; emit() }, () => onError?.()))
+    return () => { unsubscribes.forEach(unsubscribe => unsubscribe()); warrantyUnsubscribe?.() }
+  }
+
+  return { activeMasters, loadAllMasters, loadActiveMasters, registerCase, updateCase, subscribeCaseRows, subscribeCaseDetail }
 }

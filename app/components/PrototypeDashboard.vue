@@ -15,7 +15,7 @@
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="row in filteredRows" :key="row.id" :class="{ 'alert-row': row.isAlertEligible }">
-          <td>{{ row.caseNumber }}</td><td>{{ row.homeownerName }}</td><td>{{ row.propertyAddress }}</td>
+          <td><NuxtLink :to="`/cases/${row.id}`">{{ row.caseNumber }}</NuxtLink></td><td>{{ row.homeownerName }}</td><td>{{ row.propertyAddress }}</td>
           <td>{{ row.constructionCompanyName }}</td><td>{{ row.branchName }}</td>
           <td>
             <v-chip v-if="row.isAlertEligible" color="warning" size="small" class="mr-1">期限30日以内</v-chip>

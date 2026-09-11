@@ -48,6 +48,10 @@ declare module '*src/domain/case-rows.mjs' {
       expiryDate: string
       notificationStatus: string
       status: string
+      statusReason: string | null
+      periodYears: number
+      startDate: string
+      warrantyServiceName: string
     }>
     hasNotNotified: boolean
     isAlertEligible: boolean

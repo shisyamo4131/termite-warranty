@@ -24,8 +24,8 @@ test('projects one row per case using current masters and all applied warranties
     updatedAt: timestamp(20), registeredAt: timestamp(10),
   }]])
   const warranties = new Map([['case-1', [
-    { id: 'warranty-1', warrantyServiceId: 'service-1', status: 'active', notificationStatus: 'notified', expiryDate: '2026-12-31' },
-    { id: 'warranty-2', warrantyServiceId: 'service-2', status: 'active', notificationStatus: 'not notified', expiryDate: '2026-10-10' },
+    { id: 'warranty-1', warrantyServiceId: 'service-1', status: 'active', notificationStatus: 'notified', expiryDate: '2026-12-31', startDate: '2021-01-01', periodYears: 5 },
+    { id: 'warranty-2', warrantyServiceId: 'service-2', status: 'active', notificationStatus: 'not notified', expiryDate: '2026-10-10', startDate: '2021-10-11', periodYears: 5 },
   ]]])
   const masters = new Map([
     ['properties', new Map([['property-1', { active: false, name: '現在の物件名', address: {
@@ -34,6 +34,7 @@ test('projects one row per case using current masters and all applied warranties
     ['homeowners', new Map([['homeowner-1', { active: false, name: '現在の施主名' }]])],
     ['constructionCompanies', new Map([['company-1', { active: false, name: '現在の工務店名' }]])],
     ['branches', new Map([['branch-1', { active: false, name: '現在の支店名' }]])],
+    ['warrantyServices', new Map([['service-1', { name: '現行サービス1' }], ['service-2', { name: '現行サービス2' }]])],
   ])
 
   const rows = projectCaseRows({ cases, warranties, masters, today: '2026-09-10' })
@@ -47,8 +48,8 @@ test('projects one row per case using current masters and all applied warranties
     propertyName: '現在の物件名', propertyPrefecture: '東京都', propertyMunicipality: '千代田区',
     propertyAddress: '東京都千代田区千代田1-1現行棟', constructionCompanyName: '現在の工務店名',
     appliedWarranties: [
-      { id: 'warranty-1', warrantyServiceId: 'service-1', expiryDate: '2026-12-31', notificationStatus: 'notified', status: 'active' },
-      { id: 'warranty-2', warrantyServiceId: 'service-2', expiryDate: '2026-10-10', notificationStatus: 'not notified', status: 'active' },
+      { id: 'warranty-1', warrantyServiceId: 'service-1', expiryDate: '2026-12-31', notificationStatus: 'notified', status: 'active', statusReason: null, periodYears: 5, startDate: '2021-01-01', warrantyServiceName: '現行サービス1' },
+      { id: 'warranty-2', warrantyServiceId: 'service-2', expiryDate: '2026-10-10', notificationStatus: 'not notified', status: 'active', statusReason: null, periodYears: 5, startDate: '2021-10-11', warrantyServiceName: '現行サービス2' },
     ],
     branchName: '現在の支店名', hasNotNotified: true, isAlertEligible: true,
   })

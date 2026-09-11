@@ -7,7 +7,7 @@
 
 ## Scope and Safety Boundary
 
-This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted dialog-based management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration with one applied warranty, direct transactional editing of active case fields, case search/list, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
+This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted dialog-based management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration with one applied warranty, direct transactional editing of active case fields, case search/list and detail reads, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
 
 It must not be used to select or create a real Firebase project, deploy Hosting or Functions, call the postal-code API, or store real customer, property, account, or credential data.
 
@@ -62,6 +62,8 @@ Business dates use valid ISO calendar-date strings in the prototype to avoid tim
 - The same in-memory rows evaluate the confirmed 30-day alert rule and `not notified` marker. Collection-group query, pagination, batching, and final index design remain deferred pending representative-data evidence.
 - Master search data is written in this slice. The final Firestore token-query/index strategy remains open and must not be inferred from this contract.
 - The local case list filters its subscribed rows in memory. As reversible prototype assumptions, populated filters are combined with AND, an expiry-date value is an exact calendar-date match, and combined warranty-service, notification-status, and expiry-date criteria must be satisfied by the same applied warranty. These assumptions are not production requirements and remain replaceable when the open search behavior is confirmed.
+- Detail reads use the same enabled-staff read access: inactive masters and cancelled or invalid cases remain readable. A missing document is an application-level not-found result, not a request to create or infer data. The construction-company detail derives linked properties by their stored construction-company ID and includes inactive properties.
+- The case detail resolves the current warranty-service master name at display time and shows each applied warranty's stored period, dates, notification state, status, and terminal reason. It does not add a service-name snapshot to an applied-warranty document.
 
 ## Explicitly Deferred
 
