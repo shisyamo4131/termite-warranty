@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
-import { assertLocalPrototypeRuntime } from './local-runtime.js'
+import { setGlobalOptions } from 'firebase-functions/v2'
+import { assertApprovedPrototypeRuntime } from './local-runtime.js'
 import { registerCaseTransaction } from './register-case.js'
 import {
   createMasterTransaction,
@@ -11,7 +12,8 @@ import {
 import { MasterDataError } from '../src/domain/master-data.mjs'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 
-assertLocalPrototypeRuntime()
+assertApprovedPrototypeRuntime()
+setGlobalOptions({ region: 'asia-northeast1' })
 initializeApp()
 
 export const getOwnProfile = onCall(async (request) => {

@@ -32,13 +32,13 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 - Japan Post's official Postal Code and Digital Address API is adopted for postal-code address lookup.
 - Provide the prototype in a developer-owned development environment. Development and production use separate Firebase projects; production project ownership and project identifiers are not selected yet.
 - File attachment is outside the initial-release scope, so storage for attachments is not an initial-release selection criterion.
-- Exact local-prototype dependency versions are pinned in `package.json` and `package-lock.json`. This is not approval of real Firebase project identifiers, deployment configuration, production package promotion, or a complete production architecture. Browser-session persistence is required for staff sign-in. Password emails use standard Firebase Authentication delivery initially; Cloud Functions account-management transaction/retry/recovery design remains open. See [decision 0004](../decisions/0004-account-lifecycle-enforcement.md), [decision 0005](../decisions/0005-spa-and-session-persistence.md), [decision 0006](../decisions/0006-account-management-roles.md), [decision 0007](../decisions/0007-development-and-production-isolation.md), and [environments and authentication email](environments-and-authentication-email.md).
+- Exact prototype dependency versions are pinned in `package.json` and `package-lock.json`. The verified development deployment target is `termite-warranty-dev`, with Firestore, callable Functions, and Hosting configured for the development prototype; this is not approval of production identifiers, production package promotion, or a complete production architecture. Browser-session persistence is required for staff sign-in. Password emails use standard Firebase Authentication delivery initially; Cloud Functions account-management transaction/retry/recovery design remains open. See [decision 0004](../decisions/0004-account-lifecycle-enforcement.md), [decision 0005](../decisions/0005-spa-and-session-persistence.md), [decision 0006](../decisions/0006-account-management-roles.md), [decision 0007](../decisions/0007-development-and-production-isolation.md), and [environments and authentication email](environments-and-authentication-email.md).
 
 ## Confirmed Local Verification Direction
 
-- Until the development Firebase environment is provided, use Firebase Emulator Suite for local prototype verification.
-- Local emulator use does not authorize creation, selection, deployment, or use of a real Firebase project, Firebase Hosting site, or production resource.
-- The implementation must later be verified again against the provided development environment before it is offered as the development-environment prototype.
+- Continue using Firebase Emulator Suite with `demo-termite-warranty` for local regression verification. Local commands must not resolve to a real project.
+- Deploy only with an explicit `--project termite-warranty-dev` target. No default project alias is recorded, reducing accidental production deployment risk.
+- Verify the implementation against the development environment before offering its Hosting URL for user review.
 
 ## Database Reassessment
 

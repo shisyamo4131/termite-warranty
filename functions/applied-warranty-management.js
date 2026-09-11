@@ -1,4 +1,4 @@
-import { FieldValue } from 'firebase-admin/firestore'
+import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { calculateExpiryDate, calculateExtensionStartDate } from '../src/domain/warranty.mjs'
 
 export class AppliedWarrantyOperationError extends Error {
@@ -11,7 +11,19 @@ const canonicalDate = (value, message) => {
   try { calculateExpiryDate(value, 1) } catch { fail('invalid-argument', message) }
   return value
 }
-const expectedTimestamp = (value) => value && typeof value.isEqual === 'function'
+// Callable data is JSON encoded. Client SDK Timestamp methods do not survive
+// this boundary, so accept only the explicit lossless transport representation.
+const timestampBaseline = (value) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)
+    || !Number.isSafeInteger(value.seconds) || !Number.isInteger(value.nanoseconds)
+    || value.nanoseconds < 0 || value.nanoseconds > 999999999
+    || Object.keys(value).length !== 2) return null
+  return new Timestamp(value.seconds, value.nanoseconds)
+}
+const sameTimestamp = (left, right) => left instanceof Timestamp
+  && right instanceof Timestamp
+  && left.seconds === right.seconds
+  && left.nanoseconds === right.nanoseconds
 const assertStaff = async (transaction, firestore, uid) => {
   if (!nonBlank(uid)) fail('permission-denied', '利用可能なスタッフアカウントを確認できません。')
   const staff = await transaction.get(firestore.doc(`staffAccounts/${uid}`))
@@ -20,7 +32,7 @@ const assertStaff = async (transaction, firestore, uid) => {
 const assertActiveCase = (snapshot, baseline) => {
   if (!snapshot.exists) fail('not-found', '対象の案件が見つかりません。')
   const value = snapshot.data()
-  if (!expectedTimestamp(baseline) || !value.updatedAt?.isEqual?.(baseline)) {
+  if (!sameTimestamp(value.updatedAt, timestampBaseline(baseline))) {
     fail('aborted', '他のユーザーが案件を更新しました。最新データを確認してやり直してください。')
   }
   if (value.status !== 'active') fail('failed-precondition', '取消・無効の案件は編集できません。')

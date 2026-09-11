@@ -4,6 +4,7 @@
 
 ### Added
 
+- Provisioned the developer-owned `termite-warranty-dev` Firebase environment and added an explicit dual-runtime configuration for local Emulator verification and same-site Firebase Hosting deployment in Tokyo.
 - Added homeowner postal/address, optional telephone/fax/notes, and compatible master-management/detail/seed handling. Postal-code API lookup remains explicitly deferred in the local prototype until its integration information is available.
 - Added active-case applied-warranty add/edit/cancel/invalidate controls backed by an atomic callable transaction with stale-update protection and immutable service/period history.
 - Adopted the Clear Sky Vuetify theme across the local prototype UI.

@@ -7,6 +7,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       firebaseProjectId: 'demo-termite-warranty',
+      firebaseDevProjectId: 'termite-warranty-dev',
+      firebaseFunctionsRegion: 'asia-northeast1',
     },
   },
   typescript: {
@@ -34,7 +36,7 @@ export default defineNuxtConfig({
               'on-surface': '#26374A',
               'on-primary': '#FFFFFF',
               'on-secondary': '#26374A',
-              'on-warning': '#26374A',
+              'on-warning': '#203040',
               success: '#39956B',
               warning: '#D88A32',
               error: '#B84A4A',

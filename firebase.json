@@ -6,6 +6,20 @@
   "functions": {
     "source": "functions"
   },
+  "hosting": {
+    "public": ".output/public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "emulators": {
     "auth": {
       "host": "127.0.0.1",

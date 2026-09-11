@@ -1,9 +1,9 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-11
-- Specification version: 0.1.6
+- Specification version: 0.1.7
 - Status: Prototype implementation
-- Current phase: Implement the confirmed initial-release prototype and verify it locally with Firebase Emulator Suite until the development Firebase environment is provided
+- Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
 ## Requirement Records
 
@@ -51,7 +51,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 ## Environment and Boundaries
 
 - The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
-- Authentication, database, and Firebase Hosting are selected for the prototype. Until the development Firebase environment is provided, use Firebase Emulator Suite locally for prototype verification; do not use or create a real Firebase project for this purpose. The local implementation uses the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The development and production environments use separate real Firebase projects when provisioned; the development project is owned by the developer, while production ownership is under confirmation. Detailed migration method and external-service boundaries remain unconfirmed.
+- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate, unprovisioned Firebase project whose ownership, identifiers, and regions are under confirmation. Detailed migration method and external-service boundaries remain unconfirmed.
 
 ## Functional Requirements
 

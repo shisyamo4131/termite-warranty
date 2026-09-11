@@ -8,6 +8,10 @@
   --clear-sky-border: #dde7f0;
   --clear-sky-positive: #39956b;
   --clear-sky-warning: #d88a32;
+  --clear-sky-warning-soft: #fff6e9;
+  --clear-sky-primary-hover: #215b9f;
+  --clear-sky-focus: #203040;
+  --clear-sky-on-warning: #203040;
 }
 
 html {
@@ -87,7 +91,7 @@ html {
 .v-list-item:focus-visible,
 a:focus-visible,
 .v-field:focus-within {
-  outline: 3px solid rgb(85 184 209 / 55%);
+  outline: 3px solid var(--clear-sky-focus);
   outline-offset: 2px;
 }
 
@@ -101,5 +105,7 @@ a {
 }
 
 a:hover {
-  color: #215b9f;
+  color: var(--clear-sky-primary-hover);
 }
+
+.v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }

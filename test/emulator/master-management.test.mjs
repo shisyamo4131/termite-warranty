@@ -111,6 +111,31 @@ test('trusted create supports exactly four masters with revision metadata and se
   assert.equal(propertyData.address.postalCode, '1000001')
 })
 
+test('trusted homeowner create and update normalize the required address and preserve optional contacts', async () => {
+  const created = await createMasterTransaction(firestore, {
+    masterType: 'homeowner',
+    fields: homeownerFields({
+      address: { postalCode: '100-0001', prefecture: ' Tokyo ', municipality: ' Chiyoda ', streetTownAndNumber: ' 1-1 ', buildingName: ' Building ', },
+      telephone: ' 03-1111-2222 ', fax: ' 03-3333-4444 ', notes: ' note ',
+    }),
+  }, 'staff-1')
+  let data = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+  assert.deepEqual(data.address, { postalCode: '1000001', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '1-1', buildingName: 'Building' })
+  assert.equal(data.telephone, '03-1111-2222')
+  assert.equal(data.fax, '03-3333-4444')
+  assert.equal(data.notes, 'note')
+
+  await updateMasterTransaction(firestore, {
+    masterType: 'homeowner', id: created.id, expectedRevision: 1,
+    fields: homeownerFields({ address: { postalCode: '1500001', prefecture: 'Tokyo', municipality: 'Shibuya', streetTownAndNumber: '2-2', buildingName: null }, telephone: '', fax: '', notes: '' }),
+  }, 'staff-1')
+  data = (await firestore.doc(`homeowners/${created.id}`).get()).data()
+  assert.deepEqual(data.address, { postalCode: '1500001', prefecture: 'Tokyo', municipality: 'Shibuya', streetTownAndNumber: '2-2', buildingName: null })
+  assert.equal(data.telephone, null)
+  assert.equal(data.fax, null)
+  assert.equal(data.notes, null)
+})
+
 test('update and activation use optimistic revision conflicts without partial writes', async () => {
   const created = await createMasterTransaction(firestore, {
     masterType: 'homeowner', fields: homeownerFields({ name: 'Original' }),

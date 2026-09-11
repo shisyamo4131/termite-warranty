@@ -97,6 +97,7 @@ const input = (branchId) => ({
 
 const caseRef = (db) => doc(db, 'cases', 'case-1')
 const readCase = async (db) => (await getDoc(caseRef(db))).data()
+const timestampBaseline = (value) => ({ seconds: value.seconds, nanoseconds: value.nanoseconds })
 
 const assertImmutableCaseFields = (saved) => {
   assert.equal(saved?.caseNumber, '000001')
@@ -151,7 +152,7 @@ test('direct applied-warranty updates are denied to a staff client', async () =>
 test('trusted applied-warranty operations preserve immutable fields, touch the parent, and reject stale or terminal changes', async () => {
   const initialCase = (await adminDb.doc('cases/case-1').get()).data()
   const added = await addAppliedWarrantyTransaction(adminDb, {
-    caseId: 'case-1', expectedCaseUpdatedAt: initialCase?.updatedAt, warrantyServiceId: 'service-2', startDate: '2031-09-10',
+    caseId: 'case-1', expectedCaseUpdatedAt: timestampBaseline(initialCase?.updatedAt), warrantyServiceId: 'service-2', startDate: '2031-09-10',
   }, 'staff-1')
   const addedWarranty = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
   const updatedCase = (await adminDb.doc('cases/case-1').get()).data()
@@ -160,10 +161,10 @@ test('trusted applied-warranty operations preserve immutable fields, touch the p
   assert.equal(addedWarranty?.notificationStatus, 'not notified')
   assert.equal(updatedCase?.updatedAt.isEqual(baselineTime), false)
   await assert.rejects(addAppliedWarrantyTransaction(adminDb, {
-    caseId: 'case-1', expectedCaseUpdatedAt: baselineTime, warrantyServiceId: 'service-1', startDate: '2041-09-10',
+    caseId: 'case-1', expectedCaseUpdatedAt: timestampBaseline(baselineTime), warrantyServiceId: 'service-1', startDate: '2041-09-10',
   }, 'staff-1'), /他のユーザーが案件を更新/)
   await updateAppliedWarrantyTransaction(adminDb, {
-    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: updatedCase?.updatedAt,
+    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: timestampBaseline(updatedCase?.updatedAt),
     startDate: '2031-09-11', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'cancelled', statusReason: 'Synthetic cancellation',
   }, 'staff-1')
   const terminal = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
@@ -171,7 +172,7 @@ test('trusted applied-warranty operations preserve immutable fields, touch the p
   assert.equal(terminal?.periodYears, 10)
   assert.equal(terminal?.status, 'cancelled')
   await assert.rejects(updateAppliedWarrantyTransaction(adminDb, {
-    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: (await adminDb.doc('cases/case-1').get()).data()?.updatedAt,
+    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: timestampBaseline((await adminDb.doc('cases/case-1').get()).data()?.updatedAt),
     startDate: '2031-09-11', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'active', statusReason: null,
   }, 'staff-1'), /取消・無効の適用保証は編集できません/)
 })

@@ -24,7 +24,7 @@
               <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
               <td>
                 <v-btn size="small" variant="text" @click="beginEdit(row)">編集</v-btn>
-                <v-btn size="small" variant="text" :color="row.active ? 'warning' : 'success'" @click="toggle(row)">
+                <v-btn size="small" variant="text" :aria-label="row.active ? `${row.name}を無効化` : `${row.name}を再有効化`" @click="toggle(row)">
                   {{ row.active ? '無効化' : '再有効化' }}
                 </v-btn>
               </td>

@@ -5,7 +5,8 @@
 - Provide the mid-September 2026 prototype in a development environment.
 - Use separate Firebase projects for the development and production environments.
 - The development Firebase project is owned by the developer. Production Firebase-project ownership is under confirmation.
-- Do not create, select, or record Firebase project identifiers until the actual projects are provisioned and verified.
+- The provisioned and verified development Firebase project ID is `termite-warranty-dev`; its registered web app is `TermiteWarranty Dev Web`, its Hosting site is `termite-warranty-dev`, and its default Firestore location is `asia-northeast1` (Tokyo). These identifiers do not authorize or imply any production target.
+- Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. Production regions remain open.
 - Production deployment configuration, regions, monitoring, backup/recovery, and release procedure remain open.
 - Actual homeowner data may be used in the developer-owned development environment and for migration testing after a separate confidentiality agreement is concluded. Do not place that data in source control, documentation, test fixtures, or logs.
 

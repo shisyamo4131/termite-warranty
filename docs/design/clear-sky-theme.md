@@ -22,6 +22,11 @@ Use a bright, approachable visual system suitable for business administration wh
 | Positive state | `#39956B` |
 | Warning / attention | `#D88A32` |
 
+Derived accessibility tokens use `#203040` for keyboard focus outlines and
+filled-warning foreground text. This preserves the approved nine-colour base
+palette while keeping both indicators above a 3:1 contrast ratio and warning
+text above a 4.5:1 contrast ratio on the surfaces used by the prototype.
+
 ## Application Rules
 
 - Apply theme tokens to the header, navigation drawer, page background, cards, tables, dialogs, inputs, buttons, links, and selected navigation state.

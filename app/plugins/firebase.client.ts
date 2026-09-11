@@ -1,4 +1,4 @@
-import { getApp, getApps, initializeApp } from 'firebase/app'
+import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   browserSessionPersistence,
   connectAuthEmulator,
@@ -10,27 +10,45 @@ import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
-  const projectId = config.public.firebaseProjectId
+  const localProjectId = config.public.firebaseProjectId
+  const developmentProjectId = config.public.firebaseDevProjectId
+  const functionsRegion = config.public.firebaseFunctionsRegion
+  const isLocal = new Set(['127.0.0.1', 'localhost']).has(window.location.hostname)
 
-  if (typeof projectId !== 'string' || !projectId.startsWith('demo-')) {
-    throw new Error('This prototype accepts only a local Firebase demo project ID.')
+  if (typeof functionsRegion !== 'string' || functionsRegion !== 'asia-northeast1') {
+    throw new Error('The Firebase Functions region is not approved for this environment.')
+  }
+
+  let firebaseOptions: FirebaseOptions
+  if (isLocal) {
+    if (localProjectId !== 'demo-termite-warranty') {
+      throw new Error('The local prototype accepts only the demo-termite-warranty emulator project.')
+    }
+    firebaseOptions = {
+      projectId: localProjectId,
+      apiKey: 'demo-only-api-key',
+      authDomain: `${localProjectId}.firebaseapp.com`,
+    }
+  } else {
+    const response = await fetch('/__/firebase/init.json', { cache: 'no-store' })
+    if (!response.ok) throw new Error('Firebase Hosting configuration could not be loaded.')
+    firebaseOptions = await response.json() as FirebaseOptions
+    if (developmentProjectId !== 'termite-warranty-dev' || firebaseOptions.projectId !== developmentProjectId) {
+      throw new Error('This build is not running on the approved Firebase development project.')
+    }
   }
 
   const app = getApps().length
     ? getApp()
-    : initializeApp({
-        projectId,
-        apiKey: 'demo-only-api-key',
-        authDomain: `${projectId}.firebaseapp.com`,
-      })
+    : initializeApp(firebaseOptions)
   const auth = getAuth(app)
   const firestore = getFirestore(app)
-  const functions = getFunctions(app)
+  const functions = getFunctions(app, functionsRegion)
 
   const emulatorState = globalThis as typeof globalThis & {
     __termiteWarrantyEmulatorsConnected?: boolean
   }
-  if (!emulatorState.__termiteWarrantyEmulatorsConnected) {
+  if (isLocal && !emulatorState.__termiteWarrantyEmulatorsConnected) {
     connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
     connectFirestoreEmulator(firestore, '127.0.0.1', 8180)
     connectFunctionsEmulator(functions, '127.0.0.1', 5101)

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { matchesCaseUpdateBaseline, projectCaseRows } from '../src/domain/case-rows.mjs'
+import { hydrateAppliedWarrantyDraft, recalculatedAppliedWarrantyExpiry } from '../app/composables/usePrototypeData.ts'
 
 const timestamp = (value) => ({ toMillis: () => value })
 
@@ -14,6 +15,17 @@ test('stale baseline comparison uses full timestamp equality rather than millise
   assert.equal(matchesCaseUpdateBaseline(firestoreTimestamp(10, 100), baseline), true)
   assert.equal(matchesCaseUpdateBaseline(firestoreTimestamp(10, 101), baseline), false)
   assert.equal(matchesCaseUpdateBaseline(null, baseline), false)
+})
+
+test('applied-warranty dialog draft preserves manual expiry and frozen baseline while changed start recalculates', () => {
+  const baseline = { seconds: 1700000000, nanoseconds: 123 }
+  const warranty = { warrantyServiceId: 'service-1', startDate: '2026-01-01', expiryDate: '2031-02-14', notificationStatus: 'notified', status: 'active', statusReason: null, periodYears: 5 }
+  const draft = hydrateAppliedWarrantyDraft({ updatedAtBaseline: baseline, appliedWarranties: [warranty] }, warranty)
+  assert.equal(draft.baseline, baseline)
+  assert.equal(draft.expiryDate, '2031-02-14')
+  assert.equal(recalculatedAppliedWarrantyExpiry('2026-01-02', warranty.periodYears), '2031-01-01')
+  const added = hydrateAppliedWarrantyDraft({ updatedAtBaseline: baseline, appliedWarranties: [{ ...warranty, expiryDate: '2032-03-31' }] }, null)
+  assert.equal(added.startDate, '2032-04-01')
 })
 
 test('projects one row per case using current masters and all applied warranties', () => {

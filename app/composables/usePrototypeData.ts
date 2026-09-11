@@ -13,6 +13,7 @@ import {
 import { httpsCallable } from 'firebase/functions'
 import { matchesCaseUpdateBaseline, projectCaseRows } from '../../src/domain/case-rows.mjs'
 import { selectActiveMasterCatalog } from '../../src/domain/case-filters.mjs'
+import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
 
 export interface MasterOption {
   id: string
@@ -107,6 +108,34 @@ export interface AppliedWarrantyMutation {
   status?: 'active' | 'cancelled' | 'invalid'
   statusReason?: string | null
 }
+
+export interface TimestampBaseline { seconds: number; nanoseconds: number }
+export type AppliedWarrantyCallableMutation = Omit<AppliedWarrantyMutation, 'expectedCaseUpdatedAt'> & { expectedCaseUpdatedAt: TimestampBaseline | null }
+
+export const toTimestampBaseline = (value: Timestamp | null | undefined): TimestampBaseline | null => {
+  if (!value || !Number.isSafeInteger(value.seconds) || !Number.isInteger(value.nanoseconds)) return null
+  return { seconds: value.seconds, nanoseconds: value.nanoseconds }
+}
+
+export const initialAppliedWarrantyStartDate = (warranties: Array<{ expiryDate: string }>, fallback = currentLocalDate()) => {
+  const latest = warranties.map(item => item.expiryDate).filter(value => parseCanonicalLocalDate(value)).sort().at(-1)
+  return latest ? calculateExtensionStartDate(latest) : fallback
+}
+
+export const hydrateAppliedWarrantyDraft = (
+  row: Pick<CaseRow, 'updatedAtBaseline' | 'appliedWarranties'>,
+  warranty: CaseRow['appliedWarranties'][number] | null | undefined,
+) => ({
+  baseline: row.updatedAtBaseline,
+  warrantyServiceId: warranty?.warrantyServiceId ?? '',
+  startDate: warranty?.startDate ?? initialAppliedWarrantyStartDate(row.appliedWarranties),
+  expiryDate: warranty?.expiryDate ?? '',
+  notificationStatus: warranty?.notificationStatus ?? 'not notified',
+  status: warranty?.status ?? 'active',
+  statusReason: warranty?.statusReason ?? '',
+})
+
+export const recalculatedAppliedWarrantyExpiry = (startDate: string, periodYears: number) => calculateExpiryDate(startDate, periodYears)
 
 export class CaseEditConflictError extends Error {
   constructor() {
@@ -252,12 +281,12 @@ export function usePrototypeData() {
   const updateCase = async (input: CaseUpdate) => updateCaseTransaction($firebase.firestore, input)
 
   const addAppliedWarranty = async (input: AppliedWarrantyMutation) => {
-    const callable = httpsCallable<AppliedWarrantyMutation, { id: string; startDate: string }>($firebase.functions, 'addAppliedWarranty')
-    return (await callable(input)).data
+    const callable = httpsCallable<AppliedWarrantyCallableMutation, { id: string; startDate: string }>($firebase.functions, 'addAppliedWarranty')
+    return (await callable({ ...input, expectedCaseUpdatedAt: toTimestampBaseline(input.expectedCaseUpdatedAt) })).data
   }
   const updateAppliedWarranty = async (input: AppliedWarrantyMutation) => {
-    const callable = httpsCallable<AppliedWarrantyMutation, { id: string }>($firebase.functions, 'updateAppliedWarranty')
-    return (await callable(input)).data
+    const callable = httpsCallable<AppliedWarrantyCallableMutation, { id: string }>($firebase.functions, 'updateAppliedWarranty')
+    return (await callable({ ...input, expectedCaseUpdatedAt: toTimestampBaseline(input.expectedCaseUpdatedAt) })).data
   }
 
   const subscribeCaseRows = (
