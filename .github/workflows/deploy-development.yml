@@ -36,4 +36,4 @@ jobs:
         run: npm run build
 
       - name: Deploy Firestore, Functions, and Hosting
-        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
+        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive --force
