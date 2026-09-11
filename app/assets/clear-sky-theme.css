@@ -124,8 +124,7 @@ html {
   flex-wrap: nowrap;
 }
 
-.list-page-column,
-.list-data-card {
+.list-page-column {
   display: flex;
   flex-direction: column;
 }
@@ -136,7 +135,11 @@ html {
   width: 100%;
 }
 
-.list-data-card {
+.v-card.list-data-card {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
 }
 
