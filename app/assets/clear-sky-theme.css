@@ -119,14 +119,29 @@ html {
   flex: 1 1 auto;
 }
 
+.list-page-row {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
 .list-page-column,
 .list-data-card {
   display: flex;
   flex-direction: column;
 }
 
+.list-page-row > .list-page-column {
+  flex: 1 1 auto;
+  max-width: none;
+  width: 100%;
+}
+
 .list-data-card {
   overflow: hidden;
+}
+
+.list-data-card > .v-card-text {
+  flex: 0 0 auto;
 }
 
 .list-data-table.v-table--fixed-header > .v-table__wrapper > table > thead > tr > th {
