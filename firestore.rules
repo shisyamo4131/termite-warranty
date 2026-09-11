@@ -22,6 +22,20 @@ service cloud.firestore {
           || (data.status != 'active' && nonBlankString(data.statusReason)));
     }
 
+    function activeHomeowner(homeownerId) {
+      return get(/databases/$(database)/documents/homeowners/$(homeownerId)).data.active == true;
+    }
+
+    function activeConstructionCompany(companyId) {
+      return get(/databases/$(database)/documents/constructionCompanies/$(companyId)).data.active == true;
+    }
+
+    function activeUsableProperty(propertyId) {
+      return get(/databases/$(database)/documents/properties/$(propertyId)).data.active == true
+        && activeHomeowner(get(/databases/$(database)/documents/properties/$(propertyId)).data.homeownerId)
+        && activeConstructionCompany(get(/databases/$(database)/documents/properties/$(propertyId)).data.constructionCompanyId);
+    }
+
     match /staffAccounts/{uid} {
       allow read: if signedInAndEnabled() && request.auth.uid == uid;
       allow write: if false;
@@ -77,19 +91,14 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && validStatus(request.resource.data)
         && ((request.resource.data.propertyId == resource.data.propertyId
-            && request.resource.data.homeownerId == resource.data.homeownerId)
+            && (request.resource.data.homeownerId == resource.data.homeownerId
+              || activeHomeowner(request.resource.data.homeownerId))
+            && (request.resource.data.constructionCompanyId == resource.data.constructionCompanyId
+              || activeConstructionCompany(request.resource.data.constructionCompanyId)))
           || (request.resource.data.propertyId != resource.data.propertyId
-            && exists(/databases/$(database)/documents/properties/$(request.resource.data.propertyId))
-            && get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.active == true
-            && request.resource.data.homeownerId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.homeownerId
-            && request.resource.data.constructionCompanyId == get(/databases/$(database)/documents/properties/$(request.resource.data.propertyId)).data.constructionCompanyId
-            && exists(/databases/$(database)/documents/homeowners/$(request.resource.data.homeownerId))
-            && get(/databases/$(database)/documents/homeowners/$(request.resource.data.homeownerId)).data.active == true
-            && exists(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId))
-            && get(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId)).data.active == true))
-        && (request.resource.data.constructionCompanyId == resource.data.constructionCompanyId
-          || (exists(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId))
-            && get(/databases/$(database)/documents/constructionCompanies/$(request.resource.data.constructionCompanyId)).data.active == true))
+            && activeUsableProperty(request.resource.data.propertyId)
+            && activeHomeowner(request.resource.data.homeownerId)
+            && activeConstructionCompany(request.resource.data.constructionCompanyId)))
         && (request.resource.data.responsibleBranchId == resource.data.responsibleBranchId
           || (exists(/databases/$(database)/documents/branches/$(request.resource.data.responsibleBranchId))
             && get(/databases/$(database)/documents/branches/$(request.resource.data.responsibleBranchId)).data.active == true));

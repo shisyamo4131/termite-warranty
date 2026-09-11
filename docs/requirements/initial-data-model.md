@@ -17,7 +17,7 @@ This is a provisional business-record model for requirements discovery. It is no
 | Case (案件) | Fixed-width auto-assigned case number (initially `000001` sequence; preserve legacy number when available), homeowner ID, property ID, construction-company ID, responsible branch ID, case status, cancellation/invalidation reason when applicable, registration date, update date |
 | Applied warranty (案件内適用保証) | Case ID, warranty-service ID, warranty period in whole years, warranty start date, expiry date, notification status, status, cancellation/invalidation reason when applicable |
 
-The current model holds homeowner → property → case. A case directly references its homeowner, property, and construction company. The selected property's homeowner is the source of the case's homeowner ID.
+The current model holds separate property and case references. A case directly references its homeowner, property, and construction company. The selected property supplies the initial homeowner and construction-company values, but an active case may store independently selected values.
 
 Staff accounts use Firebase Authentication email-address and password sign-in with browser-session persistence. The developer-owned developer superuser account creates, edits, and disables House Solution administrator accounts only. A House Solution administrator creates, edits, and disables general-staff accounts; editable fields are email address, display name, and enabled/disabled state. The role is currently fixed to `general staff`; if more roles are added later, a House Solution administrator can select only roles other than `House Solution administrator` and `developer superuser`. Account creation sends a password-setup email; email-address verification is not initially required, and staff can reset their password. The initial developer-superuser account is manually bootstrapped in Firebase Console without custom claims by creating matching Firebase Authentication and enabled staff-account records. Disabling an account must immediately end use, including an existing session. Cloud Functions for Firebase with Firebase Admin SDK manages subsequent account lifecycle. The enabled/disabled state is used by Firestore access rules; no account is physically deleted. The transaction/retry/recovery behavior and final account-data contract remain unselected.
 
@@ -43,15 +43,14 @@ Staff can change notification status in the initial release. Do not record notif
 
 Cancelled or invalid cases do not allow any edit, including adding or editing applied warranties.
 
-Permitted edits are open decisions.
+Permitted edits not explicitly confirmed below remain open decisions.
 
 ## Case Registration Requirement
 
-- Property, construction company, responsible branch, and at least one applied warranty service are required. Selecting a property applies its homeowner and construction-company IDs to the case.
+- Property, homeowner, construction company, responsible branch, and at least one applied warranty service are required. Selecting a property initially selects its homeowner and construction-company IDs for the case.
 - Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Where available, preserve legacy case numbers during migration. The format may be revised after legacy-data inspection.
-- Selecting a property automatically applies its construction-company ID to a new case. The construction company is editable while the case is active.
-- A case's homeowner ID is not directly editable by staff. It is changed only by selecting a different property or by automatic propagation from that property's homeowner change.
-- Changing the property on an active case replaces its homeowner and construction-company IDs with those of the newly selected property. Changing a property master's construction-company ID does not alter existing cases.
+- Selecting a property automatically selects its homeowner and construction-company IDs for a new case. Staff may change either selection before registration and while the case remains active.
+- Changing the property on an active case initially selects the newly selected property's homeowner and construction-company IDs. Staff may change either value before saving. Changing a property master's construction-company ID does not alter existing cases.
 - Each applied warranty requires a warranty start date. Initialize its fixed period from the warranty-service master's default period. Its expiry date is calculated as the day before the anniversary reached by adding that period to the start date; staff may manually correct it without a reason.
 - For a coverage extension, add a new applied warranty to the existing case; do not overwrite the prior applied warranty.
 
@@ -62,7 +61,7 @@ See [branches and addresses](branches-and-addresses.md) for branch and property-
 ## Open Relationship and Schema Decisions
 
 - The working direction is that a homeowner and a construction company have no parent-child relationship.
-- A case directly references its homeowner, construction company, and property. The property's homeowner is the source of the case homeowner. Construction-company and homeowner names, plus the property name and address, are read from their masters and follow master changes; they are not stored as case snapshots.
+- A case directly references its homeowner, construction company, and property. The property supplies the initial homeowner and construction-company selections, after which the active case can retain independently selected references. Construction-company and homeowner names, plus the property name and address, are read from their masters and follow master changes; they are not stored as case snapshots.
 - Except for fields explicitly specified as required or optional, identifiers, field types, uniqueness, normalization, and validation are unconfirmed. Operation-history and audit-log records are outside the initial-release scope; registration and update timestamps remain required.
 - A master referenced by a case is not physically deleted. It can be set inactive and later restored to active; the exact permitted edit rules are unconfirmed.
 - A case-wide enrolment date is not stored. If required, derive the initial enrolment date from the oldest warranty start date among active applied warranties.

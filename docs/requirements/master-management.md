@@ -47,8 +47,8 @@ Master records that are already referenced by a case are not physically deleted.
 - Construction-company names, homeowner names, and property names/addresses in existing cases follow the respective master changes; none is stored as a case snapshot.
 - A property's homeowner reference is editable after the property is used by a case. When it changes, the homeowner ID on every affected case follows the new homeowner.
 - This automatic reference update applies to every affected case, including a cancelled or invalid case; it does not make those case records staff-editable.
-- A property holds a construction-company ID. Selecting the property while registering a case automatically applies that construction company to the case.
-- Changing a property master's construction-company ID does not alter existing cases. Changing the property selected on an active case replaces that case's construction company with the newly selected property's construction company.
+- A property holds homeowner and construction-company IDs. Selecting the property while registering a case, or changing the property on an active case, initially selects both references; staff may change either case value before saving.
+- Changing a property master's construction-company ID does not alter existing cases. The current provisional behavior for a property homeowner change still updates every linked case, including independently selected case homeowners; the long-term correction-versus-real-change behavior remains open.
 - An applied warranty displays the current name of its warranty-service master. A master-name change therefore appears on existing cases.
 - A warranty-service master's default warranty period is a positive integer number of whole years. Changing it affects only newly added applied warranties; existing applied warranties retain their fixed periods and expiry dates.
 

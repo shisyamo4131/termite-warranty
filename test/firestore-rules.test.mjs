@@ -361,17 +361,13 @@ describe('business document validation', () => {
     }))
   })
 
-  test('case homeowner and applied-warranty period are immutable', async () => {
+  test('case identifiers and applied-warranty period are immutable', async () => {
     await seedStaff('enabled-user')
     await seedRegistrationPrerequisites()
     await seedDocument('cases/case-1', validCase())
     await seedDocument('cases/case-1/appliedWarranties/warranty-1', validWarranty())
     const db = contextFor('enabled-user')
 
-    await assertFails(updateDoc(doc(db, 'cases', 'case-1'), {
-      homeownerId: 'homeowner-2',
-      updatedAt: serverTimestamp(),
-    }))
     for (const immutableChange of [
       { caseNumber: '000002' },
       { sequenceValue: 2 },
@@ -442,6 +438,10 @@ describe('business document validation', () => {
       constructionCompanyId: 'company-2', updatedAt: serverTimestamp(),
     }))
     assert.equal((await getDoc(caseRef)).data()?.constructionCompanyId, 'company-2')
+    await assertSucceeds(updateDoc(caseRef, {
+      homeownerId: 'homeowner-2', updatedAt: serverTimestamp(),
+    }))
+    assert.equal((await getDoc(caseRef)).data()?.homeownerId, 'homeowner-2')
     await assertFails(updateDoc(caseRef, {
       responsibleBranchId: 'branch-inactive', updatedAt: serverTimestamp(),
     }))
@@ -451,15 +451,24 @@ describe('business document validation', () => {
     }))
     assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-2')
 
+    await assertSucceeds(updateDoc(caseRef, {
+      propertyId: 'property-1', homeownerId: 'homeowner-2', constructionCompanyId: 'company-1',
+      updatedAt: serverTimestamp(),
+    }))
+    assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-1')
+
     for (const invalid of [
       { propertyId: 'missing', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
       { propertyId: 'property-inactive', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
-      { propertyId: 'property-inactive-homeowner', homeownerId: 'homeowner-inactive', constructionCompanyId: 'company-2' },
-      { propertyId: 'property-inactive-company', homeownerId: 'homeowner-2', constructionCompanyId: 'company-inactive' },
-      { propertyId: 'property-1', homeownerId: 'homeowner-2', constructionCompanyId: 'company-1' },
+      { propertyId: 'property-inactive-homeowner', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
+      { propertyId: 'property-inactive-company', homeownerId: 'homeowner-2', constructionCompanyId: 'company-2' },
+      { homeownerId: 'homeowner-missing' },
+      { homeownerId: 'homeowner-inactive' },
+      { constructionCompanyId: 'company-missing' },
+      { constructionCompanyId: 'company-inactive' },
     ]) {
       await assertFails(updateDoc(caseRef, { ...invalid, updatedAt: serverTimestamp() }))
-      assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-2')
+      assert.equal((await getDoc(caseRef)).data()?.propertyId, 'property-1')
     }
   })
 
@@ -494,6 +503,7 @@ describe('business document validation', () => {
     await testEnvironment.withSecurityRulesDisabled(async (context) => {
       const db = context.firestore()
       await updateDoc(doc(db, 'properties', 'property-1'), { active: false })
+      await updateDoc(doc(db, 'homeowners', 'homeowner-1'), { active: false })
       await updateDoc(doc(db, 'constructionCompanies', 'company-1'), { active: false })
       await updateDoc(doc(db, 'branches', 'branch-1'), { active: false })
     })

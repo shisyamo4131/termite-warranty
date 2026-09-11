@@ -6,9 +6,18 @@ const requiredString = (value, message) => {
   return value
 }
 
+const requiredBoolean = (value, message) => {
+  if (typeof value !== 'boolean') throw new Error(message)
+  return value
+}
+
 export async function registerCaseTransaction(firestore, input, actorUid) {
   requiredString(actorUid, '利用可能なスタッフアカウントを確認できません。')
   const propertyId = requiredString(input?.propertyId, '有効な物件を選択してください。')
+  const homeownerId = requiredString(input?.homeownerId, '有効な施主を選択してください。')
+  const constructionCompanyId = requiredString(input?.constructionCompanyId, '有効な工務店を選択してください。')
+  const homeownerOverridden = requiredBoolean(input?.homeownerOverridden, '施主の選択状態が不正です。')
+  const constructionCompanyOverridden = requiredBoolean(input?.constructionCompanyOverridden, '工務店の選択状態が不正です。')
   const branchId = requiredString(input?.branchId, '有効な担当支店を選択してください。')
   const warrantyServiceId = requiredString(input?.warrantyServiceId, '有効な保証サービスを選択してください。')
   const startDate = requiredString(input?.startDate, '保証開始日を入力してください。')
@@ -42,11 +51,25 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
     if (!serviceSnapshot.exists || service?.active !== true) throw new Error('有効な保証サービスを選択してください。')
     if (!Number.isInteger(periodYears) || periodYears < 1) throw new Error('保証期間が不正です。')
 
-    const companyRef = firestore.doc(`constructionCompanies/${property.constructionCompanyId}`)
-    const homeownerRef = firestore.doc(`homeowners/${property.homeownerId}`)
-    const [companySnapshot, homeownerSnapshot] = await transaction.getAll(companyRef, homeownerRef)
-    if (!companySnapshot.exists || companySnapshot.data()?.active !== true) throw new Error('物件の工務店が無効です。')
-    if (!homeownerSnapshot.exists || homeownerSnapshot.data()?.active !== true) throw new Error('物件の施主が無効です。')
+    const defaultCompanyRef = firestore.doc(`constructionCompanies/${property.constructionCompanyId}`)
+    const defaultHomeownerRef = firestore.doc(`homeowners/${property.homeownerId}`)
+    const effectiveCompanyId = constructionCompanyOverridden ? constructionCompanyId : property.constructionCompanyId
+    const effectiveHomeownerId = homeownerOverridden ? homeownerId : property.homeownerId
+    const selectedCompanyRef = firestore.doc(`constructionCompanies/${effectiveCompanyId}`)
+    const selectedHomeownerRef = firestore.doc(`homeowners/${effectiveHomeownerId}`)
+    const refsByPath = new Map([
+      defaultCompanyRef, defaultHomeownerRef, selectedCompanyRef, selectedHomeownerRef,
+    ].map((reference) => [reference.path, reference]))
+    const referenceSnapshots = await transaction.getAll(...refsByPath.values())
+    const snapshotsByPath = new Map(referenceSnapshots.map((snapshot) => [snapshot.ref.path, snapshot]))
+    const defaultCompany = snapshotsByPath.get(defaultCompanyRef.path)
+    const defaultHomeowner = snapshotsByPath.get(defaultHomeownerRef.path)
+    const selectedCompany = snapshotsByPath.get(selectedCompanyRef.path)
+    const selectedHomeowner = snapshotsByPath.get(selectedHomeownerRef.path)
+    if (!defaultCompany?.exists || defaultCompany.data()?.active !== true) throw new Error('物件の工務店が無効です。')
+    if (!defaultHomeowner?.exists || defaultHomeowner.data()?.active !== true) throw new Error('物件の施主が無効です。')
+    if (!selectedCompany?.exists || selectedCompany.data()?.active !== true) throw new Error('有効な工務店を選択してください。')
+    if (!selectedHomeowner?.exists || selectedHomeowner.data()?.active !== true) throw new Error('有効な施主を選択してください。')
 
     const caseNumber = String(nextValue).padStart(6, '0')
     const reservationRef = firestore.doc(`caseNumberReservations/${caseNumber}`)
@@ -59,9 +82,9 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
     transaction.create(caseRef, {
       caseNumber,
       sequenceValue: nextValue,
-      homeownerId: property.homeownerId,
+      homeownerId: effectiveHomeownerId,
       propertyId,
-      constructionCompanyId: property.constructionCompanyId,
+      constructionCompanyId: effectiveCompanyId,
       responsibleBranchId: branchId,
       status: 'active',
       statusReason: null,

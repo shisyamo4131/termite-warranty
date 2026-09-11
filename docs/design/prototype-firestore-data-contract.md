@@ -32,8 +32,8 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 
 ## Required Prototype Invariants
 
-- The callable registration path verifies the enabled staff account and the selected property's active homeowner, then uses one Admin SDK Firestore transaction to reserve and increment the case number, create its reservation, create the case, and create the first applied warranty referenced by `registrationWarrantyId`.
-- New cases copy homeowner and construction-company IDs from the selected active property. The construction company may then be changed while the case remains active; the homeowner ID is not directly editable.
+- The callable registration path verifies the enabled staff account, the selected active property and its active default homeowner/construction company, and any independently submitted active homeowner/construction-company overrides. Per-field override-intent booleans distinguish explicit staff choices from property-derived form values: an unoverridden field uses the property's value read inside the registration transaction, while an overridden field uses the validated submitted value. The transaction then reserves and increments the case number, creates its reservation, creates the case with the effective references, and creates the first applied warranty referenced by `registrationWarrantyId`. Override-intent booleans are request metadata and are not stored on the case.
+- Selecting a property initially selects its homeowner and construction-company IDs. Both selections remain editable before registration and while the case is active.
 - New applied warranties copy the selected active service's positive whole-year default period, start as `active` and `not notified`, and calculate expiry using the confirmed domain rule.
 - Case and applied-warranty records are never physically deleted. Terminal states require a nonblank reason and cannot return to active.
 - Each applied-warranty mutation and its parent case `updatedAt` change must be atomic.
@@ -52,7 +52,7 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 - Direct client writes to construction-company, homeowner, warranty-service, and property masters are denied. Local-only trusted master callables validate fields, derive N-Gram maps where applicable, enforce optimistic revisions, and perform lifecycle changes.
 - Direct client creation of cases and applied warranties, and all client writes to case-number counters and reservations, are denied. Only the local trusted callable registration path may perform the initial atomic registration.
 - The UI registers cases through a callable function so concurrent counter contention uses the Admin SDK transaction retry path; the function independently verifies an enabled staff account and active referenced masters.
-- Enabled staff edit only active case-level fields through a client Firestore transaction. The transaction rejects a stale `updatedAt` baseline, derives the homeowner and construction company from a changed active property, validates active changed references, and writes a server timestamp. It does not edit immutable identifiers or applied warranties.
+- Enabled staff edit only active case-level fields through a client Firestore transaction. The transaction rejects a stale `updatedAt` baseline and a changed homeowner baseline, verifies a property selected after the dialog opened and its default references, and validates independently changed homeowner/construction-company references. After any such property selection, including selecting another property and returning to the original one, an unoverridden field uses the property's value read inside the transaction and an explicitly overridden field uses its validated submitted value. A request-only selection-intent boolean preserves that distinction when the final property ID equals the original ID. The transaction writes the effective references with a server timestamp and does not edit immutable identifiers or applied warranties.
 - Physical deletes of cases, applied warranties, masters, counters, and reservations are denied.
 - Account-management role enforcement remains a Cloud Functions responsibility and is not implemented by general business-data rules.
 
@@ -76,6 +76,7 @@ Business dates use ISO calendar-date strings in the prototype to avoid timezone 
 - Direct staff-account mutation and all physical deletes are denied.
 - Four-master create, read, update, inactivate, and reactivate behavior preserves IDs, validates references, regenerates search tokens, and rejects stale revisions unchanged.
 - Property-homeowner changes atomically propagate to all locally supported referencing cases regardless of case status, while property construction-company changes do not propagate.
+- Registration and active-case property changes initially select the property's homeowner and construction company, while active independently selected overrides persist exactly when saved.
 - Concurrent registration produces distinct reservations and complete case/warranty records.
 - Alert boundaries, one-row dashboard behavior, current-master joins, N-Gram normalization, and case ordering match the confirmed requirements.
 - Emulator evidence does not replace later verification in the provided development Firebase environment.

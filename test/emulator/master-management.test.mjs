@@ -310,7 +310,7 @@ test('property homeowner fanout at exactly 400 succeeds atomically', async () =>
   assert.equal((await firestore.doc(`cases/case-${PROPERTY_CASE_FANOUT_LIMIT - 1}`).get()).data().homeownerId, 'homeowner-2')
 })
 
-test('concurrent registration and property homeowner propagation cannot leave the old homeowner', async () => {
+test('concurrent unoverridden registration and property homeowner propagation store the current homeowner', async () => {
   const property = await createMasterTransaction(firestore, { masterType: 'property', fields: propertyFields() }, 'staff-1')
   const batch = firestore.batch()
   batch.set(firestore.doc('branches/branch-1'), { name: 'Branch', active: true })
@@ -321,6 +321,10 @@ test('concurrent registration and property homeowner propagation cannot leave th
   const [registration] = await Promise.all([
     registerCaseTransaction(firestore, {
       propertyId: property.id,
+      homeownerId: 'homeowner-1',
+      constructionCompanyId: 'company-1',
+      homeownerOverridden: false,
+      constructionCompanyOverridden: false,
       branchId: 'branch-1',
       warrantyServiceId: 'service-1',
       startDate: '2026-09-10',

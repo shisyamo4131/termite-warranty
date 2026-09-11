@@ -21,9 +21,9 @@ This direction is confirmed as a desired future workflow, but construction-compa
 - Staff can search and list registered information.
 - The system alerts for warranty services nearing expiry.
 
-The initial registration screen's fields and validation rules remain open.
+The initial registration screen's remaining fields and validation rules remain open.
 
-Selecting a property automatically applies its registered homeowner and construction company to the case. Staff can change the construction company while the case remains active. Changing the selected property on an active case replaces the homeowner and construction company with those registered on the newly selected property.
+Selecting a property automatically selects its registered homeowner and construction company for the case. Staff can change either selection before registration and while the case remains active. Changing the selected property on an active case reselects the homeowner and construction company registered on that property; staff can then change either value before saving.
 
 ## Alerting — Confirmed Need
 

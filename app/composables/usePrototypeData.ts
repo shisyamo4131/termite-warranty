@@ -22,6 +22,10 @@ export interface MasterOption {
 
 export interface CaseRegistration {
   propertyId: string
+  homeownerId: string
+  constructionCompanyId: string
+  homeownerOverridden: boolean
+  constructionCompanyOverridden: boolean
   branchId: string
   warrantyServiceId: string
   startDate: string
@@ -58,8 +62,13 @@ export interface CaseRow {
 export interface CaseUpdate {
   id: string
   baselineUpdatedAt: Timestamp
+  baselineHomeownerId: string
   propertyId: string
+  homeownerId: string
   constructionCompanyId: string
+  homeownerOverridden: boolean
+  constructionCompanyOverridden: boolean
+  propertyDefaultsApplied: boolean
   responsibleBranchId: string
   status: 'active' | 'cancelled' | 'invalid'
   statusReason: string | null
@@ -94,16 +103,52 @@ export async function updateCaseTransaction(firestore: Firestore, input: CaseUpd
     if (!matchesCaseUpdateBaseline(current.updatedAt, input.baselineUpdatedAt)) {
       throw new CaseEditConflictError()
     }
+    if (String(current.homeownerId ?? '') !== input.baselineHomeownerId) {
+      throw new CaseEditConflictError()
+    }
     if (current.status !== 'active') throw new CaseEditConflictError()
+    if (typeof input.homeownerOverridden !== 'boolean'
+      || typeof input.constructionCompanyOverridden !== 'boolean'
+      || typeof input.propertyDefaultsApplied !== 'boolean') {
+      throw new Error('案件の選択状態が不正です。')
+    }
 
-    let homeownerId = String(current.homeownerId ?? '')
+    const propertyChanged = input.propertyId !== current.propertyId
+    const resolvePropertyDefaults = propertyChanged || input.propertyDefaultsApplied
+    const homeownerChanged = input.homeownerId !== current.homeownerId
+    const companyChanged = input.constructionCompanyId !== current.constructionCompanyId
+    if (((resolvePropertyDefaults && input.homeownerOverridden) || (!resolvePropertyDefaults && homeownerChanged)) && !input.homeownerId) {
+      throw new Error('有効な施主を選択してください。')
+    }
+    if (((resolvePropertyDefaults && input.constructionCompanyOverridden) || (!resolvePropertyDefaults && companyChanged)) && !input.constructionCompanyId) {
+      throw new Error('有効な工務店を選択してください。')
+    }
+
+    let homeownerId = input.homeownerId
     let constructionCompanyId = input.constructionCompanyId
-    if (input.propertyId !== current.propertyId) {
+    if (resolvePropertyDefaults) {
       const propertySnapshot = await transaction.get(doc(firestore, 'properties', input.propertyId))
       const property = propertySnapshot.data()
       if (!propertySnapshot.exists() || property?.active !== true) throw new Error('有効な物件を選択してください。')
-      homeownerId = String(property.homeownerId ?? '')
-      constructionCompanyId = String(property.constructionCompanyId ?? '')
+      const defaultHomeownerId = String(property.homeownerId ?? '')
+      const defaultCompanyId = String(property.constructionCompanyId ?? '')
+      if (!defaultHomeownerId || !defaultCompanyId) throw new Error('物件の参照情報が不足しています。')
+      const [defaultHomeowner, defaultCompany] = await Promise.all([
+        transaction.get(doc(firestore, 'homeowners', defaultHomeownerId)),
+        transaction.get(doc(firestore, 'constructionCompanies', defaultCompanyId)),
+      ])
+      if (!defaultHomeowner.exists() || defaultHomeowner.data()?.active !== true) throw new Error('物件の施主が無効です。')
+      if (!defaultCompany.exists() || defaultCompany.data()?.active !== true) throw new Error('物件の工務店が無効です。')
+      if (!input.homeownerOverridden) homeownerId = defaultHomeownerId
+      if (!input.constructionCompanyOverridden) constructionCompanyId = defaultCompanyId
+    }
+    if ((resolvePropertyDefaults && input.homeownerOverridden) || (!resolvePropertyDefaults && homeownerChanged)) {
+      const homeowner = await transaction.get(doc(firestore, 'homeowners', homeownerId))
+      if (!homeowner.exists() || homeowner.data()?.active !== true) throw new Error('有効な施主を選択してください。')
+    }
+    if ((resolvePropertyDefaults && input.constructionCompanyOverridden) || (!resolvePropertyDefaults && companyChanged)) {
+      const company = await transaction.get(doc(firestore, 'constructionCompanies', constructionCompanyId))
+      if (!company.exists() || company.data()?.active !== true) throw new Error('有効な工務店を選択してください。')
     }
     const statusReason = input.status === 'active' ? null : input.statusReason?.trim() || null
     if (input.status !== 'active' && !statusReason) throw new Error('取消・無効には理由が必要です。')

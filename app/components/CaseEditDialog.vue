@@ -5,8 +5,8 @@
         <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
         <v-text-field :model-value="row?.caseNumber" label="案件番号" disabled />
         <v-select v-model="form.propertyId" :items="propertyOptions" item-title="name" item-value="id" label="物件" required @update:model-value="applyProperty" />
-        <v-text-field :model-value="homeownerName" label="施主（物件から反映）" disabled />
-        <v-select v-model="form.constructionCompanyId" :items="companyOptions" item-title="name" item-value="id" label="工務店" :disabled="propertyChanged" required />
+        <v-select v-model="form.homeownerId" :items="homeownerOptions" item-title="name" item-value="id" label="施主" required @update:model-value="form.homeownerOverridden = true" />
+        <v-select v-model="form.constructionCompanyId" :items="companyOptions" item-title="name" item-value="id" label="工務店" required @update:model-value="form.constructionCompanyOverridden = true" />
         <v-select v-model="form.responsibleBranchId" :items="branchOptions" item-title="name" item-value="id" label="担当支店" required />
         <v-select v-model="form.status" :items="statuses" item-title="title" item-value="value" label="状態" required />
         <v-textarea v-if="form.status !== 'active'" v-model="form.statusReason" label="取消・無効理由" required />
@@ -34,8 +34,10 @@ const { updateCase } = usePrototypeData()
 const saving = ref(false)
 const message = ref('')
 const baselineUpdatedAt = ref<CaseRow['updatedAtBaseline']>(null)
+const baselineHomeownerId = ref('')
 const form = reactive({
-  propertyId: '', constructionCompanyId: '', responsibleBranchId: '',
+  propertyId: '', homeownerId: '', constructionCompanyId: '', responsibleBranchId: '',
+  homeownerOverridden: false, constructionCompanyOverridden: false, propertyDefaultsApplied: false,
   status: 'active' as 'active' | 'cancelled' | 'invalid', statusReason: '',
 })
 const statuses = [
@@ -56,30 +58,35 @@ const companyOptions = computed(() => withCurrent(
   props.allMasters.constructionCompanies,
   props.row?.constructionCompanyId,
 ))
+const homeownerOptions = computed(() => withCurrent(
+  props.selectableMasters.homeowners,
+  props.allMasters.homeowners,
+  props.row?.homeownerId,
+))
 const branchOptions = computed(() => withCurrent(
   props.selectableMasters.branches, props.allMasters.branches, props.row?.responsibleBranchId,
 ))
-const propertyChanged = computed(() => Boolean(props.row && form.propertyId !== props.row.propertyId))
 const selectedProperty = computed(() => props.allMasters.properties.find(({ id }) => id === form.propertyId))
-const homeownerName = computed(() => {
-  const homeownerId = propertyChanged.value
-    ? String(selectedProperty.value?.homeownerId ?? '')
-    : props.row?.homeownerId
-  return props.allMasters.homeowners.find(({ id }) => id === homeownerId)?.name ?? '—'
-})
 
 const applyProperty = () => {
   if (!props.row) return
-  form.constructionCompanyId = propertyChanged.value
-    ? String(selectedProperty.value?.constructionCompanyId ?? '')
-    : props.row.constructionCompanyId
+  form.homeownerId = String(selectedProperty.value?.homeownerId ?? '')
+  form.constructionCompanyId = String(selectedProperty.value?.constructionCompanyId ?? '')
+  form.homeownerOverridden = false
+  form.constructionCompanyOverridden = false
+  form.propertyDefaultsApplied = true
 }
 const initialize = () => {
   if (!props.row) return
   baselineUpdatedAt.value = props.row.updatedAtBaseline
+  baselineHomeownerId.value = props.row.homeownerId
   Object.assign(form, {
     propertyId: props.row.propertyId,
+    homeownerId: props.row.homeownerId,
     constructionCompanyId: props.row.constructionCompanyId,
+    homeownerOverridden: false,
+    constructionCompanyOverridden: false,
+    propertyDefaultsApplied: false,
     responsibleBranchId: props.row.responsibleBranchId,
     status: props.row.status as 'active' | 'cancelled' | 'invalid',
     statusReason: props.row.statusReason ?? '',
@@ -102,8 +109,13 @@ const save = async () => {
     await updateCase({
       id: props.row.id,
       baselineUpdatedAt: baselineUpdatedAt.value,
+      baselineHomeownerId: baselineHomeownerId.value,
       propertyId: form.propertyId,
+      homeownerId: form.homeownerId,
       constructionCompanyId: form.constructionCompanyId,
+      homeownerOverridden: form.homeownerOverridden,
+      constructionCompanyOverridden: form.constructionCompanyOverridden,
+      propertyDefaultsApplied: form.propertyDefaultsApplied,
       responsibleBranchId: form.responsibleBranchId,
       status: form.status,
       statusReason: form.statusReason,

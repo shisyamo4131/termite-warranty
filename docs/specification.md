@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-11
-- Specification version: 0.1.3
+- Specification version: 0.1.4
 - Status: Prototype implementation
 - Current phase: Implement the confirmed initial-release prototype and verify it locally with Firebase Emulator Suite until the development Firebase environment is provided
 
@@ -85,14 +85,13 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - A cancelled or invalid case cannot be restored to active.
 - An applied warranty can independently be set to `cancelled` or `invalid`, without physically deleting it. This requires a free-text reason, cannot be restored to active, and makes that applied warranty ineligible for alerts.
 - A case remains active even when it has no active applied warranties.
-- Case registration requires a property, construction company, responsible branch, and at least one applied warranty service. Each applied warranty requires a warranty start date and has an automatically calculated expiry date that staff may manually correct.
+- Case registration requires a property, homeowner, construction company, responsible branch, and at least one applied warranty service. Each applied warranty requires a warranty start date and has an automatically calculated expiry date that staff may manually correct.
 - Each case carries its responsible House Solution branch. Construction companies, homeowners, and properties do not carry a responsible-branch reference.
-- A case holds homeowner, construction-company, and property IDs. Selecting a property applies its homeowner and construction-company IDs to the case. Construction-company and homeowner names, and the property name and address, are displayed from their masters and follow subsequent master changes; they are not stored as case snapshots.
-- Staff cannot directly change a case's homeowner ID. Change its property instead; the selected property's homeowner is then applied.
+- A case holds homeowner, construction-company, and property IDs. Selecting a property during registration, or changing it while the case is active, initially applies that property's current homeowner and construction-company IDs. Staff can then change either case reference before saving. Construction-company and homeowner names, and the property name and address, are displayed from their masters and follow subsequent master changes; they are not stored as case snapshots.
 - A property's homeowner reference is editable after the property has been used by a case. When it changes, update the homeowner ID on every case using that property to the new homeowner.
 - This homeowner-ID propagation is an automatic master-reference update, not an editable case operation; it also applies to cancelled and invalid cases.
-- A property holds a construction-company ID. At case registration, selecting a property automatically applies that property's construction company to the case; the construction company remains editable while the case is active.
-- When an active case's property is changed, replace its homeowner and construction-company IDs with those of the newly selected property. A later change to a property master's construction-company ID does not alter existing cases.
+- A property holds a construction-company ID. At case registration and when an active case's property is changed, the property supplies the initially selected construction company; the case construction company remains editable before saving and while the case is active.
+- When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
 - A property name, postal code, prefecture, municipality, and street/town and number are required property fields. Building name is optional.
 - Property addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen, normalizes and looks up on field focus loss, and auto-fills address information.
 - Postal-code address lookup uses Japan Post's official Postal Code and Digital Address API. For multiple town-area matches, auto-fill prefecture and municipality only, and let staff select or enter street/town and number. Where the API has no match or the postal code is business/other special, allow staff to enter the address manually. When API lookup fails, show an address-lookup failure message, retain existing input, and allow manual entry and saving. Staff may correct auto-filled prefecture and municipality. API agreement/credentials, availability, and cost remain open.
@@ -119,7 +118,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - Alert and dashboard requirements are in [alerts and dashboard](requirements/alerts-and-dashboard.md).
 - Case-warranty requirements are in [case warranties](requirements/case-warranties.md).
 - Branch and address requirements are in [branches and addresses](requirements/branches-and-addresses.md).
-- Homeowners and construction companies do not have a parent-child relationship. A case directly references its homeowner, construction company, and property. The property's homeowner is the source of the case homeowner and is followed when it changes.
+- Homeowners and construction companies do not have a parent-child relationship. A case directly references its homeowner, construction company, and property. The property supplies both initial selections, after which the active case may store independently selected references. Under the current provisional propagation rule, a later property-homeowner change still replaces the homeowner on every linked case.
 - House Solution retains the FileMaker data. After data inspection, report migrated counts, unsupported or omitted items, and their reasons; House Solution confirms this migration report before cutover. The feasible migration scope, data quality, recovery, and detailed migration method remain open decisions.
 
 ## Error Handling
@@ -145,7 +144,7 @@ Customer names and addresses are in scope. Actual homeowner data may be used in 
 - The end of October 2026 is the mandatory production operating deadline, including data migration. See the [delivery roadmap](roadmaps/2026-initial-delivery.md).
 - The cutover strategy initially uses a temporary parallel operation of FileMaker and the new system as a safety measure. The final migration may occur in the evening or at night after normal operations stop; the exact parallel-operation duration, final migration window, and cutover procedure remain open.
 - Construction-company submission authentication is not decided. See [external submission options](requirements/external-submission-options.md); no option is selected.
-- The working direction for the homeowner/construction-company relationship remains subject to confirmation against actual legacy data and operations.
+- Whether property homeowner/construction-company changes should preserve case-time relationships or propagate as corrections remains subject to confirmation against actual legacy data, billing responsibilities, and operations. The current homeowner-only propagation behavior is provisional.
 - Cloud Functions enforces account-management boundaries: the developer superuser manages House Solution administrators, and House Solution administrators manage general-staff accounts. The current provisional posture remains that all enabled authenticated users have the same business-data CRUD access. See [decision 0006](decisions/0006-account-management-roles.md).
 - Notification status belongs to each applied warranty. A notification-status filter returns a case when at least one of its applied warranties matches the selected status.
 - See [open decisions](requirements/open-decisions.md) for the decision list.

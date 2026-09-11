@@ -10,6 +10,7 @@ import {
   doc,
   getDoc,
   serverTimestamp,
+  updateDoc,
   writeBatch,
 } from 'firebase/firestore'
 import {
@@ -79,8 +80,10 @@ beforeEach(async () => {
 after(async () => testEnvironment?.cleanup())
 
 const input = (branchId) => ({
-  id: 'case-1', baselineUpdatedAt: baselineTime, propertyId: 'property-1',
+  id: 'case-1', baselineUpdatedAt: baselineTime, baselineHomeownerId: 'homeowner-1', propertyId: 'property-1',
+  homeownerId: 'homeowner-1',
   constructionCompanyId: 'company-1', responsibleBranchId: branchId,
+  homeownerOverridden: false, constructionCompanyOverridden: false, propertyDefaultsApplied: false,
   status: 'active', statusReason: null,
 })
 
@@ -113,6 +116,15 @@ test('two editors with the same baseline allow one winner and reject the stale w
   assert.equal(saved?.statusReason, null)
 })
 
+test('missing property-default intent rejects the edit unchanged', async () => {
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  const before = await readCase(db)
+  const { propertyDefaultsApplied, ...missingFlagInput } = input('branch-2')
+  assert.equal(propertyDefaultsApplied, false)
+  await assert.rejects(updateCaseTransaction(db, missingFlagInput), /選択状態が不正/)
+  assert.deepEqual(await readCase(db), before)
+})
+
 test('an applied-warranty update advances the parent timestamp and makes an open edit stale', async () => {
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
   const batch = writeBatch(db)
@@ -128,12 +140,16 @@ test('an applied-warranty update advances the parent timestamp and makes an open
   assert.equal((await getDoc(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'))).data()?.notificationStatus, 'notified')
 })
 
-test('changing property derives its current homeowner and company while preserving immutable fields', async () => {
+test('changing property persists the auto-selected current homeowner and company while preserving immutable fields', async () => {
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
   await updateCaseTransaction(db, {
     ...input('branch-2'),
     propertyId: 'property-2',
+    homeownerId: 'homeowner-1',
     constructionCompanyId: 'company-1',
+    homeownerOverridden: false,
+    constructionCompanyOverridden: false,
+    propertyDefaultsApplied: true,
   })
   const saved = await readCase(db)
   assert.equal(saved?.propertyId, 'property-2')
@@ -145,14 +161,99 @@ test('changing property derives its current homeowner and company while preservi
   assertImmutableCaseFields(saved)
 })
 
+test('changing property permits independently selected active homeowner and company overrides', async () => {
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, {
+    ...input('branch-2'),
+    propertyId: 'property-2',
+    homeownerId: 'homeowner-1',
+    constructionCompanyId: 'company-1',
+    homeownerOverridden: true,
+    constructionCompanyOverridden: true,
+    propertyDefaultsApplied: true,
+  })
+  const saved = await readCase(db)
+  assert.equal(saved?.propertyId, 'property-2')
+  assert.equal(saved?.homeownerId, 'homeowner-1')
+  assert.equal(saved?.constructionCompanyId, 'company-1')
+  assertImmutableCaseFields(saved)
+})
+
+test('reselecting the final original property resolves its current defaults instead of stale submitted values', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore()
+    await updateDoc(doc(db, 'properties', 'property-1'), {
+      homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+    })
+  })
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, {
+    ...input('branch-2'),
+    propertyDefaultsApplied: true,
+  })
+  const saved = await readCase(db)
+  assert.equal(saved?.propertyId, 'property-1')
+  assert.equal(saved?.homeownerId, 'homeowner-2')
+  assert.equal(saved?.constructionCompanyId, 'company-2')
+  assert.equal(saved?.responsibleBranchId, 'branch-2')
+})
+
+test('reselecting the final original property keeps an explicit override and refreshes the other default', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore()
+    await updateDoc(doc(db, 'properties', 'property-1'), {
+      homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+    })
+  })
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, {
+    ...input('branch-2'),
+    homeownerOverridden: true,
+    propertyDefaultsApplied: true,
+  })
+  const saved = await readCase(db)
+  assert.equal(saved?.propertyId, 'property-1')
+  assert.equal(saved?.homeownerId, 'homeowner-1')
+  assert.equal(saved?.constructionCompanyId, 'company-2')
+  assert.equal(saved?.responsibleBranchId, 'branch-2')
+})
+
+test('editing only the homeowner persists the selected active homeowner', async () => {
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, { ...input('branch-1'), homeownerId: 'homeowner-2', homeownerOverridden: true })
+  const saved = await readCase(db)
+  assert.equal(saved?.propertyId, 'property-1')
+  assert.equal(saved?.homeownerId, 'homeowner-2')
+  assert.equal(saved?.constructionCompanyId, 'company-1')
+  assertImmutableCaseFields(saved)
+})
+
 test('editing only the company persists the selected active company', async () => {
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
-  await updateCaseTransaction(db, { ...input('branch-1'), constructionCompanyId: 'company-2' })
+  await updateCaseTransaction(db, {
+    ...input('branch-1'), constructionCompanyId: 'company-2', constructionCompanyOverridden: true,
+  })
   const saved = await readCase(db)
   assert.equal(saved?.propertyId, 'property-1')
   assert.equal(saved?.homeownerId, 'homeowner-1')
   assert.equal(saved?.constructionCompanyId, 'company-2')
   assertImmutableCaseFields(saved)
+})
+
+test('unchanged inactive homeowner and company references do not block an unrelated edit', async () => {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore()
+    const batch = writeBatch(db)
+    batch.update(doc(db, 'homeowners', 'homeowner-1'), { active: false })
+    batch.update(doc(db, 'constructionCompanies', 'company-1'), { active: false })
+    await batch.commit()
+  })
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, input('branch-2'))
+  const saved = await readCase(db)
+  assert.equal(saved?.homeownerId, 'homeowner-1')
+  assert.equal(saved?.constructionCompanyId, 'company-1')
+  assert.equal(saved?.responsibleBranchId, 'branch-2')
 })
 
 for (const status of ['cancelled', 'invalid']) {
@@ -180,6 +281,8 @@ for (const scenario of [
   { name: 'inactive property', changes: { propertyId: 'property-inactive' } },
   { name: 'property with inactive homeowner', changes: { propertyId: 'property-inactive-homeowner' } },
   { name: 'property with inactive company', changes: { propertyId: 'property-inactive-company' } },
+  { name: 'missing homeowner', changes: { homeownerId: 'homeowner-missing' } },
+  { name: 'inactive homeowner', changes: { homeownerId: 'homeowner-inactive' } },
   { name: 'missing company', changes: { constructionCompanyId: 'company-missing' } },
   { name: 'inactive company', changes: { constructionCompanyId: 'company-inactive' } },
   { name: 'missing branch', changes: { responsibleBranchId: 'branch-missing' } },
@@ -193,7 +296,7 @@ for (const scenario of [
   })
 }
 
-test('property-homeowner propagation preserves the baseline and a following edit retains the propagated homeowner', async () => {
+test('property-homeowner propagation preserves updatedAt but invalidates an open edit via its homeowner baseline', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
     const batch = writeBatch(db)
@@ -207,7 +310,14 @@ test('property-homeowner propagation preserves the baseline and a following edit
   assert.equal(propagated?.homeownerId, 'homeowner-2')
   assert.equal(propagated?.updatedAt.isEqual(baselineTime), true)
 
-  await updateCaseTransaction(db, input('branch-2'))
+  await assert.rejects(updateCaseTransaction(db, input('branch-2')), CaseEditConflictError)
+  const unchanged = await readCase(db)
+  assert.equal(unchanged?.homeownerId, 'homeowner-2')
+  assert.equal(unchanged?.responsibleBranchId, 'branch-1')
+
+  await updateCaseTransaction(db, {
+    ...input('branch-2'), baselineHomeownerId: 'homeowner-2', homeownerId: 'homeowner-2',
+  })
   const saved = await readCase(db)
   assert.equal(saved?.homeownerId, 'homeowner-2')
   assert.equal(saved?.responsibleBranchId, 'branch-2')

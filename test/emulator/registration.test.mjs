@@ -13,6 +13,10 @@ if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') {
 }
 const input = {
   propertyId: 'property-1',
+  homeownerId: 'homeowner-1',
+  constructionCompanyId: 'company-1',
+  homeownerOverridden: false,
+  constructionCompanyOverridden: false,
   branchId: 'branch-1',
   warrantyServiceId: 'service-1',
   startDate: '2026-09-10',
@@ -37,8 +41,20 @@ async function seed(enabledService = true) {
     batch.set(doc(db, 'constructionCompanies', 'company-1'), {
       name: 'Synthetic company', active: true, nameSearch: { normalized: '', one: {}, two: {} },
     })
+    batch.set(doc(db, 'constructionCompanies', 'company-2'), {
+      name: 'Alternate company', active: true, nameSearch: { normalized: '', one: {}, two: {} },
+    })
+    batch.set(doc(db, 'constructionCompanies', 'company-inactive'), {
+      name: 'Inactive company', active: false, nameSearch: { normalized: '', one: {}, two: {} },
+    })
     batch.set(doc(db, 'homeowners', 'homeowner-1'), {
       name: 'Synthetic homeowner', active: true, nameSearch: { normalized: '', one: {}, two: {} },
+    })
+    batch.set(doc(db, 'homeowners', 'homeowner-2'), {
+      name: 'Alternate homeowner', active: true, nameSearch: { normalized: '', one: {}, two: {} },
+    })
+    batch.set(doc(db, 'homeowners', 'homeowner-inactive'), {
+      name: 'Inactive homeowner', active: false, nameSearch: { normalized: '', one: {}, two: {} },
     })
     batch.set(doc(db, 'properties', 'property-1'), {
       name: 'Synthetic property',
@@ -115,6 +131,49 @@ test('validation failure leaves the counter and related collections unchanged', 
   })
 })
 
+test('registration persists independently selected active homeowner and company overrides', async () => {
+  await seed()
+  const result = await registerCaseTransaction(adminFirestore, {
+    ...input,
+    homeownerId: 'homeowner-2',
+    constructionCompanyId: 'company-2',
+    homeownerOverridden: true,
+    constructionCompanyOverridden: true,
+  }, 'staff-1')
+  const saved = (await adminFirestore.doc(`cases/${result.id}`).get()).data()
+  assert.equal(saved.homeownerId, 'homeowner-2')
+  assert.equal(saved.constructionCompanyId, 'company-2')
+  assert.equal(saved.propertyId, 'property-1')
+})
+
+for (const scenario of [
+  { name: 'missing selected homeowner', changes: { homeownerId: 'homeowner-missing', homeownerOverridden: true }, pattern: /有効な施主/ },
+  { name: 'inactive selected homeowner', changes: { homeownerId: 'homeowner-inactive', homeownerOverridden: true }, pattern: /有効な施主/ },
+  { name: 'missing selected company', changes: { constructionCompanyId: 'company-missing', constructionCompanyOverridden: true }, pattern: /有効な工務店/ },
+  { name: 'inactive selected company', changes: { constructionCompanyId: 'company-inactive', constructionCompanyOverridden: true }, pattern: /有効な工務店/ },
+]) {
+  test(`${scenario.name} rejects registration atomically`, async () => {
+    await seed()
+    await assert.rejects(
+      registerCaseTransaction(adminFirestore, { ...input, ...scenario.changes }, 'staff-1'),
+      scenario.pattern,
+    )
+    assert.equal((await adminFirestore.collection('cases').get()).empty, true)
+    assert.equal((await adminFirestore.collection('caseNumberReservations').get()).empty, true)
+    assert.equal((await adminFirestore.collectionGroup('appliedWarranties').get()).empty, true)
+    assert.deepEqual((await adminFirestore.doc('systemCounters/caseNumber').get()).data(), { nextValue: 1, lastCaseId: null })
+  })
+}
+
+test('registration rejects missing override-intent flags before writing', async () => {
+  await seed()
+  const { homeownerOverridden, ...missingFlagInput } = input
+  assert.equal(homeownerOverridden, false)
+  await assert.rejects(registerCaseTransaction(adminFirestore, missingFlagInput, 'staff-1'), /施主の選択状態が不正/)
+  assert.equal((await adminFirestore.collection('cases').get()).empty, true)
+  assert.deepEqual((await adminFirestore.doc('systemCounters/caseNumber').get()).data(), { nextValue: 1, lastCaseId: null })
+})
+
 test('disabled staff cannot register through the trusted transaction', async () => {
   await seed()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
@@ -143,6 +202,21 @@ test('an inactive homeowner prevents registration and leaves state unchanged', a
   assert.equal((await adminFirestore.collection('cases').get()).empty, true)
   assert.equal((await adminFirestore.collection('caseNumberReservations').get()).empty, true)
   assert.equal((await adminFirestore.collectionGroup('appliedWarranties').get()).empty, true)
+  assert.deepEqual((await adminFirestore.doc('systemCounters/caseNumber').get()).data(), { nextValue: 1, lastCaseId: null })
+})
+
+test('an inactive property-default company prevents registration even with active overrides', async () => {
+  await seed()
+  await adminFirestore.doc('constructionCompanies/company-1').update({ active: false })
+  await assert.rejects(registerCaseTransaction(adminFirestore, {
+    ...input,
+    homeownerId: 'homeowner-2',
+    constructionCompanyId: 'company-2',
+    homeownerOverridden: true,
+    constructionCompanyOverridden: true,
+  }, 'staff-1'), /物件の工務店が無効/)
+  assert.equal((await adminFirestore.collection('cases').get()).empty, true)
+  assert.equal((await adminFirestore.collection('caseNumberReservations').get()).empty, true)
   assert.deepEqual((await adminFirestore.doc('systemCounters/caseNumber').get()).data(), { nextValue: 1, lastCaseId: null })
 })
 

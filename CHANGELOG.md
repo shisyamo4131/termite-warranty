@@ -15,6 +15,7 @@
 
 ### Changed
 
+- Made case homeowner and construction-company references independently editable after property-driven initial selection in both registration and active-case editing, with active-reference validation and homeowner-baseline conflict protection.
 - Moved the project into prototype implementation and selected Firebase Emulator Suite for local verification until the developer-owned development Firebase environment is provided.
 - Recorded the peak-call planning upper bound of 40 per day (approximately 1,200 per 30-day month and 14,400 per year if every call is a new case), adopted temporary parallel operation before cutover, and excluded operation-history/audit-log records from the initial release.
 - Defined extension-warranty start-date default as the day after the existing expiry, while permitting staff edits and overlap; required a House Solution-confirmed migration report before cutover; allowed actual homeowner data in development and migration testing after a separate confidentiality agreement.
@@ -25,7 +26,7 @@
 - Made property name required, fixed branch/service case filters as master-record selections, and recorded the reference N-Gram normalization behavior.
 - Replaced direct case-list name search with master-record filtering; retained the N-Gram capability and three-or-more-character AND-match rule for a future selected free-text feature.
 - Added homeowner ID to cases and required it to follow a referenced property's homeowner change.
-- Made the case homeowner non-editable and defined N-Gram master-name search for construction companies, homeowners, and properties, including case-filter selection dialogs.
+- Defined N-Gram master-name search for construction companies, homeowners, and properties, including case-filter selection dialogs.
 - Added email/password staff authentication, administrator account lifecycle UI, and password-reset requirements while retaining the provisional access-control boundary.
 - Adopted Firebase Authentication; required password-setup emails and immediate disabled-account access revocation, with enforcement design explicitly pending.
 - Adopted Nuxt SPA and Cloud Functions for Firebase; approved Firebase Admin SDK account management, enabled-account Firestore access checks, and non-deleting account disablement.
@@ -64,10 +65,10 @@
 - Defined warranty-service name tracking, default-period behavior for newly added applied warranties, and immutable applied-warranty periods with start-date-triggered expiry recalculation.
 - Added responsible-branch search, positive-integer warranty periods, and case update-date propagation from applied-warranty changes.
 - Replaced case-level construction-company snapshots with direct construction-company, homeowner, and property references whose displayed values follow master changes.
-- Simplified case ownership to property and construction-company references: the property determines the homeowner; also permitted repeated applied-warranty products and defined the February-29 expiry rule.
+- Permitted repeated applied-warranty products and defined the February-29 expiry rule.
 - Allowed property-homeowner changes to flow through existing cases, defined free-text cancellation/invalidation reasons, and deferred notification timestamps, attribution, and response handling.
-- Locked cancelled/invalid cases against all edits, while allowing active-case property/construction-company changes and auto-applying a property's construction company at registration.
-- Defined construction-company replacement when an active case changes property, non-propagation from a property-master company change, and required property-address components.
+- Locked cancelled/invalid cases against all edits while allowing confirmed active-case reference changes.
+- Defined non-propagation from a property-master company change and required property-address components.
 - Added automatic case numbering with list/dashboard display, responsible-branch display, and `not notified` as the default for newly added applied warranties.
 - Defined provisional fixed-width case numbering, legacy case-number retention during migration, and exact-match case-number search.
 

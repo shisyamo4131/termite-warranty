@@ -34,7 +34,8 @@
       <v-card-text>
         <v-alert v-if="registrationMessage" type="error" class="mb-4">{{ registrationMessage }}</v-alert>
         <v-select v-model="registrationForm.propertyId" :items="selectableMasters.properties" item-title="name" item-value="id" label="物件" @update:model-value="applyProperty" />
-        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動反映）" disabled />
+        <v-select v-model="registrationForm.homeownerId" :items="selectableMasters.homeowners" item-title="name" item-value="id" label="施主（物件から自動選択）" @update:model-value="registrationForm.homeownerOverridden = true" />
+        <v-select v-model="registrationForm.constructionCompanyId" :items="selectableMasters.constructionCompanies" item-title="name" item-value="id" label="工務店（物件から自動選択）" @update:model-value="registrationForm.constructionCompanyOverridden = true" />
         <v-select v-model="registrationForm.branchId" :items="selectableMasters.branches" item-title="name" item-value="id" label="担当支店" />
         <v-select v-model="registrationForm.warrantyServiceId" :items="selectableMasters.warrantyServices" item-title="name" item-value="id" label="保証サービス" />
         <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" />
@@ -80,7 +81,8 @@ const registrationMessage = ref('')
 const pageMessage = ref('')
 const pageMessageType = ref<'success' | 'error'>('success')
 const registrationForm = reactive({
-  propertyId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: currentLocalDate(),
+  propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: currentLocalDate(),
+  homeownerOverridden: false, constructionCompanyOverridden: false,
 })
 const filters = reactive<CaseFilters>({
   caseNumber: null, homeownerId: null, propertyId: null, constructionCompanyId: null,
@@ -98,12 +100,16 @@ const warrantyStartDate = computed<Date | null>({
 
 const applyProperty = () => {
   const property = selectableMasters.value.properties.find((item) => item.id === registrationForm.propertyId)
+  registrationForm.homeownerId = String(property?.homeownerId ?? '')
   registrationForm.constructionCompanyId = String(property?.constructionCompanyId ?? '')
+  registrationForm.homeownerOverridden = false
+  registrationForm.constructionCompanyOverridden = false
 }
 const resetRegistration = () => {
   Object.assign(registrationForm, {
-    propertyId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '',
+    propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '',
     startDate: currentLocalDate(),
+    homeownerOverridden: false, constructionCompanyOverridden: false,
   })
   registrationMessage.value = ''
 }
@@ -126,7 +132,7 @@ const handleQuickCreated = async ({ masterType, id }: { masterType: MasterType; 
 }
 const saveRegistration = async () => {
   registrationMessage.value = ''
-  if (!registrationForm.propertyId || !registrationForm.constructionCompanyId || !registrationForm.branchId
+  if (!registrationForm.propertyId || !registrationForm.homeownerId || !registrationForm.constructionCompanyId || !registrationForm.branchId
     || !registrationForm.warrantyServiceId || !registrationForm.startDate) {
     registrationMessage.value = 'すべての必須項目を入力してください。'
     return
@@ -134,7 +140,10 @@ const saveRegistration = async () => {
   saving.value = true
   try {
     const result = await registerCase({
-      propertyId: registrationForm.propertyId, branchId: registrationForm.branchId,
+      propertyId: registrationForm.propertyId, homeownerId: registrationForm.homeownerId,
+      constructionCompanyId: registrationForm.constructionCompanyId, branchId: registrationForm.branchId,
+      homeownerOverridden: registrationForm.homeownerOverridden,
+      constructionCompanyOverridden: registrationForm.constructionCompanyOverridden,
       warrantyServiceId: registrationForm.warrantyServiceId, startDate: registrationForm.startDate,
     })
     registrationDialog.value = false
