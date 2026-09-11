@@ -1,8 +1,9 @@
 <template>
-  <v-row>
-    <v-col cols="12">
+  <section class="list-page">
+    <v-row class="list-page-row">
+      <v-col cols="12" class="list-page-column">
       <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
-      <v-card :title="`${title}一覧`">
+      <v-card class="list-data-card" :title="`${title}一覧`">
         <v-card-text>
           <div class="d-flex justify-end mb-4">
             <v-btn color="primary" @click="openCreate">新規登録</v-btn>
@@ -15,7 +16,7 @@
             :persistent-hint="Boolean(searchHint)"
           />
         </v-card-text>
-        <v-table>
+        <v-table class="list-data-table" fixed-header>
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
@@ -34,9 +35,9 @@
         </v-table>
       </v-card>
     </v-col>
-  </v-row>
+    </v-row>
 
-  <v-dialog v-model="dialogOpen" max-width="720" persistent>
+    <v-dialog v-model="dialogOpen" max-width="720" persistent>
     <v-card :title="`${title}を登録`">
       <v-card-text>
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
@@ -92,7 +93,8 @@
         <v-btn color="primary" :loading="saving" @click="save">{{ editingId ? '更新' : '登録' }}</v-btn>
       </v-card-actions>
     </v-card>
-  </v-dialog>
+    </v-dialog>
+  </section>
 </template>
 
 <script setup lang="ts">

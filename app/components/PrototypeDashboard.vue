@@ -1,15 +1,16 @@
 <template>
-  <h1 class="text-h4 mb-6">案件一覧</h1>
-  <v-alert v-if="pageMessage" :type="pageMessageType" class="mb-4">{{ pageMessage }}</v-alert>
+  <section class="list-page">
+    <h1 class="text-h4 mb-6">案件一覧</h1>
+    <v-alert v-if="pageMessage" :type="pageMessageType" class="mb-4">{{ pageMessage }}</v-alert>
 
-  <div class="d-flex justify-end mb-4">
-    <v-btn color="primary" @click="openRegistration">案件を登録</v-btn>
-  </div>
+    <div class="d-flex justify-end mb-4">
+      <v-btn color="primary" @click="openRegistration">案件を登録</v-btn>
+    </div>
 
-  <case-filter-panel v-model="filters" :masters="allMasters" />
+    <case-filter-panel v-model="filters" :masters="allMasters" />
 
-  <v-card title="案件一覧・アラート">
-    <v-table>
+    <v-card class="list-data-card" title="案件一覧・アラート">
+      <v-table class="list-data-table" fixed-header>
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
       <tbody>
         <tr v-for="row in filteredRows" :key="row.id" :class="{ 'alert-row': row.isAlertEligible }">
@@ -24,10 +25,10 @@
         </tr>
         <tr v-if="filteredRows.length === 0"><td colspan="7" class="text-center py-8">条件に一致する案件はありません。</td></tr>
       </tbody>
-    </v-table>
-  </v-card>
+      </v-table>
+    </v-card>
 
-  <v-dialog v-model="registrationDialog" max-width="720" persistent>
+    <v-dialog v-model="registrationDialog" max-width="720" persistent>
     <v-card title="案件登録" subtitle="物件から施主・工務店を反映し、初回保証を登録します">
       <v-card-text>
         <v-alert v-if="registrationMessage" type="error" class="mb-4">{{ registrationMessage }}</v-alert>
@@ -44,8 +45,9 @@
       </v-card-text>
       <v-card-actions><v-spacer /><v-btn :disabled="saving" @click="cancelRegistration">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="saveRegistration">案件を登録</v-btn></v-card-actions>
     </v-card>
-  </v-dialog>
+    </v-dialog>
 
+  </section>
 </template>
 
 <script setup lang="ts">

@@ -19,12 +19,15 @@
     </template>
   </v-app-bar>
   <v-main>
-    <v-container class="py-8"><slot /></v-container>
+    <v-container :class="['py-8', { 'app-list-viewport': route.meta.listViewport === true }]">
+      <slot />
+    </v-container>
   </v-main>
 </template>
 
 <script setup lang="ts">
 const drawer = ref(true)
+const route = useRoute()
 const { profile, logout } = useSession()
 const menuItems = [
   { title: 'ダッシュボード', to: '/' },
