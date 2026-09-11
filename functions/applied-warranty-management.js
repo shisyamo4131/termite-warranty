@@ -1,5 +1,5 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
-import { calculateExpiryDate, calculateExtensionStartDate } from '../src/domain/warranty.mjs'
+import { calculateExpiryDate, calculateExtensionStartDate } from './domain/warranty.mjs'
 
 export class AppliedWarrantyOperationError extends Error {
   constructor(code, message) { super(message); this.name = 'AppliedWarrantyOperationError'; this.code = code }

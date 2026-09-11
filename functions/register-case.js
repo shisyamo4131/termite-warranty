@@ -1,5 +1,5 @@
 import { Timestamp } from 'firebase-admin/firestore'
-import { calculateExpiryDate } from '../src/domain/warranty.mjs'
+import { calculateExpiryDate } from './domain/warranty.mjs'
 
 const requiredString = (value, message) => {
   if (typeof value !== 'string' || value.length === 0) throw new Error(message)

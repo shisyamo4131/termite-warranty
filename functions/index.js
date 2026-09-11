@@ -9,7 +9,7 @@ import {
   setMasterActiveTransaction,
   updateMasterTransaction,
 } from './master-management.js'
-import { MasterDataError } from '../src/domain/master-data.mjs'
+import { MasterDataError } from './domain/master-data.mjs'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 
 assertApprovedPrototypeRuntime()

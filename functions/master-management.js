@@ -4,7 +4,7 @@ import {
   parseCreateMasterRequest,
   parseSetMasterActiveRequest,
   parseUpdateMasterRequest,
-} from '../src/domain/master-data.mjs'
+} from './domain/master-data.mjs'
 
 const COLLECTION_BY_TYPE = Object.freeze({
   [MASTER_TYPES.CONSTRUCTION_COMPANY]: 'constructionCompanies',

@@ -1,4 +1,5 @@
 node_modules/
+functions/domain/
 .nuxt/
 .output/
 .firebase/
