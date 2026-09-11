@@ -1,1 +1,1 @@
-<template><CaseDetail /></template>
+<template><div><CaseDetail /></div></template>

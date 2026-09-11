@@ -1,1 +1,1 @@
-<template><MasterManagement master-type="homeowner" title="施主マスター" /></template>
+<template><div><MasterManagement master-type="homeowner" title="施主マスター" /></div></template>

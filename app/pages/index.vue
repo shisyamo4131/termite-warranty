@@ -1,1 +1,1 @@
-<template><DashboardOverview /></template>
+<template><div><DashboardOverview /></div></template>

@@ -1,1 +1,1 @@
-<template><MasterDetail master-type="constructionCompany" title="工務店マスター" /></template>
+<template><div><MasterDetail master-type="constructionCompany" title="工務店マスター" /></div></template>
