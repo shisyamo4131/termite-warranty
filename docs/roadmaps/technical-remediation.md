@@ -17,6 +17,7 @@ This backlog records approved implementation work. It does not turn unresolved p
 ## TR-001: Align Master Writes with Last-write-wins
 
 - Status: Approved; not implemented
+- Detailed design: [TR-001 master last-write-wins](../design/tr-001-master-last-write-wins.md)
 - Current evidence: `functions/master-management.js` rejects a stale `expectedRevision`; `app/composables/useMasterManagement.ts` and master dialogs send that revision; Emulator tests require stale-write rejection.
 - Target: Master update, inactivation, and reactivation accept the latest trusted mutation that commits, while retaining server-side field/reference validation and atomic writes. Revision may remain as diagnostic/order metadata but not as a rejection precondition.
 - Completion contract: callable DTOs, server transactions, UI calls, prototype data contract, and tests all use the rule in ADR 0016. Concurrent-write tests demonstrate last-write-wins. Case and applied-warranty stale-baseline behavior remains unchanged.

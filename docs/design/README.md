@@ -4,3 +4,4 @@
 - Authority: Design records describe implementation choices and assumptions; they do not override confirmed requirements in `docs/specification.md`.
 
 - [Prototype Firestore data contract](prototype-firestore-data-contract.md): local-emulator contract for the first vertical slice. All schema choices remain provisional until representative legacy data and production constraints are assessed.
+- [TR-001 master last-write-wins](tr-001-master-last-write-wins.md): approved implementation and acceptance contract for removing caller revision preconditions from the four trusted master mutations.

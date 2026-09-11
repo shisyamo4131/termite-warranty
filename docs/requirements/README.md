@@ -11,6 +11,7 @@ These records support the current [specification](../specification.md). They are
 | [Search and list](search-and-list.md) | Initial-release filters | HSC-007, HSC-026 |
 | [Search architecture](search-architecture.md) | Adopted prototype search behavior and remaining production design criteria | HSC-022–023, HSC-026 |
 | [Master management](master-management.md) | Separate master screens and case-registration creation flow | HSC-008–009, HSC-019 |
+| [User explanation items](user-explanation-items.md) | Confirmed behavior that must be explained during acceptance, training, or release preparation | Update when an underlying confirmed behavior changes |
 | [Alerts and dashboard](alerts-and-dashboard.md) | Continuing expiry alerts, list emphasis, and dashboard cases | HSC-005–006 |
 | [Case warranties](case-warranties.md) | Multiple applied warranty services and periods per case | HSC-005, HSC-007 |
 | [Branches and addresses](branches-and-addresses.md) | Branch master, five-part addresses, and postal-code API direction | HSC-017–019 |

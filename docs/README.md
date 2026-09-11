@@ -14,6 +14,7 @@
 - [Search and list](requirements/search-and-list.md): initial-release search filters and list requirements.
 - [Search architecture](requirements/search-architecture.md): proposed approaches for free-text search and their selection criteria.
 - [Master management](requirements/master-management.md): master screens and case-registration creation flow.
+- [User explanation items](requirements/user-explanation-items.md): confirmed behavior that must be explained during acceptance, training, or release preparation.
 - [Alerts and dashboard](requirements/alerts-and-dashboard.md): continuing expiry alerts, list emphasis, and dashboard cases.
 - [Case warranties](requirements/case-warranties.md): multiple warranty services and periods within a case.
 - [Branches and addresses](requirements/branches-and-addresses.md): branch master, split addresses, and postal-code lookup.
@@ -24,6 +25,7 @@
 - [Environments and authentication email](requirements/environments-and-authentication-email.md): Firebase project separation and password-email delivery requirements.
 - [Design index](design/README.md): implementation designs and explicitly provisional contracts.
 - [Prototype Firestore data contract](design/prototype-firestore-data-contract.md): local-emulator-only collection and invariant assumptions for the first vertical slice.
+- [TR-001 detailed design](design/tr-001-master-last-write-wins.md): implementation and acceptance contract for master last-write-wins.
 
 ## How to Start Work
 
