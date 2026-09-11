@@ -13,6 +13,9 @@ import {
   updateDoc,
   writeBatch,
 } from 'firebase/firestore'
+import { initializeApp as initializeAdminApp } from 'firebase-admin/app'
+import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore'
+import { addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from '../../functions/applied-warranty-management.js'
 import {
   CaseEditConflictError,
   updateCaseTransaction,
@@ -23,6 +26,7 @@ if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') {
   throw new Error('Case edit tests require the dedicated local emulator at 127.0.0.1:8180.')
 }
 let testEnvironment
+const adminDb = getAdminFirestore(initializeAdminApp({ projectId }, 'applied-warranty-case-edit-test'))
 const baselineTime = Timestamp.fromMillis(1_700_000_000_000)
 
 before(async () => {
@@ -75,6 +79,8 @@ beforeEach(async () => {
       notificationStatus: 'not notified', status: 'active', statusReason: null,
       createdAt: baselineTime, updatedAt: baselineTime,
     })
+    batch.set(doc(db, 'warrantyServices', 'service-1'), { name: 'Service 1', active: true, defaultPeriodYears: 5 })
+    batch.set(doc(db, 'warrantyServices', 'service-2'), { name: 'Service 2', active: true, defaultPeriodYears: 10 })
     await batch.commit()
   })
 })
@@ -127,19 +133,47 @@ test('missing property-default intent rejects the edit unchanged', async () => {
   assert.deepEqual(await readCase(db), before)
 })
 
-test('an applied-warranty update advances the parent timestamp and makes an open edit stale', async () => {
+test('direct applied-warranty updates are denied to a staff client', async () => {
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
   const batch = writeBatch(db)
   batch.update(doc(db, 'cases', 'case-1'), { updatedAt: serverTimestamp() })
   batch.update(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'), {
     notificationStatus: 'notified', updatedAt: serverTimestamp(),
   })
-  await assertSucceeds(batch.commit())
-  await assert.rejects(updateCaseTransaction(db, input('branch-2')), CaseEditConflictError)
+  await assert.rejects(batch.commit())
+  await updateCaseTransaction(db, input('branch-2'))
   const saved = (await getDoc(doc(db, 'cases', 'case-1'))).data()
-  assert.equal(saved?.responsibleBranchId, 'branch-1')
+  assert.equal(saved?.responsibleBranchId, 'branch-2')
   assert.equal(saved?.status, 'active')
-  assert.equal((await getDoc(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'))).data()?.notificationStatus, 'notified')
+  assert.equal((await getDoc(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'))).data()?.notificationStatus, 'not notified')
+})
+
+test('trusted applied-warranty operations preserve immutable fields, touch the parent, and reject stale or terminal changes', async () => {
+  const initialCase = (await adminDb.doc('cases/case-1').get()).data()
+  const added = await addAppliedWarrantyTransaction(adminDb, {
+    caseId: 'case-1', expectedCaseUpdatedAt: initialCase?.updatedAt, warrantyServiceId: 'service-2', startDate: '2031-09-10',
+  }, 'staff-1')
+  const addedWarranty = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
+  const updatedCase = (await adminDb.doc('cases/case-1').get()).data()
+  assert.equal(addedWarranty?.periodYears, 10)
+  assert.equal(addedWarranty?.expiryDate, '2041-09-09')
+  assert.equal(addedWarranty?.notificationStatus, 'not notified')
+  assert.equal(updatedCase?.updatedAt.isEqual(baselineTime), false)
+  await assert.rejects(addAppliedWarrantyTransaction(adminDb, {
+    caseId: 'case-1', expectedCaseUpdatedAt: baselineTime, warrantyServiceId: 'service-1', startDate: '2041-09-10',
+  }, 'staff-1'), /他のユーザーが案件を更新/)
+  await updateAppliedWarrantyTransaction(adminDb, {
+    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: updatedCase?.updatedAt,
+    startDate: '2031-09-11', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'cancelled', statusReason: 'Synthetic cancellation',
+  }, 'staff-1')
+  const terminal = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
+  assert.equal(terminal?.warrantyServiceId, 'service-2')
+  assert.equal(terminal?.periodYears, 10)
+  assert.equal(terminal?.status, 'cancelled')
+  await assert.rejects(updateAppliedWarrantyTransaction(adminDb, {
+    caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: (await adminDb.doc('cases/case-1').get()).data()?.updatedAt,
+    startDate: '2031-09-11', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'active', statusReason: null,
+  }, 'staff-1'), /取消・無効の適用保証は編集できません/)
 })
 
 test('changing property persists the auto-selected current homeowner and company while preserving immutable fields', async () => {

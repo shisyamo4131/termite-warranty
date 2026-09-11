@@ -319,7 +319,7 @@ describe('business document validation', () => {
       statusReason: 'Synthetic invalidation',
       updatedAt: serverTimestamp(),
     })
-    await assertSucceeds(warrantyBatch.commit())
+    await assertFails(warrantyBatch.commit())
     const restoreWarrantyBatch = writeBatch(db)
     restoreWarrantyBatch.update(caseRef, { updatedAt: serverTimestamp() })
     restoreWarrantyBatch.update(warrantyRef, {
@@ -406,7 +406,7 @@ describe('business document validation', () => {
     await seedDocument('cases/case-1', legacy)
     await seedDocument('cases/case-1/appliedWarranties/warranty-1', validWarranty())
     const db = contextFor('enabled-user')
-    await assertSucceeds(warrantyUpdateBatch(db, { notificationStatus: 'notified' }).commit())
+    await assertFails(warrantyUpdateBatch(db, { notificationStatus: 'notified' }).commit())
   })
 
   test('case identifiers and applied-warranty period are immutable', async () => {
@@ -520,7 +520,7 @@ describe('business document validation', () => {
     }
   })
 
-  test('an applied-warranty mutation must atomically update its parent case', async () => {
+  test('applied-warranty mutation is denied to clients even with an atomic parent timestamp update', async () => {
     await seedStaff('enabled-user')
     await seedRegistrationPrerequisites()
     await seedDocument('cases/case-1', validCase())
@@ -540,7 +540,7 @@ describe('business document validation', () => {
       notificationStatus: 'notified',
       updatedAt: serverTimestamp(),
     })
-    await assertSucceeds(batch.commit())
+    await assertFails(batch.commit())
   })
 
   test('unchanged inactive master references do not block terminal or warranty updates', async () => {
@@ -564,7 +564,7 @@ describe('business document validation', () => {
       notificationStatus: 'notified',
       updatedAt: serverTimestamp(),
     })
-    await assertSucceeds(warrantyBatch.commit())
+    await assertFails(warrantyBatch.commit())
     await assertSucceeds(updateDoc(caseRef, {
       status: 'cancelled',
       statusReason: 'Synthetic cancellation',

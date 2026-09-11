@@ -1,0 +1,105 @@
+:root {
+  --clear-sky-primary: #3478c7;
+  --clear-sky-secondary: #55b8d1;
+  --clear-sky-background: #f5f9fd;
+  --clear-sky-soft-surface: #e7f1fc;
+  --clear-sky-text: #26374a;
+  --clear-sky-muted-text: #65778a;
+  --clear-sky-border: #dde7f0;
+  --clear-sky-positive: #39956b;
+  --clear-sky-warning: #d88a32;
+}
+
+html {
+  background: var(--clear-sky-background);
+}
+
+.v-application {
+  color: var(--clear-sky-text);
+  background: var(--clear-sky-background) !important;
+}
+
+.v-navigation-drawer {
+  border-color: var(--clear-sky-border) !important;
+  background: #fff !important;
+}
+
+.v-navigation-drawer .v-list-item--active {
+  color: var(--clear-sky-primary) !important;
+  background: var(--clear-sky-soft-surface) !important;
+  font-weight: 700;
+}
+
+.app-header .v-toolbar-title {
+  min-width: 0;
+}
+
+.app-header-profile {
+  max-width: min(18rem, 24vw);
+}
+
+.logout-button {
+  color: #fff !important;
+  border-color: rgb(255 255 255 / 88%) !important;
+}
+
+.logout-button:hover {
+  background: rgb(255 255 255 / 12%) !important;
+}
+
+.v-card,
+.v-dialog .v-card {
+  border: 1px solid var(--clear-sky-border);
+  box-shadow: 0 3px 12px rgb(38 55 74 / 8%);
+}
+
+.v-card-title {
+  color: var(--clear-sky-text);
+}
+
+.v-card-subtitle,
+.text-medium-emphasis,
+.v-label {
+  color: var(--clear-sky-muted-text);
+}
+
+.v-table > .v-table__wrapper > table > thead > tr > th {
+  color: var(--clear-sky-text);
+  background: var(--clear-sky-soft-surface);
+  border-bottom-color: var(--clear-sky-border) !important;
+  font-weight: 700;
+}
+
+.v-table > .v-table__wrapper > table > tbody > tr > td {
+  border-bottom-color: var(--clear-sky-border) !important;
+}
+
+.v-field__outline {
+  --v-field-border-opacity: 1;
+  color: var(--clear-sky-border);
+}
+
+.v-field--focused .v-field__outline {
+  color: var(--clear-sky-primary) !important;
+}
+
+.v-btn:focus-visible,
+.v-list-item:focus-visible,
+a:focus-visible,
+.v-field:focus-within {
+  outline: 3px solid rgb(85 184 209 / 55%);
+  outline-offset: 2px;
+}
+
+.logout-button:focus-visible {
+  outline-color: #fff;
+}
+
+a {
+  color: var(--clear-sky-primary);
+  font-weight: 600;
+}
+
+a:hover {
+  color: #215b9f;
+}

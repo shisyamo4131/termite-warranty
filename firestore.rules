@@ -125,30 +125,7 @@ service cloud.firestore {
       match /appliedWarranties/{warrantyId} {
         allow read: if signedInAndEnabled();
         allow create: if false;
-        allow update: if signedInAndEnabled()
-          && resource.data.status == 'active'
-          && request.resource.data.keys().hasOnly([
-            'warrantyServiceId', 'periodYears', 'startDate', 'expiryDate',
-            'notificationStatus', 'status', 'statusReason', 'createdAt', 'updatedAt'
-          ])
-          && nonEmptyString(request.resource.data.warrantyServiceId)
-          && request.resource.data.periodYears is int
-          && request.resource.data.periodYears > 0
-          && request.resource.data.startDate is string
-          && request.resource.data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-          && request.resource.data.expiryDate is string
-          && request.resource.data.expiryDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-          && request.resource.data.notificationStatus in ['not notified', 'notified', 'not required']
-          && request.resource.data.createdAt is timestamp
-          && request.resource.data.updatedAt is timestamp
-          && request.resource.data.warrantyServiceId == resource.data.warrantyServiceId
-          && request.resource.data.periodYears == resource.data.periodYears
-          && request.resource.data.createdAt == resource.data.createdAt
-          && request.resource.data.updatedAt == request.time
-          && validStatus(request.resource.data)
-          && existsAfter(/databases/$(database)/documents/cases/$(caseId))
-          && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.status == 'active'
-          && getAfter(/databases/$(database)/documents/cases/$(caseId)).data.updatedAt == request.time;
+        allow update: if false;
         allow delete: if false;
       }
     }

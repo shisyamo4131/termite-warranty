@@ -58,6 +58,8 @@ For project-specific verification or operations, select the applicable procedure
 | `docs/operations.md` | Implemented, planned, and unavailable operational behavior |
 | `CHANGELOG.md` | Concise visible change history |
 
+The current local UI palette is documented in [Clear Sky theme](design/clear-sky-theme.md).
+
 ## Documentation Completion Criteria
 
 - Every important document is linked from this map or a product/domain index.

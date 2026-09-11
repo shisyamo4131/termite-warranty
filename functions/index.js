@@ -9,6 +9,7 @@ import {
   updateMasterTransaction,
 } from './master-management.js'
 import { MasterDataError } from '../src/domain/master-data.mjs'
+import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 
 assertLocalPrototypeRuntime()
 initializeApp()
@@ -72,3 +73,13 @@ const masterCallable = (operation) => onCall(async (request) => {
 export const createMaster = masterCallable(createMasterTransaction)
 export const updateMaster = masterCallable(updateMasterTransaction)
 export const setMasterActive = masterCallable(setMasterActiveTransaction)
+
+const warrantyCallable = (operation) => onCall(async (request) => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
+  try { return await operation(getFirestore(), request.data, request.auth.uid) } catch (error) {
+    const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'aborted', 'failed-precondition'])
+    throw new HttpsError(allowed.has(error?.code) ? error.code : 'internal', error instanceof AppliedWarrantyOperationError ? error.message : '適用保証を更新できませんでした。')
+  }
+})
+export const addAppliedWarranty = warrantyCallable(addAppliedWarrantyTransaction)
+export const updateAppliedWarranty = warrantyCallable(updateAppliedWarrantyTransaction)

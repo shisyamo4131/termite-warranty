@@ -91,9 +91,15 @@ const constructionCompanySeeds = Array.from({ length: 10 }, (_, offset) => {
 
 const homeownerSeeds = Array.from({ length: 20 }, (_, offset) => {
   const index = offset + 1
+  const [postalCode, prefecture, municipality] = addressSeeds[offset % addressSeeds.length]
   return [
     firestore.doc(`homeowners/${seedId('demo-homeowner', index)}`),
-    withSearch(`デモ施主${pad2(index)}`),
+    withSearch(`デモ施主${pad2(index)}`, {
+      address: { postalCode, prefecture, municipality, streetTownAndNumber: `デモ施主町${index}-${index}`, buildingName: index % 3 === 0 ? `デモ施主棟${index}` : null },
+      telephone: `000-1000-${String(index).padStart(4, '0')}`,
+      fax: index % 2 === 0 ? `000-1001-${String(index).padStart(4, '0')}` : null,
+      notes: `デモ表示用の施主${pad2(index)}です。`,
+    }),
   ]
 })
 

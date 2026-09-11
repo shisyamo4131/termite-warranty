@@ -96,6 +96,18 @@ export interface CaseFilters {
   expiryDate: string | null
 }
 
+export interface AppliedWarrantyMutation {
+  caseId: string
+  warrantyId?: string
+  expectedCaseUpdatedAt: Timestamp
+  warrantyServiceId?: string
+  startDate?: string
+  expiryDate?: string
+  notificationStatus?: 'not notified' | 'notified' | 'not required'
+  status?: 'active' | 'cancelled' | 'invalid'
+  statusReason?: string | null
+}
+
 export class CaseEditConflictError extends Error {
   constructor() {
     super('他のユーザーが案件を更新しました。最新データを確認してやり直してください。')
@@ -239,6 +251,15 @@ export function usePrototypeData() {
 
   const updateCase = async (input: CaseUpdate) => updateCaseTransaction($firebase.firestore, input)
 
+  const addAppliedWarranty = async (input: AppliedWarrantyMutation) => {
+    const callable = httpsCallable<AppliedWarrantyMutation, { id: string; startDate: string }>($firebase.functions, 'addAppliedWarranty')
+    return (await callable(input)).data
+  }
+  const updateAppliedWarranty = async (input: AppliedWarrantyMutation) => {
+    const callable = httpsCallable<AppliedWarrantyMutation, { id: string }>($firebase.functions, 'updateAppliedWarranty')
+    return (await callable(input)).data
+  }
+
   const subscribeCaseRows = (
     onRows: (rows: CaseRow[]) => void,
     onError?: () => void,
@@ -333,5 +354,5 @@ export function usePrototypeData() {
     return () => { unsubscribes.forEach(unsubscribe => unsubscribe()); warrantyUnsubscribe?.() }
   }
 
-  return { activeMasters, loadAllMasters, loadActiveMasters, registerCase, updateCase, subscribeCaseRows, subscribeCaseDetail }
+  return { activeMasters, loadAllMasters, loadActiveMasters, registerCase, updateCase, addAppliedWarranty, updateAppliedWarranty, subscribeCaseRows, subscribeCaseDetail }
 }

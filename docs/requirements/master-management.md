@@ -17,6 +17,12 @@ These are provisional initial-release requirements. The overall data behavior re
 - Property name is required.
 - Postal code, prefecture, municipality, and street/town and number are required; building name is optional. See [branches and addresses](branches-and-addresses.md).
 
+## Required Homeowner Fields
+
+- Homeowner name, postal code, prefecture, municipality, and street/town and number are required.
+- Building name, telephone, fax, and notes are optional. No telephone or fax format rule is currently specified.
+- Existing pre-change homeowner records without these fields remain readable. A normal edit supplies the required address parts.
+
 ## Required Construction-Company Fields
 
 - Construction-company name, postal code, prefecture, municipality, and street/town and number are required.

@@ -12,6 +12,7 @@ const BASE_FIELDS = Object.freeze(['name'])
 const CONSTRUCTION_COMPANY_FIELDS = Object.freeze([
   'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'email', 'notes',
 ])
+const HOMEOWNER_FIELDS = Object.freeze(['name', 'address', 'telephone', 'fax', 'notes'])
 const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address'])
 const WARRANTY_FIELDS = Object.freeze(['name', 'defaultPeriodYears'])
 const ADDRESS_FIELDS = Object.freeze([
@@ -99,7 +100,9 @@ export function normalizeMasterFields(masterType, fields) {
       ? CONSTRUCTION_COMPANY_FIELDS
       : masterType === MASTER_TYPES.WARRANTY_SERVICE
         ? WARRANTY_FIELDS
-        : BASE_FIELDS
+        : masterType === MASTER_TYPES.HOMEOWNER
+          ? HOMEOWNER_FIELDS
+          : BASE_FIELDS
   assertOnlyKeys(fields, allowed, 'fields')
   const name = requiredText(fields.name, 'Name')
 
@@ -130,6 +133,17 @@ export function normalizeMasterFields(masterType, fields) {
       homeownerId: requiredText(fields.homeownerId, 'Homeowner'),
       constructionCompanyId: requiredText(fields.constructionCompanyId, 'Construction company'),
       address: normalizeAddress(fields.address),
+      nameSearch: createNameSearch(name),
+    }
+  }
+
+  if (masterType === MASTER_TYPES.HOMEOWNER) {
+    return {
+      name,
+      address: normalizeAddress(fields.address),
+      telephone: nullableText(fields.telephone, 'Telephone'),
+      fax: nullableText(fields.fax, 'Fax'),
+      notes: nullableText(fields.notes, 'Notes'),
       nameSearch: createNameSearch(name),
     }
   }

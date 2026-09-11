@@ -38,6 +38,12 @@ const companyFields = (overrides = {}) => ({
   telephone: null, fax: null, contactPerson: null, contactDetails: null, email: null, notes: null,
   ...overrides,
 })
+const homeownerFields = (overrides = {}) => ({
+  name: 'Synthetic homeowner',
+  address: { postalCode: '100-0001', prefecture: 'Tokyo', municipality: 'Chiyoda', streetTownAndNumber: '1-1', buildingName: null },
+  telephone: null, fax: null, notes: null,
+  ...overrides,
+})
 
 async function seedBase() {
   const batch = firestore.batch()
@@ -78,7 +84,7 @@ test('trusted create supports exactly four masters with revision metadata and se
     masterType: 'constructionCompany', fields: companyFields({ name: ' Ａあ工務店 ' }),
   }, 'staff-1')
   const homeowner = await createMasterTransaction(firestore, {
-    masterType: 'homeowner', fields: { name: 'New owner' },
+    masterType: 'homeowner', fields: homeownerFields({ name: 'New owner' }),
   }, 'staff-1')
   const service = await createMasterTransaction(firestore, {
     masterType: 'warrantyService', fields: { name: 'Five year', defaultPeriodYears: 5 },
@@ -107,15 +113,15 @@ test('trusted create supports exactly four masters with revision metadata and se
 
 test('update and activation use optimistic revision conflicts without partial writes', async () => {
   const created = await createMasterTransaction(firestore, {
-    masterType: 'homeowner', fields: { name: 'Original' },
+    masterType: 'homeowner', fields: homeownerFields({ name: 'Original' }),
   }, 'staff-1')
   const updated = await updateMasterTransaction(firestore, {
-    masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: { name: 'Updated' },
+    masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Updated' }),
   }, 'staff-1')
   assert.equal(updated.revision, 2)
   await assert.rejects(
     updateMasterTransaction(firestore, {
-      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: { name: 'Stale' },
+      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Stale' }),
     }, 'staff-1'),
     (error) => error?.code === 'aborted',
   )
@@ -135,7 +141,7 @@ test('all four masters retain IDs and increment revisions through update, inacti
     },
     {
       masterType: 'homeowner', collection: 'homeowners',
-      createFields: { name: '旧あ' }, updateFields: { name: '新い' },
+      createFields: homeownerFields({ name: '旧あ' }), updateFields: homeownerFields({ name: '新い' }),
     },
     {
       masterType: 'warrantyService', collection: 'warrantyServices',
@@ -188,12 +194,12 @@ test('all four masters retain IDs and increment revisions through update, inacti
 
 test('missing staff rejection leaves an existing master unchanged', async () => {
   const created = await createMasterTransaction(firestore, {
-    masterType: 'homeowner', fields: { name: 'Unchanged' },
+    masterType: 'homeowner', fields: homeownerFields({ name: 'Unchanged' }),
   }, 'staff-1')
   const before = (await firestore.doc(`homeowners/${created.id}`).get()).data()
   await assert.rejects(
     updateMasterTransaction(firestore, {
-      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: { name: 'Denied' },
+      masterType: 'homeowner', id: created.id, expectedRevision: 1, fields: homeownerFields({ name: 'Denied' }),
     }, 'missing-staff'),
     (error) => error?.code === 'permission-denied',
   )
@@ -209,7 +215,7 @@ test('usable property rejects inactive references and disabled staff', async () 
   await firestore.doc('homeowners/homeowner-1').update({ active: true })
   await firestore.doc('staffAccounts/staff-1').update({ enabled: false })
   await assert.rejects(
-    createMasterTransaction(firestore, { masterType: 'homeowner', fields: { name: 'Denied' } }, 'staff-1'),
+    createMasterTransaction(firestore, { masterType: 'homeowner', fields: homeownerFields({ name: 'Denied' }) }, 'staff-1'),
     (error) => error?.code === 'permission-denied',
   )
 })

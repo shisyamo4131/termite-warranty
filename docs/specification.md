@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-11
-- Specification version: 0.1.5
+- Specification version: 0.1.6
 - Status: Prototype implementation
 - Current phase: Implement the confirmed initial-release prototype and verify it locally with Firebase Emulator Suite until the development Firebase environment is provided
 
@@ -94,8 +94,9 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - A property holds a construction-company ID. At case registration and when an active case's property is changed, the property supplies the initially selected construction company; the case construction company remains editable before saving and while the case is active.
 - When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
 - A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, email, and notes are optional.
+- A homeowner name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, and notes are optional.
 - A property name, postal code, prefecture, municipality, and street/town and number are required property fields. Building name is optional.
-- Property addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen, normalizes and looks up on field focus loss, and auto-fills address information.
+- Property and homeowner addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen and normalizes the stored value. Automatic lookup is a future API integration in the local prototype; until its API agreement and credentials are available, staff enter or correct the address manually.
 - Postal-code address lookup uses Japan Post's official Postal Code and Digital Address API. For multiple town-area matches, auto-fill prefecture and municipality only, and let staff select or enter street/town and number. Where the API has no match or the postal code is business/other special, allow staff to enter the address manually. When API lookup fails, show an address-lookup failure message, retain existing input, and allow manual entry and saving. Staff may correct auto-filled prefecture and municipality. API agreement/credentials, availability, and cost remain open.
 - Construction companies currently send enrolment information by email; staff read those emails and manually register it in the legacy system.
 - The desired target process is form submission by the construction company, provisional registration, staff review, then promotion to a registered record.

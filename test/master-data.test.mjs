@@ -19,7 +19,7 @@ test('name search uses fixed normalization and token-map oracles', () => {
 
 test('supported master fields normalize into the trusted write shape', () => {
   const table = [
-    ['homeowner', { name: ' 施主 ' }, { name: '施主', nameSearch: createNameSearch('施主') }],
+    ['homeowner', { name: ' 施主 ', address: { postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ', streetTownAndNumber: ' 1-1 ', buildingName: '' }, telephone: ' 03-0000-0000 ', fax: '', notes: ' ' }, { name: '施主', address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null }, telephone: '03-0000-0000', fax: null, notes: null, nameSearch: createNameSearch('施主') }],
     ['warrantyService', { name: ' 保証 ', defaultPeriodYears: 5 }, { name: '保証', defaultPeriodYears: 5 }],
   ]
   for (const [masterType, input, expected] of table) {
@@ -61,6 +61,18 @@ test('property fields normalize postal code and nullable building name', () => {
   assert.equal(result.address.buildingName, null)
   assert.equal(result.homeownerId, 'homeowner-1')
   assert.equal(result.nameSearch.normalized, '住宅')
+})
+
+test('homeowner requires a complete address and normalizes optional contact fields', () => {
+  assert.throws(() => normalizeMasterFields('homeowner', { name: '施主' }), MasterDataError)
+  const result = normalizeMasterFields('homeowner', {
+    name: '施主', address: { postalCode: '100-0001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null },
+    telephone: '', fax: ' 03-0000-0001 ', notes: ' demo ',
+  })
+  assert.equal(result.address.postalCode, '1000001')
+  assert.equal(result.telephone, null)
+  assert.equal(result.fax, '03-0000-0001')
+  assert.equal(result.notes, 'demo')
 })
 
 test('request parsers enforce exact action field allowlists', () => {

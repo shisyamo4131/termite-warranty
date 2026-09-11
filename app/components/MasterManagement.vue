@@ -73,6 +73,17 @@
             <v-text-field v-model="form.email" label="メールアドレス（任意）" />
             <v-textarea v-model="form.notes" label="備考（任意）" />
           </template>
+          <template v-if="masterType === 'homeowner'">
+            <v-alert type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
+            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
+            <v-text-field v-model="form.prefecture" label="都道府県" required />
+            <v-text-field v-model="form.municipality" label="市区町村" required />
+            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
+            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
+            <v-text-field v-model="form.telephone" label="TEL（任意）" />
+            <v-text-field v-model="form.fax" label="FAX（任意）" />
+            <v-textarea v-model="form.notes" label="備考（任意）" />
+          </template>
         </v-form>
       </v-card-text>
       <v-card-actions>
@@ -122,7 +133,7 @@ const emptyForm = () => ({
 })
 const form = reactive(emptyForm())
 const manager = useMasterManagement(props.masterType)
-const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany')
+const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany' || props.masterType === 'homeowner')
 const routeSegment = computed(() => ({ constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }[props.masterType]))
 const usesIndexedSearch = computed(() => props.masterType !== 'warrantyService')
 const normalizedFilter = computed(() => normalizeSearchText(filter.value ?? ''))
@@ -176,6 +187,9 @@ const fields = () => {
       email: form.email || null,
       notes: form.notes || null,
     }
+  }
+  if (props.masterType === 'homeowner') {
+    return { name: form.name, address: { postalCode: form.postalCode, prefecture: form.prefecture, municipality: form.municipality, streetTownAndNumber: form.streetTownAndNumber, buildingName: form.buildingName || null }, telephone: form.telephone || null, fax: form.fax || null, notes: form.notes || null }
   }
   return { name: form.name }
 }

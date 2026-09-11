@@ -23,6 +23,10 @@ test('extension starts on the day after the prior expiry', () => {
   assert.equal(calculateExtensionStartDate('2026-12-31'), '2027-01-01')
 })
 
+test('a changed warranty start date produces a replacement calculated expiry before any manual correction', () => {
+  assert.equal(calculateExpiryDate('2027-02-28', 5), '2032-02-27')
+})
+
 test('alert window includes 30 days before expiry and the expiry date', () => {
   const input = {
     caseStatus: CASE_STATUS.ACTIVE,

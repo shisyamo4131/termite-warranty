@@ -197,7 +197,7 @@ onBeforeUnmount(() => unsubscribe?.())
 
 <style scoped>
 .alert-row {
-  background: #fff3df;
-  border-inline-start: 4px solid #a65f00;
+  background: #fff6e9;
+  border-inline-start: 4px solid #d88a32;
 }
 </style>

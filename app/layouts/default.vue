@@ -1,5 +1,5 @@
 <template>
-  <v-navigation-drawer v-model="drawer">
+  <v-navigation-drawer v-model="drawer" color="surface">
     <v-list nav>
       <v-list-item
         v-for="item in menuItems"
@@ -10,12 +10,12 @@
       />
     </v-list>
   </v-navigation-drawer>
-  <v-app-bar color="primary" elevation="1">
+  <v-app-bar color="primary" elevation="1" class="app-header">
     <v-app-bar-nav-icon @click="drawer = !drawer" />
     <v-app-bar-title>白蟻保証 業務管理</v-app-bar-title>
     <template #append>
-      <span class="mr-4">{{ profile?.displayName }}</span>
-      <v-btn variant="outlined" @click="logout">ログアウト</v-btn>
+      <span class="app-header-profile d-none d-sm-inline mr-4 text-truncate">{{ profile?.displayName }}</span>
+      <v-btn class="logout-button" variant="outlined" aria-label="ログアウト" @click="logout">ログアウト</v-btn>
     </template>
   </v-app-bar>
   <v-main>
