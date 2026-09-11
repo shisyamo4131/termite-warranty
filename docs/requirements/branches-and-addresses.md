@@ -39,12 +39,9 @@ The future integration must retain manual entry when no address is found or a bu
 
 The future integration must show an address-lookup failure message, retain all existing input, and allow staff to enter or correct the address manually and save it.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- API agreement/credentials, availability target, cost, and detailed integration behavior.
-- Detailed address-format validation after automatic input or manual correction.
-- Whether construction-company postal codes use the same automatic lookup behavior as properties.
-- Telephone, fax, email, and other optional construction-company contact-field formatting.
+See [HSC-017 postal API conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md), [HSC-018 construction-company postal lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md), and [HSC-019 address/contact validation](house-solution-confirmations/HSC-019-address-contact-validation.md) in the central register.
 
 ## Technical Reference
 

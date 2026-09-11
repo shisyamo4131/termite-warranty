@@ -43,8 +43,6 @@ The list has one row per case. It does not need to display warranty-period or ex
 - Sort by case update date in descending order.
 - When update dates are equal, sort by case registration date in descending order.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- Date-search behavior, combined-filter behavior, pagination, export, and saved searches.
-- Empty-result and validation behavior.
-- Expected record count and response-time acceptance criteria.
+See [HSC-007 case search/list behavior](house-solution-confirmations/HSC-007-case-search-list.md) and [HSC-026 scale/performance targets](house-solution-confirmations/HSC-026-scale-performance-targets.md) in the central register.

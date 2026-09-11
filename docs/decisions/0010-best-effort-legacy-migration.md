@@ -1,9 +1,11 @@
 # 0010 Best-effort Legacy-data Migration
 
 - Date: 2026-09-10
-- Status: Accepted
+- Status: Superseded
 - Related specification: [Scope](../specification.md#scope)
 - Supersedes: None
+
+Superseded on 2026-09-11 by [0015 No legacy-data migration](0015-no-legacy-data-migration.md).
 
 ## Context
 

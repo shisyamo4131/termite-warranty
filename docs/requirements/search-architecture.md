@@ -41,6 +41,6 @@ This follows the normalization and token-generation method in the user-designate
 - Consistency rule after master data changes, because cases display current master values.
 - Delivery risk before the mandatory end-of-October 2026 release.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- Whether the prototype's Firestore search behavior, cost, and schema/migration fit warrant retaining Firestore for production. PostgreSQL remains a possible database replacement.
+See [HSC-022 production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) and [HSC-023 N-Gram query consistency](house-solution-confirmations/HSC-023-ngram-query-consistency.md) in the central register.

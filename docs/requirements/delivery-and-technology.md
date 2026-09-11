@@ -3,8 +3,8 @@
 ## Confirmed Delivery Direction
 
 - Development will use an agile approach because there is insufficient time to fully fix every specification before the production operating deadline.
-- The system must officially operate in production by the end of October 2026. Data migration is included in that deadline because the users' work cannot be stopped for an extended period.
-- Legacy-system data is sought during September 2026. The project will migrate records and fields to the extent feasible after inspection; complete historical migration is not required. House Solution retains the FileMaker data.
+- The system must officially operate in production by the end of October 2026. Existing-system data migration is not included in that deadline.
+- The new system starts without importing FileMaker records. House Solution retains the FileMaker data outside the new-system datastore.
 
 ## Confirmed Delivery Milestones
 
@@ -12,15 +12,15 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 
 - Mid-September 2026: provide a prototype in the development environment.
 - Through late September 2026: address additional requests and defects.
-- Through early October 2026: develop and test data-migration functionality.
+- Through early October 2026: complete production-readiness functionality and release rehearsal.
 - Through mid-October 2026: build the production environment and prepare the release.
-- End of October 2026: briefly stop the legacy system, migrate data, and officially release to production.
+- End of October 2026: switch new registrations to the new system and officially release to production.
 
 ## Confirmed Cutover Direction
 
 - Use temporary parallel operation of FileMaker and the new system as a safety measure before official release, despite the additional user workload.
-- A final migration in the evening or at night is acceptable when normal operations are stopped.
-- The duration of parallel operation, final data-freeze timing, final migration window, reconciliation sequence, rollback decision, and official cutover procedure remain open.
+- No final data migration is performed. The purpose and necessity of parallel operation must be reconsidered on that basis.
+- The duration of parallel operation, system-of-record boundary, new-registration switch timing, rollback decision, and official cutover procedure remain open.
 
 ## Confirmed Prototype Stack
 
@@ -42,11 +42,11 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 
 ## Database Reassessment
 
-- PostgreSQL may replace Firestore for production if prototype evidence or legacy-data assessment shows that the Firestore schema, N-Gram search behavior, running cost, migration, or delivery risk is unsuitable.
-- Any replacement requires a recorded architecture decision and updates to the schema, migration, search, security, operations, and delivery-risk documents that it affects.
+- PostgreSQL may replace Firestore for production if prototype evidence shows that the Firestore schema, N-Gram search behavior, running cost, consistency, or delivery risk is unsuitable.
+- Any replacement requires a recorded architecture decision and updates to the schema, search, security, operations, and delivery-risk documents that it affects.
 
 ## Decision Gates Before Implementation
 
 - Confirm the minimum usable scope and release acceptance criteria for the mandatory operational deadline.
-- Inspect representative legacy data before approving the schema and migration approach.
+- Validate the production schema against confirmed workflows and representative synthetic volumes before approval.
 - Confirm Firebase Admin SDK deployment/failure recovery, Firebase Hosting and Cloud Functions deployment configuration, monitoring, production package promotion, and the production database based on prototype evidence, operating cost, security, and delivery constraints.

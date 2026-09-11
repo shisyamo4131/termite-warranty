@@ -21,7 +21,3 @@
 - Initialize an extension warranty's start date to the day after the existing warranty's expiry date. Staff can edit the start date, and the system permits its coverage period to overlap with another applied warranty in the same case.
 - Each case-list row links to a separate detail screen at `/cases/{id}`. The screen shows current resolved case masters and every applied warranty's current service name, fixed period, start date, expiry date, notification status, state, and any terminal-state reason. It provides a link back to the dashboard/list.
 - Cancelled and invalid cases remain readable on their detail URL, including their case reason and applied-warranty history, but have no edit action. A missing case ID shows an in-app not-found message and dashboard/list link; a read failure is shown separately.
-
-## Open Decisions
-
-- Notification-status filter semantics in a case-level list/dashboard.

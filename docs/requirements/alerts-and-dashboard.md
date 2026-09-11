@@ -31,8 +31,6 @@ The list and dashboard do not need to display warranty-period or expiry-date inf
 - Responsible branch
 
 The dashboard shows the `not notified` marker described above, rather than a case-level notification-status value.
-## Open Decisions
+## Unresolved-Matter Routing
 
-- Dashboard count limits and navigation from a dashboard row.
-- Exact list emphasis treatment and accessibility requirements.
-- Notification-method design, customer responses after notification, and any later user/time attribution or status-history requirements.
+See [HSC-005 notification workflow](house-solution-confirmations/HSC-005-notification-workflow.md) and [HSC-006 dashboard presentation](house-solution-confirmations/HSC-006-dashboard-presentation.md) in the central register.

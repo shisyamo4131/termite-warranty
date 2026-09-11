@@ -15,7 +15,7 @@ The following topic records support this specification. They distinguish confirm
 - [Delivery and technology](requirements/delivery-and-technology.md)
 - [Environments and authentication email](requirements/environments-and-authentication-email.md)
 - [Search architecture](requirements/search-architecture.md)
-- [Open decisions](requirements/open-decisions.md)
+- [Unresolved-matter register](requirements/house-solution-confirmations.md)
 - [2026 initial-delivery roadmap](roadmaps/2026-initial-delivery.md)
 
 ## Purpose
@@ -41,7 +41,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - Manage House Solution staff accounts.
 - Alert on warranty services that are approaching their expiry date.
 - Provide search and list views for registered information.
-- Perform the best feasible migration from the legacy system for the mandatory production release. House Solution retains the FileMaker data; complete historical migration is not an acceptance condition.
+- Start the new system without importing data from the current FileMaker system. Existing-system data migration is not a production-release requirement.
 
 ### Deferred from the Initial Release
 
@@ -51,7 +51,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 ## Environment and Boundaries
 
 - The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
-- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate, unprovisioned Firebase project whose ownership, identifiers, and regions are under confirmation. Detailed migration method and external-service boundaries remain unconfirmed.
+- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate, unprovisioned Firebase project whose ownership, identifiers, and regions are under confirmation. External-service boundaries remain unconfirmed.
 
 ## Functional Requirements
 
@@ -100,9 +100,8 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - Postal-code address lookup uses Japan Post's official Postal Code and Digital Address API. For multiple town-area matches, auto-fill prefecture and municipality only, and let staff select or enter street/town and number. Where the API has no match or the postal code is business/other special, allow staff to enter the address manually. When API lookup fails, show an address-lookup failure message, retain existing input, and allow manual entry and saving. Staff may correct auto-filled prefecture and municipality. API agreement/credentials, availability, and cost remain open.
 - Construction companies currently send enrolment information by email; staff read those emails and manually register it in the legacy system.
 - The desired target process is form submission by the construction company, provisional registration, staff review, then promotion to a registered record.
-- Data migration from the current system is required for the mandatory production release at the end of October 2026.
-- The migration target is the subset of legacy data that can feasibly be mapped after data inspection. Complete historical migration is not required.
-- Where available, retain a legacy case number as the new system's case number during migration.
+- Data from the current system will not be migrated into the new system. The new system begins with records entered for its own operation.
+- Legacy case numbers are not imported. Production case-number rules for newly registered cases remain subject to HSC-004.
 
 ## Non-functional Requirements
 
@@ -122,7 +121,7 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - Case-warranty requirements are in [case warranties](requirements/case-warranties.md).
 - Branch and address requirements are in [branches and addresses](requirements/branches-and-addresses.md).
 - Homeowners and construction companies do not have a parent-child relationship. A case directly references its homeowner, construction company, and property. The property supplies both initial selections, after which the active case may store independently selected references. Later changes to the property's homeowner or construction-company reference do not alter any existing case reference. See [decision 0014](decisions/0014-preserve-case-party-references.md).
-- House Solution retains the FileMaker data. After data inspection, report migrated counts, unsupported or omitted items, and their reasons; House Solution confirms this migration report before cutover. The feasible migration scope, data quality, recovery, and detailed migration method remain open decisions.
+- House Solution retains the FileMaker data outside the new-system datastore. No migration mapping, cleaning, reconciliation report, or migration acceptance test is required for release. Operational cutover and rollback remain open under HSC-016.
 
 ## Error Handling
 
@@ -130,27 +129,17 @@ Not yet confirmed.
 
 ## Security and Sensitive Information
 
-Customer names and addresses are in scope. Actual homeowner data may be used in the developer-owned development environment and for migration testing after a separate confidentiality agreement is concluded. The provisional access-control approach and its residual risks are documented in [security and access](requirements/security-and-access.md). Do not commit real records or credentials.
+Customer names and addresses are in scope. Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another approved purpose still requires a separate confidentiality agreement. The provisional access-control approach and its residual risks are documented in [security and access](requirements/security-and-access.md). Do not commit real records or credentials.
 
 ## Current Phase Completion Criteria
 
 - Confirm the minimum usable scope, roles, data fields, and alert rules needed for initial operation.
-- Decide the data migration approach and complete its development and testing before production release.
+- Decide the no-migration operational cutover and rollback procedure before production release.
 - Make explicit technology and deployment decisions before implementation begins.
 
-## Open Decisions
+## Unresolved Matters
 
-- The approved prototype stack is Nuxt SPA, Vuetify, Firebase Hosting, Firestore with an application-maintained 1- and 2-character N-Gram token map for selected free-text fields, Firebase Authentication email/password with browser-session persistence, and Cloud Functions for Firebase. See [decision 0002](decisions/0002-prototype-stack-and-search.md), [decision 0005](decisions/0005-spa-and-session-persistence.md), and [search architecture](requirements/search-architecture.md).
-- Development and production use separate Firebase projects. The development project is developer-owned; production project ownership, Firebase project/region, deployment configuration, production package promotion, and production monitoring are not yet selected. Exact local-prototype dependencies are pinned in `package.json` and `package-lock.json`; this does not approve production versions.
-- Firebase Admin SDK in a secure server-side mechanism manages staff accounts. Firestore access requires an authenticated and enabled staff account, the bounded exception necessary to make a disabled account immediately unusable. See [decision 0004](decisions/0004-account-lifecycle-enforcement.md).
-- PostgreSQL may replace Firestore after a documented reassessment of the data schema, migration method, search behavior, cost, and delivery impact.
-- The end of October 2026 is the mandatory production operating deadline, including data migration. See the [delivery roadmap](roadmaps/2026-initial-delivery.md).
-- The cutover strategy initially uses a temporary parallel operation of FileMaker and the new system as a safety measure. The final migration may occur in the evening or at night after normal operations stop; the exact parallel-operation duration, final migration window, and cutover procedure remain open.
-- Construction-company submission authentication is not decided. See [external submission options](requirements/external-submission-options.md); no option is selected.
-- Whether the warranty-service payer or contracting party needs a separate field or entity from the property homeowner remains open. Property homeowner and construction-company changes are confirmed not to propagate to existing cases; see [decision 0014](decisions/0014-preserve-case-party-references.md).
-- Cloud Functions enforces account-management boundaries: the developer superuser manages House Solution administrators, and House Solution administrators manage general-staff accounts. The current provisional posture remains that all enabled authenticated users have the same business-data CRUD access. See [decision 0006](decisions/0006-account-management-roles.md).
-- Notification status belongs to each applied warranty. A notification-status filter returns a case when at least one of its applied warranties matches the selected status.
-- See [open decisions](requirements/open-decisions.md) for the decision list.
+The sole current list is the [unresolved-matter register](requirements/house-solution-confirmations.md). It separates House Solution confirmations from project technical decisions and links to one file per matter. Topic records may describe confirmed context but do not maintain separate open-decision lists.
 
 ## Specification Change Rules
 

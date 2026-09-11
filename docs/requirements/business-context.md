@@ -22,8 +22,6 @@ The system is intended to alert staff when a homeowner’s subscribed warranty s
 - The application roles are developer superuser, House Solution administrator, and general staff. The developer superuser manages House Solution administrator accounts; a House Solution administrator manages general-staff accounts. Detailed permissions outside account management are not yet confirmed.
 - Account creation sends a password-setup email; email-address verification is not required initially, and staff can reset their passwords. Disabled accounts must immediately become unusable, including existing signed-in sessions.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- Construction-company accounts are not yet decided. See [external submission options](external-submission-options.md).
-- The legal and operational ownership of customer, property, and warranty data.
-- Whether homeowners themselves will access the system.
+See [HSC-011 data ownership](house-solution-confirmations/HSC-011-data-ownership.md), [HSC-012 homeowner access](house-solution-confirmations/HSC-012-homeowner-access.md), and [HSC-013 construction-company submission](house-solution-confirmations/HSC-013-construction-company-submission.md) in the central register.

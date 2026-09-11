@@ -2,6 +2,7 @@ node_modules/
 functions/domain/
 .nuxt/
 .output/
+/dist/
 .firebase/
 firebase-debug.log
 firebase-debug.*.log

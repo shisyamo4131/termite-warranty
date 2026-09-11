@@ -7,7 +7,7 @@
 
 ## Scope and Safety Boundary
 
-This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted dialog-based management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration and applied-warranty management, direct transactional editing of active case fields, case search/list and detail reads, dashboard alert evaluation, and current-master display. It may change after representative FileMaker data is inspected.
+This contract supports the local vertical slice: emulator authentication, enabled-staff access, trusted dialog-based management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration and applied-warranty management, direct transactional editing of active case fields, case search/list and detail reads, dashboard alert evaluation, and current-master display. Existing FileMaker data is not a migration input; production validation uses confirmed workflows and representative synthetic volumes.
 
 It must not be used to select or create a real Firebase project, deploy Hosting or Functions, call the postal-code API, or store real customer, property, account, or credential data.
 
@@ -67,7 +67,7 @@ Business dates use valid ISO calendar-date strings in the prototype to avoid tim
 
 ## Explicitly Deferred
 
-- Production schema and Firebase identifiers, Hosting/deployment configuration, migration mapping, legacy-number collision handling, pagination, final combined-filter semantics, and performance targets.
+- Production schema and Firebase identifiers, Hosting/deployment configuration, initial production-data setup, pagination, final combined-filter semantics, and performance targets.
 - Final account-disable partial-failure recovery and full account-management Functions.
 - Postal-code external API calls, production monitoring, backup/recovery, broader authorization, audit logs, attachments, and construction-company submission.
 

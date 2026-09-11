@@ -28,7 +28,7 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Replacement rationale and legacy-system facts | [legacy and objectives](../docs/requirements/legacy-and-objectives.md) |
 | Delivery approach and prototype technology | [delivery and technology](../docs/requirements/delivery-and-technology.md) |
 | Delivery milestones and verified progress | [2026 initial-delivery roadmap](../docs/roadmaps/2026-initial-delivery.md) |
-| Questions requiring an explicit decision | [open decisions](../docs/requirements/open-decisions.md) |
+| Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |
 | Verification policy | [verification-policy.json](verification-policy.json) and [operations](../docs/operations.md) |
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
 

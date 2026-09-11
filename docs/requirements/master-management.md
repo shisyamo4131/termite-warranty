@@ -67,8 +67,6 @@ Master records that are already referenced by a case are not physically deleted.
 - An applied warranty displays the current name of its warranty-service master. A master-name change therefore appears on existing cases.
 - A warranty-service master's default warranty period is a positive integer number of whole years. Changing it affects only newly added applied warranties; existing applied warranties retain their fixed periods and expiry dates.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- Editing rules, including which fields can change after a master is used by a case.
-- Duplicate records are permitted without a warning or merge requirement.
-- Separate master search/list filters, display columns, sort order, and pagination.
+See [HSC-008 master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) and [HSC-009 used-master editing](house-solution-confirmations/HSC-009-used-master-editing.md) in the central register. Duplicate master records remain permitted without a warning or merge requirement.

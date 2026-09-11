@@ -14,8 +14,6 @@
 - Improve data-entry efficiency.
 - Reduce human error by replacing email reading and re-entry with form submission followed by staff review.
 
-## Open Decisions
+## Unresolved-Matter Routing
 
-- The authoritative legacy data set, its availability during September 2026, quality, and extraction method. CSV is the planned reception format, subject to confirming the actual FileMaker version, export permission, and exported table/field structure.
-- House Solution retains the FileMaker data. The new system will migrate records and fields to the extent feasible after inspection; complete historical migration is not required. Before cutover, report migrated counts, unsupported or omitted items, and reasons to House Solution for confirmation. Data-cleaning responsibilities, recovery, cutover, and rollback remain open.
-- Measurable cost, efficiency, quality, and service targets.
+Existing-system data migration is excluded by [decision 0015](../decisions/0015-no-legacy-data-migration.md). See [HSC-016 cutover and rollback](house-solution-confirmations/HSC-016-cutover-rollback.md) and [HSC-027 business success measures](house-solution-confirmations/HSC-027-business-success-measures.md) for the remaining questions.

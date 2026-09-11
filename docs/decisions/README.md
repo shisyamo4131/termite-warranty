@@ -21,11 +21,12 @@
 | [0007](0007-development-and-production-isolation.md) | Development and production isolation | Accepted | 2026-09-10 |
 | [0008](0008-postal-code-address-api.md) | Postal-code address API | Accepted | 2026-09-10 |
 | [0009](0009-warranty-extension-history.md) | Warranty-extension history | Accepted | 2026-09-10 |
-| [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Accepted | 2026-09-10 |
+| [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Superseded | 2026-09-10 |
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
 | [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Accepted | 2026-09-10 |
 | [0013](0013-local-emulator-verification.md) | Local emulator verification before development environment | Accepted | 2026-09-10 |
 | [0014](0014-preserve-case-party-references.md) | Preserve existing case party references | Accepted | 2026-09-11 |
+| [0015](0015-no-legacy-data-migration.md) | No legacy-data migration | Accepted | 2026-09-11 |
 
 ## Template
 

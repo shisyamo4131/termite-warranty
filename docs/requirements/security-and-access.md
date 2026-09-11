@@ -20,7 +20,7 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - For direct Cloud Firestore client access, require authentication and an enabled staff-account record for application collections/documents. This is the bounded control needed to enforce immediate disabled-account access revocation; do not add role- or record-level authorization.
 - Introduction of controls intended to block malicious browser-external access is deferred.
 - Start with all enabled authenticated users having the same business-data CRUD access. Account management is the bounded, server-enforced role-specific exception. Tighten other access only as role-specific functional requirements are confirmed.
-- Actual homeowner data may be handled in the developer-owned development environment and migration testing only after a separate confidentiality agreement is concluded. Do not commit it to source control or place it in documentation, test fixtures, or logs.
+- Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another separately approved purpose requires a confidentiality agreement. Do not commit it to source control or place it in documentation, test fixtures, or logs.
 - Operation-history and audit-log records are not an initial-release requirement. This does not remove the existing registration and update timestamps or the account-disable controls.
 
 ## Consequences and Residual Risks
@@ -31,9 +31,11 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - Firebase documents state that Firestore client access is governed by Security Rules; authentication-only read/write access for all signed-in users is not recommended for an entire database. Server client libraries bypass Firestore Security Rules and require separate IAM control if they are later used.
 - Firebase documentation states that disabled users and revoked refresh tokens can leave a previously issued ID token valid for up to its one-hour lifetime. To meet the immediate-disable requirement, the secure server-side disable operation must first or atomically mark the staff-account record disabled so Firestore denies subsequent access, then disable the Firebase Authentication user and revoke refresh tokens. The exact transaction/retry/recovery design must be tested before implementation.
 
-## Future Hardening Trigger — Open Decision
+## Unresolved-Matter Routing
 
 Account-management screens are a confirmed role-specific function. The account-lifecycle controls needed for creation, password setup/reset, immediate disable, and browser-session persistence are a bounded, server-enforced exception to the UI-only posture. When another business-data role-specific functional restriction is confirmed, decide its enforcement method and update this posture. No general access-control hardening milestone is currently committed before production release. This does not remove the stated residual risks or make UI visibility an authorization boundary.
+
+See [HSC-021 account lifecycle](house-solution-confirmations/HSC-021-account-lifecycle.md) and [HSC-024 role types and functional permissions](house-solution-confirmations/HSC-024-role-business-data-access.md) in the central unresolved-matter register.
 
 ## Technical References
 

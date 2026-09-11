@@ -5,6 +5,8 @@
 - Related specification: [Delivery and Technology](../requirements/delivery-and-technology.md)
 - Supersedes: None
 
+The migration-specific clauses of this decision were superseded on 2026-09-11 by [0015 No legacy-data migration](0015-no-legacy-data-migration.md). The temporary parallel-operation direction remains accepted, subject to HSC-016 confirming whether it is still necessary and how system-of-record and rollback boundaries work without a final migration.
+
 ## Context
 
 The end-of-October 2026 production deadline is mandatory, but an incorrect migration could interrupt operations. Users may accept temporary additional workload to reduce this risk.

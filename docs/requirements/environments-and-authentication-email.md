@@ -8,7 +8,7 @@
 - The provisioned and verified development Firebase project ID is `termite-warranty-dev`; its registered web app is `TermiteWarranty Dev Web`, its Hosting site is `termite-warranty-dev`, and its default Firestore location is `asia-northeast1` (Tokyo). These identifiers do not authorize or imply any production target.
 - Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. Production regions remain open.
 - Production deployment configuration, regions, monitoring, backup/recovery, and release procedure remain open.
-- Actual homeowner data may be used in the developer-owned development environment and for migration testing after a separate confidentiality agreement is concluded. Do not place that data in source control, documentation, test fixtures, or logs.
+- Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another separately approved purpose requires a confidentiality agreement. Do not place that data in source control, documentation, test fixtures, or logs.
 
 ## Confirmed Authentication-Email Requirements
 
@@ -25,11 +25,9 @@ Firebase Authentication supports configurable email templates and custom domains
 
 ## Migration Intake — Provisional Requirement
 
-- The planned FileMaker data-reception format is CSV.
-- Claris documents that FileMaker Pro can export records and select an export file type. The actual FileMaker version, account export permission, table/field layout, character encoding, and export completeness have not been supplied, so CSV intake is not yet implementation-ready.
-- Detailed migration design, mapping, validation, reconciliation, backup, rollback, and cutover procedures remain deferred until the data is provided.
-- House Solution retains the FileMaker data. The project will migrate records and fields only to the extent feasible after inspection; complete historical migration is not required.
-- Before cutover, provide House Solution with a migration report showing migrated counts, unsupported or omitted items, and reasons, and obtain its confirmation.
+- No FileMaker export or CSV intake is required for the new-system release because existing-system data will not be migrated.
+- House Solution retains the FileMaker data outside the new-system datastore.
+- Operational cutover and rollback still require a procedure, but they do not include export, mapping, reconciliation, or migration-report acceptance.
 
 ## Technical References
 

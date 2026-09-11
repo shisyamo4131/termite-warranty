@@ -48,7 +48,7 @@ Permitted edits not explicitly confirmed below remain open decisions.
 ## Case Registration Requirement
 
 - Application date, handover date, property, homeowner, construction company, responsible branch, and at least one applied warranty service are required. Selecting a property initially selects its homeowner and construction-company IDs for the case. No ordering rule between application date and handover date is currently specified.
-- Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Where available, preserve legacy case numbers during migration. The format may be revised after legacy-data inspection.
+- Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Legacy case numbers are not imported. The production format remains open under HSC-004.
 - Selecting a property automatically selects its homeowner and construction-company IDs for a new case. Staff may change either selection before registration and while the case remains active.
 - Changing the property on an active case initially selects the newly selected property's homeowner and construction-company IDs. Staff may change either value before saving. Changing a property master's construction-company ID does not alter existing cases.
 - Each applied warranty requires a warranty start date. Initialize its fixed period from the warranty-service master's default period. Its expiry date is calculated as the day before the anniversary reached by adding that period to the start date; staff may manually correct it without a reason.
@@ -69,4 +69,4 @@ See [branches and addresses](branches-and-addresses.md) for branch and property-
 - A property's homeowner and construction-company references are editable even after the property is used by a case. Changing either property reference changes only the property and does not rewrite any existing case reference. See [decision 0014](../decisions/0014-preserve-case-party-references.md).
 - An applied warranty's fixed period is not editable. Its start date is editable; changing it recalculates its expiry date before any subsequent manual correction.
 - A warranty-service name follows the master name. A master default positive-integer period change affects only newly added applied warranties and does not alter existing applied-warranty periods or expiry dates.
-- Map only the legacy records and fields that can feasibly be handled after the supplied data is inspected. House Solution retains the FileMaker data; complete historical migration is not required.
+- Do not import records or fields from the current FileMaker system into the new system.
