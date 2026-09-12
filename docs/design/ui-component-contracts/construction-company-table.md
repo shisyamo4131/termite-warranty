@@ -17,7 +17,7 @@ The component:
 - renders the supplied construction-company rows;
 - makes company name, address, active state, and row actions understandable;
 - offers a detail trigger and an active/inactive change trigger for each row;
-- represents loading, empty, and per-row busy states;
+- represents loading and empty states;
 - contains horizontal overflow or otherwise remains usable in a narrow viewport.
 
 The visual hierarchy, spacing, borders, row density, supplemental TEL/contact display, and desktop-to-narrow presentation are open to the user's design as long as the acceptance rules below remain true.
@@ -31,6 +31,7 @@ The component must not:
 - open the registration/edit dialog;
 - navigate with Vue Router or construct route URLs;
 - decide whether an inactivation is allowed;
+- detect other users' edits, lock a row, or show an editing-conflict message; master updates remain last-write-wins;
 - show application-level success or error alerts;
 - modify a prop or a row object received from the parent.
 
@@ -63,10 +64,6 @@ An array of display-ready objects. The component may read only these fields:
 ### `loading` (optional, default `false`)
 
 Boolean. While true, communicate that rows are being loaded. Do not present the ordinary empty state at the same time.
-
-### `busyIds` (optional, default `[]`)
-
-Array of company IDs currently changing active state. Disable the affected row's state-change trigger and show progress without blocking detail triggers or unrelated rows.
 
 ### `emptyText` (optional, default `該当する工務店はありません。`)
 
@@ -103,7 +100,6 @@ No slots are required for this first version. Adding a slot during authoring is 
 - Missing optional values: `null` TEL/contact values do not render as `null` or `undefined`.
 - Loading: a progress indicator or skeleton is shown, not the empty message.
 - Empty: one clear message occupies the table area.
-- Busy row: only its state-change action is disabled/loading, and repeat emission is prevented.
 - Detail action: always emits `show-detail`; it performs no navigation itself.
 - State action: its accessible name contains the company name and the resulting operation, for example `ひだまり住宅株式会社を無効化`.
 
@@ -121,7 +117,7 @@ No slots are required for this first version. Adding a slot during authoring is 
 - Fixture: `/.user-ui-workbench/fixtures/construction-company-table.js`
 - Exports: `constructionCompanyRows` and `constructionCompanyTableStates`
 - `constructionCompanyRows` includes normal, inactive, missing-optional-value, and long-content examples.
-- `constructionCompanyTableStates` supplies normal, loading, empty, and busy-row prop combinations.
+- `constructionCompanyTableStates` supplies normal, loading, and empty prop combinations.
 - The ignored preview harness imports the expected component file and lets the viewer switch between those states. It runs without Firebase through `npm run dev:ui-workbench` at `http://127.0.0.1:23610/`.
 
 ## Acceptance and Integration Checks
