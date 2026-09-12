@@ -10,7 +10,7 @@ Use the local workbench when the user needs to express detailed appearance or in
 
 ## Ownership and Concurrency
 
-- The user owns component and note files under `/.user-ui-workbench/`. Agents must not edit, rename, format, or delete them unless the user explicitly asks. The coordinator may create contract-scoped fictional data under `fixtures/` as described below.
+- The user owns authored component and note files under `/.user-ui-workbench/`. Agents must not edit, rename, format, or delete them unless the user explicitly asks. The coordinator may create contract-scoped fictional data under `fixtures/`, the isolated preview harness, and a Japanese convenience copy named `ComponentName.contract.md` beside the component.
 - The user changes only the workbench copy while parallel project work is active. This avoids conflicts with tracked application components.
 - The coordinator reads a submitted workbench component only after the user identifies the file as ready for review.
 - The workbench may contain disposable experiments. It is not a source of truth, build input, test fixture, backup, or deliverable.
@@ -18,7 +18,7 @@ Use the local workbench when the user needs to express detailed appearance or in
 
 ## Contract Before Authoring
 
-Before the user starts a target component, the coordinator records a reviewable component contract under `docs/design/ui-component-contracts/` and presents it in plain language. The contract must state:
+Before the user starts a target component, the coordinator records a reviewable component contract under `docs/design/ui-component-contracts/` and presents it in plain language. The tracked project contract may use English. The coordinator also places a Japanese convenience copy beside the workbench component as `ComponentName.contract.md` so the user can review it without switching directories. The tracked document remains authoritative; the ignored Japanese copy is disposable and must be updated in the same change whenever user-visible contract meaning changes. The contract must state:
 
 1. component purpose and exact intended placement;
 2. responsibilities and explicitly excluded responsibilities;
