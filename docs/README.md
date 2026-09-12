@@ -26,6 +26,7 @@
 - [Design index](design/README.md): implementation designs and explicitly provisional contracts.
 - [Prototype Firestore data contract](design/prototype-firestore-data-contract.md): local-emulator-only collection and invariant assumptions for the first vertical slice.
 - [TR-001 detailed design](design/tr-001-master-last-write-wins.md): implementation and acceptance contract for master last-write-wins.
+- [TR-002 detailed design](design/tr-002-functions-domain-preparation.md): implementation and acceptance contract for deterministic shared-domain preparation and drift detection in Functions workflows.
 
 ## How to Start Work
 

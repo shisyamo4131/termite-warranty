@@ -1,9 +1,9 @@
-import { cp, mkdir, rm } from 'node:fs/promises'
-import { resolve } from 'node:path'
+import { functionsDomainOutput, prepareFunctionsDomain, repositoryRelativePath } from './functions-domain.mjs'
 
-const sourceDirectory = resolve('src/domain')
-const outputDirectory = resolve('functions/domain')
-
-await rm(outputDirectory, { recursive: true, force: true })
-await mkdir(outputDirectory, { recursive: true })
-await cp(sourceDirectory, outputDirectory, { recursive: true })
+try {
+  const result = await prepareFunctionsDomain()
+  console.log(`${repositoryRelativePath(functionsDomainOutput)} is synchronized (${result.entryCount} entries, ${result.changed ? 'replaced' : 'unchanged'}).`)
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Functions domain preparation failed.')
+  process.exitCode = 1
+}

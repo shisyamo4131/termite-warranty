@@ -23,6 +23,7 @@
 
 ### Changed
 
+- Made the generated Functions copy of `src/domain` deterministic and self-verifying across the supported Emulator, Callable-test, syntax-check, and Firebase predeploy paths, with an independent drift check.
 - Implemented last-write-wins for the four trusted-callable master update and lifecycle paths while retaining server-managed revisions, validation, atomic writes, property non-propagation, and the separate case/applied-warranty stale-baseline policy; the registered Emulator gate now covers the master Callable boundary and concurrent full-payload behavior.
 - Adopted last-write-wins for master changes, bounded unfiltered subscriptions to the 20 freshest documents, and a governed technical-remediation backlog covering Functions shared-code preparation, verification/deploy gaps, master-form duplication, list-query scaling, and `usePrototypeData` responsibility separation. Case year/month filtering remains unresolved.
 - Excluded current-system data migration from the new-system release, resolved the migration-scope and FileMaker-delivery questions, and reframed cutover around new registrations, system-of-record ownership, and rollback without data import.

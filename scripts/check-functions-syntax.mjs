@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process'
+import { prepareFunctionsDomain } from './functions-domain.mjs'
+
+await prepareFunctionsDomain()
 
 for (const file of [
   'functions/index.js',

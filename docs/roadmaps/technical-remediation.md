@@ -26,13 +26,15 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-002: Make Shared Domain Code Deterministic for Functions
 
-- Status: Approved; not implemented
+- Status: Implemented and accepted on `codex/tr-002-functions-preparation`; integration is recorded in Git history
+- Detailed design: [TR-002 deterministic Functions domain preparation](../design/tr-002-functions-domain-preparation.md)
 - Purpose confirmed from repository evidence: `src/domain` contains Firebase-independent warranty, search, projection, and master-normalization logic used by both Nuxt and Functions. Because `firebase.json` declares `functions` as the Functions source directory, deployable Functions currently import a generated copy at `functions/domain`.
-- Current risk: `functions/domain` is ignored by Git and generated only by the Firebase predeploy hook. A clean checkout cannot run every Functions path without preparation, and a developer can test an old generated copy before deployment replaces it.
+- Former risk: `functions/domain` was ignored by Git and generated only by selected paths. A clean checkout could not run every Functions path without manual preparation, and a developer could test an old generated copy before deployment replaced it.
 - Recommended target for the current project: keep `src/domain` as the sole authored source; add one deterministic `prepare:functions` command; make every Functions syntax test, Functions Emulator start, callable integration test, and deploy path invoke it; then run a source/copy equality check that fails on drift. Never treat an existing ignored copy as test input without preparation.
 - Longer-term option: evaluate a tracked internal workspace package consumed by both Nuxt and Functions. Adopt it only after proving that the Firebase deployment bundle installs and resolves the local package in a clean checkout; Firebase's documented deployment boundary remains the configured Functions source package.
 - Completion contract: deleting `functions/domain` and starting from a clean checkout still permits the registered Functions tests and Emulator command to prepare the exact current source automatically; drift is detected; generated content remains excluded from commits.
 - Required validation: clean-copy rehearsal, source/copy hash comparison, Functions syntax, callable integration, Emulator regression, and build/deploy dry preparation without an external deployment.
+- Evidence: preparation is repository-anchored, staged, byte-compared, path-safe, and serialized with bounded lock waiting. Unit tests cover missing/stale/extra/type/content differences, byte preservation, bidirectional path containment, supported symlink boundaries, deterministic lock contention and timeout, post-lock recheck, and stage/lock cleanup. A missing real generated directory was rejected by the read-only check, then recreated by both the syntax path and the normal Emulator startup prehook; deliberate real-path content drift was rejected and repaired. The final gates passed: domain tests 48 passed/1 host-limited child-symlink fixture skipped, Firestore/Auth/Functions Emulator regression 82 passed, typecheck, build, Functions syntax, seed syntax, governance validation, canonical preparation, and independent equality check all exited 0. The normal Emulator command reached the all-ready state and was then intentionally stopped. No external deployment was performed.
 
 ## TR-003: Close Verification and Development-deploy Gaps
 

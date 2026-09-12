@@ -6,7 +6,7 @@
   "functions": {
     "source": "functions",
     "predeploy": [
-      "node scripts/prepare-functions-deploy.mjs"
+      "npm run prepare:functions"
     ]
   },
   "hosting": {

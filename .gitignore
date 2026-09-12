@@ -1,5 +1,7 @@
 node_modules/
 functions/domain/
+functions/.domain-stage-*/
+functions/.domain-sync.lock
 .nuxt/
 .output/
 /dist/
