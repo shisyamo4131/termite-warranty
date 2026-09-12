@@ -42,6 +42,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-030 | [Custom authentication-email sender](house-solution-confirmations/HSC-030-custom-auth-email-sender.md) | Deferred | House Solution, if requested |
 | HSC-031 | [Mobile-device usage and support scope](house-solution-confirmations/HSC-031-mobile-device-support.md) | Not yet asked | House Solution |
 | HSC-032 | [Case-list year/month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) | Not yet asked | House Solution |
+| HSC-033 | [Branch management necessity](house-solution-confirmations/HSC-033-branch-management-necessity.md) | Not yet asked | House Solution |
 
 ## Resolved Matters
 
