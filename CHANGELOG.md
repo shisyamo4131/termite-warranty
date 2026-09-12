@@ -26,6 +26,7 @@
 
 ### Changed
 
+- Deployed the zero-network TR-009 postal-lookup foundation to the development environment after the comprehensive workflow passed, and smoke-verified the supported manual property/homeowner behavior and continued construction-company exclusion without changing data.
 - Replaced the planned Japan Post postal-code API with Google Maps Platform Geocoding API to align Dev/Prod project and credential management with Firebase, while retaining a replaceable provider boundary and manual-entry fallback; production ownership and billing remain unresolved.
 - Deployed the current prototype to the `termite-warranty-dev` Firebase environment after comprehensive verification, removed four obsolete remote Callables, and enabled one-day cleanup for generated Functions container images.
 - Integrated the first user-authored UI component into the construction-company master list, preserving its responsive table design while adding typed inputs and legacy address compatibility.
