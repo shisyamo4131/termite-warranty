@@ -19,7 +19,14 @@
             :persistent-hint="Boolean(searchHint)"
           />
         </v-card-text>
-        <v-table class="list-data-table" fixed-header>
+        <ConstructionCompanyTable
+          v-if="masterType === 'constructionCompany'"
+          :items="filteredRows"
+          :loading="loading"
+          @show-detail="handleCompanyDetail"
+          @change-active="handleCompanyActiveChange"
+        />
+        <v-table v-else class="list-data-table" fixed-header>
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
@@ -70,6 +77,7 @@ import { submitMasterCreate } from '../utils/masterFormSubmission.mjs'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
 const rows = ref<ManagedMaster[]>([])
+const loading = ref(true)
 const filter = ref<string | null>('')
 const saving = ref(false)
 const dialogOpen = ref(false)
@@ -156,6 +164,14 @@ const toggle = async (row: ManagedMaster) => {
   }
 }
 
+const handleCompanyDetail = ({ id }: { id: string }) => navigateTo(`/masters/${routeSegment.value}/${id}`)
+
+const handleCompanyActiveChange = async ({ id, nextActive }: { id: string; nextActive: boolean }) => {
+  const row = rows.value.find((candidate) => candidate.id === id)
+  if (!row || row.active === nextActive) return
+  await toggle(row)
+}
+
 const formatAddress = (row: ManagedMaster) => [
   row.address?.prefecture,
   row.address?.municipality,
@@ -166,8 +182,8 @@ const formatAddress = (row: ManagedMaster) => [
 let unsubscribe: (() => void) | undefined
 onMounted(async () => {
   unsubscribe = manager.subscribe(
-    (nextRows) => { rows.value = nextRows },
-    (error) => { messageType.value = 'error'; message.value = error },
+    (nextRows) => { rows.value = nextRows; loading.value = false },
+    (error) => { messageType.value = 'error'; message.value = error; loading.value = false },
   )
   await refreshReferences()
 })

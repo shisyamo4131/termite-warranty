@@ -1,6 +1,6 @@
 # Construction Company Table Component Contract
 
-- Status: Ready for user authoring
+- Status: Integrated
 - User workbench file: `/.user-ui-workbench/components/ConstructionCompanyTable.vue`
 - Proposed tracked destination: `/app/components/ConstructionCompanyTable.vue`
 - Initial integration point: the construction-company branch of `/app/components/MasterManagement.vue`
@@ -132,3 +132,10 @@ The workbench version is ready for review when:
 5. no Firebase, API, router, global store, or environment access exists in the component.
 
 After submission, the coordinator will review the component against this contract, adapt it to TypeScript if useful, integrate it without importing the ignored fixture, and run the verification gates selected for the actual tracked UI change.
+
+## Integration Record
+
+- Integrated tracked component: `/app/components/ConstructionCompanyTable.vue`
+- Integrated parent: the construction-company branch of `/app/components/MasterManagement.vue`
+- The tracked version preserves the accepted display and events, declares typed required `items` and optional `loading` props, and safely renders readable legacy rows that do not contain an address.
+- The tracked application does not import the ignored workbench component or fixture.

@@ -24,6 +24,7 @@
 
 ### Changed
 
+- Integrated the first user-authored UI component into the construction-company master list, preserving its responsive table design while adding typed inputs and legacy address compatibility.
 - Adopted the ignored user-owned JavaScript UI component workbench as a governed optional collaboration workflow, including contract-based review outcomes and coordinator-owned tracked integration.
 - Bounded unfiltered case and master subscriptions to the freshest 20 documents with stable cursor ordering, removed per-case warranty listeners from case lists through an atomic parent projection, and clarified that current filters and dashboard totals cover the visible window.
 - Split the former aggregate prototype-data composable into typed case command, master catalog, list query, detail query, pure date/draft, and thin UI orchestration boundaries with explicit loading/ready/error state, independently testable retry and listener cleanup, and protection from late callbacks emitted by removed warranty listeners.

@@ -255,6 +255,24 @@ test('all three master entry points use the shared form and payload mapper', asy
   assert.match(quickSource, /form\.value = createMasterFormDraft\(props\.masterType\)/)
 })
 
+test('construction-company list delegates presentation to the bounded user-designed table', async () => {
+  const parentSource = await readProjectFile('app/components/MasterManagement.vue')
+  const tableSource = await readProjectFile('app/components/ConstructionCompanyTable.vue')
+
+  assert.match(parentSource, /<ConstructionCompanyTable/)
+  assert.match(parentSource, /v-if="masterType === 'constructionCompany'"/)
+  assert.match(parentSource, /:items="filteredRows"/)
+  assert.match(parentSource, /@show-detail="handleCompanyDetail"/)
+  assert.match(parentSource, /@change-active="handleCompanyActiveChange"/)
+
+  assert.match(tableSource, /items: ManagedMaster\[\]/)
+  assert.match(tableSource, /item\.address\?\./)
+  assert.match(tableSource, /disable-sort/)
+  assert.match(tableSource, /hide-default-footer/)
+  assert.match(tableSource, /:items-per-page="-1"/)
+  assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
+})
+
 test('master entry submission adapters execute payload and success contracts', async () => {
   const companyForm = createMasterFormDraft('constructionCompany', {
     name: '工務店',
