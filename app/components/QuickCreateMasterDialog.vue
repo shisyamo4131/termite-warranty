@@ -7,6 +7,7 @@
       <v-card-text>
         <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
         <MasterFormFields
+          ref="masterFormFields"
           v-model="form"
           :homeowners="references.homeowners"
           :companies="references.companies"
@@ -38,19 +39,26 @@ const saving = ref(false)
 const message = ref('')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
 const form = ref<MasterFormDraft>(createMasterFormDraft(props.masterType))
+type MasterFormFieldsHandle = { cancelPostalLookup: () => void }
+const masterFormFields = ref<MasterFormFieldsHandle | null>(null)
+
+const cancelPostalLookup = () => masterFormFields.value?.cancelPostalLookup()
 
 const open = async () => {
+  cancelPostalLookup()
   form.value = createMasterFormDraft(props.masterType)
   message.value = ''
   if (props.masterType === 'property') Object.assign(references, await manager.loadPropertyReferences())
   dialogOpen.value = true
 }
 const cancel = () => {
+  cancelPostalLookup()
   dialogOpen.value = false
   message.value = ''
   form.value = createMasterFormDraft(props.masterType)
 }
 const save = async () => {
+  cancelPostalLookup()
   saving.value = true
   message.value = ''
   try {
@@ -58,6 +66,7 @@ const save = async () => {
       form: form.value,
       createMaster: manager.createMaster,
       afterSuccess: (payload) => {
+        cancelPostalLookup()
         dialogOpen.value = false
         emit('created', payload)
         form.value = createMasterFormDraft(props.masterType)
@@ -69,4 +78,5 @@ const save = async () => {
     saving.value = false
   }
 }
+onBeforeUnmount(cancelPostalLookup)
 </script>

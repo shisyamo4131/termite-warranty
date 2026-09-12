@@ -53,6 +53,7 @@
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
         <v-form @submit.prevent="save">
           <MasterFormFields
+            ref="masterFormFields"
             v-model="form"
             :homeowners="references.homeowners"
             :companies="references.companies"
@@ -85,6 +86,10 @@ const dialogMessage = ref('')
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
+type MasterFormFieldsHandle = { cancelPostalLookup: () => void }
+const masterFormFields = ref<MasterFormFieldsHandle | null>(null)
+
+const cancelPostalLookup = () => masterFormFields.value?.cancelPostalLookup()
 
 const form = ref<MasterFormDraft>(createMasterFormDraft(props.masterType))
 const manager = useMasterManagement(props.masterType)
@@ -108,6 +113,7 @@ const filteredRows = computed(() => {
 })
 
 const resetForm = () => {
+  cancelPostalLookup()
   form.value = createMasterFormDraft(props.masterType)
 }
 
@@ -119,6 +125,7 @@ const openCreate = async () => {
 }
 
 const cancelDialog = () => {
+  cancelPostalLookup()
   dialogOpen.value = false
   dialogMessage.value = ''
   resetForm()
@@ -129,6 +136,7 @@ const refreshReferences = async (include: { homeownerId?: string; constructionCo
 }
 
 const save = async () => {
+  cancelPostalLookup()
   saving.value = true
   message.value = ''
   try {
@@ -136,6 +144,7 @@ const save = async () => {
       form: form.value,
       createMaster: manager.createMaster,
       afterSuccess: async () => {
+        cancelPostalLookup()
         messageType.value = 'success'
         message.value = '登録しました。'
         dialogOpen.value = false
@@ -187,5 +196,8 @@ onMounted(async () => {
   )
   await refreshReferences()
 })
-onBeforeUnmount(() => unsubscribe?.())
+onBeforeUnmount(() => {
+  cancelPostalLookup()
+  unsubscribe?.()
+})
 </script>

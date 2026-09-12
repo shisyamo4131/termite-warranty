@@ -1,6 +1,6 @@
 # TR-009 Google Postal-Code Lookup Boundary
 
-- Status: Design ready; implementation and external setup not started
+- Status: Provider-neutral foundation implemented; Google adapter and external setup not started
 - Date: 2026-09-12
 - Roadmap: [TR-009](../roadmaps/technical-remediation.md#tr-009-add-google-postal-code-lookup)
 - Baseline: `a490f50d48c02ea2aa8abb498a0d981c0b85164c` on `main`
@@ -35,7 +35,9 @@ Unresolved and therefore not selected by this design:
 
 ## Existing Behavior
 
-`MasterAddressFields.vue` currently exposes five editable address fields. `MasterFormFields.vue` reuses it in property, homeowner, and construction-company flows; the homeowner flow explicitly says automatic entry is not connected. The three addressed master types persist the same address shape through the shared master-form mapper. No postal lookup client, Callable, provider adapter, credential binding, or Google fixture exists at this baseline.
+At the recorded baseline, `MasterAddressFields.vue` exposed five editable address fields and `MasterFormFields.vue` reused it in property, homeowner, and construction-company flows; the homeowner flow explicitly said automatic entry was not connected. The three addressed master types persisted the same address shape through the shared master-form mapper. No postal lookup client, Callable, provider adapter, credential binding, or Google fixture existed at that baseline.
+
+The provider-neutral foundation now adds an optional injected provider, canonical result handling, per-field and per-generation stale-response protection, synchronous cancellation from the three current master-form hosts, and dependency-free tests. No current host injects a provider, so this foundation's local behavior—and its behavior when deployed unchanged—remains manual, silent, and zero-network until a later approved integration slice.
 
 ## Proposed Application Boundary
 
@@ -111,7 +113,7 @@ Until that gate is resolved, implementation may add provider interfaces, fake-pr
 
 ## Implementation Slices
 
-1. Provider-neutral foundation: add canonical lookup DTOs, fake-provider behavior, per-field stale-response protection, and property/homeowner-only UI wiring. The default local provider remains unavailable and makes no network request.
+1. Provider-neutral foundation — implemented: canonical lookup DTOs, fake-provider behavior, per-field stale-response protection, synchronous save/close/reset cancellation, and property/homeowner-only optional UI wiring. Current hosts inject no provider and make no network request.
 2. Google adapter after mapping approval: add server request construction, parser fixtures, enabled-staff enforcement, timeout/error normalization, and function-scoped secret binding.
 3. Development setup after separate approval: verify the exact development project, enable only the required API, configure the approved credential/restrictions/quota, bind the secret, deploy, and run synthetic smoke checks.
 4. Production setup only after ownership and operations decisions: create independent production resources, rehearse rollback, and obtain release approval.
@@ -129,6 +131,14 @@ The implementation affects documentation, UI interaction, application logic, and
 - `node --check scripts/seed-emulator.mjs`
 
 Focused coverage must include invalid/incomplete postal codes, property/homeowner official-UI scope, enabled/missing/disabled staff, accepted burst/rate-control behavior, stale and out-of-order responses, per-field edits during flight, save/close/unmount invalidation, manual correction, no-match, ambiguous results that leave street/town and number untouched, provider timeout/denial/quota failures, credential redaction, and proof that fake-provider tests issue no network request. Attribution and structured-address persistence acceptance checks are required if the policy review requires them. Google parser fixtures and live synthetic checks remain blocked until the response-mapping, provider-policy, and external-setup gates are approved.
+
+## Provider-Neutral Foundation Evidence
+
+- Added `src/domain/postal-lookup.mjs` and its declaration contract for postal-code normalization, property/homeowner scope, sanitized provider-neutral results, optional provider resolution, and stale-response coordination.
+- `MasterAddressFields.vue` and `MasterFormFields.vue` expose optional lookup wiring while the three current full/quick/edit hosts cancel in-flight work before save, close, reset, and unmount. Construction-company forms receive no lookup subject or provider.
+- The registered dependency-free test covers normalization, no-call cases, resolved/ambiguous/failure results, blank/inherited/extra response fields, per-field edits, overlapping requests, provider replacement/removal, cancellation, reset/reopen, and source-level host wiring.
+- Independent read-only review accepted the corrected implementation with no remaining code defect or specification drift. Mounted Vue/Vuetify event and exposed-ref behavior is not automated; the required Dev smoke check covers the unchanged manual form behavior and browser errors. Deferred provider timing and replacement behavior cannot be exercised in Dev until an approved provider is injected and remains a required integration check for slice 2.
+- Local unit, type, build, Functions syntax, seed syntax, and governance checks exited 0. The local Emulator Rules gate was not completed because its dedicated ports were occupied by processes whose ownership was not confirmed; the user subsequently set Dev deployment and Dev behavior verification as the completion condition. The development workflow must pass its full pre-deploy verification, including the Rules gate, before deployment.
 
 ## Rollback
 

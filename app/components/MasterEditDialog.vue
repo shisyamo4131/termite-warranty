@@ -3,11 +3,12 @@
     <v-card :title="`${title}を編集`"><v-card-text>
       <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
       <MasterFormFields
+        ref="masterFormFields"
         v-model="form"
         :homeowners="references.homeowners"
         :companies="references.companies"
       />
-    </v-card-text><v-card-actions><v-spacer /><v-btn :disabled="saving" @click="open = false">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="save">更新</v-btn></v-card-actions></v-card>
+    </v-card-text><v-card-actions><v-spacer /><v-btn :disabled="saving" @click="cancel">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="save">更新</v-btn></v-card-actions></v-card>
   </v-dialog>
 </template>
 <script setup lang="ts">
@@ -22,16 +23,28 @@ const { updateMaster, loadPropertyReferences } = useMasterManagement(props.maste
 const saving = ref(false); const message = ref('')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
 const form = ref<MasterFormDraft>(createMasterFormDraft(props.masterType))
+type MasterFormFieldsHandle = { cancelPostalLookup: () => void }
+const masterFormFields = ref<MasterFormFieldsHandle | null>(null)
+const cancelPostalLookup = () => masterFormFields.value?.cancelPostalLookup()
+const cancel = () => {
+  cancelPostalLookup()
+  open.value = false
+}
 const initialize = async () => {
+  cancelPostalLookup()
   const row = props.row
   if (!row) return
   form.value = createMasterFormDraft(props.masterType, row)
   if (props.masterType === 'property') Object.assign(references, await loadPropertyReferences(row))
   message.value = ''
 }
-watch(open, value => { if (value) void initialize() })
+watch(open, value => {
+  if (value) void initialize()
+  else cancelPostalLookup()
+}, { flush: 'sync' })
 const save = async () => {
   if (!props.row) return
+  cancelPostalLookup()
   saving.value = true
   try {
     await submitMasterUpdate({
@@ -39,6 +52,7 @@ const save = async () => {
       form: form.value,
       updateMaster,
       afterSuccess: () => {
+        cancelPostalLookup()
         open.value = false
         emit('saved')
       },
@@ -49,4 +63,5 @@ const save = async () => {
     saving.value = false
   }
 }
+onBeforeUnmount(cancelPostalLookup)
 </script>

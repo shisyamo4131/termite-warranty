@@ -13,10 +13,15 @@
     <MasterPropertyReferenceFields
       v-model:homeowner-id="form.homeownerId"
       v-model:construction-company-id="form.constructionCompanyId"
-      :homeowners="homeowners"
-      :companies="companies"
+      :homeowners="props.homeowners"
+      :companies="props.companies"
     />
-    <MasterAddressFields v-model="form.address" />
+    <MasterAddressFields
+      ref="propertyAddressFields"
+      v-model="form.address"
+      lookup-subject="property"
+      :postal-lookup-provider="props.postalLookupProvider"
+    />
   </template>
   <template v-if="form.masterType === 'constructionCompany'">
     <MasterAddressFields v-model="form.address" />
@@ -30,8 +35,13 @@
     />
   </template>
   <template v-if="form.masterType === 'homeowner'">
-    <v-alert type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
-    <MasterAddressFields v-model="form.address" />
+    <v-alert v-if="!props.postalLookupProvider" type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
+    <MasterAddressFields
+      ref="homeownerAddressFields"
+      v-model="form.address"
+      lookup-subject="homeowner"
+      :postal-lookup-provider="props.postalLookupProvider"
+    />
     <MasterHomeownerContactFields
       v-model:telephone="form.telephone"
       v-model:fax="form.fax"
@@ -42,11 +52,27 @@
 
 <script setup lang="ts">
 import type { MasterFormDraft } from '../../src/domain/master-form.mjs'
+import type { PostalLookupProvider } from '../../src/domain/postal-lookup.mjs'
 import type { ManagedMaster } from '../composables/useMasterManagement'
 
-withDefaults(defineProps<{ homeowners?: ManagedMaster[]; companies?: ManagedMaster[] }>(), {
+const props = withDefaults(defineProps<{
+  homeowners?: ManagedMaster[]
+  companies?: ManagedMaster[]
+  postalLookupProvider?: PostalLookupProvider
+}>(), {
   homeowners: () => [],
   companies: () => [],
 })
 const form = defineModel<MasterFormDraft>({ required: true })
+
+type AddressFieldsHandle = { cancelPostalLookup: () => void }
+const propertyAddressFields = ref<AddressFieldsHandle | null>(null)
+const homeownerAddressFields = ref<AddressFieldsHandle | null>(null)
+
+function cancelPostalLookup() {
+  propertyAddressFields.value?.cancelPostalLookup()
+  homeownerAddressFields.value?.cancelPostalLookup()
+}
+
+defineExpose({ cancelPostalLookup })
 </script>
