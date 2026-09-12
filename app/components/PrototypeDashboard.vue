@@ -52,16 +52,12 @@
 
 <script setup lang="ts">
 import { filterCaseRows } from '../../src/domain/case-filters.mjs'
-import {
-  currentLocalDate, formatCanonicalLocalDate, parseCanonicalLocalDate,
-  type CaseFilters, type CaseRow, type MasterCatalog,
-} from '../composables/usePrototypeData'
+import type { CaseFilters, CaseRow, MasterCatalog } from '../types/prototype-data'
+import { currentLocalDate, formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 import type { MasterType } from '../composables/useMasterManagement'
 
-const emptyCatalog = (): MasterCatalog => ({
-  branches: [], constructionCompanies: [], homeowners: [], properties: [], warrantyServices: [],
-})
-const allMasters = reactive(emptyCatalog())
+const masterCatalog = useMasterCatalog()
+const allMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const rows = ref<CaseRow[]>([])
 const saving = ref(false)
 const registrationDialog = ref(false)
@@ -78,8 +74,9 @@ const filters = reactive<CaseFilters>({
   responsibleBranchId: null, warrantyServiceId: null, prefecture: null, municipality: null,
   notificationStatus: null, expiryDate: null,
 })
-const { activeMasters, loadAllMasters, registerCase, subscribeCaseRows } = usePrototypeData()
-const selectableMasters = computed(() => activeMasters(allMasters))
+const { registerCase } = useCaseCommands()
+const { state: caseListState, start: startCaseList } = useCaseList()
+const selectableMasters = computed(() => masterCatalog.activeMasters(allMasters))
 const filteredRows = computed(() => filterCaseRows(rows.value, filters))
 const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
@@ -118,7 +115,7 @@ const cancelRegistration = () => {
   registrationDialog.value = false
   resetRegistration()
 }
-const refreshMasters = async () => Object.assign(allMasters, await loadAllMasters())
+const refreshMasters = async () => Object.assign(allMasters, await masterCatalog.loadAllMasters())
 const handleQuickCreated = async ({ masterType, id }: { masterType: MasterType; id: string }) => {
   await refreshMasters()
   if (masterType === 'property') {
@@ -155,19 +152,15 @@ const saveRegistration = async () => {
     saving.value = false
   }
 }
-let unsubscribe: (() => void) | undefined
-onMounted(async () => {
-  await refreshMasters()
-  unsubscribe = subscribeCaseRows(
-    (nextRows) => { rows.value = nextRows },
-    () => {
-      pageMessageType.value = 'error'
-      pageMessage.value = 'データ参照権限を確認できません。再ログインしてください。'
-    },
-    (nextMasters) => Object.assign(allMasters, nextMasters),
-  )
+watch(caseListState, (next) => {
+  rows.value = next.rows
+  Object.assign(allMasters, next.masters)
+  if (next.status === 'error') {
+    pageMessageType.value = 'error'
+    pageMessage.value = 'データ参照権限を確認できません。再ログインしてください。'
+  }
 })
-onBeforeUnmount(() => unsubscribe?.())
+onMounted(startCaseList)
 </script>
 
 <style scoped>

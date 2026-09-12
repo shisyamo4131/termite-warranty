@@ -15,15 +15,15 @@
   </v-card>
 </template>
 <script setup lang="ts">
-import type { CaseRow, MasterCatalog } from '../composables/usePrototypeData'
+import type { CaseRow } from '../types/prototype-data'
 const rows = ref<CaseRow[]>([]); const message = ref('')
-const emptyCatalog = (): MasterCatalog => ({ branches: [], constructionCompanies: [], homeowners: [], properties: [], warrantyServices: [] })
-const masters = reactive(emptyCatalog())
-const { loadAllMasters, subscribeCaseRows } = usePrototypeData()
+const { state, start } = useCaseList()
 const alerts = computed(() => rows.value.filter((row) => row.isAlertEligible))
 const notNotified = computed(() => rows.value.filter((row) => row.hasNotNotified))
 const attentionRows = computed(() => rows.value.filter((row) => row.isAlertEligible || row.hasNotNotified))
-let unsubscribe: (() => void) | undefined
-onMounted(async () => { Object.assign(masters, await loadAllMasters()); unsubscribe = subscribeCaseRows((nextRows) => { rows.value = nextRows }, () => { message.value = 'データ参照権限を確認できません。再ログインしてください。' }, (nextMasters) => Object.assign(masters, nextMasters)) })
-onBeforeUnmount(() => unsubscribe?.())
+watch(state, (next) => {
+  rows.value = next.rows
+  if (next.status === 'error') message.value = 'データ参照権限を確認できません。再ログインしてください。'
+})
+onMounted(start)
 </script>

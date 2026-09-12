@@ -19,7 +19,7 @@ import { addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from 
 import {
   CaseEditConflictError,
   updateCaseTransaction,
-} from '../../app/composables/usePrototypeData.ts'
+} from '../../app/gateways/caseCommandGateway.ts'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'

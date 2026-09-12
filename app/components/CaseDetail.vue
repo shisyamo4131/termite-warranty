@@ -38,26 +38,20 @@
 </template>
 
 <script setup lang="ts">
-import { type CaseRow, type MasterCatalog } from '../composables/usePrototypeData'
+import type { CaseRow } from '../types/prototype-data'
 
 const route = useRoute()
-const row = ref<CaseRow | null>(null)
-const message = ref('')
-const loaded = ref(false)
 const editOpen = ref(false)
 const warrantyOpen = ref(false)
 const selectedWarranty = ref<CaseRow['appliedWarranties'][number] | null>(null)
-const emptyCatalog = (): MasterCatalog => ({ branches: [], constructionCompanies: [], homeowners: [], properties: [], warrantyServices: [] })
-const masters = reactive(emptyCatalog())
-const { activeMasters, subscribeCaseDetail } = usePrototypeData()
-const selectableMasters = computed(() => activeMasters(masters))
+const { state, start } = useCaseDetail()
+const { activeMasters } = useMasterCatalog()
+const row = computed(() => state.value.row)
+const masters = computed(() => state.value.masters)
+const message = computed(() => state.value.status === 'error' ? '案件データを読み込めませんでした。' : '')
+const loaded = computed(() => state.value.status !== 'loading')
+const selectableMasters = computed(() => activeMasters(masters.value))
 const statusLabel = (value: string) => ({ active: '有効', cancelled: '取消', invalid: '無効' }[value] ?? value)
-let unsubscribe: (() => void) | undefined
-const start = (id: string) => {
-  unsubscribe?.(); row.value = null; message.value = ''; loaded.value = false; Object.assign(masters, emptyCatalog())
-  unsubscribe = subscribeCaseDetail(id, value => { row.value = value; loaded.value = true }, () => { message.value = '案件データを読み込めませんでした。'; loaded.value = true }, value => Object.assign(masters, value))
-}
 onMounted(() => start(String(route.params.id)))
 watch(() => route.params.id, id => start(String(id)))
-onBeforeUnmount(() => unsubscribe?.())
 </script>

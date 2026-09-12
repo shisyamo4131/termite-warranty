@@ -23,7 +23,8 @@
 </template>
 
 <script setup lang="ts">
-import { formatCanonicalLocalDate, parseCanonicalLocalDate, type CaseRow, type MasterCatalog, type MasterOption } from '../composables/usePrototypeData'
+import type { CaseRow, MasterCatalog, MasterOption } from '../types/prototype-data'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 import type { MasterType } from '../composables/useMasterManagement'
 
 const props = defineProps<{
@@ -33,7 +34,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ saved: [] }>()
 const dialogOpen = defineModel<boolean>({ required: true })
-const { updateCase } = usePrototypeData()
+const { updateCase } = useCaseCommands()
 const saving = ref(false)
 const message = ref('')
 const baselineUpdatedAt = ref<CaseRow['updatedAtBaseline']>(null)

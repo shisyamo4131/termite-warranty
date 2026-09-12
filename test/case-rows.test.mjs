@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { matchesCaseUpdateBaseline, projectCaseRows } from '../src/domain/case-rows.mjs'
-import { hydrateAppliedWarrantyDraft, recalculatedAppliedWarrantyExpiry } from '../app/composables/usePrototypeData.ts'
+import { hydrateAppliedWarrantyDraft, recalculatedAppliedWarrantyExpiry } from '../app/utils/appliedWarrantyDraft.ts'
 
 const timestamp = (value) => ({ toMillis: () => value })
 

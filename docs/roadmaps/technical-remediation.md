@@ -67,11 +67,13 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-006: Split `usePrototypeData.ts` by Responsibility
 
-- Status: Approved; not implemented
+- Status: Complete on `codex/tr-006-prototype-data-split`; independently reviewed
+- Detailed design: [TR-006 prototype-data responsibility split](../design/tr-006-prototype-data-responsibility-split.md)
 - Current evidence: one composable contains UI-facing types, date helpers, dialog draft logic, client transactions, callable gateways, master loading, case-list subscriptions, and case-detail subscriptions.
 - Target: separate shared types and pure transformations, case command gateway, case list query repository, case detail query repository, and UI orchestration composables. Keep Firebase-free domain rules in the shared domain boundary. Do not add a global store unless a demonstrated cross-page state need exists.
 - Completion contract: each module has one principal reason to change; UI components depend on query/command interfaces rather than raw Firestore assembly; list and detail loading expose explicit ready/error states; listener cleanup and retry behavior are testable independently.
 - Required validation: existing domain and Emulator regressions, focused query/command tests, listener ordering/error/cleanup tests, component smoke tests, typecheck, and build.
+- Completion evidence: the aggregate composable was removed and all consumers now use typed command, catalog, list-query, or detail-query boundaries. Dependency-free regressions cover readiness under reordered delivery, progressive data, retry generations, dynamic child cleanup, and removed-listener late callbacks. The full policy-selected gate set passed, local dashboard/list/detail smoke passed without browser console errors, and follow-up review reported no remaining High or Medium finding. See the [detailed design evidence](../design/tr-006-prototype-data-responsibility-split.md#validation).
 
 ## TR-007: Replace Master CUD Callables with Direct Firestore Writes
 

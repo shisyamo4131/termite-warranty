@@ -10,10 +10,13 @@
   </v-card-text><v-card-actions><v-spacer/><v-btn :disabled="saving" @click="close">キャンセル</v-btn><v-btn color="primary" :loading="saving" @click="save">保存</v-btn></v-card-actions></v-card></v-dialog>
 </template>
 <script setup lang="ts">
-import { formatCanonicalLocalDate, hydrateAppliedWarrantyDraft, parseCanonicalLocalDate, recalculatedAppliedWarrantyExpiry, type CaseRow, type MasterCatalog } from '../composables/usePrototypeData'
+import type { CaseRow, MasterCatalog } from '../types/prototype-data'
+import { hydrateAppliedWarrantyDraft, recalculatedAppliedWarrantyExpiry } from '../utils/appliedWarrantyDraft'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 const props = defineProps<{ modelValue: boolean; row: CaseRow; warranty?: CaseRow['appliedWarranties'][number] | null; masters: MasterCatalog }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean]; saved: [] }>()
-const { addAppliedWarranty, updateAppliedWarranty, activeMasters } = usePrototypeData()
+const { addAppliedWarranty, updateAppliedWarranty } = useCaseCommands()
+const { activeMasters } = useMasterCatalog()
 const open = computed({ get: () => props.modelValue, set: (value) => emit('update:modelValue', value) })
 const saving = ref(false); const message = ref('')
 const openedCaseBaseline = ref<CaseRow['updatedAtBaseline']>(null)

@@ -17,45 +17,16 @@ declare module '*src/domain/search-tokens.mjs' {
 }
 
 declare module '*src/domain/case-rows.mjs' {
-  export function matchesCaseUpdateBaseline(current: unknown, expected: unknown): boolean
+  export function matchesCaseUpdateBaseline(
+    current: { seconds: number; nanoseconds: number } | null | undefined,
+    expected: { seconds: number; nanoseconds: number } | null | undefined,
+  ): boolean
   export function projectCaseRows(input: {
-    cases: Map<string, Record<string, any>>
-    warranties: Map<string, Record<string, any>[]>
-    masters: Map<string, Map<string, Record<string, any>>>
+    cases: Map<string, Record<string, unknown>>
+    warranties: Map<string, Record<string, unknown>[]>
+    masters: Map<string, Map<string, Record<string, unknown>>>
     today: string
-  }): Array<{
-    id: string
-    caseNumber: string
-    propertyId: string
-    homeownerId: string
-    constructionCompanyId: string
-    responsibleBranchId: string
-    status: string
-    statusReason: string | null
-    applicationDate: string
-    handoverDate: string
-    updatedAtBaseline: unknown
-    propertyName: string
-    homeownerName: string
-    propertyPrefecture: string
-    propertyMunicipality: string
-    propertyAddress: string
-    constructionCompanyName: string
-    branchName: string
-    appliedWarranties: Array<{
-      id: string
-      warrantyServiceId: string
-      expiryDate: string
-      notificationStatus: string
-      status: string
-      statusReason: string | null
-      periodYears: number
-      startDate: string
-      warrantyServiceName: string
-    }>
-    hasNotNotified: boolean
-    isAlertEligible: boolean
-  }>
+  }): import('./prototype-data').CaseRow[]
 }
 
 declare module '*src/domain/case-filters.mjs' {

@@ -22,13 +22,8 @@
 
 <script setup lang="ts">
 import { matchesSearchTokenMap, normalizeSearchText } from '../../src/domain/search-tokens.mjs'
-import {
-  formatCanonicalLocalDate,
-  parseCanonicalLocalDate,
-  type CaseFilters,
-  type MasterCatalog,
-  type MasterOption,
-} from '../composables/usePrototypeData'
+import type { CaseFilters, MasterCatalog, MasterOption } from '../types/prototype-data'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 
 const props = defineProps<{ masters: MasterCatalog }>()
 const filters = defineModel<CaseFilters>({ required: true })
