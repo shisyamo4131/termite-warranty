@@ -7,7 +7,7 @@ const workflowUrl = new URL('../.github/workflows/deploy-development.yml', impor
 const policyUrl = new URL('../governance/verification-policy.json', import.meta.url)
 const load = async () => {
   const [workflow, policyText] = await Promise.all([readFile(workflowUrl, 'utf8'), readFile(policyUrl, 'utf8')])
-  return { workflow, policy: JSON.parse(policyText) }
+  return { workflow: workflow.replaceAll('\r\n', '\n'), policy: JSON.parse(policyText) }
 }
 
 test('development workflow satisfies the registered verification and deployment contract', async () => {
