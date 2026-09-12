@@ -31,6 +31,7 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |
 | Verification policy | [verification-policy.json](verification-policy.json) and [operations](../docs/operations.md) |
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
+| User-authored UI component collaboration | [custom UI component runbook](../docs/runbooks/custom-ui-component-collaboration.md) and [decision 0021](../docs/decisions/0021-user-authored-ui-component-collaboration.md) |
 
 ## Authority Boundaries
 

@@ -1,8 +1,15 @@
 # Custom UI Component Collaboration
 
-- Status: Active
+- Status: Adopted
+- Adopted: 2026-09-12
 - Workspace: `/.user-ui-workbench/` in the primary project directory
 - Git policy: the workspace is ignored and is never committed
+
+## Adoption and Applicability
+
+This is an approved project workflow, not a temporary experiment. Use it when the user elects to create a component because visual or interaction details are easier to demonstrate than describe. It is optional per component and does not require the user to author every UI element.
+
+The tracked contract remains the source of truth for behavior and integration. The workbench component communicates the user's visual and interaction intent; it does not override confirmed product requirements, accessibility requirements, data boundaries, or application architecture.
 
 ## Purpose
 
@@ -64,12 +71,14 @@ Do not ask the user to invent TypeScript types. The contract translates every re
 After the user marks the component ready, the coordinator:
 
 1. compares it with the recorded contract;
-2. preserves the intended visual and interaction design;
-3. separates presentation from business/data responsibilities where needed;
-4. converts JavaScript to TypeScript only when useful for the tracked codebase;
-5. integrates it into the approved application location;
-6. runs the verification gates selected for the actual changed surfaces;
-7. reports any material deviation from the submitted component.
+2. reports one review outcome: `accepted for integration` or `changes requested`, with concrete contract mismatches and unverified checks;
+3. when changes are requested, leaves the user-owned component untouched and waits for the user to identify a revised version as ready, unless the user explicitly asks the coordinator to make the revision;
+4. preserves the intended visual and interaction design;
+5. separates presentation from business/data responsibilities where needed;
+6. converts JavaScript to TypeScript only when useful for the tracked codebase;
+7. integrates it into the approved application location;
+8. runs the verification gates selected for the actual changed surfaces;
+9. reports any material deviation from the submitted component.
 
 The ignored workbench copy may remain or be deleted by the user. Integration never depends on it remaining available.
 

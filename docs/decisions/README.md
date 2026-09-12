@@ -32,6 +32,7 @@
 | [0018](0018-direct-master-writes.md) | Direct master writes under the provisional access posture | Accepted | 2026-09-12 |
 | [0019](0019-remove-unused-profile-callable.md) | Remove the unused profile Callable | Accepted | 2026-09-12 |
 | [0020](0020-local-port-allocation.md) | Dedicated local ports with AirGuardV2 priority | Accepted | 2026-09-12 |
+| [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
 
 ## Template
 
