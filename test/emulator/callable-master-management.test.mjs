@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from 'node:test'
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth'
+import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 
@@ -13,6 +13,8 @@ if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') throw new Error('C
 const adminApp = initializeAdminApp({ projectId }, 'callable-master-management-test')
 const adminDb = getFirestore(adminApp)
 let webApp; let auth; let functions; let uid
+const email = 'callable.master.staff@example.invalid'
+const password = 'Demo-only-password-123'
 
 const homeownerFields = (overrides = {}) => ({
   name: 'Synthetic homeowner',
@@ -34,16 +36,47 @@ before(async () => {
   connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
   functions = getFunctions(webApp, 'asia-northeast1')
   connectFunctionsEmulator(functions, '127.0.0.1', 5101)
-  const credential = await createUserWithEmailAndPassword(auth, 'callable.master.staff@example.invalid', 'Demo-only-password-123')
+  const credential = await createUserWithEmailAndPassword(auth, email, password)
   uid = credential.user.uid
 })
 
 beforeEach(async () => {
+  if (!auth.currentUser) await signInWithEmailAndPassword(auth, email, password)
   await adminDb.recursiveDelete(adminDb.collection('homeowners'))
-  await adminDb.doc(`staffAccounts/${uid}`).set({ enabled: true, email: 'callable.master.staff@example.invalid' })
+  await adminDb.doc(`staffAccounts/${uid}`).set({ enabled: true, email })
 })
 
-after(async () => { await signOut(auth); await deleteApp(webApp); await deleteAdminApp(adminApp) })
+after(async () => { if (auth.currentUser) await signOut(auth); await deleteApp(webApp); await deleteAdminApp(adminApp) })
+
+test('master callable wrapper maps representative authentication, authorization, and document errors', async () => {
+  const create = httpsCallable(functions, 'createMaster')
+  const update = httpsCallable(functions, 'updateMaster')
+  await signOut(auth)
+  await assert.rejects(
+    create({ masterType: 'homeowner', fields: homeownerFields() }),
+    error => error?.code === 'functions/unauthenticated',
+  )
+
+  await signInWithEmailAndPassword(auth, email, password)
+  await adminDb.doc(`staffAccounts/${uid}`).update({ enabled: false })
+  await assert.rejects(
+    create({ masterType: 'homeowner', fields: homeownerFields() }),
+    error => error?.code === 'functions/permission-denied',
+  )
+  assert.equal((await adminDb.collection('homeowners').get()).empty, true)
+
+  await adminDb.doc(`staffAccounts/${uid}`).update({ enabled: true })
+  await assert.rejects(
+    update({ masterType: 'homeowner', id: 'missing', fields: homeownerFields() }),
+    error => error?.code === 'functions/not-found',
+  )
+  await adminDb.doc('homeowners/corrupt').set({ ...homeownerFields(), active: true })
+  await assert.rejects(
+    update({ masterType: 'homeowner', id: 'corrupt', fields: homeownerFields({ name: 'Rejected' }) }),
+    error => error?.code === 'functions/failed-precondition',
+  )
+  assert.equal((await adminDb.doc('homeowners/corrupt').get()).data()?.name, 'Synthetic homeowner')
+})
 
 test('Web Functions SDK accepts the last-write-wins DTO and rejects obsolete expectedRevision', async () => {
   const create = httpsCallable(functions, 'createMaster')

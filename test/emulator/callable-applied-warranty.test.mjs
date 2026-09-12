@@ -3,7 +3,7 @@ import { after, before, beforeEach, test } from 'node:test'
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
-import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signOut } from 'firebase/auth'
+import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
 
 const projectId = 'demo-termite-warranty'
@@ -11,6 +11,8 @@ if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') throw new Error('C
 const adminApp = initializeAdminApp({ projectId }, 'callable-applied-warranty-test')
 const adminDb = getFirestore(adminApp)
 let webApp; let auth; let functions; let uid
+const email = 'callable.staff@example.invalid'
+const password = 'Demo-only-password-123'
 const dto = (timestamp) => ({ seconds: timestamp.seconds, nanoseconds: timestamp.nanoseconds })
 
 before(async () => {
@@ -19,19 +21,42 @@ before(async () => {
   connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
   functions = getFunctions(webApp, 'asia-northeast1')
   connectFunctionsEmulator(functions, '127.0.0.1', 5101)
-  const credential = await createUserWithEmailAndPassword(auth, 'callable.staff@example.invalid', 'Demo-only-password-123')
+  const credential = await createUserWithEmailAndPassword(auth, email, password)
   uid = credential.user.uid
 })
 beforeEach(async () => {
+  if (!auth.currentUser) await signInWithEmailAndPassword(auth, email, password)
   await adminDb.recursiveDelete(adminDb.collection('cases'))
   await adminDb.recursiveDelete(adminDb.collection('warrantyServices'))
-  await adminDb.doc(`staffAccounts/${uid}`).set({ enabled: true, email: 'callable.staff@example.invalid' })
+  await adminDb.doc(`staffAccounts/${uid}`).set({ enabled: true, email })
   const baseline = Timestamp.fromMillis(1_700_000_000_000)
   await adminDb.doc('cases/case-1').set({ status: 'active', updatedAt: baseline })
   await adminDb.doc('cases/case-1/appliedWarranties/retained').set({ status: 'cancelled', expiryDate: '2030-12-31' })
   await adminDb.doc('warrantyServices/service-1').set({ active: true, defaultPeriodYears: 5 })
 })
-after(async () => { await signOut(auth); await deleteApp(webApp); await deleteAdminApp(adminApp) })
+after(async () => { if (auth.currentUser) await signOut(auth); await deleteApp(webApp); await deleteAdminApp(adminApp) })
+
+test('applied-warranty callable wrapper maps representative authentication and operation errors without mutation', async () => {
+  const add = httpsCallable(functions, 'addAppliedWarranty')
+  const baseline = (await adminDb.doc('cases/case-1').get()).data().updatedAt
+  const valid = { caseId: 'case-1', warrantyServiceId: 'service-1', expectedCaseUpdatedAt: dto(baseline) }
+
+  await signOut(auth)
+  await assert.rejects(add(valid), error => error?.code === 'functions/unauthenticated')
+  await signInWithEmailAndPassword(auth, email, password)
+
+  await adminDb.doc(`staffAccounts/${uid}`).update({ enabled: false })
+  await assert.rejects(add(valid), error => error?.code === 'functions/permission-denied')
+  await adminDb.doc(`staffAccounts/${uid}`).update({ enabled: true })
+
+  await assert.rejects(add({}), error => error?.code === 'functions/invalid-argument')
+  await assert.rejects(
+    add({ ...valid, caseId: 'missing' }),
+    error => error?.code === 'functions/not-found',
+  )
+  assert.equal((await adminDb.collection('cases/case-1/appliedWarranties').get()).size, 1)
+  assert.equal((await adminDb.doc('cases/case-1').get()).data().updatedAt.isEqual(baseline), true)
+})
 
 test('Web Functions SDK callable DTO adds, edits, rejects stale baseline, and leaves rejected mutation atomic', async () => {
   const add = httpsCallable(functions, 'addAppliedWarranty')

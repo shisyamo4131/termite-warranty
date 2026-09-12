@@ -10,8 +10,65 @@ permissions:
   contents: read
 
 jobs:
+  verify:
+    name: Verify development deployment
+    runs-on: windows-latest
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install dependencies
+        run: npx --yes npm@11.19.1 ci
+
+      - name: Check project governance
+        run: ./scripts/check-governance.ps1
+
+      - name: Run domain tests
+        run: npm test
+
+      - name: Type-check the application
+        run: npm run typecheck
+
+      - name: Build the application
+        run: npm run build
+
+      - name: Run Firestore and Callable Emulator tests
+        run: npm run test:rules
+
+      - name: Check Functions syntax
+        run: node scripts/check-functions-syntax.mjs
+
+      - name: Check Emulator seed syntax
+        run: node --check scripts/seed-emulator.mjs
+
+      - name: Check Hosting artifact
+        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
+
+      - name: Upload verified Hosting artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firebase-hosting-${{ github.sha }}
+          path: .output/public
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 1
+
   deploy:
     name: Deploy to termite-warranty-dev
+    needs: verify
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -24,16 +81,19 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Install dependencies
+        run: npx --yes npm@11.19.1 ci
+
+      - name: Download verified Hosting artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: firebase-hosting-${{ github.sha }}
+          path: .output/public
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
 
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Hosting artifact
-        run: npx nuxt generate
-
       - name: Deploy Firestore, Functions, and Hosting
-        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive --force
+        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive

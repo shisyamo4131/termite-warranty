@@ -40,7 +40,7 @@
       "id": "governance-check", "command": "./scripts/check-governance.ps1", "stages": ["iteration", "targeted", "completion", "release"], "includes": [], "invalidatedBy": ["any governance input, policy, configuration, or managed artifact change"], "evidenceDestination": "task completion report"
     },
     {
-      "id": "domain-test", "command": "npm test", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["src/domain/**, functions/local-runtime.js, Functions domain preparation helpers/tests, test domain/runtime files, package.json, package-lock.json, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
+      "id": "domain-test", "command": "npm test", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["src/domain/**, functions/local-runtime.js, Functions domain/syntax/workflow contract helpers or tests, .github/workflows/deploy-development.yml, governance/verification-policy.json, package.json, package-lock.json, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
     },
     {
       "id": "app-typecheck", "command": "npm run typecheck", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["app/**, nuxt.config.ts, tsconfig.json, package.json, or package-lock.json changes"], "evidenceDestination": "task completion report"
@@ -52,7 +52,7 @@
       "id": "firestore-rules-test", "command": "npm run test:rules", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["firestore.rules, firebase.json, functions/**, src/domain/**, Functions domain preparation helpers, data-contract, emulator tests, app persistence, or dependency changes"], "evidenceDestination": "task completion report"
     },
     {
-      "id": "functions-syntax", "command": "node scripts/check-functions-syntax.mjs", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["functions/**, src/domain/**, Functions domain preparation/check scripts, scripts/check-functions-syntax.mjs, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
+      "id": "functions-syntax", "command": "node scripts/check-functions-syntax.mjs", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["functions/**, src/domain/**, Functions domain preparation/check/discovery scripts, scripts/check-functions-syntax.mjs, or the Node.js runtime changes"], "evidenceDestination": "task completion report"
     },
     {
       "id": "seed-syntax", "command": "node --check scripts/seed-emulator.mjs", "stages": ["iteration", "targeted", "completion"], "includes": [], "invalidatedBy": ["scripts/seed-emulator.mjs or the Node.js runtime changes"], "evidenceDestination": "task completion report"

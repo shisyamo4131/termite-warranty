@@ -1,7 +1,7 @@
 # 0018 Direct Master Writes Under the Provisional Access Posture
 
 - Date: 2026-09-12
-- Status: Accepted; implementation deferred until TR-001 through TR-003 are complete
+- Status: Accepted; TR-001 through TR-003 are complete and TR-007 implementation is next
 - Related specification: [Security and access posture](../requirements/security-and-access.md), [master management](../requirements/master-management.md)
 - Supersedes: None
 

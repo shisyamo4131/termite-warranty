@@ -38,11 +38,13 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-003: Close Verification and Development-deploy Gaps
 
-- Status: Approved; not implemented
-- Current evidence: the existing Web Functions SDK applied-warranty test is not in a registered gate; the Functions syntax checker omits `applied-warranty-management.js`; the development deployment workflow builds and deploys without first running the project verification policy.
+- Status: Implemented and accepted on `codex/tr-003-verification-deploy-gates`; integration is recorded in Git history
+- Detailed design: [TR-003 verification and development-deploy gates](../design/tr-003-verification-deploy-gates.md)
+- Former evidence: the existing Web Functions SDK applied-warranty test was not in a registered gate; the Functions syntax checker omitted `applied-warranty-management.js`; the development deployment workflow built and deployed without first running the project verification policy.
 - Target: register an Auth+Firestore+Functions callable integration gate; cover callable wrappers and error mapping; discover or explicitly enumerate every maintained Functions module in syntax validation; make the development deploy job depend on all policy-selected gates. Review the current unconditional `--force` separately and retain it only with a documented deletion boundary.
 - Completion contract: a deliberate failure in each gate blocks deployment; the callable test runs from a clean checkout using TR-002 preparation; every Functions service module is covered; deploy remains external-write gated.
 - Required validation: fail-pass tests for the aggregate workflow, independent exit-status evidence for every gate, and a no-deploy workflow validation or pull-request run before enabling the changed deployment job.
+- Evidence: the registered Emulator gate now covers all seven exported Callable endpoints and representative authentication, authorization, validation, stale-baseline, and atomic-rejection paths; 88 Emulator tests passed. Recursive syntax discovery checked all 10 current deployable JavaScript modules. The local workflow contract rejects every omitted comprehensive gate, conditional/non-failing gates, missing manual/`needs` boundaries, credential use in verification, missing or rebuilt revision-bound Hosting artifacts, extra/retargeted deploys, and `--force`. Domain tests passed 56 with 2 host-limited symlink fixtures skipped; typecheck, static Hosting generation with `index.html`, Functions syntax, seed syntax, and standalone workflow validation exited 0. Independent review accepted the repaired implementation. No workflow dispatch or external deployment was performed; GitHub Actions execution and remote Artifact Registry policy remain unverified.
 
 ## TR-004: Consolidate Master Form Fields and Payload Mapping
 
@@ -70,7 +72,7 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-007: Replace Master CUD Callables with Direct Firestore Writes
 
-- Status: Approved; deferred until TR-001, TR-002, and TR-003 are complete
+- Status: Approved; foundation dependency TR-001 through TR-003 is complete and implementation is next
 - Decision: [ADR 0018](../decisions/0018-direct-master-writes.md)
 - Current evidence: direct client create/update is denied for construction-company, homeowner, property, and warranty-service masters, and every create, update, inactivation, and reactivation goes through a trusted Callable. This boundary was introduced primarily so a server could derive name-search N-Gram maps and was later expanded to uniform revision, lifecycle, timestamp, and reference validation. The previously server-atomic property-to-case propagation requirement no longer exists.
 - Target: enabled authenticated staff write the four master types directly through the Firestore client. Rules retain the approved minimum boundary and data-safety invariants: enabled-account access, exact supported document shape and types, immutable creation metadata, server update timestamps, valid property references where required, and no physical delete. Do not introduce role- or record-level business-data authorization. Generate application-maintained search fields from the shared domain implementation and write them atomically with their canonical fields; explicitly accept that Rules cannot prove semantic equality between a name and its submitted dynamic N-Gram map under the provisional threat posture.
