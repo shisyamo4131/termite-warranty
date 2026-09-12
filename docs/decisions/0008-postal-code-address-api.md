@@ -1,9 +1,10 @@
 # 0008 Postal-Code Address API
 
 - Date: 2026-09-10
-- Status: Accepted
+- Status: Superseded
 - Related specification: [Functional Requirements](../specification.md#functional-requirements)
 - Supersedes: None
+- Superseded by: [0022 Google Geocoding for postal-code lookup](0022-google-geocoding-postal-lookup.md)
 
 ## Context
 

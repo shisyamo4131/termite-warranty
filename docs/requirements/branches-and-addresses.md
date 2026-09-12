@@ -29,9 +29,9 @@ The selected future postal-code API direction covers property and homeowner entr
 
 ## Confirmed Postal-Code Data Direction
 
-- When integration information is available, use Japan Post's official Postal Code and Digital Address API (郵便番号・デジタルアドレスAPI) for automatic address lookup for property and homeowner entry. Do not import Japan Post CSV data or perform monthly manual data updates in the initial release.
-- Keep the lookup component replaceable so a later API provider can replace Japan Post's API.
-- API agreement/credentials, availability target, cost, and detailed integration behavior remain open.
+- Use Google Maps Platform Geocoding API for automatic postal-code address lookup for property and homeowner entry. Restrict requests to Japan and the entered postal code, and map typed response components instead of parsing the formatted-address string. Do not import Japan Post CSV data or perform monthly manual data updates in the initial release.
+- Keep the lookup component replaceable so another provider can be selected later.
+- Billing, Google Cloud project and credential ownership, API-key or OAuth handling, quota and cost controls, availability target, and detailed Japanese response mapping remain open under HSC-017.
 
 The future integration must, when one postal code has multiple matching town-area records, automatically populate prefecture and municipality only. The staff member selects or manually enters street/town and number.
 
@@ -43,6 +43,8 @@ The future integration must show an address-lookup failure message, retain all e
 
 See [HSC-017 postal API conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md), [HSC-018 construction-company postal lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md), and [HSC-019 address/contact validation](house-solution-confirmations/HSC-019-address-contact-validation.md) in the central register.
 
-## Technical Reference
+## Technical References
 
-- [Japan Post: postal-code data download and official API overview](https://www.post.japanpost.jp/service/search/zipcode/download/)
+- [Google Geocoding request and response](https://developers.google.com/maps/documentation/geocoding/guides-v3/requests-geocoding)
+- [Google Maps Platform pricing](https://developers.google.com/maps/billing-and-pricing/pricing)
+- [Google Maps Platform API security](https://developers.google.com/maps/api-security-best-practices)

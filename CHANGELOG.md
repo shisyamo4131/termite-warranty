@@ -24,6 +24,7 @@
 
 ### Changed
 
+- Replaced the planned Japan Post postal-code API with Google Maps Platform Geocoding API to align Dev/Prod project and credential management with Firebase, while retaining a replaceable provider boundary and manual-entry fallback; production ownership and billing remain unresolved.
 - Deployed the current prototype to the `termite-warranty-dev` Firebase environment after comprehensive verification, removed four obsolete remote Callables, and enabled one-day cleanup for generated Functions container images.
 - Integrated the first user-authored UI component into the construction-company master list, preserving its responsive table design while adding typed inputs and legacy address compatibility.
 - Adopted the ignored user-owned JavaScript UI component workbench as a governed optional collaboration workflow, including contract-based review outcomes and coordinator-owned tracked integration.

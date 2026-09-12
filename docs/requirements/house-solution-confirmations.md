@@ -26,7 +26,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-012 | [Homeowner system access](house-solution-confirmations/HSC-012-homeowner-access.md) | Not yet asked | House Solution |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Deferred | House Solution |
 | HSC-016 | [Cutover, parallel operation, and rollback](house-solution-confirmations/HSC-016-cutover-rollback.md) | Not yet asked | House Solution |
-| HSC-017 | [Postal-code API operating conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md) | Not yet asked | House Solution |
+| HSC-017 | [Postal-code API operating conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md) | Partially answered | Project, with House Solution production input |
 | HSC-018 | [Construction-company postal-code lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md) | Not yet asked | House Solution |
 | HSC-019 | [Address and contact-field validation](house-solution-confirmations/HSC-019-address-contact-validation.md) | Not yet asked | House Solution |
 | HSC-020 | [Production Firebase environment and operations](house-solution-confirmations/HSC-020-production-firebase-operations.md) | Open technical decision | Project, with House Solution input |

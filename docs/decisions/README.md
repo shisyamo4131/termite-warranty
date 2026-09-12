@@ -19,7 +19,7 @@
 | [0005](0005-spa-and-session-persistence.md) | SPA and browser-session persistence | Accepted | 2026-09-10 |
 | [0006](0006-account-management-roles.md) | Account-management roles | Accepted | 2026-09-10 |
 | [0007](0007-development-and-production-isolation.md) | Development and production isolation | Accepted | 2026-09-10 |
-| [0008](0008-postal-code-address-api.md) | Postal-code address API | Accepted | 2026-09-10 |
+| [0008](0008-postal-code-address-api.md) | Postal-code address API | Superseded | 2026-09-10 |
 | [0009](0009-warranty-extension-history.md) | Warranty-extension history | Accepted | 2026-09-10 |
 | [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Superseded | 2026-09-10 |
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
@@ -33,6 +33,7 @@
 | [0019](0019-remove-unused-profile-callable.md) | Remove the unused profile Callable | Accepted | 2026-09-12 |
 | [0020](0020-local-port-allocation.md) | Dedicated local ports with AirGuardV2 priority | Accepted | 2026-09-12 |
 | [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
+| [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Accepted | 2026-09-12 |
 
 ## Template
 
