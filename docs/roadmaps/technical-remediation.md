@@ -49,11 +49,13 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-004: Consolidate Master Form Fields and Payload Mapping
 
-- Status: Approved; not implemented
-- Current evidence: full creation, quick creation, and detail editing separately define the same fields, initial state, conditional sections, and form-to-payload mapping in `MasterManagement.vue`, `QuickCreateMasterDialog.vue`, and `MasterEditDialog.vue`.
+- Status: Implemented and independently accepted on `codex/tr-004-master-form-consolidation`; Git integration is recorded in repository history
+- Detailed design: [TR-004 master form consolidation](../design/tr-004-master-form-consolidation.md)
+- Former evidence: full creation, quick creation, and detail editing separately defined the same fields, initial state, conditional sections, and form-to-payload mapping in `MasterManagement.vue`, `QuickCreateMasterDialog.vue`, and `MasterEditDialog.vue`.
 - Target: share typed form models, initialization, and pure payload mappers; reuse small field-section components for address, company contact, property references, and homeowner contact. Keep the existing list/detail shells and avoid a general metadata-driven form engine.
 - Completion contract: each field is declared and mapped once per master type; full create, quick create, and edit produce the same validated payload shape; master-specific differences remain explicit and typed; no `Record<string, any>` form state remains.
 - Required validation: parameterized mapper tests for every master type, component tests for the three entry points, typecheck, build, and Emulator master CRUD regression.
+- Evidence: the four master types use a discriminated draft union, pure initialization/payload functions, explicit reusable field sections, and tested injectable submission adapters shared by the three entry points. Tests cover all draft/payload mappings, success callbacks, quick-create event/reset, edit saved/close, and inactive property-reference preservation; Nuxt compiles the SFC bindings. Domain/workflow tests passed 65 with 2 host-limited symbolic-link fixtures skipped; typecheck, static build, the 77-test Auth/Firestore/Functions Emulator suite, recursive Functions syntax, seed syntax, and governance validation exited 0. Independent review found no remaining High, Medium, or Low issue. DOM focus/click behavior was not automated, and no external deployment or data migration was performed.
 
 ## TR-005: Replace Unbounded List Subscriptions
 

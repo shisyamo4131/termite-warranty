@@ -42,55 +42,17 @@
       <v-card-text>
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
         <v-form @submit.prevent="save">
-          <v-text-field v-model="form.name" label="名称" required />
-          <v-text-field
-            v-if="masterType === 'warrantyService'"
-            v-model.number="form.defaultPeriodYears"
-            label="標準保証期間（年）"
-            type="number"
-            min="1"
-            step="1"
-            required
+          <MasterFormFields
+            v-model="form"
+            :homeowners="references.homeowners"
+            :companies="references.companies"
           />
-          <template v-if="masterType === 'property'">
-            <v-select v-model="form.homeownerId" :items="references.homeowners" item-title="name" item-value="id" label="施主" required />
-            <v-select v-model="form.constructionCompanyId" :items="references.companies" item-title="name" item-value="id" label="工務店" required />
-            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
-            <v-text-field v-model="form.prefecture" label="都道府県" required />
-            <v-text-field v-model="form.municipality" label="市区町村" required />
-            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
-            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
-          </template>
-          <template v-if="masterType === 'constructionCompany'">
-            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
-            <v-text-field v-model="form.prefecture" label="都道府県" required />
-            <v-text-field v-model="form.municipality" label="市区町村" required />
-            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
-            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
-            <v-text-field v-model="form.telephone" label="TEL（任意）" />
-            <v-text-field v-model="form.fax" label="FAX（任意）" />
-            <v-text-field v-model="form.contactPerson" label="担当者（任意）" />
-            <v-textarea v-model="form.contactDetails" label="連絡先（任意）" />
-            <v-text-field v-model="form.email" label="メールアドレス（任意）" />
-            <v-textarea v-model="form.notes" label="備考（任意）" />
-          </template>
-          <template v-if="masterType === 'homeowner'">
-            <v-alert type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
-            <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required />
-            <v-text-field v-model="form.prefecture" label="都道府県" required />
-            <v-text-field v-model="form.municipality" label="市区町村" required />
-            <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required />
-            <v-text-field v-model="form.buildingName" label="建物名（任意）" />
-            <v-text-field v-model="form.telephone" label="TEL（任意）" />
-            <v-text-field v-model="form.fax" label="FAX（任意）" />
-            <v-textarea v-model="form.notes" label="備考（任意）" />
-          </template>
         </v-form>
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn :disabled="saving" @click="cancelDialog">キャンセル</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">{{ editingId ? '更新' : '登録' }}</v-btn>
+        <v-btn color="primary" :loading="saving" @click="save">登録</v-btn>
       </v-card-actions>
     </v-card>
     </v-dialog>
@@ -100,6 +62,8 @@
 <script setup lang="ts">
 import { matchesManagedMasterName, type ManagedMaster, type MasterType } from '../composables/useMasterManagement'
 import { normalizeSearchText } from '../../src/domain/search-tokens.mjs'
+import { createMasterFormDraft, type MasterFormDraft } from '../../src/domain/master-form.mjs'
+import { submitMasterCreate } from '../utils/masterFormSubmission.mjs'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
 const rows = ref<ManagedMaster[]>([])
@@ -107,29 +71,11 @@ const filter = ref<string | null>('')
 const saving = ref(false)
 const dialogOpen = ref(false)
 const dialogMessage = ref('')
-const editingId = ref('')
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
 
-const emptyForm = () => ({
-  name: '',
-  defaultPeriodYears: 1,
-  homeownerId: '',
-  constructionCompanyId: '',
-  postalCode: '',
-  prefecture: '',
-  municipality: '',
-  streetTownAndNumber: '',
-  buildingName: '',
-  telephone: '',
-  fax: '',
-  contactPerson: '',
-  contactDetails: '',
-  email: '',
-  notes: '',
-})
-const form = reactive(emptyForm())
+const form = ref<MasterFormDraft>(createMasterFormDraft(props.masterType))
 const manager = useMasterManagement(props.masterType)
 const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany' || props.masterType === 'homeowner')
 const routeSegment = computed(() => ({ constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }[props.masterType]))
@@ -150,51 +96,8 @@ const filteredRows = computed(() => {
   return rows.value.filter((row) => normalizeSearchText(row.name).includes(needle))
 })
 
-const fields = () => {
-  if (props.masterType === 'warrantyService') {
-    return { name: form.name, defaultPeriodYears: form.defaultPeriodYears }
-  }
-  if (props.masterType === 'property') {
-    return {
-      name: form.name,
-      homeownerId: form.homeownerId,
-      constructionCompanyId: form.constructionCompanyId,
-      address: {
-        postalCode: form.postalCode,
-        prefecture: form.prefecture,
-        municipality: form.municipality,
-        streetTownAndNumber: form.streetTownAndNumber,
-        buildingName: form.buildingName || null,
-      },
-    }
-  }
-  if (props.masterType === 'constructionCompany') {
-    return {
-      name: form.name,
-      address: {
-        postalCode: form.postalCode,
-        prefecture: form.prefecture,
-        municipality: form.municipality,
-        streetTownAndNumber: form.streetTownAndNumber,
-        buildingName: form.buildingName || null,
-      },
-      telephone: form.telephone || null,
-      fax: form.fax || null,
-      contactPerson: form.contactPerson || null,
-      contactDetails: form.contactDetails || null,
-      email: form.email || null,
-      notes: form.notes || null,
-    }
-  }
-  if (props.masterType === 'homeowner') {
-    return { name: form.name, address: { postalCode: form.postalCode, prefecture: form.prefecture, municipality: form.municipality, streetTownAndNumber: form.streetTownAndNumber, buildingName: form.buildingName || null }, telephone: form.telephone || null, fax: form.fax || null, notes: form.notes || null }
-  }
-  return { name: form.name }
-}
-
 const resetForm = () => {
-  Object.assign(form, emptyForm())
-  editingId.value = ''
+  form.value = createMasterFormDraft(props.masterType)
 }
 
 const openCreate = async () => {
@@ -218,14 +121,18 @@ const save = async () => {
   saving.value = true
   message.value = ''
   try {
-    if (editingId.value) await manager.updateMaster(editingId.value, fields())
-    else await manager.createMaster(fields())
-    messageType.value = 'success'
-    message.value = editingId.value ? '更新しました。' : '登録しました。'
-    dialogOpen.value = false
-    dialogMessage.value = ''
-    resetForm()
-    await refreshReferences()
+    await submitMasterCreate({
+      form: form.value,
+      createMaster: manager.createMaster,
+      afterSuccess: async () => {
+        messageType.value = 'success'
+        message.value = '登録しました。'
+        dialogOpen.value = false
+        dialogMessage.value = ''
+        resetForm()
+        await refreshReferences()
+      },
+    })
   } catch (error) {
     dialogMessage.value = error instanceof Error ? error.message : '保存できませんでした。'
   } finally {

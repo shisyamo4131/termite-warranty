@@ -24,6 +24,7 @@
 
 ### Changed
 
+- Consolidated the four master form models, initialization, field sections, and write-payload mapping across full creation, quick creation, and detail editing while preserving their existing UI and persistence behavior.
 - Restricted local seeding to this project's exact dedicated Auth and Firestore Emulator endpoints so inherited environment variables cannot redirect writes into another local project's Emulator process.
 - Moved the local Nuxt and Firebase Emulator services to a dedicated non-conflicting port set, with the colocated AirGuardV2 environment retaining priority.
 - Removed the unused self-profile Callable from the local Functions surface while retaining the live Rules-governed staff-profile subscription and the separate future server-enforced account-management boundary.

@@ -1,8 +1,9 @@
 import { collection, doc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
+import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
 import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
 
-export type MasterType = 'constructionCompany' | 'homeowner' | 'warrantyService' | 'property'
+export type { MasterType } from '../../src/domain/master-form.mjs'
 
 export interface ManagedMaster {
   id: string
@@ -85,7 +86,7 @@ export function useMasterManagement(masterType: MasterType) {
     ]
   }
 
-  const createMaster = async (fields: Record<string, unknown>) => {
+  const createMaster = async (fields: MasterWriteFields) => {
     const reference = doc(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
     await setDoc(reference, {
       ...normalizeMasterFields(masterType, fields),
@@ -96,7 +97,7 @@ export function useMasterManagement(masterType: MasterType) {
     })
     return { id: reference.id }
   }
-  const updateMaster = async (id: string, fields: Record<string, unknown>) => {
+  const updateMaster = async (id: string, fields: MasterWriteFields) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
       ...normalizeMasterFields(masterType, fields),
       revision: increment(1),
