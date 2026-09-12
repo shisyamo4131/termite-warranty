@@ -1,4 +1,4 @@
-const prototypeFirestoreHost = '127.0.0.1:8180'
+const prototypeFirestoreHost = '127.0.0.1:28080'
 const developmentProjectId = 'termite-warranty-dev'
 
 export function resolveProjectId(env = process.env) {

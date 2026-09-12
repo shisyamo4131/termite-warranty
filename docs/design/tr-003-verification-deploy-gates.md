@@ -99,3 +99,7 @@ The workflow must be validated locally without dispatching it. No external deplo
 ## Rollback
 
 Revert the TR-003 implementation commit. No application or Firestore data migration is involved. Restoring `--force` is not part of the rollback unless its broader destructive and cost-related boundary receives separate explicit approval.
+
+## Subsequent Disposition
+
+TR-008 removes the unused `getOwnProfile` endpoint and its wrapper test. The aggregate Emulator gate and recursive Functions discovery remain mandatory for every currently exported Callable and deployable module; TR-008 narrows the export inventory without weakening this verification contract.

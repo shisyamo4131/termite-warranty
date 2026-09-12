@@ -8,3 +8,5 @@
 - [TR-002 deterministic Functions domain preparation](tr-002-functions-domain-preparation.md): approved implementation and acceptance contract for preparing and verifying the generated Functions copy of shared domain modules.
 - [TR-003 verification and development-deploy gates](tr-003-verification-deploy-gates.md): implementation and acceptance contract for complete Callable/syntax coverage and fail-closed development deployment prerequisites.
 - [TR-007 direct master writes](tr-007-direct-master-writes.md): implementation contract for replacing the four master CUD Callables with direct, Rules-governed Firestore writes.
+- [TR-008 remove unused profile Callable](tr-008-remove-unused-profile-callable.md): implementation contract for removing the redundant self-profile endpoint while preserving live account-disable handling.
+- [UI component contracts](ui-component-contracts/README.md): one durable integration contract per user-authored JavaScript component.

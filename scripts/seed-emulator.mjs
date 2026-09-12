@@ -2,27 +2,26 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { generateSearchTokens } from '../src/domain/search-tokens.mjs'
+import { LOCAL_RUNTIME, resolveDedicatedEmulatorHost } from '../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
 const email = 'demo.admin@example.invalid'
 const password = 'Demo-only-password-123'
 
-process.env.FIRESTORE_EMULATOR_HOST ||= '127.0.0.1:8180'
-process.env.FIREBASE_AUTH_EMULATOR_HOST ||= '127.0.0.1:9199'
+process.env.FIRESTORE_EMULATOR_HOST = resolveDedicatedEmulatorHost(
+  process.env.FIRESTORE_EMULATOR_HOST,
+  LOCAL_RUNTIME.firestorePort,
+  'FIRESTORE_EMULATOR_HOST',
+)
+process.env.FIREBASE_AUTH_EMULATOR_HOST = resolveDedicatedEmulatorHost(
+  process.env.FIREBASE_AUTH_EMULATOR_HOST,
+  LOCAL_RUNTIME.authPort,
+  'FIREBASE_AUTH_EMULATOR_HOST',
+)
 
 if (!projectId.startsWith('demo-')) {
   throw new Error('Seed is restricted to a Firebase demo project ID.')
 }
-if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
-  throw new Error('Start the local Firestore and Auth emulators before seeding.')
-}
-if (
-  !process.env.FIRESTORE_EMULATOR_HOST.startsWith('127.0.0.1:') ||
-  !process.env.FIREBASE_AUTH_EMULATOR_HOST.startsWith('127.0.0.1:')
-) {
-  throw new Error('Seed targets must use the 127.0.0.1 loopback interface.')
-}
-
 const app = initializeApp({ projectId })
 const auth = getAuth(app)
 const firestore = getFirestore(app)

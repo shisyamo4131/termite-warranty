@@ -6,10 +6,11 @@ import { deleteApp, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { collection, collectionGroup, doc, getDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { registerCaseTransaction } from '../../functions/register-case.js'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
-if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') {
-  throw new Error('Registration integration tests require the dedicated local Firestore emulator at 127.0.0.1:8180.')
+if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
+  throw new Error(`Registration integration tests require the dedicated local Firestore emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }
 const input = {
   propertyId: 'property-1',

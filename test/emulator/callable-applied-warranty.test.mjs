@@ -5,9 +5,10 @@ import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
-if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') throw new Error('Callable tests require the local emulator.')
+if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw new Error('Callable tests require the local emulator.')
 const adminApp = initializeAdminApp({ projectId }, 'callable-applied-warranty-test')
 const adminDb = getFirestore(adminApp)
 let webApp; let auth; let functions; let uid
@@ -18,9 +19,9 @@ const dto = (timestamp) => ({ seconds: timestamp.seconds, nanoseconds: timestamp
 before(async () => {
   webApp = initializeApp({ projectId, apiKey: 'demo-only-api-key', authDomain: `${projectId}.firebaseapp.com` }, 'callable-applied-warranty-test')
   auth = getAuth(webApp)
-  connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
+  connectAuthEmulator(auth, localRuntimeUrl(LOCAL_RUNTIME.authPort), { disableWarnings: true })
   functions = getFunctions(webApp, 'asia-northeast1')
-  connectFunctionsEmulator(functions, '127.0.0.1', 5101)
+  connectFunctionsEmulator(functions, LOCAL_RUNTIME.host, LOCAL_RUNTIME.functionsPort)
   const credential = await createUserWithEmailAndPassword(auth, email, password)
   uid = credential.user.uid
 })

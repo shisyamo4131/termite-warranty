@@ -10,29 +10,6 @@ assertApprovedPrototypeRuntime()
 setGlobalOptions({ region: 'asia-northeast1' })
 initializeApp()
 
-export const getOwnProfile = onCall(async (request) => {
-  if (!request.auth) {
-    throw new HttpsError('unauthenticated', 'Sign-in is required.')
-  }
-
-  const snapshot = await getFirestore()
-    .collection('staffAccounts')
-    .doc(request.auth.uid)
-    .get()
-
-  if (!snapshot.exists || snapshot.data()?.enabled !== true) {
-    throw new HttpsError('permission-denied', 'The staff account is disabled or missing.')
-  }
-
-  const profile = snapshot.data()
-  return {
-    uid: request.auth.uid,
-    displayName: profile.displayName,
-    role: profile.role,
-    enabled: true,
-  }
-})
-
 export const registerCase = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
   const firestore = getFirestore()

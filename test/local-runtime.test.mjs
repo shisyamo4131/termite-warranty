@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { assertApprovedPrototypeRuntime, assertLocalPrototypeRuntime, resolveProjectId } from '../functions/local-runtime.js'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
 
 const validEnvironment = {
   FUNCTIONS_EMULATOR: 'true',
-  FIRESTORE_EMULATOR_HOST: '127.0.0.1:8180',
+  FIRESTORE_EMULATOR_HOST: localRuntimeHost(LOCAL_RUNTIME.firestorePort),
   GCLOUD_PROJECT: 'demo-termite-warranty',
 }
 
@@ -14,7 +15,7 @@ test('local runtime guard accepts only the intended loopback demo emulator', () 
     { FUNCTIONS_EMULATOR: 'false' },
     { FIRESTORE_EMULATOR_HOST: '127.0.0.1:8080' },
     { FIRESTORE_EMULATOR_HOST: '127.0.0.1:5001' },
-    { FIRESTORE_EMULATOR_HOST: 'localhost:8180' },
+    { FIRESTORE_EMULATOR_HOST: `localhost:${LOCAL_RUNTIME.firestorePort}` },
     { FIRESTORE_EMULATOR_HOST: 'firestore.googleapis.com:443' },
     { GCLOUD_PROJECT: 'production-project' },
   ]) {
@@ -34,7 +35,7 @@ test('approved runtime guard accepts only the exact emulator or development proj
   assert.doesNotThrow(() => assertApprovedPrototypeRuntime({ GCLOUD_PROJECT: 'termite-warranty-dev' }))
   for (const environment of [
     { GCLOUD_PROJECT: 'termite-warranty-dev', FUNCTIONS_EMULATOR: 'true' },
-    { GCLOUD_PROJECT: 'termite-warranty-dev', FIRESTORE_EMULATOR_HOST: '127.0.0.1:8180' },
+    { GCLOUD_PROJECT: 'termite-warranty-dev', FIRESTORE_EMULATOR_HOST: localRuntimeHost(LOCAL_RUNTIME.firestorePort) },
     { GCLOUD_PROJECT: 'demo-termite-warranty' },
     { GCLOUD_PROJECT: 'termite-warranty-prod' },
     {},

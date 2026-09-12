@@ -31,3 +31,7 @@ Existing master documents retain their revision. A legacy master with valid revi
 ## Rollback
 
 Revert the TR-007 commit. No stored data migration is required because the retained document shape and revision field are compatible with the former Callable implementation.
+
+## Subsequent Disposition
+
+TR-008 removes the unused profile Callable after confirming that the UI uses the Rules-governed live staff-document subscription. Case registration and applied-warranty Callables remain unchanged.

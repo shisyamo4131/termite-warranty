@@ -20,10 +20,11 @@ import {
   CaseEditConflictError,
   updateCaseTransaction,
 } from '../../app/composables/usePrototypeData.ts'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
-if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:8180') {
-  throw new Error('Case edit tests require the dedicated local emulator at 127.0.0.1:8180.')
+if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
+  throw new Error(`Case edit tests require the dedicated local emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }
 let testEnvironment
 const adminDb = getAdminFirestore(initializeAdminApp({ projectId }, 'applied-warranty-case-edit-test'))

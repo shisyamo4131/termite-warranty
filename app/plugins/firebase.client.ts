@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth'
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { LOCAL_RUNTIME, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
 
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
@@ -49,9 +50,9 @@ export default defineNuxtPlugin(async () => {
     __termiteWarrantyEmulatorsConnected?: boolean
   }
   if (isLocal && !emulatorState.__termiteWarrantyEmulatorsConnected) {
-    connectAuthEmulator(auth, 'http://127.0.0.1:9199', { disableWarnings: true })
-    connectFirestoreEmulator(firestore, '127.0.0.1', 8180)
-    connectFunctionsEmulator(functions, '127.0.0.1', 5101)
+    connectAuthEmulator(auth, localRuntimeUrl(LOCAL_RUNTIME.authPort), { disableWarnings: true })
+    connectFirestoreEmulator(firestore, LOCAL_RUNTIME.host, LOCAL_RUNTIME.firestorePort)
+    connectFunctionsEmulator(functions, LOCAL_RUNTIME.host, LOCAL_RUNTIME.functionsPort)
     emulatorState.__termiteWarrantyEmulatorsConnected = true
   }
   await setPersistence(auth, browserSessionPersistence)

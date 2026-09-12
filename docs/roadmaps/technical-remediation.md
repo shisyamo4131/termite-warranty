@@ -12,8 +12,9 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 1. TR-001, TR-002, and TR-003: correct write semantics and make the verification/deploy path trustworthy.
 2. TR-007: after that foundation phase is complete, remove the unnecessarily strong Callable boundary from the four master CUD paths before further master-form restructuring.
-3. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
-4. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
+3. TR-008: remove the unused profile Callable while preserving the live staff-document subscription and the future server-enforced account-management boundary.
+4. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
+5. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
 
 ## TR-001: Align Master Writes with Last-write-wins
 
@@ -81,6 +82,16 @@ This backlog records approved implementation work. It does not turn unresolved p
 - Completion contract: no master UI path invokes `createMaster`, `updateMaster`, or `setMasterActive`; the unused exported Functions and server master-mutation module are removed; direct client writes preserve current valid create/update/inactivate/reactivate behavior and reject unsupported shapes, invalid references, unauthenticated/missing/disabled staff, and physical deletion; the prototype data contract, rules, operations, tests, and deployment surface agree on the reduced boundary; accepted residual risk is documented without presenting the change as browser-external attack protection.
 - Required validation: detailed design review, domain mapper/token tests, direct Web Firestore SDK Emulator CUD tests for all four masters, Firestore Rules authorization/invariant regression, property-reference and lifecycle boundaries, last-write-wins concurrency, typecheck, build, Functions syntax, clean-copy Functions preparation, and confirmation that retained Callable workflows still pass their integration tests.
 - Evidence: the master UI writes all four master types through the Firestore Web SDK and no longer invokes the three removed master Callables. Rules tests cover all-four create/update/inactivate/reactivate, valid-revision legacy lifecycle-only changes, revision boundaries, enabled-account and exact-shape enforcement, active-property references, physical-delete denial, last-write-wins concurrency, and property-to-case non-propagation. The registered Emulator suite passed 78/78 and loaded only the four retained Callable exports (`getOwnProfile`, `registerCase`, `addAppliedWarranty`, and `updateAppliedWarranty`). Domain/workflow tests passed 56 with 2 host-limited symlink fixtures skipped; typecheck, static Hosting generation, recursive Functions syntax, seed syntax, Functions preparation, and governance validation exited 0. Independent review accepted the repaired implementation. No external deployment or data migration was performed.
+
+## TR-008: Remove the Unused Profile Callable
+
+- Status: Implemented and independently accepted on `codex/tr-008-remove-profile-callable`; Git integration is recorded in repository history
+- Decision: [ADR 0019](../decisions/0019-remove-unused-profile-callable.md)
+- Detailed design: [TR-008 remove unused profile Callable](../design/tr-008-remove-unused-profile-callable.md)
+- Evidence: the local Functions inventory and Emulator load contain only `registerCase`, `addAppliedWarranty`, and `updateAppliedWarranty`; no repository client refers to `getOwnProfile`. The live `useSession` staff-document subscription and its self-read/other-user denial/staff-write denial/disabled-account regressions remain. Domain/workflow tests passed 59 with 2 host-limited symbolic-link fixture skips; typecheck, static Hosting generation, the 77-test aggregate Emulator suite, recursive Functions syntax, seed syntax, and governance validation exited 0. Independent follow-up review found no High or Medium issues. Remote existence, consumers, deployment, and deletion remain unverified and unperformed.
+- Target: remove the redundant public export and wrapper test while retaining the direct self-profile Rules boundary, live session behavior, the registered aggregate Emulator gate, and future role-enforced account-management Callables.
+- Completion contract: the local Functions inventory contains only `registerCase`, `addAppliedWarranty`, and `updateAppliedWarranty`; no repository client refers to `getOwnProfile`; self-read/other-user denial/staff-write denial/disabled-account regressions remain registered; affected design, decision, roadmap, indexes, operations, and changelog agree; remote existence, consumers, and deletion remain explicitly unverified and unperformed.
+- Required validation: governance check, domain/workflow tests, application typecheck, aggregate Auth/Firestore/Functions Emulator regression, recursive Functions syntax, seed syntax, and independent review. Application build is omitted because no application, Nuxt, dependency, TypeScript, or build configuration changes.
 
 ## Evidence Source
 
