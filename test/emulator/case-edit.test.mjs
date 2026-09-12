@@ -150,6 +150,31 @@ test('direct applied-warranty updates are denied to a staff client', async () =>
   assert.equal((await getDoc(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'))).data()?.notificationStatus, 'not notified')
 })
 
+test('a staff client cannot create or alter the trusted case-list projection', async () => {
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  const reference = doc(db, 'cases', 'case-1')
+  const before = (await getDoc(reference)).data()
+  await assert.rejects(updateDoc(reference, {
+    listProjection: { appliedWarranties: [] },
+    updatedAt: serverTimestamp(),
+  }))
+  assert.equal((await getDoc(reference)).data()?.listProjection, undefined)
+  assert.equal((await getDoc(reference)).data()?.updatedAt.isEqual(before?.updatedAt), true)
+})
+
+test('a normal case edit preserves an existing trusted case-list projection', async () => {
+  const projection = {
+    appliedWarranties: [{
+      id: 'warranty-1', warrantyServiceId: 'service-1', expiryDate: '2031-09-09',
+      notificationStatus: 'not notified', status: 'active',
+    }],
+  }
+  await adminDb.doc('cases/case-1').update({ listProjection: projection })
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  await updateCaseTransaction(db, input('branch-2'))
+  assert.deepEqual((await getDoc(caseRef(db))).data()?.listProjection, projection)
+})
+
 test('trusted applied-warranty operations preserve immutable fields, touch the parent, and reject stale or terminal changes', async () => {
   const initialCase = (await adminDb.doc('cases/case-1').get()).data()
   const added = await addAppliedWarrantyTransaction(adminDb, {
@@ -161,6 +186,7 @@ test('trusted applied-warranty operations preserve immutable fields, touch the p
   assert.equal(addedWarranty?.expiryDate, '2041-09-09')
   assert.equal(addedWarranty?.notificationStatus, 'not notified')
   assert.equal(updatedCase?.updatedAt.isEqual(baselineTime), false)
+  assert.equal(updatedCase?.listProjection?.appliedWarranties?.some(item => item.id === added.id && item.expiryDate === '2041-09-09'), true)
   await assert.rejects(addAppliedWarrantyTransaction(adminDb, {
     caseId: 'case-1', expectedCaseUpdatedAt: timestampBaseline(baselineTime), warrantyServiceId: 'service-1', startDate: '2041-09-10',
   }, 'staff-1'), /他のユーザーが案件を更新/)
@@ -172,6 +198,11 @@ test('trusted applied-warranty operations preserve immutable fields, touch the p
   assert.equal(terminal?.warrantyServiceId, 'service-2')
   assert.equal(terminal?.periodYears, 10)
   assert.equal(terminal?.status, 'cancelled')
+  const projectedTerminal = (await adminDb.doc('cases/case-1').get()).data()?.listProjection?.appliedWarranties
+    ?.find(item => item.id === added.id)
+  assert.deepEqual(projectedTerminal, {
+    id: added.id, warrantyServiceId: 'service-2', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'cancelled',
+  })
   await assert.rejects(updateAppliedWarrantyTransaction(adminDb, {
     caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: timestampBaseline((await adminDb.doc('cases/case-1').get()).data()?.updatedAt),
     startDate: '2031-09-11', expiryDate: '2041-09-08', notificationStatus: 'notified', status: 'active', statusReason: null,

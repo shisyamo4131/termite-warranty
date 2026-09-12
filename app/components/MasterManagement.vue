@@ -5,6 +5,9 @@
       <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
       <v-card class="list-data-card" :title="`${title}一覧`">
         <v-card-text>
+          <v-alert type="info" density="compact" variant="tonal" class="mb-4">
+            更新日時が新しい20件を表示しています。名称検索は、この20件の中を絞り込みます。
+          </v-alert>
           <div class="d-flex justify-end mb-4">
             <v-btn color="primary" @click="openCreate">新規登録</v-btn>
           </div>

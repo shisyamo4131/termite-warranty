@@ -53,6 +53,7 @@
 
     <section v-if="masterType === 'constructionCompany'" class="mt-6">
       <h2 class="detail-section-title mb-2">紐づく物件</h2>
+      <div class="text-caption mb-2">更新日時が新しい20件まで表示します。</div>
       <v-table><tbody><tr v-for="property in properties" :key="property.id"><td><NuxtLink :to="`/masters/properties/${property.id}`">{{ property.name }}</NuxtLink></td><td class="text-right">{{ property.active ? '有効' : '無効' }}</td></tr><tr v-if="!properties.length"><td colspan="2">紐づく物件はありません。</td></tr></tbody></v-table>
     </section>
   </template>

@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { generateSearchTokens } from '../src/domain/search-tokens.mjs'
+import { buildCaseListProjection } from '../src/domain/case-list-projection.mjs'
 import { LOCAL_RUNTIME, resolveDedicatedEmulatorHost } from '../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -234,6 +235,16 @@ await firestore.runTransaction(async (transaction) => {
     transaction.set(counterRef, { nextValue: 7, lastCaseId: current.lastCaseId ?? null }, { merge: true })
   }
 })
+
+const caseProjectionBatch = firestore.batch()
+for (const [caseId] of demoCases) {
+  const caseRef = firestore.doc(`cases/${caseId}`)
+  const warranties = await caseRef.collection('appliedWarranties').get()
+  caseProjectionBatch.set(caseRef, {
+    listProjection: buildCaseListProjection(warranties.docs.map(item => ({ id: item.id, ...item.data() }))),
+  }, { merge: true })
+}
+await caseProjectionBatch.commit()
 
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
 console.log(`Synthetic password: ${password}`)

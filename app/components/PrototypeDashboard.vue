@@ -9,6 +9,10 @@
 
     <case-filter-panel v-model="filters" :masters="allMasters" />
 
+    <v-alert type="info" density="compact" variant="tonal" class="mb-4">
+      更新日時が新しい20件を表示しています。現在の検索条件は、この20件の中を絞り込みます。
+    </v-alert>
+
     <v-card class="list-data-card" title="案件一覧・アラート">
       <v-table class="list-data-table" fixed-header>
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
@@ -58,6 +62,7 @@ import type { MasterType } from '../composables/useMasterManagement'
 
 const masterCatalog = useMasterCatalog()
 const allMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
+const registrationMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const rows = ref<CaseRow[]>([])
 const saving = ref(false)
 const registrationDialog = ref(false)
@@ -76,7 +81,7 @@ const filters = reactive<CaseFilters>({
 })
 const { registerCase } = useCaseCommands()
 const { state: caseListState, start: startCaseList } = useCaseList()
-const selectableMasters = computed(() => masterCatalog.activeMasters(allMasters))
+const selectableMasters = computed(() => masterCatalog.activeMasters(registrationMasters))
 const filteredRows = computed(() => filterCaseRows(rows.value, filters))
 const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
@@ -107,17 +112,23 @@ const resetRegistration = () => {
   })
   registrationMessage.value = ''
 }
-const openRegistration = () => {
+const openRegistration = async () => {
   resetRegistration()
-  registrationDialog.value = true
+  try {
+    await refreshRegistrationMasters()
+    registrationDialog.value = true
+  } catch (error) {
+    pageMessageType.value = 'error'
+    pageMessage.value = error instanceof Error ? error.message : '登録用マスターを読み込めませんでした。'
+  }
 }
 const cancelRegistration = () => {
   registrationDialog.value = false
   resetRegistration()
 }
-const refreshMasters = async () => Object.assign(allMasters, await masterCatalog.loadAllMasters())
+const refreshRegistrationMasters = async () => Object.assign(registrationMasters, await masterCatalog.loadAllMasters())
 const handleQuickCreated = async ({ masterType, id }: { masterType: MasterType; id: string }) => {
-  await refreshMasters()
+  await refreshRegistrationMasters()
   if (masterType === 'property') {
     registrationForm.propertyId = id
     applyProperty()

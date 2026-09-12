@@ -17,7 +17,7 @@
     "prepare:functions": "node scripts/prepare-functions-deploy.mjs",
     "check:functions-domain": "node scripts/check-functions-domain.mjs",
     "pretest:rules": "npm run prepare:functions",
-    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only auth,firestore,functions \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/registration.test.mjs test/emulator/callable-profile-registration.test.mjs test/emulator/case-edit.test.mjs test/emulator/callable-applied-warranty.test.mjs\"",
+    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only auth,firestore,functions \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/bounded-list.test.mjs test/emulator/registration.test.mjs test/emulator/callable-profile-registration.test.mjs test/emulator/case-edit.test.mjs test/emulator/callable-applied-warranty.test.mjs\"",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {

@@ -68,12 +68,15 @@ test('Web Functions SDK callable DTO adds, edits, rejects stale baseline, and le
   let warranty = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
   assert.equal(warranty.expiryDate, '2035-12-31')
   const afterAdd = (await adminDb.doc('cases/case-1').get()).data()
+  assert.equal(afterAdd.listProjection.appliedWarranties.some(item => item.id === added.id && item.expiryDate === '2035-12-31'), true)
 
   await update({ caseId: 'case-1', warrantyId: added.id, expectedCaseUpdatedAt: dto(afterAdd.updatedAt), startDate: '2031-01-02', expiryDate: '2036-01-01', notificationStatus: 'notified', status: 'active', statusReason: null })
   warranty = (await adminDb.doc(`cases/case-1/appliedWarranties/${added.id}`).get()).data()
   assert.equal(warranty.startDate, '2031-01-02')
   assert.equal(warranty.expiryDate, '2036-01-01')
   assert.equal(warranty.notificationStatus, 'notified')
+  const afterUpdate = (await adminDb.doc('cases/case-1').get()).data()
+  assert.equal(afterUpdate.listProjection.appliedWarranties.some(item => item.id === added.id && item.expiryDate === '2036-01-01' && item.notificationStatus === 'notified'), true)
 
   const beforeRejectedCase = (await adminDb.doc('cases/case-1').get()).data()
   const beforeRejectedWarranties = await adminDb.collection('cases/case-1/appliedWarranties').get()
@@ -81,5 +84,6 @@ test('Web Functions SDK callable DTO adds, edits, rejects stale baseline, and le
   const afterRejectedCase = (await adminDb.doc('cases/case-1').get()).data()
   const afterRejectedWarranties = await adminDb.collection('cases/case-1/appliedWarranties').get()
   assert.equal(afterRejectedCase.updatedAt.isEqual(beforeRejectedCase.updatedAt), true)
+  assert.deepEqual(afterRejectedCase.listProjection, beforeRejectedCase.listProjection)
   assert.equal(afterRejectedWarranties.size, beforeRejectedWarranties.size)
 })

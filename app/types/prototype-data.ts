@@ -124,10 +124,16 @@ export type MasterCollection = 'branches' | 'constructionCompanies' | 'homeowner
 export type MasterCatalog = Record<MasterCollection, MasterOption[]>
 export type QueryStatus = 'loading' | 'ready' | 'error'
 
+export interface ListCursor {
+  id: string
+  updatedAt: unknown
+}
+
 export interface CaseListQueryState {
   status: QueryStatus
   rows: CaseRow[]
   masters: MasterCatalog
+  nextCursor: ListCursor | null
   error: Error | null
 }
 

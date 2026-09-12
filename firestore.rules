@@ -38,6 +38,14 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['updatedAt']);
     }
 
+    function preservesCaseListProjection() {
+      return (!resource.data.keys().hasAny(['listProjection'])
+          && !request.resource.data.keys().hasAny(['listProjection']))
+        || (resource.data.keys().hasAny(['listProjection'])
+          && request.resource.data.keys().hasAny(['listProjection'])
+          && request.resource.data.listProjection == resource.data.listProjection);
+    }
+
     function activeHomeowner(homeownerId) {
       return get(/databases/$(database)/documents/homeowners/$(homeownerId)).data.active == true;
     }
@@ -213,12 +221,13 @@ service cloud.firestore {
           'caseNumber', 'sequenceValue', 'propertyId', 'homeownerId',
           'constructionCompanyId', 'responsibleBranchId', 'status',
           'statusReason', 'registrationWarrantyId', 'applicationDate', 'handoverDate',
-          'registeredAt', 'updatedAt'
+          'listProjection', 'registeredAt', 'updatedAt'
         ])
         && request.resource.data.caseNumber == resource.data.caseNumber
         && request.resource.data.sequenceValue == resource.data.sequenceValue
         && request.resource.data.registrationWarrantyId == resource.data.registrationWarrantyId
         && request.resource.data.registeredAt == resource.data.registeredAt
+        && preservesCaseListProjection()
         && request.resource.data.updatedAt == request.time
         && (validCaseDates(request.resource.data) || legacyWarrantyParentUpdateOnly())
         && validStatus(request.resource.data)

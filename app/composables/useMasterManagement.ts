@@ -2,6 +2,8 @@ import { collection, doc, getDocs, increment, onSnapshot, query, serverTimestamp
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
 import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
+import { createBoundedListQuery } from '../repositories/boundedListQuery.ts'
+import type { ListCursor } from '../types/prototype-data.ts'
 
 export type { MasterType } from '../../src/domain/master-form.mjs'
 
@@ -61,9 +63,9 @@ export const matchesManagedMasterName = (master: ManagedMaster, value: string) =
 
 export function useMasterManagement(masterType: MasterType) {
   const { $firebase } = useNuxtApp()
-  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) =>
+  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void, cursor?: ListCursor) =>
     onSnapshot(
-      collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]),
+      createBoundedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]), cursor),
       (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
       () => onError('マスターデータを読み込めませんでした。'),
     )
@@ -73,7 +75,7 @@ export function useMasterManagement(masterType: MasterType) {
     () => onError('マスターデータを読み込めませんでした。'),
   )
   const subscribeCompanyProperties = (companyId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) => onSnapshot(
-    query(collection($firebase.firestore, 'properties'), where('constructionCompanyId', '==', companyId)),
+    createBoundedListQuery(query(collection($firebase.firestore, 'properties'), where('constructionCompanyId', '==', companyId))),
     (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
     () => onError('紐づく物件を読み込めませんでした。'),
   )

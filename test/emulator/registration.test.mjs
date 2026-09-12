@@ -115,6 +115,15 @@ test('concurrent app registrations allocate distinct complete case numbers', asy
       assert.equal(warranty.exists(), true)
       assert.equal(warranty.data()?.periodYears, 5)
       assert.equal(warranty.data()?.expiryDate, '2031-09-09')
+      assert.deepEqual(data.listProjection, {
+        appliedWarranties: [{
+          id: data.registrationWarrantyId,
+          warrantyServiceId: 'service-1',
+          expiryDate: '2031-09-09',
+          notificationStatus: 'not notified',
+          status: 'active',
+        }],
+      })
       assert.equal((await getDoc(doc(db, 'caseNumberReservations', data.caseNumber))).data()?.caseId, caseSnapshot.id)
     }
     const counter = (await getDoc(doc(db, 'systemCounters', 'caseNumber'))).data()

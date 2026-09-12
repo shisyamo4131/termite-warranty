@@ -1,5 +1,6 @@
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { calculateExpiryDate, calculateExtensionStartDate } from './domain/warranty.mjs'
+import { buildCaseListProjection } from './domain/case-list-projection.mjs'
 
 export class AppliedWarrantyOperationError extends Error {
   constructor(code, message) { super(message); this.name = 'AppliedWarrantyOperationError'; this.code = code }
@@ -55,8 +56,16 @@ export async function addAppliedWarrantyTransaction(firestore, input, actorUid) 
     const expiries = existing.docs.map(item => item.data().expiryDate).filter(value => typeof value === 'string').sort()
     const initialStart = expiries.length ? calculateExtensionStartDate(expiries.at(-1)) : new Date().toISOString().slice(0, 10)
     const startDate = input?.startDate == null || input.startDate === '' ? initialStart : canonicalDate(input.startDate, '保証開始日を正しい日付で入力してください。')
-    transaction.create(warrantyRef, { warrantyServiceId, periodYears, startDate, expiryDate: calculateExpiryDate(startDate, periodYears), notificationStatus: 'not notified', status: 'active', statusReason: null, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() })
-    transaction.update(ref, { updatedAt: FieldValue.serverTimestamp() })
+    const expiryDate = calculateExpiryDate(startDate, periodYears)
+    const createdWarranty = { warrantyServiceId, periodYears, startDate, expiryDate, notificationStatus: 'not notified', status: 'active', statusReason: null }
+    transaction.create(warrantyRef, { ...createdWarranty, createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp() })
+    transaction.update(ref, {
+      listProjection: buildCaseListProjection([
+        ...existing.docs.map(item => ({ id: item.id, ...item.data() })),
+        { id: warrantyRef.id, ...createdWarranty },
+      ]),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
     return { id: warrantyRef.id, startDate }
   })
 }
@@ -67,7 +76,9 @@ export async function updateAppliedWarrantyTransaction(firestore, input, actorUi
   const caseRef = firestore.doc(`cases/${caseId}`); const warrantyRef = caseRef.collection('appliedWarranties').doc(warrantyId)
   return firestore.runTransaction(async (transaction) => {
     await assertStaff(transaction, firestore, actorUid)
-    const [caseSnapshot, warrantySnapshot] = await Promise.all([transaction.get(caseRef), transaction.get(warrantyRef)])
+    const [caseSnapshot, warrantySnapshot, existing] = await Promise.all([
+      transaction.get(caseRef), transaction.get(warrantyRef), transaction.get(caseRef.collection('appliedWarranties')),
+    ])
     assertActiveCase(caseSnapshot, input?.expectedCaseUpdatedAt)
     if (!warrantySnapshot.exists) fail('not-found', '対象の適用保証が見つかりません。')
     const current = warrantySnapshot.data()
@@ -83,7 +94,14 @@ export async function updateAppliedWarrantyTransaction(firestore, input, actorUi
     if (!['active', 'cancelled', 'invalid'].includes(status)) fail('invalid-argument', '状態が不正です。')
     const statusReason = status === 'active' ? null : (nonBlank(input?.statusReason) ? input.statusReason.trim() : fail('invalid-argument', '取消・無効には理由が必要です。'))
     transaction.update(warrantyRef, { startDate, expiryDate, notificationStatus, status, statusReason, updatedAt: FieldValue.serverTimestamp() })
-    transaction.update(caseRef, { updatedAt: FieldValue.serverTimestamp() })
+    transaction.update(caseRef, {
+      listProjection: buildCaseListProjection(existing.docs.map(item => ({
+        id: item.id,
+        ...item.data(),
+        ...(item.id === warrantyId ? { startDate, expiryDate, notificationStatus, status, statusReason } : {}),
+      }))),
+      updatedAt: FieldValue.serverTimestamp(),
+    })
     return { id: warrantyId }
   })
 }

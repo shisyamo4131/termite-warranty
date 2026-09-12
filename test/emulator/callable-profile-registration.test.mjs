@@ -85,6 +85,8 @@ test('registration callable maps success and creates one atomic case/warranty re
   const warrantySnapshot = await adminDb.collection(`cases/${result.id}/appliedWarranties`).get()
   assert.equal(caseSnapshot.data()?.caseNumber, '000001')
   assert.equal(warrantySnapshot.size, 1)
+  assert.equal(caseSnapshot.data()?.listProjection?.appliedWarranties?.[0]?.id, warrantySnapshot.docs[0].id)
+  assert.equal(caseSnapshot.data()?.listProjection?.appliedWarranties?.[0]?.expiryDate, '2031-09-09')
   assert.equal((await adminDb.doc('systemCounters/caseNumber').get()).data()?.nextValue, 2)
 })
 

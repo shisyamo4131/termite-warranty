@@ -1,5 +1,6 @@
 import { Timestamp } from 'firebase-admin/firestore'
 import { calculateExpiryDate } from './domain/warranty.mjs'
+import { buildCaseListProjection } from './domain/case-list-projection.mjs'
 
 const requiredString = (value, message) => {
   if (typeof value !== 'string' || value.length === 0) throw new Error(message)
@@ -92,6 +93,7 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
     if (reservationSnapshot.exists) throw new Error('案件番号はすでに予約されています。')
 
     const timestamp = Timestamp.now()
+    const expiryDate = calculateExpiryDate(startDate, periodYears)
     transaction.set(counterRef, { nextValue: nextValue + 1, lastCaseId: caseRef.id }, { merge: true })
     transaction.create(reservationRef, { caseId: caseRef.id })
     transaction.create(caseRef, {
@@ -106,6 +108,13 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
       status: 'active',
       statusReason: null,
       registrationWarrantyId: warrantyRef.id,
+      listProjection: buildCaseListProjection([{
+        id: warrantyRef.id,
+        warrantyServiceId,
+        expiryDate,
+        notificationStatus: 'not notified',
+        status: 'active',
+      }]),
       registeredAt: timestamp,
       updatedAt: timestamp,
     })
@@ -113,7 +122,7 @@ export async function registerCaseTransaction(firestore, input, actorUid) {
       warrantyServiceId,
       periodYears,
       startDate,
-      expiryDate: calculateExpiryDate(startDate, periodYears),
+      expiryDate,
       notificationStatus: 'not notified',
       status: 'active',
       statusReason: null,

@@ -2,8 +2,10 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { createCaseCommandGateway } from '../app/gateways/caseCommandGateway.ts'
+import { DEFAULT_LIST_LIMIT, listCursorFromDocuments } from '../app/repositories/boundedListQuery.ts'
 import { subscribeCaseDetail } from '../app/repositories/caseDetailRepository.ts'
 import { subscribeCaseList } from '../app/repositories/caseListRepository.ts'
+import { planMasterReferenceQueries } from '../app/repositories/masterReferencePlan.ts'
 import {
   emptyMasterCatalog,
   loadAllMasterCatalog,
@@ -17,6 +19,7 @@ import {
   toTimestampBaseline,
 } from '../app/utils/appliedWarrantyDraft.ts'
 import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../app/utils/canonicalLocalDate.ts'
+import { buildCaseListProjection, readCaseListWarranties } from '../src/domain/case-list-projection.mjs'
 
 const document = (id, data = {}) => ({ id, data })
 const readProjectFile = relativePath => readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8')
@@ -27,6 +30,7 @@ class FakeCaseQuerySource {
     this.cases = []
     this.caseDetails = new Map()
     this.warranties = new Map()
+    this.masterReferences = []
   }
 
   record(target, next, error) {
@@ -41,6 +45,12 @@ class FakeCaseQuerySource {
 
   subscribeCases(next, error) {
     return this.record(this.cases, next, error)
+  }
+
+  subscribeMastersByIds(name, ids, next, error) {
+    const entry = { name, ids: [...ids], next, error, unsubscribeCount: 0, emitted: false }
+    this.masterReferences.push(entry)
+    return () => { entry.unsubscribeCount += 1 }
   }
 
   subscribeCase(caseId, next, error) {
@@ -75,6 +85,15 @@ class FakeCaseQuerySource {
   emitWarranties(caseId, documents, index = -1) {
     this.warranties.get(caseId).at(index).next(documents)
   }
+
+  emitPendingMasterReferences() {
+    for (const entry of this.masterReferences) {
+      if (entry.emitted || entry.unsubscribeCount > 0) continue
+      const known = new Map((masterDocuments[entry.name] ?? []).map(item => [item.id, item]))
+      entry.next(entry.ids.map(id => known.get(id) ?? document(id, { name: `${entry.name}:${id}`, active: true })))
+      entry.emitted = true
+    }
+  }
 }
 
 const caseData = (caseNumber = '000001') => ({
@@ -96,6 +115,11 @@ const warrantyData = {
   startDate: '2026-09-02',
   periodYears: 5,
 }
+
+const caseListData = (caseNumber = '000001') => ({
+  ...caseData(caseNumber),
+  listProjection: buildCaseListProjection([{ id: 'warranty-1', ...warrantyData }]),
+})
 
 const masterDocuments = {
   branches: [document('branch-1', { name: '東京支店', active: true })],
@@ -188,54 +212,93 @@ test('master catalog repository loads each collection once and keeps active sele
   await assert.rejects(loadAllMasterCatalog({ getCollection: async () => { throw expected } }), error => error === expected)
 })
 
-test('case list converges across delivery order and owns dynamic listener cleanup', () => {
+test('case-list projection, cursor, and reference plans are deterministic and bounded', () => {
+  const projection = buildCaseListProjection([
+    { id: 'warranty-b', ...warrantyData },
+    { id: 'warranty-a', ...warrantyData, notificationStatus: 'notified' },
+  ])
+  assert.deepEqual(projection.appliedWarranties.map(item => item.id), ['warranty-a', 'warranty-b'])
+  assert.deepEqual(Object.keys(projection.appliedWarranties[0]), [
+    'id', 'warrantyServiceId', 'expiryDate', 'notificationStatus', 'status',
+  ])
+  assert.deepEqual(readCaseListWarranties({}), [])
+
+  const timestamp = { seconds: 1, nanoseconds: 0 }
+  const twenty = Array.from({ length: DEFAULT_LIST_LIMIT }, (_, index) =>
+    document(`case-${String(index).padStart(2, '0')}`, { updatedAt: timestamp }))
+  assert.equal(listCursorFromDocuments(twenty.slice(0, 19)), null)
+  assert.deepEqual(listCursorFromDocuments(twenty), { id: 'case-19', updatedAt: timestamp })
+  assert.throws(() => listCursorFromDocuments([...twenty.slice(0, 19), document('missing-date')]), /カーソル/)
+
+  const manyCases = Array.from({ length: 21 }, (_, index) => document(`case-${index}`, {
+    ...caseData(), propertyId: `property-${index}`,
+  }))
+  const plan = planMasterReferenceQueries(manyCases, new Map())
+  assert.ok(plan.every(item => item.ids.length <= 10))
+  assert.equal(plan.filter(item => item.name === 'properties').length, 3)
+
+  const visibleCases = Array.from({ length: DEFAULT_LIST_LIMIT }, (_, index) => document(`case-${index}`, {
+    ...caseData(),
+    propertyId: `property-${index}`,
+    homeownerId: `homeowner-${index}`,
+    constructionCompanyId: `company-${index}`,
+    responsibleBranchId: `branch-${index}`,
+  }))
+  const visibleWarranties = new Map(visibleCases.map(item => [item.id, [
+    { id: `warranty-${item.id}`, ...warrantyData, warrantyServiceId: `service-${item.id}` },
+  ]]))
+  const listPlan = planMasterReferenceQueries(visibleCases, visibleWarranties)
+  assert.equal(listPlan.length, 10)
+  assert.equal(listPlan.filter(item => item.name === 'warrantyServices').length, 2)
+})
+
+test('case list uses the parent projection, resolves bounded master references, and creates no warranty listener', () => {
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseList(source, state => states.push(state), () => '2026-09-01')
-  source.emitCases([document('case-1', caseData())])
+  source.emitCases([document('case-1', caseListData())])
   emitAllMasters(source, [...masterCollections].reverse())
+  source.emitMaster('warrantyServices', [])
   assert.equal(states.at(-1).status, 'loading')
-  source.emitWarranties('case-1', [document('warranty-1', warrantyData)])
+  source.emitPendingMasterReferences()
   assert.equal(states.at(-1).status, 'ready')
   assert.equal(states.at(-1).rows[0].propertyName, '物件')
   assert.equal(states.at(-1).rows[0].appliedWarranties[0].warrantyServiceName, '保証')
-
-  source.emitCases([
-    document('case-1', caseData()),
-    document('case-2', caseData('000002')),
-  ])
-  assert.equal(source.warranties.get('case-2').length, 1)
-  source.emitWarranties('case-2', [])
-  assert.equal(states.at(-1).status, 'ready')
-  source.emitCases([document('case-1', caseData())])
-  assert.equal(source.warranties.get('case-2')[0].unsubscribeCount, 1)
-  source.emitCases([document('case-1', caseData())])
-  assert.equal(source.warranties.get('case-1').length, 1)
+  assert.equal(source.warranties.size, 0)
+  assert.equal(source.masterReferences.length, 5)
 
   const beforeStop = states.length
   stop()
   stop()
   assert.ok([...source.masters.values()].every(records => records[0].unsubscribeCount === 1))
   assert.equal(source.cases[0].unsubscribeCount, 1)
-  assert.equal(source.warranties.get('case-1')[0].unsubscribeCount, 1)
-  source.emitCases([document('late', caseData())], 0)
+  assert.ok(source.masterReferences.every(record => record.unsubscribeCount === 1))
+  source.emitCases([document('late', caseListData())], 0)
   assert.equal(states.length, beforeStop)
 })
 
-test('case list readiness is independent of master and child delivery order', () => {
+test('case list replaces exact-reference generations and ignores their late callbacks', () => {
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseList(source, state => states.push(state), () => '2026-09-01')
   emitAllMasters(source)
-  source.emitCases([
-    document('case-1', caseData()),
-    document('case-2', caseData('000002')),
-  ])
-  source.emitWarranties('case-2', [])
-  assert.equal(states.at(-1).status, 'loading')
-  source.emitWarranties('case-1', [document('warranty-1', warrantyData)])
+  source.emitCases([document('case-1', caseListData())])
+  source.emitPendingMasterReferences()
   assert.equal(states.at(-1).status, 'ready')
-  assert.deepEqual(states.at(-1).rows.map(row => row.id).sort(), ['case-1', 'case-2'])
+  const oldReferences = [...source.masterReferences]
+
+  source.emitCases([document('case-2', {
+    ...caseListData('000002'), propertyId: 'property-2', homeownerId: 'homeowner-2',
+    constructionCompanyId: 'company-2', responsibleBranchId: 'branch-2',
+  })])
+  assert.ok(oldReferences.every(record => record.unsubscribeCount === 1))
+  source.emitPendingMasterReferences()
+  const beforeLate = states.at(-1)
+  oldReferences[0].next([document('stale', { name: 'stale' })])
+  oldReferences[0].error(new Error('late reference error'))
+  assert.equal(states.at(-1), beforeLate)
+  assert.equal(states.at(-1).status, 'ready')
+  assert.equal(states.at(-1).rows[0].id, 'case-2')
   stop()
 })
 
@@ -244,75 +307,38 @@ test('case list error clears rows, and a stopped generation cannot overwrite a r
   const firstStates = []
   const stopFirst = subscribeCaseList(source, state => firstStates.push(state), () => '2026-09-01')
   emitAllMasters(source)
-  source.emitCases([document('case-1', caseData())])
-  source.emitWarranties('case-1', [])
+  source.emitCases([document('case-1', caseListData())])
+  source.emitPendingMasterReferences()
   assert.equal(firstStates.at(-1).status, 'ready')
   const expected = new Error('list failed')
   source.cases[0].error(expected)
   assert.equal(firstStates.at(-1).status, 'error')
   assert.equal(firstStates.at(-1).error, expected)
   assert.deepEqual(firstStates.at(-1).rows, [])
-  assert.equal(firstStates.at(-1).masters.properties[0].id, 'property-1')
-  source.emitCases([document('case-1', caseData())])
-  source.emitWarranties('case-1', [])
-  assert.equal(firstStates.at(-1).status, 'error')
-  assert.equal(firstStates.at(-1).rows[0].id, 'case-1')
   stopFirst()
 
   const secondStates = []
   const stopSecond = subscribeCaseList(source, state => secondStates.push(state), () => '2026-09-01')
-  source.emitCases([document('old-generation', caseData())], 0)
+  source.emitCases([document('old-generation', caseListData())], 0)
   assert.deepEqual(secondStates.at(-1).rows, [])
   for (const name of masterCollections) source.masters.get(name).at(-1).next(masterDocuments[name])
-  source.emitCases([document('case-2', caseData('000002'))])
-  source.emitWarranties('case-2', [])
+  source.emitCases([document('case-2', caseListData('000002'))])
+  source.emitPendingMasterReferences()
   assert.equal(secondStates.at(-1).rows[0].id, 'case-2')
   stopSecond()
-})
-
-test('case list ignores late callbacks from a removed warranty subscription', () => {
-  const source = new FakeCaseQuerySource()
-  const states = []
-  const stop = subscribeCaseList(source, state => states.push(state), () => '2026-09-01')
-  emitAllMasters(source)
-  source.emitCases([
-    document('case-1', caseData()),
-    document('case-2', caseData('000002')),
-  ])
-  source.emitWarranties('case-1', [document('old-warranty', warrantyData)])
-  source.emitWarranties('case-2', [])
-  const oldSubscription = source.warranties.get('case-1')[0]
-
-  source.emitCases([document('case-2', caseData('000002'))])
-  const beforeLateError = states.at(-1)
-  oldSubscription.error(new Error('late removed-listener error'))
-  assert.equal(states.at(-1), beforeLateError)
-  assert.equal(states.at(-1).status, 'ready')
-  assert.deepEqual(states.at(-1).rows.map(row => row.id), ['case-2'])
-
-  source.emitCases([
-    document('case-1', caseData()),
-    document('case-2', caseData('000002')),
-  ])
-  const newSubscription = source.warranties.get('case-1')[1]
-  newSubscription.next([document('new-warranty', { ...warrantyData, expiryDate: '2032-09-01' })])
-  oldSubscription.next([document('stale-warranty', { ...warrantyData, expiryDate: '2030-09-01' })])
-  oldSubscription.error(new Error('late replaced-listener error'))
-  assert.equal(states.at(-1).status, 'ready')
-  assert.equal(states.at(-1).rows.find(row => row.id === 'case-1').appliedWarranties[0].id, 'new-warranty')
-  stop()
 })
 
 test('case detail avoids false ready, retains warranties on parent updates, and cleans up once', () => {
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseDetail(source, 'case-1', state => states.push(state), () => '2026-09-01')
-  emitAllMasters(source)
   assert.equal(states.at(-1).status, 'loading')
   assert.equal(states.at(-1).row, null)
   source.emitCase('case-1', document('case-1', caseData()))
+  source.emitPendingMasterReferences()
   assert.equal(states.at(-1).status, 'loading')
   source.emitWarranties('case-1', [document('warranty-1', warrantyData)])
+  source.emitPendingMasterReferences()
   assert.equal(states.at(-1).status, 'ready')
   assert.equal(states.at(-1).row.appliedWarranties.length, 1)
   assert.equal(source.warranties.get('case-1').length, 1)
@@ -332,7 +358,7 @@ test('case detail avoids false ready, retains warranties on parent updates, and 
 
   stop()
   stop()
-  assert.ok([...source.masters.values()].every(records => records[0].unsubscribeCount === 1))
+  assert.ok([...source.masters.values()].every(records => records.length === 0))
   assert.equal(source.caseDetails.get('case-1')[0].unsubscribeCount, 1)
 })
 
@@ -340,7 +366,6 @@ test('missing detail becomes ready only after its case snapshot', () => {
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseDetail(source, 'missing', state => states.push(state), () => '2026-09-01')
-  emitAllMasters(source)
   assert.equal(states.at(-1).status, 'loading')
   source.emitCase('missing', null)
   assert.equal(states.at(-1).status, 'ready')
@@ -352,9 +377,10 @@ test('case detail ignores late callbacks from a removed or replaced warranty sub
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseDetail(source, 'case-1', state => states.push(state), () => '2026-09-01')
-  emitAllMasters(source)
   source.emitCase('case-1', document('case-1', caseData()))
+  source.emitPendingMasterReferences()
   source.emitWarranties('case-1', [document('old-warranty', warrantyData)])
+  source.emitPendingMasterReferences()
   const oldSubscription = source.warranties.get('case-1')[0]
 
   source.emitCase('case-1', null)
@@ -365,8 +391,10 @@ test('case detail ignores late callbacks from a removed or replaced warranty sub
   assert.equal(states.at(-1).row, null)
 
   source.emitCase('case-1', document('case-1', caseData()))
+  source.emitPendingMasterReferences()
   const newSubscription = source.warranties.get('case-1')[1]
   newSubscription.next([document('new-warranty', { ...warrantyData, expiryDate: '2032-09-01' })])
+  source.emitPendingMasterReferences()
   oldSubscription.next([document('stale-warranty', { ...warrantyData, expiryDate: '2030-09-01' })])
   oldSubscription.error(new Error('late replaced-detail error'))
   assert.equal(states.at(-1).status, 'ready')
@@ -374,14 +402,14 @@ test('case detail ignores late callbacks from a removed or replaced warranty sub
   stop()
 })
 
-test('case detail can receive the case and warranty before masters without becoming ready early', () => {
+test('case detail becomes ready after its exact case, warranty, and referenced-master snapshots', () => {
   const source = new FakeCaseQuerySource()
   const states = []
   const stop = subscribeCaseDetail(source, 'case-1', state => states.push(state), () => '2026-09-01')
   source.emitCase('case-1', document('case-1', caseData()))
   source.emitWarranties('case-1', [document('warranty-1', warrantyData)])
   assert.equal(states.at(-1).status, 'loading')
-  emitAllMasters(source)
+  source.emitPendingMasterReferences()
   assert.equal(states.at(-1).status, 'ready')
   assert.equal(states.at(-1).row.propertyName, '物件')
   stop()

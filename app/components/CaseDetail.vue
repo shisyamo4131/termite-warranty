@@ -5,7 +5,7 @@
     <div class="detail-page-breadcrumbs mb-3">案件一覧　/　案件詳細</div>
     <div class="detail-page-header mb-6">
       <div><h1 class="text-h4 detail-page-title">{{ row.propertyName }}</h1><div class="detail-page-subtitle">案件番号：{{ row.caseNumber }}</div></div>
-      <v-btn v-if="row.status === 'active'" color="primary" prepend-icon="mdi-pencil" @click="editOpen = true">編集</v-btn>
+      <v-btn v-if="row.status === 'active'" color="primary" prepend-icon="mdi-pencil" @click="openEdit">編集</v-btn>
     </div>
 
     <v-row class="detail-summary pa-2 mb-6" no-gutters>
@@ -26,32 +26,51 @@
     </section>
 
     <section class="mt-6">
-      <div class="d-flex align-center justify-space-between mb-2"><h2 class="detail-section-title mb-0">適用保証</h2><v-btn v-if="row.status === 'active'" color="primary" size="small" @click="selectedWarranty = null; warrantyOpen = true">適用保証を追加</v-btn></div>
-      <v-table><thead><tr><th>サービス</th><th>期間</th><th>開始日</th><th>満了日</th><th>通知</th><th>状態</th><th>操作</th></tr></thead><tbody><tr v-for="warranty in row.appliedWarranties" :key="warranty.id"><td>{{ warranty.warrantyServiceName }}</td><td>{{ warranty.periodYears }}年</td><td>{{ warranty.startDate }}</td><td>{{ warranty.expiryDate }}</td><td>{{ warranty.notificationStatus }}</td><td>{{ statusLabel(warranty.status) }}<span v-if="warranty.statusReason">（{{ warranty.statusReason }}）</span></td><td><v-btn v-if="row.status === 'active' && warranty.status === 'active'" size="small" variant="text" @click="selectedWarranty = warranty; warrantyOpen = true">編集</v-btn></td></tr></tbody></v-table>
+      <div class="d-flex align-center justify-space-between mb-2"><h2 class="detail-section-title mb-0">適用保証</h2><v-btn v-if="row.status === 'active'" color="primary" size="small" @click="openWarranty(null)">適用保証を追加</v-btn></div>
+      <v-table><thead><tr><th>サービス</th><th>期間</th><th>開始日</th><th>満了日</th><th>通知</th><th>状態</th><th>操作</th></tr></thead><tbody><tr v-for="warranty in row.appliedWarranties" :key="warranty.id"><td>{{ warranty.warrantyServiceName }}</td><td>{{ warranty.periodYears }}年</td><td>{{ warranty.startDate }}</td><td>{{ warranty.expiryDate }}</td><td>{{ warranty.notificationStatus }}</td><td>{{ statusLabel(warranty.status) }}<span v-if="warranty.statusReason">（{{ warranty.statusReason }}）</span></td><td><v-btn v-if="row.status === 'active' && warranty.status === 'active'" size="small" variant="text" @click="openWarranty(warranty)">編集</v-btn></td></tr></tbody></v-table>
     </section>
   </template>
 
   <v-alert v-else-if="loaded && !message" type="warning">指定された案件は見つかりません。</v-alert>
   <v-btn class="mt-6" variant="outlined" to="/cases">一覧へ戻る</v-btn>
-  <CaseEditDialog v-model="editOpen" :row="row" :all-masters="masters" :selectable-masters="selectableMasters" />
-  <AppliedWarrantyDialog v-if="row" v-model="warrantyOpen" :row="row" :warranty="selectedWarranty" :masters="masters" />
+  <CaseEditDialog v-model="editOpen" :row="row" :all-masters="dialogMasters" :selectable-masters="selectableMasters" />
+  <AppliedWarrantyDialog v-if="row" v-model="warrantyOpen" :row="row" :warranty="selectedWarranty" :masters="dialogMasters" />
 </template>
 
 <script setup lang="ts">
-import type { CaseRow } from '../types/prototype-data'
+import type { CaseRow, MasterCatalog } from '../types/prototype-data'
 
 const route = useRoute()
 const editOpen = ref(false)
 const warrantyOpen = ref(false)
 const selectedWarranty = ref<CaseRow['appliedWarranties'][number] | null>(null)
 const { state, start } = useCaseDetail()
-const { activeMasters } = useMasterCatalog()
+const masterCatalog = useMasterCatalog()
+const dialogMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
+const dialogLoadError = ref('')
 const row = computed(() => state.value.row)
-const masters = computed(() => state.value.masters)
-const message = computed(() => state.value.status === 'error' ? '案件データを読み込めませんでした。' : '')
+const message = computed(() => dialogLoadError.value || (state.value.status === 'error' ? '案件データを読み込めませんでした。' : ''))
 const loaded = computed(() => state.value.status !== 'loading')
-const selectableMasters = computed(() => activeMasters(masters.value))
+const selectableMasters = computed(() => masterCatalog.activeMasters(dialogMasters))
 const statusLabel = (value: string) => ({ active: '有効', cancelled: '取消', invalid: '無効' }[value] ?? value)
+const loadDialogMasters = async () => {
+  dialogLoadError.value = ''
+  try {
+    Object.assign(dialogMasters, await masterCatalog.loadAllMasters())
+    return true
+  } catch (error) {
+    dialogLoadError.value = error instanceof Error ? error.message : '編集用マスターを読み込めませんでした。'
+    return false
+  }
+}
+const openEdit = async () => {
+  if (await loadDialogMasters()) editOpen.value = true
+}
+const openWarranty = async (warranty: CaseRow['appliedWarranties'][number] | null) => {
+  if (!await loadDialogMasters()) return
+  selectedWarranty.value = warranty
+  warrantyOpen.value = true
+}
 onMounted(() => start(String(route.params.id)))
 watch(() => route.params.id, id => start(String(id)))
 </script>

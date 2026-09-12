@@ -59,11 +59,13 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-005: Replace Unbounded List Subscriptions
 
-- Status: Approved; not implemented; case-month portion depends on HSC-032
-- Current evidence: case and master lists subscribe to full collections, case listing creates one applied-warranty listener per case, and repeated snapshots re-project all cases in memory.
+- Status: Implemented and locally verified on `codex/tr-005-bounded-list-subscriptions`; case-month portion remains deferred to HSC-032
+- Detailed design: [TR-005 bounded list subscriptions](../design/tr-005-bounded-list-subscriptions.md)
+- Former evidence: case and master lists subscribed to full collections, case listing created one applied-warranty listener per case, and repeated snapshots re-projected all cases in memory.
 - Target: enforce ADR 0017. An unfiltered list subscribes to the freshest 20 documents using server-maintained `updatedAt` and a document-ID tie-breaker. Introduce a query/repository boundary, cursor support, and the indexes needed by bounded queries. Case warranty-derived filters use a bounded query or rebuildable list projection rather than per-case child listeners.
 - Completion contract: instrumentation shows that initial listener count and reads are bounded by the visible query window rather than lifetime record count; no unfiltered full-collection fallback remains; all list types have a reliable freshness field; filtered query behavior is explicit.
 - Required validation: query and index tests, listener cleanup/error tests, 20/21-record boundary tests, equal-timestamp tie-break tests, representative-volume read/listener/latency measurement, and HSC-032-specific tests after its resolution.
+- Evidence: all unfiltered case and managed-master lists use the shared `updatedAt DESC`, document-ID `DESC`, `limit(20)` query and tested cursor seam; construction-company linked properties use the corresponding bounded composite query. Case lists read an atomically maintained parent projection and create zero child-warranty listeners, while 10-ID exact-reference chunks keep visible old masters resolvable without lifetime collection reads. Unit instrumentation covers a 20-case reference plan, listener generation/cleanup/errors, projection shape, and cursor construction; Emulator tests cover equal-timestamp 20/21 boundaries and atomic registration/add/update projection paths. The seven comprehensive gates exited 0: 77 domain/workflow tests passed with 2 host-limited skips, typecheck and static build passed, 81 Emulator tests passed, recursive Functions syntax and seed syntax passed, and governance validation passed. Browser smoke confirmed the seeded dashboard, six case rows, case detail warranty, and 10-row construction-company list. The build retained its existing large-chunk and Nuxt/Nitro warnings. HSC-032 tests, production backfill, deployment, pagination UI, and a production-scale latency target remain outside this completed portion.
 
 ## TR-006: Split `usePrototypeData.ts` by Responsibility
 

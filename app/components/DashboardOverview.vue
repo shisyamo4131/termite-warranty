@@ -2,9 +2,9 @@
   <h1 class="text-h4 mb-6">ダッシュボード</h1>
   <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
   <v-row>
-    <v-col cols="12" sm="4"><v-card title="全案件"><v-card-text class="text-h3">{{ rows.length }}</v-card-text></v-card></v-col>
-    <v-col cols="12" sm="4"><v-card title="期限30日以内"><v-card-text class="text-h3">{{ alerts.length }}</v-card-text></v-card></v-col>
-    <v-col cols="12" sm="4"><v-card title="未通知"><v-card-text class="text-h3">{{ notNotified.length }}</v-card-text></v-card></v-col>
+    <v-col cols="12" sm="4"><v-card title="表示中の案件（最新20件）"><v-card-text class="text-h3">{{ rows.length }}</v-card-text></v-card></v-col>
+    <v-col cols="12" sm="4"><v-card title="表示中・期限30日以内"><v-card-text class="text-h3">{{ alerts.length }}</v-card-text></v-card></v-col>
+    <v-col cols="12" sm="4"><v-card title="表示中・未通知"><v-card-text class="text-h3">{{ notNotified.length }}</v-card-text></v-card></v-col>
   </v-row>
   <v-card class="mt-6" title="対応が必要な案件">
     <v-table><thead><tr><th>案件番号</th><th>施主</th><th>状態</th></tr></thead><tbody>
