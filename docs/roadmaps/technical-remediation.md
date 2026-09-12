@@ -1,7 +1,7 @@
 # Technical Remediation Backlog
 
 - Status: Active
-- Scope: Approved corrections and structural improvements identified during the 2026-09-11 implementation review
+- Scope: Approved corrections and structural improvements identified during the 2026-09-11 implementation review, plus the TR-009 postal-lookup design added and independently reviewed on 2026-09-12
 - Progress rule: An item is complete only when its implementation, required tests, affected contracts, and measured evidence all satisfy its completion contract. No elapsed-time or partial percentage is reported.
 - Application-code baseline reviewed: `5f2a0fb47ce41d703a31cfbe7f29020c1a9d7c96`
 - Repository baseline before this documentation change: `1b42ca682f423679e4345427705a25ddc12b022a` (the intervening commit from the application-code baseline changed documentation only)
@@ -15,6 +15,7 @@ This backlog records approved implementation work. It does not turn unresolved p
 3. TR-008: remove the unused profile Callable while preserving the live staff-document subscription and the future server-enforced account-management boundary.
 4. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
 5. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
+6. TR-009: add the provider-neutral postal lookup foundation, then implement Google response mapping and environment setup only after the corresponding HSC-017 and external-approval gates are resolved.
 
 ## TR-001: Align Master Writes with Last-write-wins
 
@@ -99,7 +100,19 @@ This backlog records approved implementation work. It does not turn unresolved p
 - Completion contract: the local Functions inventory contains only `registerCase`, `addAppliedWarranty`, and `updateAppliedWarranty`; no repository client refers to `getOwnProfile`; self-read/other-user denial/staff-write denial/disabled-account regressions remain registered; affected design, decision, roadmap, indexes, operations, and changelog agree; remote existence, consumers, and deletion remain explicitly unverified and unperformed.
 - Required validation: governance check, domain/workflow tests, application typecheck, aggregate Auth/Firestore/Functions Emulator regression, recursive Functions syntax, seed syntax, and independent review. Application build is omitted because no application, Nuxt, dependency, TypeScript, or build configuration changes.
 
-## Evidence Source
+## TR-009: Add Google Postal-Code Lookup
+
+- Status: Detailed design ready; implementation and external setup not started
+- Decision: [ADR 0022](../decisions/0022-google-geocoding-postal-lookup.md)
+- Detailed design: [TR-009 Google postal-code lookup boundary](../design/tr-009-google-postal-lookup.md)
+- Review evidence: read-only independent review on 2026-09-12 found four Medium and one Low draft issues; the final design incorporates per-field concurrency protection, an honest official-UI scope boundary, the confirmed ambiguous-field limit, a provider-policy/attribution gate, and item-specific provenance.
+- Confirmed scope: add replaceable Google Geocoding lookup for property and homeowner forms while preserving manual entry, correction, current stored address fields, and no-match/ambiguous/failure fallbacks. Construction-company lookup remains excluded unless HSC-018 is resolved.
+- Security boundary: the browser calls an authenticated Firebase Callable; the server verifies the enabled staff record and owns request construction. Any credential is environment-scoped, function-bound Secret Manager data and is never placed in the browser, repository, fixtures, logs, or artifacts.
+- Blocked decisions: HSC-017 must resolve the Japanese response-component mapping, authentication/restriction model, production ownership, billing, quotas, cost controls, availability, provider-content persistence/attribution/public-policy obligations, request-abuse controls, and operations before the affected slices proceed. API enablement, credential creation, billing changes, live Google requests, deployment, and production setup require separate approvals.
+- Next implementable slice: provider-neutral DTOs, fake-provider tests, per-field stale-response protection, and property/homeowner-only official-UI wiring with a default unavailable local provider and no network request.
+- Completion contract: the approved mapping is covered by synthetic fixtures; enabled/missing/disabled staff are rejected; approved request-rate and cost-abuse controls hold; late responses cannot overwrite any newer field input; ambiguous results never auto-fill street/town and number; manual save always remains available; approved persistence/attribution behavior is verified; credentials and raw provider data cannot reach the client or logs; all policy-selected documentation, UI, application, Functions, Rules, syntax, and build gates pass independently.
+
+## Earlier Remediation Evidence Source (TR-001–TR-008)
 
 - Review: coordinator plus read-only architecture, frontend, data, and test reviewers on 2026-09-11.
 - Approval and decisions: user instruction in the current Codex task on 2026-09-12. A task/thread identifier was not available to the repository authoring context.

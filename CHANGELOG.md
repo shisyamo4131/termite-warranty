@@ -4,6 +4,7 @@
 
 ### Added
 
+- Added the TR-009 pre-implementation design for property/homeowner Google postal-code lookup, including an authenticated server proxy, function-scoped environment credentials, manual-entry fallback, and explicit gates for Japanese response mapping and external setup.
 - Added an ignored, user-owned JavaScript UI component workbench, contract-and-fixture workflow, and isolated Nuxt/Vuetify preview for collaborative visual authoring without tracked-application or Firebase coupling.
 - Provisioned the developer-owned `termite-warranty-dev` Firebase environment and added an explicit dual-runtime configuration for local Emulator verification and same-site Firebase Hosting deployment in Tokyo.
 - Added homeowner postal/address, optional telephone/fax/notes, and compatible master-management/detail/seed handling. Postal-code API lookup remains explicitly deferred in the local prototype until its integration information is available.

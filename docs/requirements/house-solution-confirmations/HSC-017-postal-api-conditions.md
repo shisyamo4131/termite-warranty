@@ -13,9 +13,10 @@ The provider choice was approved on 2026-09-12 after comparing data-source autho
 
 1. Will House Solution own the production Google Cloud project, billing account, quota policy, and production API credential, as currently intended?
 2. Which API authentication method and application/API restrictions will be used for browser-to-service or server-to-service access without exposing an unrestricted key?
-3. What monthly and daily quota, budget alert, hard usage limit, support level, and failure procedure are acceptable?
+3. What monthly and daily quota, budget alert, hard usage limit, support level, and failure procedure are acceptable, including the environment owner and preapproved server-side kill switch, credential/quota containment order, observable stop signal, recovery order, and safe re-enable criteria?
 4. When must the integration be available relative to production release?
 5. Which exact Google response components map to prefecture, municipality, and street/town and number for ambiguous and Japan-specific results?
+6. Under the production billing owner's applicable Google Maps Platform agreement, may structured address values be retained as shared staff-visible master data, and what attribution, public Terms of Use, Privacy Policy, isolation, retention, refresh, App Check, rate/concurrency, and abuse-control requirements apply?
 
 ## Affected Documents
 
@@ -29,4 +30,4 @@ Address requirements, external-service boundaries, secrets, operations, cost, an
 - Evidence: current Codex task instruction, “GoogleのGeocoding APIを採用します。” A task/thread or share identifier was not available to the repository authoring context.
 - Reflected documents: current specification, delivery/technology requirements, branch/address requirements, ADR 0022, operations, and changelog.
 
-This matter remains unresolved because production ownership, restrictions, quotas, cost controls, availability, and response mapping still require confirmation.
+This matter remains unresolved because production ownership, restrictions, quotas, cost controls, availability, response mapping, provider-content persistence, attribution, public-policy, and request-abuse controls still require confirmation.

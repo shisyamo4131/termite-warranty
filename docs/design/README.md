@@ -12,4 +12,5 @@
 - [TR-006 prototype-data responsibility split](tr-006-prototype-data-responsibility-split.md): implementation contract for separating case commands, master catalogs, list/detail queries, pure helpers, and UI orchestration.
 - [TR-007 direct master writes](tr-007-direct-master-writes.md): implementation contract for replacing the four master CUD Callables with direct, Rules-governed Firestore writes.
 - [TR-008 remove unused profile Callable](tr-008-remove-unused-profile-callable.md): implementation contract for removing the redundant self-profile endpoint while preserving live account-disable handling.
+- [TR-009 Google postal-code lookup boundary](tr-009-google-postal-lookup.md): pre-implementation contract for an authenticated, replaceable Google Geocoding proxy, environment-scoped credentials, manual-entry fallback, and response-mapping approval gate.
 - [UI component contracts](ui-component-contracts/README.md): one durable integration contract per user-authored JavaScript component.
