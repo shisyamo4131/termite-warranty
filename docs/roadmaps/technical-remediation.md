@@ -11,8 +11,9 @@ This backlog records approved implementation work. It does not turn unresolved p
 ## Recommended Order
 
 1. TR-001, TR-002, and TR-003: correct write semantics and make the verification/deploy path trustworthy.
-2. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
-3. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
+2. TR-007: after that foundation phase is complete, remove the unnecessarily strong Callable boundary from the four master CUD paths before further master-form restructuring.
+3. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
+4. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
 
 ## TR-001: Align Master Writes with Last-write-wins
 
@@ -64,6 +65,16 @@ This backlog records approved implementation work. It does not turn unresolved p
 - Target: separate shared types and pure transformations, case command gateway, case list query repository, case detail query repository, and UI orchestration composables. Keep Firebase-free domain rules in the shared domain boundary. Do not add a global store unless a demonstrated cross-page state need exists.
 - Completion contract: each module has one principal reason to change; UI components depend on query/command interfaces rather than raw Firestore assembly; list and detail loading expose explicit ready/error states; listener cleanup and retry behavior are testable independently.
 - Required validation: existing domain and Emulator regressions, focused query/command tests, listener ordering/error/cleanup tests, component smoke tests, typecheck, and build.
+
+## TR-007: Replace Master CUD Callables with Direct Firestore Writes
+
+- Status: Approved; deferred until TR-001, TR-002, and TR-003 are complete
+- Decision: [ADR 0018](../decisions/0018-direct-master-writes.md)
+- Current evidence: direct client create/update is denied for construction-company, homeowner, property, and warranty-service masters, and every create, update, inactivation, and reactivation goes through a trusted Callable. This boundary was introduced primarily so a server could derive name-search N-Gram maps and was later expanded to uniform revision, lifecycle, timestamp, and reference validation. The previously server-atomic property-to-case propagation requirement no longer exists.
+- Target: enabled authenticated staff write the four master types directly through the Firestore client. Rules retain the approved minimum boundary and data-safety invariants: enabled-account access, exact supported document shape and types, immutable creation metadata, server update timestamps, valid property references where required, and no physical delete. Do not introduce role- or record-level business-data authorization. Generate application-maintained search fields from the shared domain implementation and write them atomically with their canonical fields; explicitly accept that Rules cannot prove semantic equality between a name and its submitted dynamic N-Gram map under the provisional threat posture.
+- Boundary: keep Callable/Admin SDK paths whose server authority or multi-document transaction is separately justified, including account administration, atomic case registration and numbering, and current applied-warranty/parent-case mutation. Reassess `revision` during detailed design because last-write-wins no longer uses it as a client conflict precondition; do not preserve it merely to imitate the current Callable implementation.
+- Completion contract: no master UI path invokes `createMaster`, `updateMaster`, or `setMasterActive`; the unused exported Functions and server master-mutation module are removed; direct client writes preserve current valid create/update/inactivate/reactivate behavior and reject unsupported shapes, invalid references, unauthenticated/missing/disabled staff, and physical deletion; the prototype data contract, rules, operations, tests, and deployment surface agree on the reduced boundary; accepted residual risk is documented without presenting the change as browser-external attack protection.
+- Required validation: detailed design review, domain mapper/token tests, direct Web Firestore SDK Emulator CUD tests for all four masters, Firestore Rules authorization/invariant regression, property-reference and lifecycle boundaries, last-write-wins concurrency, typecheck, build, Functions syntax, clean-copy Functions preparation, and confirmation that retained Callable workflows still pass their integration tests.
 
 ## Evidence Source
 
