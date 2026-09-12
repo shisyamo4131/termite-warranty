@@ -52,6 +52,107 @@ service cloud.firestore {
         && activeConstructionCompany(get(/databases/$(database)/documents/properties/$(propertyId)).data.constructionCompanyId);
     }
 
+    function nullableString(value) {
+      return value == null || value is string;
+    }
+
+    function validAddress(value) {
+      return value is map
+        && value.keys().hasOnly(['postalCode', 'prefecture', 'municipality', 'streetTownAndNumber', 'buildingName'])
+        && value.postalCode is string && value.postalCode.matches('^[0-9]{7}$')
+        && nonBlankString(value.prefecture)
+        && nonBlankString(value.municipality)
+        && nonBlankString(value.streetTownAndNumber)
+        && nullableString(value.buildingName);
+    }
+
+    function validNameSearch(value) {
+      return value is map
+        && value.keys().hasOnly(['normalized', 'one', 'two'])
+        && nonEmptyString(value.normalized)
+        && value.one is map
+        && value.two is map;
+    }
+
+    function validMasterCreateMetadata(data) {
+      return data.active is bool
+        && data.revision is int
+        && data.revision == 1
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validMasterUpdateMetadata(data) {
+      return data.active is bool
+        && resource.data.revision is int
+        && resource.data.revision >= 1
+        && resource.data.revision < 9007199254740991
+        && data.revision == resource.data.revision + 1
+        && data.createdAt == resource.data.createdAt
+        && data.updatedAt == request.time;
+    }
+
+    function masterLifecycleFieldsOnly() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['active', 'revision', 'updatedAt']);
+    }
+
+    function validMasterLifecycleUpdate(data) {
+      return masterLifecycleFieldsOnly() && validMasterUpdateMetadata(data);
+    }
+
+    function validActivePropertyReferences(data) {
+      return !data.active
+        || (data.homeownerId is string
+          && data.constructionCompanyId is string
+          && exists(/databases/$(database)/documents/homeowners/$(data.homeownerId))
+          && exists(/databases/$(database)/documents/constructionCompanies/$(data.constructionCompanyId))
+          && activeHomeowner(data.homeownerId)
+          && activeConstructionCompany(data.constructionCompanyId));
+    }
+
+    function validCompany(data) {
+      return data.keys().hasOnly(['name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'email', 'notes', 'active', 'nameSearch', 'revision', 'createdAt', 'updatedAt'])
+        && nonBlankString(data.name)
+        && validAddress(data.address)
+        && nullableString(data.telephone)
+        && nullableString(data.fax)
+        && nullableString(data.contactPerson)
+        && nullableString(data.contactDetails)
+        && nullableString(data.email)
+        && nullableString(data.notes)
+        && validNameSearch(data.nameSearch);
+    }
+
+    function validHomeowner(data) {
+      return data.keys().hasOnly(['name', 'address', 'telephone', 'fax', 'notes', 'active', 'nameSearch', 'revision', 'createdAt', 'updatedAt'])
+        && nonBlankString(data.name)
+        && validAddress(data.address)
+        && nullableString(data.telephone)
+        && nullableString(data.fax)
+        && nullableString(data.notes)
+        && validNameSearch(data.nameSearch);
+    }
+
+    function validProperty(data) {
+      return data.keys().hasOnly(['name', 'homeownerId', 'constructionCompanyId', 'address', 'active', 'nameSearch', 'revision', 'createdAt', 'updatedAt'])
+        && nonBlankString(data.name)
+        && nonEmptyString(data.homeownerId)
+        && nonEmptyString(data.constructionCompanyId)
+        && validAddress(data.address)
+        && validNameSearch(data.nameSearch)
+        && exists(/databases/$(database)/documents/homeowners/$(data.homeownerId))
+        && exists(/databases/$(database)/documents/constructionCompanies/$(data.constructionCompanyId))
+        && validActivePropertyReferences(data);
+    }
+
+    function validWarrantyService(data) {
+      return data.keys().hasOnly(['name', 'defaultPeriodYears', 'active', 'revision', 'createdAt', 'updatedAt'])
+        && nonBlankString(data.name)
+        && data.defaultPeriodYears is int
+        && data.defaultPeriodYears > 0;
+    }
+
     match /staffAccounts/{uid} {
       allow read: if signedInAndEnabled() && request.auth.uid == uid;
       allow write: if false;
@@ -68,25 +169,38 @@ service cloud.firestore {
 
     match /constructionCompanies/{companyId} {
       allow read: if signedInAndEnabled();
-      allow create, update: if false;
+      allow create: if signedInAndEnabled() && validCompany(request.resource.data) && validMasterCreateMetadata(request.resource.data);
+      allow update: if signedInAndEnabled()
+        && ((validCompany(request.resource.data) && validMasterUpdateMetadata(request.resource.data))
+          || validMasterLifecycleUpdate(request.resource.data));
       allow delete: if false;
     }
 
     match /homeowners/{homeownerId} {
       allow read: if signedInAndEnabled();
-      allow create, update: if false;
+      allow create: if signedInAndEnabled() && validHomeowner(request.resource.data) && validMasterCreateMetadata(request.resource.data);
+      allow update: if signedInAndEnabled()
+        && ((validHomeowner(request.resource.data) && validMasterUpdateMetadata(request.resource.data))
+          || validMasterLifecycleUpdate(request.resource.data));
       allow delete: if false;
     }
 
     match /properties/{propertyId} {
       allow read: if signedInAndEnabled();
-      allow create, update: if false;
+      allow create: if signedInAndEnabled() && validProperty(request.resource.data) && validMasterCreateMetadata(request.resource.data);
+      allow update: if signedInAndEnabled()
+        && ((validProperty(request.resource.data) && validMasterUpdateMetadata(request.resource.data))
+          || (validMasterLifecycleUpdate(request.resource.data)
+            && validActivePropertyReferences(request.resource.data)));
       allow delete: if false;
     }
 
     match /warrantyServices/{serviceId} {
       allow read: if signedInAndEnabled();
-      allow create, update: if false;
+      allow create: if signedInAndEnabled() && validWarrantyService(request.resource.data) && validMasterCreateMetadata(request.resource.data);
+      allow update: if signedInAndEnabled()
+        && ((validWarrantyService(request.resource.data) && validMasterUpdateMetadata(request.resource.data))
+          || validMasterLifecycleUpdate(request.resource.data));
       allow delete: if false;
     }
 

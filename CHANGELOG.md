@@ -23,6 +23,7 @@
 
 ### Changed
 
+- Replaced construction-company, homeowner, property, and warranty-service CUD Callables with direct Firestore writes governed by enabled-staff and data-integrity Rules, while retaining atomic revision diagnostics and removing the unused master Functions surface.
 - Made the development Firebase deployment fail closed behind every registered verification gate, bound Hosting deployment to the verified generated artifact, registered the complete Callable integration set, recursively syntax-checked all Functions modules, and removed the routine general-purpose `--force` bypass.
 - Made the generated Functions copy of `src/domain` deterministic and self-verifying across the supported Emulator, Callable-test, syntax-check, and Firebase predeploy paths, with an independent drift check.
 - Implemented last-write-wins for the four trusted-callable master update and lifecycle paths while retaining server-managed revisions, validation, atomic writes, property non-propagation, and the separate case/applied-warranty stale-baseline policy; the registered Emulator gate now covers the master Callable boundary and concurrent full-payload behavior.

@@ -43,7 +43,6 @@ test('repository discovery includes every maintained Functions service module', 
   for (const expected of [
     'index.js',
     'register-case.js',
-    'master-management.js',
     'applied-warranty-management.js',
     'local-runtime.js',
   ]) {

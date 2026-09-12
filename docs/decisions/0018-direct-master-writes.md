@@ -1,7 +1,7 @@
 # 0018 Direct Master Writes Under the Provisional Access Posture
 
 - Date: 2026-09-12
-- Status: Accepted; TR-001 through TR-003 are complete and TR-007 implementation is next
+- Status: Accepted and implemented by TR-007
 - Related specification: [Security and access posture](../requirements/security-and-access.md), [master management](../requirements/master-management.md)
 - Supersedes: None
 
@@ -21,7 +21,7 @@ The client will generate application-maintained name-search fields using the sha
 
 This decision does not remove Callable or Admin SDK operations that have a separate server-authority or multi-document consistency requirement. Account administration, atomic case registration and numbering, and the current applied-warranty plus parent-case mutation remain outside this refactor.
 
-Whether master `revision` remains useful diagnostic metadata or is removed will be settled in TR-007 detailed design. It must not be retained as a stale-write rejection precondition because master updates use last-write-wins.
+TR-007 retains master `revision` as write-order diagnostic metadata. Direct updates use Firestore's atomic increment transform, do not read or return the revision, and never use it as a stale-write rejection precondition. This preserves existing documents without adding a billed pre-write read or a client transaction.
 
 ## Rationale
 
@@ -41,7 +41,7 @@ The existing master boundary is stronger and more operationally complex than the
 
 ## Migration
 
-No data migration is authorized by this decision. TR-007 detailed design must determine compatibility for existing master documents and any retained or removed `revision` field before implementation.
+No data migration is authorized by this decision. Existing valid revision fields remain compatible. A valid-revision legacy document may use the narrowly constrained lifecycle-only path, but a normal edit must satisfy the current shape. A legacy document without valid revision metadata remains readable but is not implicitly repaired by a normal direct edit or lifecycle change.
 
 ## Reconsider When
 

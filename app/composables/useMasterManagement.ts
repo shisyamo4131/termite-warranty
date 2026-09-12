@@ -1,5 +1,5 @@
-import { collection, doc, getDocs, onSnapshot, query, where, type DocumentData } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
+import { collection, doc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
+import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
 
 export type MasterType = 'constructionCompany' | 'homeowner' | 'warrantyService' | 'property'
@@ -8,7 +8,6 @@ export interface ManagedMaster {
   id: string
   name: string
   active: boolean
-  revision: number
   nameSearch?: {
     normalized: string
     one: Record<string, true>
@@ -32,11 +31,6 @@ export interface ManagedMaster {
   notes?: string | null
 }
 
-export interface MasterMutationResult {
-  id: string
-  revision: number
-}
-
 const COLLECTION_BY_TYPE: Record<MasterType, string> = {
   constructionCompany: 'constructionCompanies',
   homeowner: 'homeowners',
@@ -48,7 +42,6 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   id,
   name: String(data.name ?? ''),
   active: data.active === true,
-  revision: Number(data.revision),
   nameSearch: data.nameSearch,
   defaultPeriodYears: data.defaultPeriodYears,
   homeownerId: data.homeownerId,
@@ -93,19 +86,31 @@ export function useMasterManagement(masterType: MasterType) {
   }
 
   const createMaster = async (fields: Record<string, unknown>) => {
-    const callable = httpsCallable<
-      { masterType: MasterType; fields: Record<string, unknown> },
-      MasterMutationResult
-    >($firebase.functions, 'createMaster')
-    return (await callable({ masterType, fields })).data
+    const reference = doc(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
+    await setDoc(reference, {
+      ...normalizeMasterFields(masterType, fields),
+      active: true,
+      revision: 1,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    })
+    return { id: reference.id }
   }
   const updateMaster = async (id: string, fields: Record<string, unknown>) => {
-    const callable = httpsCallable($firebase.functions, 'updateMaster')
-    return (await callable({ masterType, id, fields })).data
+    await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      ...normalizeMasterFields(masterType, fields),
+      revision: increment(1),
+      updatedAt: serverTimestamp(),
+    })
+    return { id }
   }
   const setMasterActive = async (id: string, active: boolean) => {
-    const callable = httpsCallable($firebase.functions, 'setMasterActive')
-    return (await callable({ masterType, id, active })).data
+    await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      active,
+      revision: increment(1),
+      updatedAt: serverTimestamp(),
+    })
+    return { id }
   }
   const loadPropertyReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {
     const [homeowners, companies] = await Promise.all([

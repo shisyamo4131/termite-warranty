@@ -11,6 +11,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  increment,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -27,6 +28,48 @@ const validNameSearch = {
   normalized: 'テスト',
   one: { 'テ': true, 'ス': true, 'ト': true },
   two: { 'テス': true, 'スト': true },
+}
+
+const validAddress = {
+  postalCode: '1000001',
+  prefecture: 'Tokyo',
+  municipality: 'Chiyoda',
+  streetTownAndNumber: '1-1',
+  buildingName: null,
+}
+
+const masterMetadata = () => ({
+  active: true,
+  revision: 1,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+})
+
+const companyData = (overrides = {}) => ({
+  name: 'Test company', address: validAddress, telephone: null, fax: null,
+  contactPerson: null, contactDetails: null, email: null, notes: null,
+  nameSearch: validNameSearch, ...masterMetadata(), ...overrides,
+})
+
+const homeownerData = (overrides = {}) => ({
+  name: 'Test homeowner', address: validAddress, telephone: null, fax: null,
+  notes: null, nameSearch: validNameSearch, ...masterMetadata(), ...overrides,
+})
+
+const propertyData = (overrides = {}) => ({
+  name: 'Test property', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1',
+  address: validAddress, nameSearch: validNameSearch, ...masterMetadata(), ...overrides,
+})
+
+const warrantyServiceData = (overrides = {}) => ({
+  name: 'Test warranty', defaultPeriodYears: 5, ...masterMetadata(), ...overrides,
+})
+
+async function createDirectMasterFixtures(db) {
+  await setDoc(doc(db, 'constructionCompanies', 'company-1'), companyData())
+  await setDoc(doc(db, 'homeowners', 'homeowner-1'), homeownerData())
+  await setDoc(doc(db, 'properties', 'property-1'), propertyData())
+  await setDoc(doc(db, 'warrantyServices', 'service-1'), warrantyServiceData())
 }
 
 const validCase = (overrides = {}) => ({
@@ -243,34 +286,166 @@ describe('business document validation', () => {
     }))
   })
 
-  test('direct client writes to all four callable-managed masters are denied', async () => {
+  test('enabled staff directly create, update, inactivate, and reactivate all four masters', async () => {
     await seedStaff('enabled-user')
     const db = contextFor('enabled-user')
+    await createDirectMasterFixtures(db)
 
-    const data = {
-      name: 'Test property',
-      active: true,
-      nameSearch: validNameSearch,
-      homeownerId: 'homeowner-1',
-      constructionCompanyId: 'company-1',
-      address: {
-        postalCode: '1000001',
-        prefecture: 'Tokyo',
-        municipality: 'Chiyoda',
-        streetTownAndNumber: '1-1',
-        buildingName: null,
-      },
+    const scenarios = [
+      ['constructionCompanies', 'company-1', { name: 'Updated company', nameSearch: { ...validNameSearch, normalized: 'updatedcompany' } }],
+      ['homeowners', 'homeowner-1', { name: 'Updated homeowner', nameSearch: { ...validNameSearch, normalized: 'updatedhomeowner' } }],
+      ['properties', 'property-1', { name: 'Updated property', nameSearch: { ...validNameSearch, normalized: 'updatedproperty' } }],
+      ['warrantyServices', 'service-1', { name: 'Updated warranty', defaultPeriodYears: 10 }],
+    ]
+    for (const [collectionName, id, changes] of scenarios) {
+      const reference = doc(db, collectionName, id)
+      const created = (await getDoc(reference)).data()
+      await assertSucceeds(updateDoc(reference, {
+        ...changes, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      await assertSucceeds(updateDoc(reference, {
+        active: false, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      await assertSucceeds(updateDoc(reference, {
+        active: true, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      const stored = (await getDoc(reference)).data()
+      assert.equal(stored?.revision, 4)
+      assert.equal(stored?.active, true)
+      assert.equal(stored?.name, changes.name)
+      assert.equal(stored?.createdAt.toMillis(), created?.createdAt.toMillis())
     }
-    await assertFails(setDoc(doc(db, 'properties', 'property-1'), data))
-    await assertFails(setDoc(doc(db, 'constructionCompanies', 'company-1'), {
-      name: 'Test company', active: true, nameSearch: validNameSearch,
+  })
+
+  test('direct master writes reject unsupported shapes, invalid references, bad revisions, and disabled staff', async () => {
+    await seedStaff('enabled-user')
+    await seedStaff('disabled-user', false)
+    const db = contextFor('enabled-user')
+    const disabled = contextFor('disabled-user')
+    await assertFails(setDoc(doc(disabled, 'homeowners', 'denied'), homeownerData()))
+    await assertFails(setDoc(doc(db, 'homeowners', 'extra'), { ...homeownerData(), unexpected: true }))
+    await assertSucceeds(setDoc(doc(db, 'homeowners', 'homeowner-1'), homeownerData()))
+    await assertFails(updateDoc(doc(db, 'homeowners', 'homeowner-1'), { name: 'Bad revision', revision: 5, updatedAt: serverTimestamp() }))
+    await assertFails(setDoc(doc(db, 'properties', 'bad-property'), {
+      name: 'Bad property', homeownerId: 'homeowner-1', constructionCompanyId: 'missing',
+      address: validAddress, nameSearch: validNameSearch, ...masterMetadata(),
     }))
-    await assertFails(setDoc(doc(db, 'homeowners', 'homeowner-1'), {
-      name: 'Test homeowner', active: true, nameSearch: validNameSearch,
+  })
+
+  test('legacy company and homeowner records support lifecycle-only writes without field mutation', async () => {
+    await seedStaff('enabled-user')
+    const legacyTimestamp = Timestamp.fromMillis(1_700_000_000_000)
+    for (const [collectionName, id] of [
+      ['constructionCompanies', 'legacy-company'],
+      ['homeowners', 'legacy-homeowner'],
+    ]) {
+      await seedDocument(`${collectionName}/${id}`, {
+        name: 'Legacy record', nameSearch: validNameSearch, active: true, revision: 1,
+        createdAt: legacyTimestamp, updatedAt: legacyTimestamp,
+      })
+      const reference = doc(contextFor('enabled-user'), collectionName, id)
+      await assertSucceeds(updateDoc(reference, {
+        active: false, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      await assertSucceeds(updateDoc(reference, {
+        active: true, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      await assertFails(updateDoc(reference, {
+        name: 'Smuggled change', active: false,
+        revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+      const stored = (await getDoc(reference)).data()
+      assert.equal(stored?.name, 'Legacy record')
+      assert.equal(stored?.active, true)
+      assert.equal(stored?.revision, 3)
+    }
+  })
+
+  test('missing and invalid stored revisions reject direct updates and lifecycle writes', async () => {
+    await seedStaff('enabled-user')
+    const db = contextFor('enabled-user')
+    const invalidRevisions = [undefined, 0, 1.5, '1', Number.MAX_SAFE_INTEGER]
+    for (const [index, revision] of invalidRevisions.entries()) {
+      for (const operation of ['update', 'lifecycle']) {
+        const id = `bad-${index}-${operation}`
+        const seeded = {
+          ...homeownerData(), createdAt: Timestamp.fromMillis(1), updatedAt: Timestamp.fromMillis(1),
+        }
+        if (revision === undefined) delete seeded.revision
+        else seeded.revision = revision
+        await seedDocument(`homeowners/${id}`, seeded)
+        const changes = operation === 'update'
+          ? { name: 'Rejected', nameSearch: validNameSearch }
+          : { active: false }
+        await assertFails(updateDoc(doc(db, 'homeowners', id), {
+          ...changes, revision: increment(1), updatedAt: serverTimestamp(),
+        }))
+      }
+    }
+  })
+
+  test('property updates and reactivation reject missing or inactive references', async () => {
+    await seedStaff('enabled-user')
+    const db = contextFor('enabled-user')
+    await createDirectMasterFixtures(db)
+    await seedDocument('homeowners/inactive-homeowner', { ...homeownerData(), active: false })
+    await seedDocument('constructionCompanies/inactive-company', { ...companyData(), active: false })
+    const reference = doc(db, 'properties', 'property-1')
+
+    for (const changes of [
+      { homeownerId: 'missing-homeowner' },
+      { homeownerId: 'inactive-homeowner' },
+      { constructionCompanyId: 'missing-company' },
+      { constructionCompanyId: 'inactive-company' },
+    ]) {
+      await assertFails(updateDoc(reference, {
+        ...changes, revision: increment(1), updatedAt: serverTimestamp(),
+      }))
+    }
+
+    await assertSucceeds(updateDoc(reference, {
+      active: false, revision: increment(1), updatedAt: serverTimestamp(),
     }))
-    await assertFails(setDoc(doc(db, 'warrantyServices', 'service-1'), {
-      name: 'Test warranty', defaultPeriodYears: 5, active: true,
+    await seedDocument('homeowners/homeowner-1', { ...homeownerData(), active: false })
+    await assertFails(updateDoc(reference, {
+      active: true, revision: increment(1), updatedAt: serverTimestamp(),
     }))
+    assert.equal((await getDoc(reference)).data()?.active, false)
+  })
+
+  test('direct property reference changes never propagate to linked cases', async () => {
+    await seedStaff('enabled-user')
+    const db = contextFor('enabled-user')
+    await createDirectMasterFixtures(db)
+    await assertSucceeds(setDoc(doc(db, 'constructionCompanies', 'company-2'), companyData({ name: 'Company 2' })))
+    await assertSucceeds(setDoc(doc(db, 'homeowners', 'homeowner-2'), homeownerData({ name: 'Homeowner 2' })))
+    const caseBefore = validCase({ updatedAt: Timestamp.fromMillis(1_700_000_000_000) })
+    await seedDocument('cases/case-1', caseBefore)
+
+    await assertSucceeds(updateDoc(doc(db, 'properties', 'property-1'), {
+      homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
+      revision: increment(1), updatedAt: serverTimestamp(),
+    }))
+    const storedCase = (await getDoc(doc(db, 'cases', 'case-1'))).data()
+    assert.equal(storedCase?.homeownerId, 'homeowner-1')
+    assert.equal(storedCase?.constructionCompanyId, 'company-1')
+    assert.equal(storedCase?.updatedAt.toMillis(), caseBefore.updatedAt.toMillis())
+  })
+
+  test('concurrent direct master updates both commit with atomic revisions and last-write-wins payload', async () => {
+    await seedStaff('enabled-user')
+    const db = contextFor('enabled-user')
+    const reference = doc(db, 'homeowners', 'homeowner-1')
+    await assertSucceeds(setDoc(reference, homeownerData({ name: 'Original' })))
+    const firstSearch = { ...validNameSearch, normalized: 'first' }
+    const secondSearch = { ...validNameSearch, normalized: 'second' }
+    await Promise.all([
+      assertSucceeds(updateDoc(reference, { name: 'First', nameSearch: firstSearch, revision: increment(1), updatedAt: serverTimestamp() })),
+      assertSucceeds(updateDoc(reference, { name: 'Second', nameSearch: secondSearch, revision: increment(1), updatedAt: serverTimestamp() })),
+    ])
+    const stored = (await getDoc(reference)).data()
+    assert.equal(stored?.revision, 3)
+    assert.equal(stored?.nameSearch.normalized, stored?.name === 'First' ? 'first' : 'second')
   })
 
   test('case updates reject a whitespace-only terminal reason', async () => {
