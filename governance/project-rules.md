@@ -30,7 +30,7 @@ Approved implementation remediation is tracked in `docs/roadmaps/technical-remed
 
 ## Product and Domain Boundaries
 
-The product boundary is a replacement business-management system for termite warranties. Existing-system data will not be migrated into the new system. System ownership, data ownership, detailed access model, and external-service boundaries remain unconfirmed. Do not infer them from the repository name or technology candidates.
+The product boundary is an independent business-management system for a new termite-warranty service, not a replacement for the current FileMaker service. The current service and its member page are reference context only; their data and accounts will not be migrated into the new system. System ownership, data ownership, detailed access model, and external-service boundaries remain unconfirmed. Do not infer them from the repository name or technology candidates.
 
 ## List Query and Subscription Boundaries
 
