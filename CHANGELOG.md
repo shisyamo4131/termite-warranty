@@ -28,6 +28,7 @@
 
 ### Changed
 
+- Corrected the Dev authentication-email record: Firebase currently rejects the approved `.web.app` action URL with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`, so same-origin password setup/reset remains pending provider resolution or a separately approved delivery alternative.
 - Added a same-site Japanese Firebase password setup/reset action page and Japanese reset-email localization while retaining Firebase's standard email delivery.
 - Made the staff Navigation Drawer initially closed and applied Vuetify's slim list spacing to reduce the icon-to-title gap.
 - Replaced page-width operation-result alerts with a shared bottom snackbar across staff and construction-company screens, while retaining contextual guidance and form-local errors inline.
