@@ -30,5 +30,5 @@
 <script setup lang="ts">
 const route = useRoute()
 const { profile, loading } = useSession()
-const isAuthenticationAction = computed(() => route.path === '/auth/action')
+const isAuthenticationAction = computed(() => route.path === '/auth/action' || route.path === '/auth/action/')
 </script>

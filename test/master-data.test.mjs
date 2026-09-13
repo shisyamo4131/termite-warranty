@@ -428,7 +428,7 @@ test('password setup and reset use the same-site Japanese action handler', async
     readProjectFile('app/pages/auth/action.vue'),
   ])
 
-  assert.match(app, /route\.path === '\/auth\/action'/)
+  assert.match(app, /route\.path === '\/auth\/action'.*route\.path === '\/auth\/action\/'/)
   assert.match(session, /auth\.languageCode = 'ja'/)
   assert.match(actionPage, /verifyPasswordResetCode/)
   assert.match(actionPage, /confirmPasswordReset/)
