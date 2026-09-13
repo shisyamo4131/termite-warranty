@@ -1,8 +1,7 @@
 <template>
   <section class="list-page">
     <h1 class="text-h4 mb-6">案件一覧</h1>
-    <v-alert v-if="pageMessage" :type="pageMessageType" class="mb-4">{{ pageMessage }}</v-alert>
-
+    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
     <div class="d-flex justify-end mb-4">
       <v-btn color="primary" @click="openRegistration">案件を登録</v-btn>
     </div>
@@ -67,8 +66,8 @@ const rows = ref<CaseRow[]>([])
 const saving = ref(false)
 const registrationDialog = ref(false)
 const registrationMessage = ref('')
-const pageMessage = ref('')
-const pageMessageType = ref<'success' | 'error'>('success')
+const loadError = ref('')
+const { showSnackbar } = useAppSnackbar()
 const registrationForm = reactive({
   propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: currentLocalDate(),
   applicationDate: '', handoverDate: '',
@@ -118,8 +117,7 @@ const openRegistration = async () => {
     await refreshRegistrationMasters()
     registrationDialog.value = true
   } catch (error) {
-    pageMessageType.value = 'error'
-    pageMessage.value = error instanceof Error ? error.message : '登録用マスターを読み込めませんでした。'
+    showSnackbar(error instanceof Error ? error.message : '登録用マスターを読み込めませんでした。', 'error')
   }
 }
 const cancelRegistration = () => {
@@ -155,8 +153,7 @@ const saveRegistration = async () => {
     })
     registrationDialog.value = false
     resetRegistration()
-    pageMessageType.value = 'success'
-    pageMessage.value = `案件 ${result.caseNumber} を登録しました。`
+    showSnackbar(`案件 ${result.caseNumber} を登録しました。`, 'success')
   } catch (error) {
     registrationMessage.value = error instanceof Error ? error.message : '案件登録に失敗しました。'
   } finally {
@@ -166,10 +163,9 @@ const saveRegistration = async () => {
 watch(caseListState, (next) => {
   rows.value = next.rows
   Object.assign(allMasters, next.masters)
-  if (next.status === 'error') {
-    pageMessageType.value = 'error'
-    pageMessage.value = 'データ参照権限を確認できません。再ログインしてください。'
-  }
+  loadError.value = next.status === 'error'
+    ? 'データ参照権限を確認できません。再ログインしてください。'
+    : ''
 })
 onMounted(startCaseList)
 </script>

@@ -60,13 +60,14 @@
 
   <v-alert v-else-if="loaded && !message" type="warning">指定されたマスターは見つかりません。</v-alert>
   <v-btn class="mt-6" variant="outlined" :to="listPath">一覧へ戻る</v-btn>
-  <MasterEditDialog v-model="editOpen" :master-type="masterType" :title="title" :row="row" />
+  <MasterEditDialog v-model="editOpen" :master-type="masterType" :title="title" :row="row" @saved="showSnackbar('更新しました。', 'success')" />
 </template>
 
 <script setup lang="ts">
 import type { ConstructionCompanyAccountSummary, ManagedMaster, MasterType } from '../composables/useMasterManagement'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
+const { showSnackbar } = useAppSnackbar()
 const route = useRoute()
 const row = ref<ManagedMaster | null>(null)
 const properties = ref<ManagedMaster[]>([])

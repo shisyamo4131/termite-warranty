@@ -4,7 +4,6 @@
       <v-card title="ログイン" subtitle="House Solutionスタッフ・工務店共通">
         <v-card-text>
             <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
-            <v-alert v-if="successMessage" type="success" class="mb-4">{{ successMessage }}</v-alert>
           <v-form @submit.prevent="submit">
             <v-text-field v-model="email" label="メールアドレス" type="email" autocomplete="username" required />
             <v-text-field v-model="password" label="パスワード" type="password" autocomplete="current-password" required />
@@ -24,7 +23,7 @@ const email = ref('')
 const password = ref('')
 const submitting = ref(false)
 const localError = ref('')
-const successMessage = ref('')
+const { showSnackbar } = useAppSnackbar()
 const { login, resetPassword, errorMessage } = useSession()
 const message = computed(() => localError.value || errorMessage.value)
 
@@ -43,7 +42,6 @@ const submit = async () => {
 
 const requestPasswordReset = async () => {
   localError.value = ''
-  successMessage.value = ''
   if (!email.value) {
     localError.value = 'メールアドレスを入力してください。'
     return
@@ -51,7 +49,7 @@ const requestPasswordReset = async () => {
   submitting.value = true
   try {
     await resetPassword(email.value)
-    successMessage.value = 'パスワード設定・再設定メールを送信しました。メールをご確認ください。'
+    showSnackbar('パスワード設定・再設定メールを送信しました。メールをご確認ください。', 'success')
   } catch {
     localError.value = 'パスワード設定・再設定メールを送信できませんでした。'
   } finally {

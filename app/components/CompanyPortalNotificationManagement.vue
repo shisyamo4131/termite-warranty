@@ -2,7 +2,7 @@
   <section class="list-page">
     <h1 class="text-h4 mb-2">通知管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">保証更改の通知と、工務店から提出された仮データを管理します。</p>
-    <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
+    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
     <v-alert type="info" variant="tonal" class="mb-6">
       メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
     </v-alert>
@@ -102,8 +102,8 @@ const cases = ref<CaseOption[]>([])
 const workItems = ref<CompanyCaseWorkItem[]>([])
 const branches = ref<NamedOption[]>([])
 const services = ref<NamedOption[]>([])
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const loadError = ref('')
+const { showSnackbar } = useAppSnackbar()
 const saving = ref(false)
 const renewalDialog = ref(false)
 const reviewDialog = ref(false)
@@ -132,10 +132,7 @@ const subscribe = <T>(path: string, assign: (rows: T[]) => void) => {
   unsubscribes.push(onSnapshot(
     query(collection($firebase.firestore, path), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(20)),
     snapshot => assign(snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as T)),
-    () => {
-      messageType.value = 'error'
-      message.value = '通知管理データを読み込めませんでした。'
-    },
+    () => { loadError.value = '通知管理データを読み込めませんでした。' },
   ))
 }
 
@@ -145,11 +142,9 @@ const createRenewal = async () => {
     await gateway.createRenewalWorkItem({ caseId: renewalCaseId.value })
     renewalDialog.value = false
     renewalCaseId.value = ''
-    messageType.value = 'success'
-    message.value = '更改依頼を作成し、メール通知を送信待ちにしました。'
+    showSnackbar('更改依頼を作成し、メール通知を送信待ちにしました。', 'success')
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : '更改依頼を作成できませんでした。'
+    showSnackbar(error instanceof Error ? error.message : '更改依頼を作成できませんでした。', 'error')
   } finally { saving.value = false }
 }
 
@@ -170,11 +165,9 @@ const review = async (action: 'approve' | 'return') => {
       warrantyServiceId: reviewForm.warrantyServiceId || undefined,
     })
     reviewDialog.value = false
-    messageType.value = 'success'
-    message.value = action === 'approve' ? '本データへ反映しました。' : '工務店へ差し戻しました。'
+    showSnackbar(action === 'approve' ? '本データへ反映しました。' : '工務店へ差し戻しました。', 'success')
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : '確認結果を保存できませんでした。'
+    showSnackbar(error instanceof Error ? error.message : '確認結果を保存できませんでした。', 'error')
   } finally { saving.value = false }
 }
 
@@ -187,10 +180,7 @@ onMounted(() => {
     snapshot => {
       branches.value = snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as NamedOption)
     },
-    () => {
-      messageType.value = 'error'
-      message.value = '通知管理データを読み込めませんでした。'
-    },
+    () => { loadError.value = '通知管理データを読み込めませんでした。' },
   ))
   subscribe<NamedOption>('warrantyServices', rows => { services.value = rows })
 })

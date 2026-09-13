@@ -16,10 +16,10 @@
         <v-btn color="primary" @click="openNewRequest">新規案件を申請</v-btn>
       </div>
 
-      <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
       <v-alert type="info" variant="tonal" class="mb-4">
         このプロトタイプでは、メール通知は送信待ちキューの記録までを行います。実メールは送信しません。
       </v-alert>
+      <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
 
       <v-row>
         <v-col v-for="item in sortedItems" :key="item.id" cols="12" md="6">
@@ -109,8 +109,8 @@ const { profile, logout } = useSession()
 const gateway = useCompanyPortal()
 const items = ref<CompanyCaseWorkItem[]>([])
 const loading = ref(true)
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const loadError = ref('')
+const { showSnackbar } = useAppSnackbar()
 const dialog = ref(false)
 const dialogMessage = ref('')
 const saving = ref(false)
@@ -155,11 +155,11 @@ const startSubscription = () => {
     ),
     snapshot => {
       items.value = snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as CompanyCaseWorkItem)
+      loadError.value = ''
       loading.value = false
     },
     () => {
-      messageType.value = 'error'
-      message.value = '対応案件を読み込めませんでした。再ログインしてください。'
+      loadError.value = '対応案件を読み込めませんでした。再ログインしてください。'
       loading.value = false
     },
   )
@@ -225,8 +225,7 @@ const save = async (submit: boolean) => {
       await gateway.createNewCaseWorkItem(response as NewCaseWorkItemInput, submit)
     }
     dialog.value = false
-    messageType.value = 'success'
-    message.value = submit ? '回答を提出しました。' : '下書きを保存しました。'
+    showSnackbar(submit ? '回答を提出しました。' : '下書きを保存しました。', 'success')
   } catch (error) {
     dialogMessage.value = error instanceof Error ? error.message : '保存できませんでした。'
   } finally {

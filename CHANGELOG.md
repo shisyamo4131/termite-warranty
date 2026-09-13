@@ -28,6 +28,7 @@
 
 ### Changed
 
+- Replaced page-width operation-result alerts with a shared bottom snackbar across staff and construction-company screens, while retaining contextual guidance and form-local errors inline.
 - Removed email from the construction-company master schema and form, display the separately issued account email on company details, added linked-property sections to homeowner and warranty-service details, renamed the company section to `担当物件`, and added Navigation Drawer menu icons.
 - Split staff construction-company portal management into notification-first `通知管理` and `アカウント管理` submenu screens while preserving `/company-portal` as a redirect to notification management.
 - Removed the notification screen's unnecessary descending branch document-ID index dependency and surfaced branch-listener failures through the existing error alert.

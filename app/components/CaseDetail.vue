@@ -33,14 +33,15 @@
 
   <v-alert v-else-if="loaded && !message" type="warning">指定された案件は見つかりません。</v-alert>
   <v-btn class="mt-6" variant="outlined" to="/cases">一覧へ戻る</v-btn>
-  <CaseEditDialog v-model="editOpen" :row="row" :all-masters="dialogMasters" :selectable-masters="selectableMasters" />
-  <AppliedWarrantyDialog v-if="row" v-model="warrantyOpen" :row="row" :warranty="selectedWarranty" :masters="dialogMasters" />
+  <CaseEditDialog v-model="editOpen" :row="row" :all-masters="dialogMasters" :selectable-masters="selectableMasters" @saved="showSnackbar('案件を更新しました。', 'success')" />
+  <AppliedWarrantyDialog v-if="row" v-model="warrantyOpen" :row="row" :warranty="selectedWarranty" :masters="dialogMasters" @saved="handleWarrantySaved" />
 </template>
 
 <script setup lang="ts">
 import type { CaseRow, MasterCatalog } from '../types/prototype-data'
 
 const route = useRoute()
+const { showSnackbar } = useAppSnackbar()
 const editOpen = ref(false)
 const warrantyOpen = ref(false)
 const selectedWarranty = ref<CaseRow['appliedWarranties'][number] | null>(null)
@@ -71,6 +72,7 @@ const openWarranty = async (warranty: CaseRow['appliedWarranties'][number] | nul
   selectedWarranty.value = warranty
   warrantyOpen.value = true
 }
+const handleWarrantySaved = () => showSnackbar(selectedWarranty.value ? '適用保証を更新しました。' : '適用保証を追加しました。', 'success')
 onMounted(() => start(String(route.params.id)))
 watch(() => route.params.id, id => start(String(id)))
 </script>

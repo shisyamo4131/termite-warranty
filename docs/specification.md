@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-13
-- Specification version: 0.1.9
+- Specification version: 0.1.10
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -94,6 +94,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - Staff can create required master records from a case-registration flow and can separately access list/management screens for each master. Master creation/editing and case creation/editing open as button-triggered dialogs rather than permanent inline forms.
 - The four current master lists link to `/masters/{master-type}/{id}` detail screens. These screens reuse the existing edit dialog, remain readable for inactive records, and provide a list-return link. A construction-company detail screen labels all of its linked properties, including inactive properties, as `担当物件`. A homeowner detail screen labels all of its linked properties, including inactive properties, as `所有物件`. A warranty-service detail screen lists up to 20 `対象物件` linked through active cases and active applied warranties and includes only active property masters. Every listed property name links to its detail screen. A missing ID is reported in the signed-in application with a list-return link.
 - The application opens on the dashboard after login and uses a Navigation Drawer with an appropriate icon to the left of every business-menu title. The current local prototype increment exposes separate drawer entries for construction-company, homeowner, warranty-service, and property management; branch management remains part of the broader initial-release scope but is not included in this increment.
+- Show transient operation results, such as successful registration, update, account issuance, enable/disable, submission, approval, return, and their operation errors, in one shared bottom-positioned snackbar across staff and construction-company screens. Keep contextual guidance, validation errors inside an open dialog, review comments, missing-record states, and persistent data-load failures inline where the user needs them.
 - Use a Vuetify date-selection component for warranty date entry instead of relying only on the browser-native date field, while preserving the canonical `YYYY-MM-DD` value sent to the registration service.
 - Master records referenced by a case are not physically deleted. They can be changed between active and inactive states.
 - Inactive masters are unavailable for new case selection while remaining displayed on existing cases.

@@ -1,5 +1,6 @@
 <template>
   <v-app>
+    <AppSnackbar />
     <template v-if="loading">
       <v-main><v-progress-linear indeterminate color="primary" /></v-main>
     </template>

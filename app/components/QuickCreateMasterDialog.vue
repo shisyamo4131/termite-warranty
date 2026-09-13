@@ -34,6 +34,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ created: [payload: { masterType: MasterType; id: string }] }>()
 const manager = useMasterManagement(props.masterType)
+const { showSnackbar } = useAppSnackbar()
 const dialogOpen = ref(false)
 const saving = ref(false)
 const message = ref('')
@@ -69,6 +70,7 @@ const save = async () => {
         cancelPostalLookup()
         dialogOpen.value = false
         emit('created', payload)
+        showSnackbar(`${props.title}を登録しました。`, 'success')
         form.value = createMasterFormDraft(props.masterType)
       },
     })

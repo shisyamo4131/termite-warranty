@@ -2,8 +2,7 @@
   <section class="list-page">
     <h1 class="text-h4 mb-2">アカウント管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">工務店ごとの共通アカウントを発行・無効化します。</p>
-    <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
-
+    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
     <v-alert v-if="!canManageAccounts" type="warning" variant="tonal">
       アカウント管理はHouse Solution管理者のみ利用できます。
     </v-alert>
@@ -68,8 +67,8 @@ const { profile } = useSession()
 const gateway = useCompanyPortal()
 const accounts = ref<AccountRow[]>([])
 const companies = ref<CompanyRow[]>([])
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const loadError = ref('')
+const { showSnackbar } = useAppSnackbar()
 const saving = ref(false)
 const busyId = ref('')
 const accountDialog = ref(false)
@@ -85,10 +84,7 @@ const subscribe = <T>(path: string, assign: (rows: T[]) => void) => {
   unsubscribes.push(onSnapshot(
     query(collection($firebase.firestore, path), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(20)),
     snapshot => assign(snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as T)),
-    () => {
-      messageType.value = 'error'
-      message.value = '工務店アカウントを読み込めませんでした。'
-    },
+    () => { loadError.value = '工務店アカウントを読み込めませんでした。' },
   ))
 }
 
@@ -98,11 +94,9 @@ const createAccount = async () => {
     await gateway.createAccount(accountForm)
     accountDialog.value = false
     Object.assign(accountForm, { constructionCompanyId: '', email: '' })
-    messageType.value = 'success'
-    message.value = '工務店アカウントを発行しました。工務店側でパスワードを設定してください。'
+    showSnackbar('工務店アカウントを発行しました。工務店側でパスワードを設定してください。', 'success')
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : 'アカウントを発行できませんでした。'
+    showSnackbar(error instanceof Error ? error.message : 'アカウントを発行できませんでした。', 'error')
   } finally { saving.value = false }
 }
 
@@ -110,11 +104,9 @@ const toggleAccount = async (account: AccountRow) => {
   busyId.value = account.id
   try {
     await gateway.setAccountEnabled({ uid: account.id, enabled: !account.enabled })
-    messageType.value = 'success'
-    message.value = account.enabled ? 'アカウントを無効化しました。' : 'アカウントを再有効化しました。'
+    showSnackbar(account.enabled ? 'アカウントを無効化しました。' : 'アカウントを再有効化しました。', 'success')
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : 'アカウント状態を変更できませんでした。'
+    showSnackbar(error instanceof Error ? error.message : 'アカウント状態を変更できませんでした。', 'error')
   } finally { busyId.value = '' }
 }
 

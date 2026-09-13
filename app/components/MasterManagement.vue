@@ -2,9 +2,9 @@
   <section class="list-page">
     <v-row class="list-page-row">
       <v-col cols="12" class="list-page-column">
-      <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
       <v-card class="list-data-card" :title="`${title}一覧`">
         <v-card-text>
+          <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
           <v-alert type="info" density="compact" variant="tonal" class="mb-4">
             更新日時が新しい20件を表示しています。名称検索は、この20件の中を絞り込みます。
           </v-alert>
@@ -90,8 +90,8 @@ const filter = ref<string | null>('')
 const saving = ref(false)
 const dialogOpen = ref(false)
 const dialogMessage = ref('')
-const message = ref('')
-const messageType = ref<'success' | 'error'>('success')
+const loadError = ref('')
+const { showSnackbar } = useAppSnackbar()
 const references = reactive({ homeowners: [] as ManagedMaster[], companies: [] as ManagedMaster[] })
 type MasterFormFieldsHandle = { cancelPostalLookup: () => void }
 const masterFormFields = ref<MasterFormFieldsHandle | null>(null)
@@ -145,15 +145,13 @@ const refreshReferences = async (include: { homeownerId?: string; constructionCo
 const save = async () => {
   cancelPostalLookup()
   saving.value = true
-  message.value = ''
   try {
     await submitMasterCreate({
       form: form.value,
       createMaster: manager.createMaster,
       afterSuccess: async () => {
         cancelPostalLookup()
-        messageType.value = 'success'
-        message.value = '登録しました。'
+        showSnackbar('登録しました。', 'success')
         dialogOpen.value = false
         dialogMessage.value = ''
         resetForm()
@@ -168,15 +166,12 @@ const save = async () => {
 }
 
 const toggle = async (row: ManagedMaster) => {
-  message.value = ''
   try {
     await manager.setMasterActive(row.id, !row.active)
-    messageType.value = 'success'
-    message.value = row.active ? '無効化しました。' : '再有効化しました。'
+    showSnackbar(row.active ? '無効化しました。' : '再有効化しました。', 'success')
     await refreshReferences()
   } catch (error) {
-    messageType.value = 'error'
-    message.value = error instanceof Error ? error.message : '状態を変更できませんでした。'
+    showSnackbar(error instanceof Error ? error.message : '状態を変更できませんでした。', 'error')
   }
 }
 
@@ -199,7 +194,7 @@ let unsubscribe: (() => void) | undefined
 onMounted(async () => {
   unsubscribe = manager.subscribe(
     (nextRows) => { rows.value = nextRows; loading.value = false },
-    (error) => { messageType.value = 'error'; message.value = error; loading.value = false },
+    (error) => { loadError.value = error; loading.value = false },
   )
   await refreshReferences()
 })

@@ -390,3 +390,31 @@ test('master details expose the confirmed linked-property labels and account-own
     assert.match(layout, new RegExp(`title: '${title}'.*icon:`))
   }
 })
+
+test('transient operation results use the shared application snackbar', async () => {
+  const app = await readProjectFile('app/app.vue')
+  const component = await readProjectFile('app/components/AppSnackbar.vue')
+  const composable = await readProjectFile('app/composables/useAppSnackbar.ts')
+
+  assert.match(app, /<AppSnackbar\s*\/>/)
+  assert.match(component, /<v-snackbar/)
+  assert.match(component, /location="bottom center"/)
+  assert.match(component, /メッセージを閉じる/)
+  assert.match(composable, /ERROR_TIMEOUT = 8000/)
+
+  for (const path of [
+    'app/components/CompanyPortalAccountManagement.vue',
+    'app/components/CompanyPortalNotificationManagement.vue',
+    'app/components/MasterManagement.vue',
+    'app/components/PrototypeDashboard.vue',
+    'app/components/ConstructionCompanyPortal.vue',
+  ]) {
+    const source = await readProjectFile(path)
+    assert.match(source, /useAppSnackbar\(\)/)
+    assert.doesNotMatch(source, /v-alert v-if="(?:message|pageMessage)"/)
+  }
+
+  const login = await readProjectFile('app/components/LoginPanel.vue')
+  assert.match(login, /showSnackbar\('パスワード設定・再設定メールを送信しました。/)
+  assert.doesNotMatch(login, /successMessage/)
+})
