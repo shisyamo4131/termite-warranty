@@ -29,6 +29,7 @@
 ### Changed
 
 - Split staff construction-company portal management into notification-first `通知管理` and `アカウント管理` submenu screens while preserving `/company-portal` as a redirect to notification management.
+- Removed the notification screen's unnecessary descending branch document-ID index dependency and surfaced branch-listener failures through the existing error alert.
 - Deployed the construction-company portal prototype and corrected new-service boundary documentation to the development environment after all comprehensive gates passed; unauthenticated smoke verification confirmed the shared login, self-service password setup/reset action, and protected staff/company routes without writing data.
 - Integrated the accepted user-authored homeowner table with responsive columns, accessible lifecycle/detail actions, loading and empty states, and typed bounded-list inputs while retaining all navigation and Firestore responsibilities in the parent screen.
 - Deployed the zero-network TR-009 postal-lookup foundation to the development environment after the comprehensive workflow passed, and smoke-verified the supported manual property/homeowner behavior and continued construction-company exclusion without changing data.
