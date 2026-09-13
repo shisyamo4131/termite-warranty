@@ -56,10 +56,10 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - A House Solution administrator issues, disables, and re-enables one shared Firebase Authentication account per construction company. Self-sign-up is not provided.
 - The construction company requests password setup or reset from the login screen and completes it on the Japanese `/auth/action` page under the same application origin. House Solution does not select or handle the password.
 - A company account is associated with one construction-company ID on the server. The client cannot select or override that identity.
-- Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype.
+- Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype. If that record is already approved, the next renewal request reinitializes the same record with a higher revision; an unfinished record still blocks duplicate creation.
 - A construction company can submit a new-case request. Its generated work-item ID is reserved as the future case ID so approval preserves a one-to-one relationship.
 - A company can view and update only its own work items. It may edit only while the state is `awaiting response`, `draft`, or `needs correction`; submission locks editing until staff returns the item.
-- Basic conflict protection consists of a revision check, idempotent one-item-per-case creation, valid state transitions, and submission locking. Collaborative editing is not included.
+- Basic conflict protection consists of a revision check, one current item per case, approved-record-only reinitialization, valid state transitions, and submission locking. Collaborative editing is not included.
 - After submission, House Solution staff either approve and atomically reflect the response in registered data or return it with a reason.
 - Authentication records the company account. The response separately records the current contact person's self-declared name and email.
 - The prototype creates durable queued-email records for renewal creation, company submission, return, and approval. It does not connect to an email-delivery provider or claim delivery.

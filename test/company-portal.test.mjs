@@ -38,8 +38,15 @@ test('all company work-item writes stay behind callable functions and one-to-one
   assert.match(functions, /constructionCompanyAccountBindings/)
   assert.match(functions, /expectedRevision/)
   assert.match(functions, /status: submit \? 'submitted' : 'draft'/)
+  assert.match(functions, /previousWorkItem\?\.status !== 'approved'/)
+  assert.match(functions, /transaction\.set\(workItemRef/)
   assert.match(indexes, /"collectionGroup": "constructionCompanyCaseWorkItems"/)
   assert.match(indexes, /"fieldPath": "constructionCompanyId"/)
+})
+
+test('staff renewal candidates include approved one-to-one work items but exclude active ones', async () => {
+  const source = await readProjectFile('app/components/CompanyPortalNotificationManagement.vue')
+  assert.match(source, /workItem\.id === item\.id && workItem\.status !== 'approved'/)
 })
 
 test('prototype email behavior is visibly queued rather than presented as delivered', async () => {

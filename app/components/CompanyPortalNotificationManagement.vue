@@ -113,7 +113,8 @@ const reviewForm = reactive({ branchId: '', warrantyServiceId: '', comment: '' }
 const unsubscribes: Array<() => void> = []
 
 const renewalCandidates = computed(() => cases.value
-  .filter(item => item.status === 'active' && !workItems.value.some(workItem => workItem.id === item.id))
+  .filter(item => item.status === 'active'
+    && !workItems.value.some(workItem => workItem.id === item.id && workItem.status !== 'approved'))
   .map(item => ({ id: item.id, label: `${item.caseNumber} / ${companyName(item.constructionCompanyId)}` })))
 const matchingServices = computed(() => services.value.filter(service => service.active
   && service.defaultPeriodYears === reviewItem.value?.response?.requestedPeriodYears))

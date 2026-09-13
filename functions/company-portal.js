@@ -182,7 +182,11 @@ export async function createRenewalWorkItemOperation(firestore, input, actorUid)
     ])
     const caseData = caseSnapshot.data()
     if (!caseSnapshot.exists || caseData?.status !== 'active') fail('failed-precondition', '有効な案件を選択してください。')
-    if (workItemSnapshot.exists) fail('already-exists', 'この案件にはすでに工務店対応データがあります。')
+    const previousWorkItem = workItemSnapshot.data()
+    if (workItemSnapshot.exists && previousWorkItem?.status !== 'approved') {
+      fail('already-exists', 'この案件には対応中の工務店データがあります。')
+    }
+    const revision = workItemSnapshot.exists ? requiredRevision(previousWorkItem?.revision) + 1 : 1
     const accountQuery = firestore.collection('constructionCompanyAccounts')
       .where('constructionCompanyId', '==', caseData.constructionCompanyId).where('enabled', '==', true).limit(1)
     const [accountSnapshot, propertySnapshot, homeownerSnapshot] = await Promise.all([
@@ -195,7 +199,7 @@ export async function createRenewalWorkItemOperation(firestore, input, actorUid)
     const expiries = Array.isArray(caseData.listProjection?.appliedWarranties)
       ? caseData.listProjection.appliedWarranties.map(item => item.expiryDate).filter(nonBlank).sort()
       : []
-    transaction.create(workItemRef, {
+    transaction.set(workItemRef, {
       caseId,
       kind: 'renewal',
       constructionCompanyId: caseData.constructionCompanyId,
@@ -206,7 +210,7 @@ export async function createRenewalWorkItemOperation(firestore, input, actorUid)
       status: 'awaiting_response',
       response: null,
       reviewComment: null,
-      revision: 1,
+      revision,
       submittedAt: null,
       approvedAt: null,
       createdAt: FieldValue.serverTimestamp(),

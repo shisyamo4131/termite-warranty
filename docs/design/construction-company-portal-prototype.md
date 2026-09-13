@@ -8,7 +8,7 @@
 
 1. A House Solution administrator selects an active construction company and issues its one shared account without setting a password.
 2. The construction company uses the common login screen to request Firebase's standard password setup/reset email.
-3. Staff create a renewal work item for an active case, or the company submits a new-case request.
+3. Staff create a renewal work item for an active case, reinitializing its approved one-to-one portal record when present, or the company submits a new-case request.
 4. The company-only surface lists at most 20 work items for the authenticated account's server-bound company ID.
 5. The company saves an editable response or submits it. Submission locks editing and queues a staff notification record.
 6. Staff return the response with a reason or approve it. Approval atomically creates registered data and marks the work item approved.
@@ -25,12 +25,12 @@ The staff navigation groups this feature under `工務店管理ポータル`, wi
 
 ## One-to-One and State Contract
 
-- Renewal: `constructionCompanyCaseWorkItems/{caseId}` uses the existing case ID. A second work item for the case is rejected.
+- Renewal: `constructionCompanyCaseWorkItems/{caseId}` uses the existing case ID. An unfinished work item rejects duplicate creation; an approved item is reinitialized in place with an incremented revision for the next renewal request.
 - New case: the generated work-item ID is stored as `caseId` and becomes the registered `cases/{caseId}` ID on approval.
 - Editable states are `awaiting_response`, `draft`, and `needs_correction`.
 - Company submission moves to `submitted`; only staff can then move it to `needs_correction` or `approved`.
 - Every mutable command compares a safe positive integer revision. A stale revision is rejected.
-- This prototype intentionally supports one retained portal work item per case. Repeat renewal-cycle history is an HSC-013 production decision.
+- This prototype intentionally supports one current portal work item per case. It can recycle an approved item for another renewal cycle, but does not retain prior portal-response cycles; repeat-cycle history is an HSC-013 production decision.
 
 ## Registered-Data Promotion
 
@@ -46,7 +46,7 @@ The prototype creates `notificationOutbox` documents with `queued` status at ren
 
 - Dependency-free source-contract tests cover exact Callable names, staff/company rendering separation, trusted-only writes, one-to-one IDs, revision/state wiring, and truthful queued-email presentation.
 - Firestore Rules tests cover own-profile/own-work-item access, cross-company and registered-data denial, immediate enabled-record enforcement, staff review reads, and direct-write denial.
-- Callable Emulator tests cover one account per company, password-free issuance, one-to-one renewal creation, company submission, cross-company rejection, renewal promotion, and new-case promotion under the reserved case ID.
+- Callable Emulator tests cover one account per company, password-free issuance, one-to-one renewal creation and approved-item reuse, company submission, cross-company rejection, renewal promotion, and new-case promotion under the reserved case ID.
 - Typecheck and static build compile both staff and company surfaces.
 
 ## Known Prototype Limits

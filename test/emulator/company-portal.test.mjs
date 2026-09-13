@@ -127,7 +127,7 @@ test('renewal task stays one-to-one with its case and approval adds the selected
   assert.equal((await adminDb.collection('notificationOutbox').get()).size, 3)
 })
 
-test('new-case submission reserves its future case id and approval creates the case and masters', async () => {
+test('new-case approval creates the case and its approved work item can be reused for renewal', async () => {
   await signIn('portal-company@example.invalid')
   const submitted = await call('createNewCaseWorkItem', { response: newCaseResponse, submit: true })
   const pending = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
@@ -147,6 +147,15 @@ test('new-case submission reserves its future case id and approval creates the c
   assert.equal(createdCase.data()?.caseNumber, '000002')
   assert.equal(approvedItem.data()?.status, 'approved')
   assert.equal(approvedItem.data()?.caseNumber, '000002')
+
+  await call('createRenewalWorkItem', { caseId: submitted.id })
+  const renewalItem = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
+  assert.equal(renewalItem.data()?.kind, 'renewal')
+  assert.equal(renewalItem.data()?.status, 'awaiting_response')
+  assert.equal(renewalItem.data()?.caseNumber, '000002')
+  assert.equal(renewalItem.data()?.revision, 3)
+  assert.equal(renewalItem.data()?.response, null)
+  assert.equal(renewalItem.data()?.reviewComment, null)
 })
 
 test('a construction-company account cannot update another company work item', async () => {
