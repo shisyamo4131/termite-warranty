@@ -44,7 +44,7 @@ test('all company work-item writes stay behind callable functions and one-to-one
 
 test('prototype email behavior is visibly queued rather than presented as delivered', async () => {
   const [staff, company, functions] = await Promise.all([
-    readProjectFile('app/components/CompanyPortalManagement.vue'),
+    readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
     readProjectFile('app/components/ConstructionCompanyPortal.vue'),
     readProjectFile('functions/company-portal.js'),
   ])
@@ -52,4 +52,24 @@ test('prototype email behavior is visibly queued rather than presented as delive
   assert.match(company, /実メールは送信しません/)
   assert.match(functions, /notificationOutbox/)
   assert.match(functions, /status: 'queued'/)
+})
+
+test('staff portal management is split into notification-first submenu screens', async () => {
+  const [layout, indexPage, notificationPage, accountPage, notifications, accounts] = await Promise.all([
+    readProjectFile('app/layouts/default.vue'),
+    readProjectFile('app/pages/company-portal/index.vue'),
+    readProjectFile('app/pages/company-portal/notifications.vue'),
+    readProjectFile('app/pages/company-portal/accounts.vue'),
+    readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
+    readProjectFile('app/components/CompanyPortalAccountManagement.vue'),
+  ])
+  assert.match(layout, /title="工務店管理ポータル"/)
+  assert.ok(layout.indexOf("title: '通知管理'") < layout.indexOf("title: 'アカウント管理'"))
+  assert.match(indexPage, /redirect: '\/company-portal\/notifications'/)
+  assert.match(notificationPage, /CompanyPortalNotificationManagement/)
+  assert.match(accountPage, /CompanyPortalAccountManagement/)
+  assert.match(notifications, /constructionCompanyCaseWorkItems/)
+  assert.doesNotMatch(notifications, /constructionCompanyAccounts/)
+  assert.match(accounts, /constructionCompanyAccounts/)
+  assert.doesNotMatch(accounts, /constructionCompanyCaseWorkItems/)
 })

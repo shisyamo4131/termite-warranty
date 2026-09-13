@@ -1,6 +1,6 @@
 # Construction-Company Portal Proposal Prototype
 
-- Status: Implemented locally for proposal evaluation
+- Status: Implemented and technically deployed to Dev for proposal evaluation
 - Decision: [0023](../decisions/0023-construction-company-portal-prototype.md)
 - Open matter: [HSC-013](../requirements/house-solution-confirmations/HSC-013-construction-company-submission.md)
 
@@ -12,6 +12,8 @@
 4. The company-only surface lists at most 20 work items for the authenticated account's server-bound company ID.
 5. The company saves an editable response or submits it. Submission locks editing and queues a staff notification record.
 6. Staff return the response with a reason or approve it. Approval atomically creates registered data and marks the work item approved.
+
+The staff navigation groups this feature under `工務店管理ポータル`, with `通知管理` first and `アカウント管理` second. Notification/work-item review and account issuance/lifecycle are separate routes; the former `/company-portal` route redirects to notification management.
 
 ## Identity and Access Boundary
 
