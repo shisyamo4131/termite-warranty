@@ -182,9 +182,16 @@ onMounted(() => {
   subscribe<CompanyRow>('constructionCompanies', rows => { companies.value = rows })
   subscribe<CaseOption>('cases', rows => { cases.value = rows })
   subscribe<CompanyCaseWorkItem>('constructionCompanyCaseWorkItems', rows => { workItems.value = rows })
-  unsubscribes.push(onSnapshot(query(collection($firebase.firestore, 'branches'), orderBy(documentId(), 'desc'), limit(20)), snapshot => {
-    branches.value = snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as NamedOption)
-  }))
+  unsubscribes.push(onSnapshot(
+    query(collection($firebase.firestore, 'branches'), limit(20)),
+    snapshot => {
+      branches.value = snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as NamedOption)
+    },
+    () => {
+      messageType.value = 'error'
+      message.value = '通知管理データを読み込めませんでした。'
+    },
+  ))
   subscribe<NamedOption>('warrantyServices', rows => { services.value = rows })
 })
 onBeforeUnmount(() => unsubscribes.forEach(unsubscribe => unsubscribe()))

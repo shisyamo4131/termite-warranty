@@ -70,6 +70,8 @@ test('staff portal management is split into notification-first submenu screens',
   assert.match(accountPage, /CompanyPortalAccountManagement/)
   assert.match(notifications, /constructionCompanyCaseWorkItems/)
   assert.doesNotMatch(notifications, /constructionCompanyAccounts/)
+  assert.match(notifications, /query\(collection\(\$firebase\.firestore, 'branches'\), limit\(20\)\)/)
+  assert.doesNotMatch(notifications, /query\(collection\(\$firebase\.firestore, 'branches'\), orderBy\(documentId\(\), 'desc'\)/)
   assert.match(accounts, /constructionCompanyAccounts/)
   assert.doesNotMatch(accounts, /constructionCompanyCaseWorkItems/)
 })
