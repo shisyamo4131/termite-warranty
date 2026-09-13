@@ -24,7 +24,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-010 | [Warranty payer and contracting party](house-solution-confirmations/HSC-010-payer-contracting-party.md) | Not yet asked | House Solution |
 | HSC-011 | [Legal and operational data ownership](house-solution-confirmations/HSC-011-data-ownership.md) | Not yet asked | House Solution |
 | HSC-012 | [Homeowner system access](house-solution-confirmations/HSC-012-homeowner-access.md) | Not yet asked | House Solution |
-| HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Deferred | House Solution |
+| HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Proposal prototype approved; review pending | House Solution |
 | HSC-016 | [Cutover, parallel operation, and rollback](house-solution-confirmations/HSC-016-cutover-rollback.md) | Not yet asked | House Solution |
 | HSC-017 | [Postal-code API operating conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md) | Partially answered | Project, with House Solution production input |
 | HSC-018 | [Construction-company postal-code lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md) | Not yet asked | House Solution |

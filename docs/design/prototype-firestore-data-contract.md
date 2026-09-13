@@ -7,7 +7,7 @@
 
 ## Scope and Safety Boundary
 
-This contract supports the local vertical slice: emulator authentication, enabled-staff access, direct Rules-governed management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration and applied-warranty management, direct transactional editing of active case fields, case search/list and detail reads, dashboard alert evaluation, and current-master display. Existing FileMaker data is not a migration input; production validation uses confirmed workflows and representative synthetic volumes.
+This contract supports the local vertical slice: emulator authentication, enabled-staff access, direct Rules-governed management of construction-company, homeowner, warranty-service, and property masters, master selection, trusted callable-function case registration and applied-warranty management, direct transactional editing of active case fields, case search/list and detail reads, dashboard alert evaluation, current-master display, and the provisional construction-company portal proposal. Existing FileMaker data is not a migration input; production validation uses confirmed workflows and representative synthetic volumes.
 
 It must not be used to select or create a real Firebase project, deploy Hosting or Functions, call the postal-code API, or store real customer, property, account, or credential data.
 
@@ -18,6 +18,8 @@ All generated document IDs and field names are prototype choices.
 | Path | Fields |
 | --- | --- |
 | `staffAccounts/{firebaseUid}` | `email: string`, `displayName: string`, `role: developer_superuser \| house_solution_administrator \| general_staff`, `enabled: boolean` |
+| `constructionCompanyAccounts/{firebaseUid}` | `constructionCompanyId: string`, `companyName: string`, `email: string`, `role: construction_company`, `enabled: boolean`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
+| `constructionCompanyAccountBindings/{constructionCompanyId}` | `uid: string`; trusted account issuance reserves this document atomically so one construction company cannot receive two accounts |
 | `branches/{branchId}` | `name: string`, `active: boolean` |
 | `constructionCompanies/{companyId}` | `name: string`, `address.postalCode: normalized seven-digit string`, `address.prefecture: string`, `address.municipality: string`, `address.streetTownAndNumber: string`, `address.buildingName: string \| null`, `telephone: string \| null`, `fax: string \| null`, `contactPerson: string \| null`, `contactDetails: string \| null`, `email: string \| null`, `notes: string \| null`, `active: boolean`, `nameSearch.normalized: string`, `nameSearch.one: map<string, true>`, `nameSearch.two: map<string, true>`, `revision: safe positive integer below Number.MAX_SAFE_INTEGER`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
 | `homeowners/{homeownerId}` | `name: string`, `address.postalCode: normalized seven-digit string`, `address.prefecture: string`, `address.municipality: string`, `address.streetTownAndNumber: string`, `address.buildingName: string \| null`, `telephone: string \| null`, `fax: string \| null`, `notes: string \| null`, `active: boolean`, `nameSearch.normalized: string`, `nameSearch.one: map<string, true>`, `nameSearch.two: map<string, true>`, `revision: safe positive integer below Number.MAX_SAFE_INTEGER`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
@@ -27,10 +29,18 @@ All generated document IDs and field names are prototype choices.
 | `cases/{caseId}/appliedWarranties/{warrantyId}` | `warrantyServiceId: string`, `periodYears: positive integer`, `startDate: YYYY-MM-DD string`, `expiryDate: YYYY-MM-DD string`, `notificationStatus: not notified \| notified \| not required`, `status: active \| cancelled \| invalid`, `statusReason: string \| null`, `createdAt: Timestamp`, `updatedAt: Timestamp` |
 | `systemCounters/caseNumber` | `nextValue: integer`, `lastCaseId: string \| null` (atomic-registration rules linkage) |
 | `caseNumberReservations/{caseNumber}` | `caseId: string` |
+| `constructionCompanyCaseWorkItems/{caseId}` | `caseId: string` equal to the document ID, `kind: new_case \| renewal`, `constructionCompanyId: string`, `caseNumber: string \| null`, display-only property/homeowner/expiry context, `status: awaiting_response \| draft \| submitted \| needs_correction \| approved`, typed company `response \| null`, `reviewComment: string \| null`, `revision: positive integer`, nullable submission/approval timestamps, `createdAt: Timestamp`, `updatedAt: Timestamp` |
+| `notificationOutbox/{notificationId}` | `audience: construction_company \| house_solution`, `recipientEmail: string \| null`, `template: string`, `workItemId: string`, `status: queued`, `createdAt: Timestamp` |
 
 Business dates use valid ISO calendar-date strings in the prototype to avoid timezone conversion. Application date and handover date are required and editable case fields; no ordering rule between them is specified. Final date representation and business-timezone rules remain open.
 
 ## Required Prototype Invariants
+
+- A construction-company account is issued only by an enabled House Solution administrator or developer superuser and is associated with exactly one active construction-company master. A company can have at most one account. The construction company uses Firebase's self-service password setup/reset flow; no password is stored in Firestore or handled by House Solution.
+- Firestore Rules allow a company account to read only its own account record and work items whose `constructionCompanyId` equals the server-owned account mapping. Company accounts cannot directly read registered cases or masters. Direct account, work-item, and notification-outbox writes are denied for every browser client.
+- Renewal work-item document IDs equal existing case IDs. New-case work items reserve their generated document ID as the future registered case ID. Company updates require an enabled matching account, editable state, exact current revision, and validated response; submission locks further company edits.
+- Staff approval of a renewal adds the matching five- or ten-year applied warranty and updates the parent case projection. Staff approval of a new request creates the homeowner, property, case under the reserved ID, and first applied warranty. The registered writes and work-item approval are atomic. A declined renewal approval changes no registered case data.
+- Notification outbox documents demonstrate intended email trigger points only. `queued` does not mean sent or delivered, and no delivery worker exists in this prototype.
 
 - The callable registration path requires valid application and handover dates, verifies the enabled staff account, the selected active property and its active default homeowner/construction company, and any independently submitted active homeowner/construction-company overrides. Per-field override-intent booleans distinguish explicit staff choices from property-derived form values: an unoverridden field uses the property's value read inside the registration transaction, while an overridden field uses the validated submitted value. The transaction then reserves and increments the case number, creates its reservation, creates the case with the dates and effective references, and creates the first applied warranty referenced by `registrationWarrantyId`. Override-intent booleans are request metadata and are not stored on the case.
 - Selecting a property initially selects its homeowner and construction-company IDs. Both selections remain editable before registration and while the case is active.
@@ -72,8 +82,8 @@ Business dates use valid ISO calendar-date strings in the prototype to avoid tim
 ## Explicitly Deferred
 
 - Production schema and Firebase identifiers, Hosting/deployment configuration, initial production-data setup, pagination, final combined-filter semantics, and performance targets.
-- Final account-disable partial-failure recovery and full account-management Functions.
-- Postal-code external API calls, production monitoring, backup/recovery, broader authorization, audit logs, attachments, and construction-company submission.
+- Final account-disable partial-failure recovery, Authentication/Firestore reconciliation, and account-email change or account replacement operations.
+- Postal-code external API calls, production monitoring, backup/recovery, broader authorization, audit logs, attachments, production adoption of the construction-company workflow, and its final field set.
 
 ## Local Verification Required
 
@@ -85,6 +95,7 @@ Business dates use valid ISO calendar-date strings in the prototype to avoid tim
 - Construction-company and homeowner creation/editing enforce their required address parts, preserve their optional contact values, and tolerate readable legacy name-only records. With valid revision metadata, those records may use lifecycle-only changes; a normal edit must bring the record to the current shape.
 - Registration and active-case property changes initially select the property's homeowner and construction company, while active independently selected overrides persist exactly when saved.
 - Concurrent registration produces distinct reservations and complete case/warranty records.
+- The company portal enforces one account per construction company, password-free administrator issuance, company self-service password setup/reset, company-scoped reads, trusted-only mutations, revision/state checks, one-to-one work-item/case IDs, and atomic staff approval.
 - Alert boundaries, one-row dashboard behavior, current-master joins, N-Gram normalization, and case ordering match the confirmed requirements.
 - Unfiltered list queries return at most 20 documents with a stable equal-timestamp tie-break, case-list listener count does not grow per applied-warranty child collection, and trusted warranty mutations keep the parent projection atomic and browser-immutable.
 - Emulator evidence does not replace later verification in the provided development Firebase environment.

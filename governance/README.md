@@ -25,7 +25,7 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Case warranty structure | [case warranties](../docs/requirements/case-warranties.md) |
 | Branch and address requirements | [branches and addresses](../docs/requirements/branches-and-addresses.md) |
 | Provisional security and access posture | [security and access](../docs/requirements/security-and-access.md) and [decision 0001](../docs/decisions/0001-provisional-access-control-posture.md) |
-| Replacement rationale and legacy-system facts | [legacy and objectives](../docs/requirements/legacy-and-objectives.md) |
+| New-service rationale and legacy-system context | [legacy and objectives](../docs/requirements/legacy-and-objectives.md) |
 | Delivery approach and prototype technology | [delivery and technology](../docs/requirements/delivery-and-technology.md) |
 | Delivery milestones and verified progress | [2026 initial-delivery roadmap](../docs/roadmaps/2026-initial-delivery.md) |
 | Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |

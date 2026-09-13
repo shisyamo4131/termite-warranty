@@ -8,6 +8,7 @@ import { LOCAL_RUNTIME, resolveDedicatedEmulatorHost } from '../src/config/local
 const projectId = 'demo-termite-warranty'
 const email = 'demo.admin@example.invalid'
 const password = 'Demo-only-password-123'
+const builderEmail = 'demo.builder@example.invalid'
 
 process.env.FIRESTORE_EMULATOR_HOST = resolveDedicatedEmulatorHost(
   process.env.FIRESTORE_EMULATOR_HOST,
@@ -34,6 +35,15 @@ try {
 } catch (error) {
   if (error.code !== 'auth/user-not-found') throw error
   user = await auth.createUser({ email, password, displayName: 'デモ管理者' })
+}
+
+let builderUser
+try {
+  builderUser = await auth.getUserByEmail(builderEmail)
+  await auth.updateUser(builderUser.uid, { password, displayName: 'デモ工務店01', disabled: false })
+} catch (error) {
+  if (error.code !== 'auth/user-not-found') throw error
+  builderUser = await auth.createUser({ email: builderEmail, password, displayName: 'デモ工務店01' })
 }
 
 const withSearch = (name, fields = {}) => {
@@ -168,6 +178,16 @@ batch.set(firestore.doc(`staffAccounts/${user.uid}`), {
   role: 'house_solution_administrator',
   enabled: true,
 })
+batch.set(firestore.doc(`constructionCompanyAccounts/${builderUser.uid}`), {
+  constructionCompanyId: 'demo-builder',
+  companyName: 'デモ工務店01',
+  email: builderEmail,
+  role: 'construction_company',
+  enabled: true,
+  createdAt: now,
+  updatedAt: now,
+})
+batch.set(firestore.doc('constructionCompanyAccountBindings/demo-builder'), { uid: builderUser.uid })
 batch.set(firestore.doc('branches/demo-branch'), { name: 'デモ支店', active: true })
 masterSeeds.forEach(([ref, data], index) => {
   const existing = masterSnapshots[index]
@@ -246,7 +266,29 @@ for (const [caseId] of demoCases) {
 }
 await caseProjectionBatch.commit()
 
+const renewalWorkItemRef = firestore.doc('constructionCompanyCaseWorkItems/demo-case-01')
+if (!(await renewalWorkItemRef.get()).exists) {
+  await renewalWorkItemRef.create({
+    caseId: 'demo-case-01',
+    kind: 'renewal',
+    constructionCompanyId: 'demo-builder',
+    caseNumber: '000001',
+    propertyName: 'デモ物件01',
+    homeownerName: 'デモ施主01',
+    currentExpiryDate: '2026-10-10',
+    status: 'awaiting_response',
+    response: null,
+    reviewComment: null,
+    revision: 1,
+    submittedAt: null,
+    approvedAt: null,
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
+console.log(`Seeded local contractor account: ${builderEmail} (${builderUser.uid})`)
 console.log(`Synthetic password: ${password}`)
 console.log('Seeded demo masters: 10 construction companies, 20 homeowners, 30 properties, 5 warranty services')
 console.log('Seeded six synthetic demo cases anchored to 2026-09-11 (case numbers 000001-000006)')

@@ -8,6 +8,16 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.enabled == true;
     }
 
+    function signedInCompanyEnabled() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/constructionCompanyAccounts/$(request.auth.uid))
+        && get(/databases/$(database)/documents/constructionCompanyAccounts/$(request.auth.uid)).data.enabled == true;
+    }
+
+    function currentCompanyId() {
+      return get(/databases/$(database)/documents/constructionCompanyAccounts/$(request.auth.uid)).data.constructionCompanyId;
+    }
+
     function nonEmptyString(value) {
       return value is string && value.size() > 0;
     }
@@ -162,8 +172,27 @@ service cloud.firestore {
     }
 
     match /staffAccounts/{uid} {
-      allow read: if signedInAndEnabled() && request.auth.uid == uid;
+      allow read: if request.auth != null && request.auth.uid == uid;
       allow write: if false;
+    }
+
+    match /constructionCompanyAccounts/{uid} {
+      allow read: if request.auth != null && (request.auth.uid == uid || signedInAndEnabled());
+      allow write: if false;
+    }
+
+    match /constructionCompanyAccountBindings/{companyId} {
+      allow read, write: if false;
+    }
+
+    match /constructionCompanyCaseWorkItems/{workItemId} {
+      allow read: if signedInAndEnabled()
+        || (signedInCompanyEnabled() && resource.data.constructionCompanyId == currentCompanyId());
+      allow write: if false;
+    }
+
+    match /notificationOutbox/{notificationId} {
+      allow read, write: if false;
     }
 
     match /branches/{branchId} {

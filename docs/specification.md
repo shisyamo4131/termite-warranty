@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
-- Last updated: 2026-09-11
-- Specification version: 0.1.7
+- Last updated: 2026-09-13
+- Specification version: 0.1.8
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -20,16 +20,18 @@ The following topic records support this specification. They distinguish confirm
 
 ## Purpose
 
-Provide House Solution Co., Ltd. with a replacement management system for termite-warranty operations.
+Provide House Solution Co., Ltd. with a management system for a new termite-warranty service. The new service is not a replacement or migration of the current FileMaker service.
 
 ## Users
 
 - House Solution Co., Ltd. staff who receive and review warranty enrolment information.
 - Participating construction companies (工務店), who are expected to submit enrolment information through a form in the target workflow.
 
-Application roles are `developer superuser`, `House Solution administrator`, and `general staff`. Detailed permissions are described in the provisional [security and access posture](requirements/security-and-access.md).
+Staff roles are `developer superuser`, `House Solution administrator`, and `general staff`. The proposal prototype also has one shared `construction company` account per construction company. Detailed permissions are described in the provisional [security and access posture](requirements/security-and-access.md).
 
 Staff sign in with Firebase Authentication email/password using browser-session persistence. A closed browser window clears the authentication state, so the next access requires login again. The developer superuser creates, edits, and disables House Solution administrator accounts only; House Solution administrators create, edit, and disable general-staff accounts. For a general-staff account, an administrator can edit email address, display name, and enabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, an administrator may select only roles other than `House Solution administrator` and `developer superuser`. Staff can reset their passwords. Account creation sends a password-setup email; email-address verification is not an initial-release requirement. Disabled accounts must become unusable immediately, including an existing signed-in session. The initial developer-superuser account is bootstrapped manually in Firebase Console without custom claims, by creating matching Firebase Authentication and enabled staff-account records.
+
+For the proposal prototype, a House Solution administrator issues and disables one shared account per construction company. The construction company sets and resets its own password through Firebase Authentication email. The account is server-bound to exactly one construction-company master and cannot access staff screens or another company's work items. Authentication identifies the company, not the individual operator; each response therefore requires the current contact person's name and email address.
 
 ## Scope
 
@@ -42,11 +44,25 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - Alert on warranty services that are approaching their expiry date.
 - Provide search and list views for registered information.
 - Start the new system without importing data from the current FileMaker system. Existing-system data migration is not a production-release requirement.
+- Demonstrate the provisional construction-company portal described below for House Solution evaluation; production adoption remains subject to House Solution review.
 
-### Deferred from the Initial Release
+### Not Yet a Confirmed Production Requirement
 
-- Construction-company form submission and staff review of provisional registrations are deferred. They remain a desired future workflow, not an exclusion from the overall product.
+- The construction-company portal is approved as a proposal prototype, not yet accepted by House Solution for production operation.
 - File attachment is not included in the initial release.
+
+### Provisional Construction-Company Portal Prototype
+
+- A House Solution administrator issues, disables, and re-enables one shared Firebase Authentication account per construction company. Self-sign-up is not provided.
+- The construction company sets or resets its own password from the login screen. House Solution does not select or handle the password.
+- A company account is associated with one construction-company ID on the server. The client cannot select or override that identity.
+- Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype.
+- A construction company can submit a new-case request. Its generated work-item ID is reserved as the future case ID so approval preserves a one-to-one relationship.
+- A company can view and update only its own work items. It may edit only while the state is `awaiting response`, `draft`, or `needs correction`; submission locks editing until staff returns the item.
+- Basic conflict protection consists of a revision check, idempotent one-item-per-case creation, valid state transitions, and submission locking. Collaborative editing is not included.
+- After submission, House Solution staff either approve and atomically reflect the response in registered data or return it with a reason.
+- Authentication records the company account. The response separately records the current contact person's self-declared name and email.
+- The prototype creates durable queued-email records for renewal creation, company submission, return, and approval. It does not connect to an email-delivery provider or claim delivery.
 
 ## Environment and Boundaries
 
@@ -100,15 +116,15 @@ Staff sign in with Firebase Authentication email/password using browser-session 
 - A property name, postal code, prefecture, municipality, and street/town and number are required property fields. Building name is optional.
 - Property and homeowner addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen and normalizes the stored value. Automatic lookup is a future API integration in the local prototype; until its API agreement and credentials are available, staff enter or correct the address manually.
 - Postal-code address lookup uses Google Maps Platform Geocoding API. Restrict lookup to Japan and the entered postal code, parse typed address components rather than the formatted-address string, and keep the provider behind a replaceable application boundary. For multiple locality or town-area candidates, auto-fill only values that can be resolved unambiguously and let staff select or enter the remaining street/town and number. Where the API has no reliable match, allow staff to enter the address manually. When lookup fails, show an address-lookup failure message, retain existing input, and allow manual entry and saving. Staff may correct auto-filled values. Billing, project/key ownership, quota, restrictions, availability, and detailed response mapping remain open under HSC-017.
-- Construction companies currently send enrolment information by email; staff read those emails and manually register it in the legacy system.
-- The desired target process is form submission by the construction company, provisional registration, staff review, then promotion to a registered record.
+- The current FileMaker service receives new-enrolment and renewal information through a web form in a simply authenticated shared member page; the form sends email that staff manually process. This is context only: that member page does not meet the new service's requirements and is not reused.
+- The proposal prototype uses a dedicated construction-company account, structured provisional data, company update, staff review, and promotion to registered data.
 - Data from the current system will not be migrated into the new system. The new system begins with records entered for its own operation.
 - Legacy case numbers are not imported. Production case-number rules for newly registered cases remain subject to HSC-004.
 
 ## Non-functional Requirements
 
 - The system must support concurrent use by multiple locations and users. Required scale and performance targets are not yet confirmed.
-- The current operational upper-bound estimate is 40 telephone contacts per day. If every contact became a new case, this is approximately 1,200 new cases per 30-day month and 14,400 per year. This is a planning assumption, not a measured registration volume or a legacy-data count.
+- Actual registration volume is not measured. The proposal assumes that five- and ten-year warranty cycles and building-based cases make hundreds of daily procedures and simultaneous same-company updates to one case very unlikely. This assumption requires House Solution confirmation before production sizing.
 - Reducing manual-entry work and human error is a confirmed business objective.
 - Do not implement an operation-history or audit-log feature in the initial release. Registration and update timestamps required for list ordering remain in scope.
 

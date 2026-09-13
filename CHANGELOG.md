@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added a provisional construction-company portal prototype with one shared account per company, self-service password setup/reset, company-scoped pending case work, staff return/approval, atomic promotion to registered data, and explicitly simulated queued email notifications.
+
 - Added the zero-network TR-009 postal-lookup foundation with optional property/homeowner-only provider injection, sanitized provider-neutral results, per-field stale-response protection, and save/close/reset cancellation; no Google adapter or credential is present.
 - Added the TR-009 pre-implementation design for property/homeowner Google postal-code lookup, including an authenticated server proxy, function-scoped environment credentials, manual-entry fallback, and explicit gates for Japanese response mapping and external setup.
 - Added an ignored, user-owned JavaScript UI component workbench, contract-and-fixture workflow, and isolated Nuxt/Vuetify preview for collaborative visual authoring without tracked-application or Firebase coupling.

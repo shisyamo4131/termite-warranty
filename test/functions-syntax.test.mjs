@@ -44,6 +44,7 @@ test('repository discovery includes every maintained Functions service module', 
     'index.js',
     'register-case.js',
     'applied-warranty-management.js',
+    'company-portal.js',
     'local-runtime.js',
   ]) {
     assert.equal(relative.has(expected), true, `${expected} must be syntax checked`)

@@ -19,6 +19,12 @@
 - Email-address verification is not an initial-release requirement. The password-setup email confirms that the recipient can receive the account setup message; sending a Firebase email-verification message is deferred.
 - Do not store SMTP credentials, access tokens, or private email addresses in source control.
 
+## Construction-Company Proposal Prototype
+
+- A construction-company account is created without House Solution selecting a password. The construction company uses the common login screen's password setup/reset action and Firebase Authentication's standard password-reset email.
+- Password setup/reset is self-service so access restoration does not wait for a House Solution administrator. House Solution retains account issue, disable, and re-enable authority.
+- Business-workflow email delivery is not configured. The proposal prototype writes synthetic `queued` outbox records without a real recipient for House Solution notifications and with the configured company account email for company notifications. Delivery, retry, sender identity, bounce handling, and monitoring remain unimplemented.
+
 ## Implementation Constraint — Open Decision
 
 Firebase Authentication supports configurable email templates and custom domains for authentication emails. A custom Gmail sender may require a supported custom SMTP or custom email-delivery implementation; its feasibility, credentials, delivery security, and operating cost are deferred. Revisit this only when a custom sender identity is again required.

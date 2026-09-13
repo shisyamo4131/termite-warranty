@@ -116,6 +116,20 @@ async function seedStaff(uid, enabled = true) {
   })
 }
 
+async function seedCompanyAccount(uid, constructionCompanyId, enabled = true) {
+  await testEnvironment.withSecurityRulesDisabled(async (context) => {
+    await setDoc(doc(context.firestore(), 'constructionCompanyAccounts', uid), {
+      constructionCompanyId,
+      companyName: `Synthetic ${constructionCompanyId}`,
+      email: `${uid}@example.invalid`,
+      role: 'construction_company',
+      enabled,
+      createdAt: Timestamp.fromMillis(1_700_000_000_000),
+      updatedAt: Timestamp.fromMillis(1_700_000_000_000),
+    })
+  })
+}
+
 async function seedDocument(path, data) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), path), data)
@@ -255,6 +269,46 @@ describe('account access boundary', () => {
       role: 'general_staff',
       enabled: true,
     }))
+  })
+
+  test('construction-company accounts can read only their own profile and work items', async () => {
+    await seedCompanyAccount('company-user', 'company-1')
+    await seedCompanyAccount('other-company-user', 'company-2')
+    await seedDocument('constructionCompanyAccountBindings/company-1', { uid: 'company-user' })
+    await seedDocument('constructionCompanyCaseWorkItems/case-1', { constructionCompanyId: 'company-1' })
+    await seedDocument('constructionCompanyCaseWorkItems/case-2', { constructionCompanyId: 'company-2' })
+    const db = contextFor('company-user')
+
+    await assertSucceeds(getDoc(doc(db, 'constructionCompanyAccounts', 'company-user')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyAccounts', 'other-company-user')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyAccountBindings', 'company-1')))
+    await assertSucceeds(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-2')))
+    await assertFails(getDoc(doc(db, 'cases', 'case-1')))
+    await assertFails(getDoc(doc(db, 'constructionCompanies', 'company-1')))
+  })
+
+  test('disabled company accounts lose work-item access and all direct writes stay denied', async () => {
+    await seedCompanyAccount('company-user', 'company-1', false)
+    await seedDocument('constructionCompanyCaseWorkItems/case-1', { constructionCompanyId: 'company-1' })
+    const db = contextFor('company-user')
+
+    await assertFails(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
+    await assertFails(updateDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1'), { status: 'submitted' }))
+    await assertFails(updateDoc(doc(db, 'constructionCompanyAccounts', 'company-user'), { enabled: true }))
+  })
+
+  test('enabled staff can review company accounts and work items but cannot write them directly', async () => {
+    await seedStaff('enabled-user')
+    await seedCompanyAccount('company-user', 'company-1')
+    await seedDocument('constructionCompanyCaseWorkItems/case-1', { constructionCompanyId: 'company-1' })
+    await seedDocument('constructionCompanyAccountBindings/company-1', { uid: 'company-user' })
+    const db = contextFor('enabled-user')
+
+    await assertSucceeds(getDoc(doc(db, 'constructionCompanyAccounts', 'company-user')))
+    await assertSucceeds(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyAccountBindings', 'company-1')))
+    await assertFails(updateDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1'), { status: 'approved' }))
   })
 
   test('all four managed masters require an enabled staff account for reads', async () => {

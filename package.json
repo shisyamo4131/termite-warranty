@@ -13,11 +13,11 @@
     "emulators:start": "firebase emulators:start --project demo-termite-warranty --only auth,firestore,functions",
     "emulators:seed": "node scripts/seed-emulator.mjs",
     "postinstall": "nuxt prepare",
-    "test": "node --test test/warranty.test.mjs test/search-tokens.test.mjs test/case-rows.test.mjs test/case-filters.test.mjs test/prototype-data-boundaries.test.mjs test/local-runtime.test.mjs test/local-port-allocation.test.mjs test/master-data.test.mjs test/postal-lookup.test.mjs test/functions-domain.test.mjs test/functions-syntax.test.mjs test/development-workflow-contract.test.mjs",
+    "test": "node --test test/warranty.test.mjs test/search-tokens.test.mjs test/case-rows.test.mjs test/case-filters.test.mjs test/prototype-data-boundaries.test.mjs test/local-runtime.test.mjs test/local-port-allocation.test.mjs test/master-data.test.mjs test/postal-lookup.test.mjs test/company-portal.test.mjs test/functions-domain.test.mjs test/functions-syntax.test.mjs test/development-workflow-contract.test.mjs",
     "prepare:functions": "node scripts/prepare-functions-deploy.mjs",
     "check:functions-domain": "node scripts/check-functions-domain.mjs",
     "pretest:rules": "npm run prepare:functions",
-    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only auth,firestore,functions \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/bounded-list.test.mjs test/emulator/registration.test.mjs test/emulator/callable-profile-registration.test.mjs test/emulator/case-edit.test.mjs test/emulator/callable-applied-warranty.test.mjs\"",
+    "test:rules": "firebase emulators:exec --project demo-termite-warranty --only auth,firestore,functions \"node --test --test-concurrency=1 test/firestore-rules.test.mjs test/emulator/bounded-list.test.mjs test/emulator/registration.test.mjs test/emulator/callable-profile-registration.test.mjs test/emulator/case-edit.test.mjs test/emulator/callable-applied-warranty.test.mjs test/emulator/company-portal.test.mjs\"",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {

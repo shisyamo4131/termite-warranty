@@ -10,11 +10,12 @@
 
 ## Product Outcome
 
-The system is intended to alert staff when a homeowner’s subscribed warranty service is approaching its expiry date.
+The system supports a newly established termite-warranty service; it is not a replacement or migration of the current FileMaker service. It is intended to alert staff when a homeowner’s subscribed warranty service is approaching its expiry date and to structure construction-company submissions and renewals.
 
-## Planning Volume
+## Provisional Planning Volume
 
 - The peak telephone-contact volume is approximately 40 per day. Treat approximately 1,200 new cases per 30-day month and 14,400 per year as a planning upper-bound only if every contact is a new case; actual registration volume and all historical counts are unknown.
+- The portal proposal assumes that five- and ten-year warranty cycles make hundreds of daily procedures and simultaneous same-company updates to one property very unlikely. This is not measured production evidence.
 
 ## Staff Access
 

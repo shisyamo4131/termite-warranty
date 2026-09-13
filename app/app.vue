@@ -11,6 +11,7 @@
       </v-container>
       </v-main>
     </template>
+    <ConstructionCompanyPortal v-else-if="profile.accountType === 'construction_company'" />
     <NuxtLayout v-else>
       <NuxtPage />
     </NuxtLayout>

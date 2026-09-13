@@ -1,0 +1,272 @@
+<template>
+  <section class="list-page">
+    <h1 class="text-h4 mb-2">工務店ポータル管理</h1>
+    <p class="text-body-2 text-medium-emphasis mb-6">工務店アカウントと、提出された仮データを管理します。</p>
+    <v-alert v-if="message" :type="messageType" class="mb-4">{{ message }}</v-alert>
+    <v-alert type="info" variant="tonal" class="mb-6">
+      メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
+    </v-alert>
+
+    <v-card v-if="canManageAccounts" class="mb-6" title="工務店アカウント">
+      <v-card-text>
+        <div class="d-flex justify-end mb-4">
+          <v-btn color="primary" @click="accountDialog = true">アカウントを発行</v-btn>
+        </div>
+        <v-table>
+          <thead><tr><th>工務店</th><th>メールアドレス</th><th>状態</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="account in accounts" :key="account.id">
+              <td>{{ account.companyName }}</td>
+              <td>{{ account.email }}</td>
+              <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.enabled ? '有効' : '無効' }}</v-chip></td>
+              <td>
+                <v-btn
+                  size="small"
+                  variant="text"
+                  :color="account.enabled ? 'error' : 'success'"
+                  :loading="busyId === account.id"
+                  @click="toggleAccount(account)"
+                >{{ account.enabled ? '無効化' : '再有効化' }}</v-btn>
+              </td>
+            </tr>
+            <tr v-if="accounts.length === 0"><td colspan="4" class="text-center py-6">アカウントはありません。</td></tr>
+          </tbody>
+        </v-table>
+      </v-card-text>
+    </v-card>
+
+    <v-card title="仮申請・更改回答">
+      <v-card-text>
+        <div class="d-flex justify-end mb-4">
+          <v-btn color="primary" @click="renewalDialog = true">更改依頼を作成</v-btn>
+        </div>
+        <v-table>
+          <thead><tr><th>種別</th><th>案件番号</th><th>工務店</th><th>物件／施主</th><th>状態</th><th>操作</th></tr></thead>
+          <tbody>
+            <tr v-for="item in workItems" :key="item.id">
+              <td>{{ item.kind === 'renewal' ? '保証更改' : '新規案件' }}</td>
+              <td>{{ item.caseNumber ?? '本登録前' }}</td>
+              <td>{{ companyName(item.constructionCompanyId) }}</td>
+              <td>{{ item.propertyName }} / {{ item.homeownerName }}</td>
+              <td><v-chip :color="statusColor(item.status)" size="small">{{ statusLabel(item.status) }}</v-chip></td>
+              <td><v-btn size="small" variant="text" @click="openReview(item)">確認</v-btn></td>
+            </tr>
+            <tr v-if="workItems.length === 0"><td colspan="6" class="text-center py-6">仮データはありません。</td></tr>
+          </tbody>
+        </v-table>
+      </v-card-text>
+    </v-card>
+  </section>
+
+  <v-dialog v-model="accountDialog" max-width="560">
+    <v-card title="工務店アカウントを発行">
+      <v-card-text>
+        <v-alert type="info" variant="tonal" class="mb-4">
+          発行後、工務店側がログイン画面の「パスワードを設定・再設定」からパスワードを設定します。
+        </v-alert>
+        <v-select v-model="accountForm.constructionCompanyId" :items="availableCompanies" item-title="name" item-value="id" label="工務店" />
+        <v-text-field v-model="accountForm.email" label="共通メールアドレス" type="email" />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer /><v-btn @click="accountDialog = false">キャンセル</v-btn>
+        <v-btn color="primary" :loading="saving" @click="createAccount">発行</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="renewalDialog" max-width="640">
+    <v-card title="保証更改依頼を作成">
+      <v-card-text>
+        <v-select v-model="renewalCaseId" :items="renewalCandidates" item-title="label" item-value="id" label="案件" />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer /><v-btn @click="renewalDialog = false">キャンセル</v-btn>
+        <v-btn color="primary" :loading="saving" @click="createRenewal">作成して通知待ちにする</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="reviewDialog" max-width="720">
+    <v-card title="仮データを確認">
+      <v-card-text v-if="reviewItem">
+        <v-alert v-if="reviewItem.status !== 'submitted'" type="info" variant="tonal" class="mb-4">
+          現在は工務店からの提出待ちです。
+        </v-alert>
+        <v-list density="compact">
+          <v-list-item title="種別" :subtitle="reviewItem.kind === 'renewal' ? '保証更改' : '新規案件'" />
+          <v-list-item title="工務店" :subtitle="companyName(reviewItem.constructionCompanyId)" />
+          <v-list-item title="物件・施主" :subtitle="`${reviewItem.propertyName} / ${reviewItem.homeownerName}`" />
+          <v-list-item v-if="reviewItem.response" title="今回の担当者" :subtitle="`${reviewItem.response.contactName} / ${reviewItem.response.contactEmail}`" />
+          <v-list-item v-if="reviewItem.response" title="希望保証期間" :subtitle="`${reviewItem.response.requestedPeriodYears}年`" />
+          <v-list-item v-if="reviewItem.response?.notes" title="連絡事項" :subtitle="reviewItem.response.notes" />
+        </v-list>
+        <template v-if="reviewItem.status === 'submitted'">
+          <v-select
+            v-if="reviewItem.response?.renewalDecision !== 'decline'"
+            v-model="reviewForm.warrantyServiceId"
+            :items="matchingServices"
+            item-title="name"
+            item-value="id"
+            label="本登録する保証サービス"
+          />
+          <v-select
+            v-if="reviewItem.kind === 'new_case'"
+            v-model="reviewForm.branchId"
+            :items="branches"
+            item-title="name"
+            item-value="id"
+            label="担当支店"
+          />
+          <v-textarea v-model="reviewForm.comment" label="確認コメント／差戻し理由" rows="3" />
+        </template>
+      </v-card-text>
+      <v-card-actions>
+        <v-btn @click="reviewDialog = false">閉じる</v-btn><v-spacer />
+        <template v-if="reviewItem?.status === 'submitted'">
+          <v-btn color="error" variant="outlined" :loading="saving" @click="review('return')">差戻し</v-btn>
+          <v-btn color="primary" :loading="saving" @click="review('approve')">本登録</v-btn>
+        </template>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script setup lang="ts">
+import { collection, documentId, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import type { CompanyCaseWorkItem } from '../types/company-portal.ts'
+
+interface AccountRow { id: string; constructionCompanyId: string; companyName: string; email: string; enabled: boolean }
+interface CompanyRow { id: string; name: string; active: boolean }
+interface CaseOption { id: string; caseNumber: string; constructionCompanyId: string; status: string }
+interface NamedOption { id: string; name: string; active: boolean; defaultPeriodYears?: number }
+
+const { $firebase } = useNuxtApp()
+const { profile } = useSession()
+const gateway = useCompanyPortal()
+const accounts = ref<AccountRow[]>([])
+const companies = ref<CompanyRow[]>([])
+const cases = ref<CaseOption[]>([])
+const workItems = ref<CompanyCaseWorkItem[]>([])
+const branches = ref<NamedOption[]>([])
+const services = ref<NamedOption[]>([])
+const message = ref('')
+const messageType = ref<'success' | 'error'>('success')
+const saving = ref(false)
+const busyId = ref('')
+const accountDialog = ref(false)
+const renewalDialog = ref(false)
+const reviewDialog = ref(false)
+const renewalCaseId = ref('')
+const reviewItem = ref<CompanyCaseWorkItem | null>(null)
+const accountForm = reactive({ constructionCompanyId: '', email: '' })
+const reviewForm = reactive({ branchId: '', warrantyServiceId: '', comment: '' })
+const unsubscribes: Array<() => void> = []
+
+const canManageAccounts = computed(() => profile.value?.accountType === 'staff'
+  && ['developer_superuser', 'house_solution_administrator'].includes(profile.value.role))
+const availableCompanies = computed(() => companies.value.filter(company => company.active
+  && !accounts.value.some(account => account.constructionCompanyId === company.id)))
+const renewalCandidates = computed(() => cases.value
+  .filter(item => item.status === 'active' && !workItems.value.some(workItem => workItem.id === item.id))
+  .map(item => ({ id: item.id, label: `${item.caseNumber} / ${companyName(item.constructionCompanyId)}` })))
+const matchingServices = computed(() => services.value.filter(service => service.active
+  && service.defaultPeriodYears === reviewItem.value?.response?.requestedPeriodYears))
+
+const companyName = (id: string) => companies.value.find(item => item.id === id)?.name ?? id
+const statusLabel = (status: CompanyCaseWorkItem['status']) => ({
+  awaiting_response: '工務店回答待ち', draft: '工務店下書き', submitted: '確認待ち',
+  needs_correction: '差戻し', approved: '本登録済み',
+}[status])
+const statusColor = (status: CompanyCaseWorkItem['status']) => ({
+  awaiting_response: 'warning', draft: 'info', submitted: 'primary',
+  needs_correction: 'error', approved: 'success',
+}[status])
+
+const subscribe = <T>(path: string, assign: (rows: T[]) => void) => {
+  unsubscribes.push(onSnapshot(
+    query(collection($firebase.firestore, path), orderBy('updatedAt', 'desc'), orderBy(documentId(), 'desc'), limit(20)),
+    snapshot => assign(snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as T)),
+    () => {
+      messageType.value = 'error'
+      message.value = '工務店ポータル管理データを読み込めませんでした。'
+    },
+  ))
+}
+
+const createAccount = async () => {
+  saving.value = true
+  try {
+    await gateway.createAccount(accountForm)
+    accountDialog.value = false
+    Object.assign(accountForm, { constructionCompanyId: '', email: '' })
+    messageType.value = 'success'
+    message.value = '工務店アカウントを発行しました。工務店側でパスワードを設定してください。'
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error instanceof Error ? error.message : 'アカウントを発行できませんでした。'
+  } finally { saving.value = false }
+}
+
+const toggleAccount = async (account: AccountRow) => {
+  busyId.value = account.id
+  try {
+    await gateway.setAccountEnabled({ uid: account.id, enabled: !account.enabled })
+    messageType.value = 'success'
+    message.value = account.enabled ? 'アカウントを無効化しました。' : 'アカウントを再有効化しました。'
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error instanceof Error ? error.message : 'アカウント状態を変更できませんでした。'
+  } finally { busyId.value = '' }
+}
+
+const createRenewal = async () => {
+  saving.value = true
+  try {
+    await gateway.createRenewalWorkItem({ caseId: renewalCaseId.value })
+    renewalDialog.value = false
+    renewalCaseId.value = ''
+    messageType.value = 'success'
+    message.value = '更改依頼を作成し、メール通知を送信待ちにしました。'
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error instanceof Error ? error.message : '更改依頼を作成できませんでした。'
+  } finally { saving.value = false }
+}
+
+const openReview = (item: CompanyCaseWorkItem) => {
+  reviewItem.value = item
+  Object.assign(reviewForm, { branchId: '', warrantyServiceId: '', comment: item.reviewComment ?? '' })
+  reviewDialog.value = true
+}
+
+const review = async (action: 'approve' | 'return') => {
+  if (!reviewItem.value) return
+  saving.value = true
+  try {
+    await gateway.reviewWorkItem({
+      id: reviewItem.value.id, expectedRevision: reviewItem.value.revision, action,
+      reviewComment: reviewForm.comment,
+      branchId: reviewForm.branchId || undefined,
+      warrantyServiceId: reviewForm.warrantyServiceId || undefined,
+    })
+    reviewDialog.value = false
+    messageType.value = 'success'
+    message.value = action === 'approve' ? '本データへ反映しました。' : '工務店へ差し戻しました。'
+  } catch (error) {
+    messageType.value = 'error'
+    message.value = error instanceof Error ? error.message : '確認結果を保存できませんでした。'
+  } finally { saving.value = false }
+}
+
+onMounted(() => {
+  subscribe<AccountRow>('constructionCompanyAccounts', rows => { accounts.value = rows })
+  subscribe<CompanyRow>('constructionCompanies', rows => { companies.value = rows })
+  subscribe<CaseOption>('cases', rows => { cases.value = rows })
+  subscribe<CompanyCaseWorkItem>('constructionCompanyCaseWorkItems', rows => { workItems.value = rows })
+  unsubscribes.push(onSnapshot(query(collection($firebase.firestore, 'branches'), orderBy(documentId(), 'desc'), limit(20)), snapshot => {
+    branches.value = snapshot.docs.map(item => ({ id: item.id, ...item.data() }) as NamedOption)
+  }))
+  subscribe<NamedOption>('warrantyServices', rows => { services.value = rows })
+})
+onBeforeUnmount(() => unsubscribes.forEach(unsubscribe => unsubscribe()))
+</script>

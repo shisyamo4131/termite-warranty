@@ -23,7 +23,20 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another separately approved purpose requires a confidentiality agreement. Do not commit it to source control or place it in documentation, test fixtures, or logs.
 - Operation-history and audit-log records are not an initial-release requirement. This does not remove the existing registration and update timestamps or the account-disable controls.
 
+## Construction-Company Proposal Prototype
+
+- Each construction company has at most one enabled shared Firebase Authentication account in the prototype. Self-sign-up is disabled.
+- A House Solution administrator issues, disables, and re-enables the account. The construction company sets and resets its own password through Firebase Authentication email; House Solution does not handle the password.
+- `constructionCompanyAccounts/{uid}` is the server-side source for the account's construction-company ID and enabled state. A client-submitted company ID is never an authorization source.
+- A construction-company account can read only its own profile and its own bounded provisional work-item list. It cannot read staff pages, registered case/master collections, another company's work items, or the notification outbox.
+- All work-item mutations use trusted Callables. Direct browser writes to account, work-item, registered-data, and notification-outbox collections are denied.
+- A work item uses a revision check, permitted state transitions, and submission locking. Approval performs the corresponding registered-data writes and terminal work-item update in one transaction.
+- Shared authentication establishes company-level attribution only. Each response stores a self-declared contact name and contact email for operational follow-up; it is not an independently authenticated individual identity.
+- App Check, rate limits, password policy, multi-factor authentication, notification delivery controls, retention, and production incident procedures remain unconfirmed. This prototype does not claim production-grade external access security.
+
 ## Consequences and Residual Risks
+
+- Shared construction-company credentials reduce account-administration cost but prevent individual operator attribution and require password rotation when access within the company changes.
 
 - UI visibility is not an authorization boundary. An authenticated user can use a browser's developer tools or a direct client request to attempt operations that the UI hides. Account-management Cloud Functions must independently reject a caller whose role is not permitted to manage the target account.
 - With a Firestore rule equivalent to `request.auth != null`, every signed-in account permitted by that rule can read and write the matched data. It does not distinguish administrator from general staff, and it does not validate intended business operations.

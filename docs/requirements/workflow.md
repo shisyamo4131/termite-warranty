@@ -1,19 +1,23 @@
 # Business Workflow
 
-## Current Workflow — Confirmed
+## Current FileMaker-Service Workflow — Context Only
 
-1. A construction company sends warranty-service and contracting-homeowner information by email.
-2. A staff member reads the email.
+1. A construction company enters new-case or renewal information in a web form on a simply authenticated shared member page.
+2. The form delivers the entered information to staff by email.
 3. The staff member manually registers the information in the legacy system.
 
-## Deferred Target Workflow — Confirmed Direction
+The new service does not reuse this member page because it does not identify construction companies individually and does not satisfy the new service requirements.
 
-1. A construction company enters the information in a form.
-2. The new system creates a provisional registration.
-3. A staff member reviews the provisional registration.
-4. The staff member promotes the approved information to a registered record.
+## Proposal-Prototype Workflow — House Solution Review Pending
 
-This direction is confirmed as a desired future workflow, but construction-company form submission and provisional-registration review are deferred from the initial release. Detailed screen behavior, review states, rejection/correction flow, audit trail, notifications, and authentication method are not yet requirements.
+1. A House Solution administrator issues or disables one shared account per construction company; the construction company sets or resets its own password.
+2. For renewal, staff create a case-linked pending work item and the system queues an email notification. For a new case, the construction company starts a new request.
+3. The authenticated construction company enters a response and submits it. Only its own provisional data can be accessed or changed.
+4. Submission locks company editing and queues a House Solution notification.
+5. Staff review the structured response and either atomically promote it to registered data or return it with a reason.
+6. A return reopens company editing and queues a construction-company notification.
+
+This workflow is approved for a proposal prototype. It is not yet an accepted House Solution production requirement. Email delivery, reminder timing, retention, detailed audit needs, and final screen behavior remain open.
 
 ## Initial Release — Confirmed Scope
 

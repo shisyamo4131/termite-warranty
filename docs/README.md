@@ -32,6 +32,7 @@
 - [TR-007 detailed design](design/tr-007-direct-master-writes.md): implementation contract for the reduced direct-Firestore master mutation boundary.
 - [TR-008 detailed design](design/tr-008-remove-unused-profile-callable.md): implementation contract for removing the unused profile Callable without changing session or account-management behavior.
 - [TR-009 detailed design](design/tr-009-google-postal-lookup.md): pre-implementation contract for Google postal-code lookup, secure Dev/Prod credentials, and the unresolved Japanese response-mapping gate.
+- [Construction-company portal proposal prototype](design/construction-company-portal-prototype.md): implemented local proposal flow for shared company accounts, provisional case data, review, and queued notifications.
 - [UI component contracts](design/ui-component-contracts/README.md): durable contracts for user-authored JavaScript UI components before tracked integration.
 - [Custom UI component collaboration](runbooks/custom-ui-component-collaboration.md): ownership, concurrency, handoff, and integration procedure for the ignored local UI workbench.
 
