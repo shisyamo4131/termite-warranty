@@ -49,6 +49,11 @@ test('staff renewal candidates include approved one-to-one work items but exclud
   assert.match(source, /workItem\.id === item\.id && workItem\.status !== 'approved'/)
 })
 
+test('company portal labels staff comments according to the final review state', async () => {
+  const source = await readProjectFile('app/components/ConstructionCompanyPortal.vue')
+  assert.match(source, /item\.status === 'needs_correction' \? '差戻し内容' : '確認コメント'/)
+})
+
 test('prototype email behavior is visibly queued rather than presented as delivered', async () => {
   const [staff, company, functions] = await Promise.all([
     readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),

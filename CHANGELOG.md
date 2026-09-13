@@ -28,6 +28,7 @@
 
 ### Changed
 
+- Displayed approved staff notes as confirmation comments in the construction-company portal while retaining the correction label and warning treatment for returned work.
 - Allowed an approved one-to-one construction-company portal record to be reinitialized for a later renewal request while continuing to reject duplicate unfinished work.
 - Corrected the Dev authentication-email record: Firebase currently rejects the approved `.web.app` action URL with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`, so same-origin password setup/reset remains pending provider resolution or a separately approved delivery alternative.
 - Added a same-site Japanese Firebase password setup/reset action page and Japanese reset-email localization while retaining Firebase's standard email delivery.

@@ -35,8 +35,13 @@
                 <template v-if="item.currentExpiryDate"><dt>現在の満了日</dt><dd>{{ item.currentExpiryDate }}</dd></template>
                 <template v-if="item.response"><dt>今回の担当者</dt><dd>{{ item.response.contactName }}</dd></template>
               </dl>
-              <v-alert v-if="item.reviewComment" type="warning" variant="tonal" class="mt-4">
-                差戻し内容：{{ item.reviewComment }}
+              <v-alert
+                v-if="item.reviewComment"
+                :type="item.status === 'needs_correction' ? 'warning' : 'info'"
+                variant="tonal"
+                class="mt-4"
+              >
+                {{ item.status === 'needs_correction' ? '差戻し内容' : '確認コメント' }}：{{ item.reviewComment }}
               </v-alert>
             </v-card-text>
             <v-card-actions>
