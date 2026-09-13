@@ -240,6 +240,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Firestore collection-group queries require a recursive wildcard match.
+    // Staff access remains identical to direct applied-warranty reads.
+    match /{path=**}/appliedWarranties/{warrantyId} {
+      allow read: if signedInAndEnabled();
+    }
+
     match /cases/{caseId} {
       allow read: if signedInAndEnabled();
       allow create: if false;

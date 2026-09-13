@@ -8,14 +8,20 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   Timestamp,
+  collectionGroup,
   deleteField,
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   increment,
+  limit,
+  orderBy,
+  query,
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
   writeBatch,
 } from 'firebase/firestore'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
@@ -326,6 +332,21 @@ describe('account access boundary', () => {
     await seedStaff('enabled-user')
     const enabled = contextFor('enabled-user')
     for (const path of paths) await assertSucceeds(getDoc(doc(enabled, path)))
+  })
+
+  test('enabled staff can query active applied warranties by service across cases', async () => {
+    await seedStaff('enabled-user')
+    await seedDocument('cases/case-1/appliedWarranties/warranty-1', validWarranty())
+    const db = contextFor('enabled-user')
+
+    await assertSucceeds(getDocs(query(
+      collectionGroup(db, 'appliedWarranties'),
+      where('warrantyServiceId', '==', 'service-1'),
+      where('status', '==', 'active'),
+      orderBy('updatedAt', 'desc'),
+      orderBy('__name__', 'desc'),
+      limit(20),
+    )))
   })
 })
 
