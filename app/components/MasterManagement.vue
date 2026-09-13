@@ -23,8 +23,15 @@
           v-if="masterType === 'constructionCompany'"
           :items="filteredRows"
           :loading="loading"
-          @show-detail="handleCompanyDetail"
-          @change-active="handleCompanyActiveChange"
+          @show-detail="handleTableDetail"
+          @change-active="handleTableActiveChange"
+        />
+        <HomeOwnerTable
+          v-else-if="masterType === 'homeowner'"
+          :items="filteredRows"
+          :loading="loading"
+          @show-detail="handleTableDetail"
+          @change-active="handleTableActiveChange"
         />
         <v-table v-else class="list-data-table" fixed-header>
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
@@ -173,9 +180,9 @@ const toggle = async (row: ManagedMaster) => {
   }
 }
 
-const handleCompanyDetail = ({ id }: { id: string }) => navigateTo(`/masters/${routeSegment.value}/${id}`)
+const handleTableDetail = ({ id }: { id: string }) => navigateTo(`/masters/${routeSegment.value}/${id}`)
 
-const handleCompanyActiveChange = async ({ id, nextActive }: { id: string; nextActive: boolean }) => {
+const handleTableActiveChange = async ({ id, nextActive }: { id: string; nextActive: boolean }) => {
   const row = rows.value.find((candidate) => candidate.id === id)
   if (!row || row.active === nextActive) return
   await toggle(row)

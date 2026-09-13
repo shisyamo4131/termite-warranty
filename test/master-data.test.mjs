@@ -255,22 +255,29 @@ test('all three master entry points use the shared form and payload mapper', asy
   assert.match(quickSource, /form\.value = createMasterFormDraft\(props\.masterType\)/)
 })
 
-test('construction-company list delegates presentation to the bounded user-designed table', async () => {
+test('construction-company and homeowner lists delegate presentation to bounded user-designed tables', async () => {
   const parentSource = await readProjectFile('app/components/MasterManagement.vue')
-  const tableSource = await readProjectFile('app/components/ConstructionCompanyTable.vue')
+  const tableSources = [
+    await readProjectFile('app/components/ConstructionCompanyTable.vue'),
+    await readProjectFile('app/components/HomeOwnerTable.vue'),
+  ]
 
   assert.match(parentSource, /<ConstructionCompanyTable/)
   assert.match(parentSource, /v-if="masterType === 'constructionCompany'"/)
-  assert.match(parentSource, /:items="filteredRows"/)
-  assert.match(parentSource, /@show-detail="handleCompanyDetail"/)
-  assert.match(parentSource, /@change-active="handleCompanyActiveChange"/)
+  assert.match(parentSource, /<HomeOwnerTable/)
+  assert.match(parentSource, /v-else-if="masterType === 'homeowner'"/)
+  assert.equal(parentSource.match(/:items="filteredRows"/g)?.length, 2)
+  assert.equal(parentSource.match(/@show-detail="handleTableDetail"/g)?.length, 2)
+  assert.equal(parentSource.match(/@change-active="handleTableActiveChange"/g)?.length, 2)
 
-  assert.match(tableSource, /items: ManagedMaster\[\]/)
-  assert.match(tableSource, /item\.address\?\./)
-  assert.match(tableSource, /disable-sort/)
-  assert.match(tableSource, /hide-default-footer/)
-  assert.match(tableSource, /:items-per-page="-1"/)
-  assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
+  for (const tableSource of tableSources) {
+    assert.match(tableSource, /items: ManagedMaster\[\]/)
+    assert.match(tableSource, /item\.address\?\./)
+    assert.match(tableSource, /disable-sort/)
+    assert.match(tableSource, /hide-default-footer/)
+    assert.match(tableSource, /:items-per-page="-1"/)
+    assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
+  }
 })
 
 test('master entry submission adapters execute payload and success contracts', async () => {

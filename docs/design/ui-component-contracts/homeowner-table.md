@@ -1,6 +1,6 @@
 # Homeowner Table Component Contract
 
-- Status: Ready for user authoring
+- Status: Integrated after accepted review on 2026-09-13
 - User workbench file: `/.user-ui-workbench/components/HomeOwnerTable.vue`
 - Proposed tracked destination: `/app/components/HomeOwnerTable.vue`
 - Initial integration point: the homeowner branch of `/app/components/MasterManagement.vue`
@@ -132,3 +132,10 @@ The workbench version is ready for review when:
 6. no Firebase, API, Router, global-store, or environment access exists in the component.
 
 After submission, the coordinator reviews the component against this contract, adapts it to TypeScript if useful, integrates it without importing the ignored fixture, and runs the verification gates selected for the tracked UI change.
+
+## Integration Evidence
+
+- The ignored workbench component was accepted for integration after normal, loading-with-items, empty, event-payload, inactive-detail, long-content, and 360-pixel checks passed without console errors.
+- The tracked TypeScript component preserves the submitted responsive headers, semantic status chips, detail/lifecycle controls, and Clear Sky colors. Contract-only props are retained; workbench-only display customization props were not promoted into the application API.
+- `MasterManagement.vue` supplies the existing bounded and filtered homeowner rows, retains navigation and Firestore mutation ownership, and handles the component's exact event payloads.
+- On the final integration state, `npm test` passed 92 tests with 2 existing host-limited skips and 0 failures; the 81-test Rules/Callable Emulator suite, typecheck, static build, recursive Functions syntax, seed syntax, and governance check each exited 0. The build retained its existing large-chunk and Nuxt/Nitro warnings.
