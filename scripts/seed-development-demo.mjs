@@ -50,7 +50,7 @@ const data = {
 }
 
 const writes = []
-for (const [id, name, prefecture, municipality, streetTownAndNumber] of data.constructionCompanies) writes.push([`constructionCompanies/${id}`, withSearch(name, { address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, telephone: '000-0000-0000', fax: null, contactPerson: '架空 担当', contactDetails: null, email: null, notes: '開発環境の架空データです。' })])
+for (const [id, name, prefecture, municipality, streetTownAndNumber] of data.constructionCompanies) writes.push([`constructionCompanies/${id}`, withSearch(name, { address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, telephone: '000-0000-0000', fax: null, contactPerson: '架空 担当', contactDetails: null, notes: '開発環境の架空データです。' })])
 for (const [id, name, prefecture, municipality, streetTownAndNumber] of data.homeowners) writes.push([`homeowners/${id}`, withSearch(name, { address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, telephone: '000-1000-0000', fax: null, notes: '開発環境の架空データです。' })])
 for (const [id, name, homeownerId, constructionCompanyId, prefecture, municipality, streetTownAndNumber] of data.properties) writes.push([`properties/${id}`, withSearch(name, { homeownerId, constructionCompanyId, address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null } })])
 for (const [id, name, defaultPeriodYears] of data.warrantyServices) writes.push([`warrantyServices/${id}`, { name, defaultPeriodYears, active: true }])

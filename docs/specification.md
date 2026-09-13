@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-13
-- Specification version: 0.1.8
+- Specification version: 0.1.9
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -92,8 +92,8 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - The fixed default ordering is case update date descending, then case registration date descending when update dates are equal.
 - Adding, editing, cancelling, invalidating, or changing notification status on an applied warranty updates its parent case's update date.
 - Staff can create required master records from a case-registration flow and can separately access list/management screens for each master. Master creation/editing and case creation/editing open as button-triggered dialogs rather than permanent inline forms.
-- The four current master lists link to `/masters/{master-type}/{id}` detail screens. These screens reuse the existing edit dialog, remain readable for inactive records, and provide a list-return link. A construction-company detail screen lists all of its linked properties, including inactive properties. A missing ID is reported in the signed-in application with a list-return link.
-- The application opens on the dashboard after login and uses a Navigation Drawer for business menus. The current local prototype increment exposes separate drawer entries for construction-company, homeowner, warranty-service, and property management; branch management remains part of the broader initial-release scope but is not included in this increment.
+- The four current master lists link to `/masters/{master-type}/{id}` detail screens. These screens reuse the existing edit dialog, remain readable for inactive records, and provide a list-return link. A construction-company detail screen labels all of its linked properties, including inactive properties, as `担当物件`. A homeowner detail screen labels all of its linked properties, including inactive properties, as `所有物件`. A warranty-service detail screen lists up to 20 `対象物件` linked through active cases and active applied warranties and includes only active property masters. Every listed property name links to its detail screen. A missing ID is reported in the signed-in application with a list-return link.
+- The application opens on the dashboard after login and uses a Navigation Drawer with an appropriate icon to the left of every business-menu title. The current local prototype increment exposes separate drawer entries for construction-company, homeowner, warranty-service, and property management; branch management remains part of the broader initial-release scope but is not included in this increment.
 - Use a Vuetify date-selection component for warranty date entry instead of relying only on the browser-native date field, while preserving the canonical `YYYY-MM-DD` value sent to the registration service.
 - Master records referenced by a case are not physically deleted. They can be changed between active and inactive states.
 - Inactive masters are unavailable for new case selection while remaining displayed on existing cases.
@@ -111,7 +111,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - Master update, inactivation, and reactivation use last-write-wins. This rule does not change the separately implemented stale-baseline checks for case and applied-warranty multi-record workflows.
 - A property holds a construction-company ID. At case registration and when an active case's property is changed, the property supplies the initially selected construction company; the case construction company remains editable before saving and while the case is active.
 - When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
-- A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, email, and notes are optional.
+- A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, and notes are optional. Email does not belong to the construction-company master; when a company account exists, the construction-company detail screen displays that account's email address.
 - A homeowner name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, and notes are optional.
 - A property name, postal code, prefecture, municipality, and street/town and number are required property fields. Building name is optional.
 - Property and homeowner addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen and normalizes the stored value. Automatic lookup is a future API integration in the local prototype; until its API agreement and credentials are available, staff enter or correct the address manually.

@@ -11,7 +11,7 @@ This is a provisional business-record model for requirements discovery. It is no
 | Branch (支店) | Name |
 | Staff account (利用者アカウント) | Firebase Authentication UID, email address, role (`developer superuser`, `House Solution administrator`, or `general staff`), enabled/disabled state |
 | Construction-company account (工務店アカウント) | Firebase Authentication UID, construction-company ID, shared email address, role (`construction company`), enabled/disabled state, registration/update timestamps |
-| Construction company (工務店) | Name, postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional contact person, optional contact details, optional email, optional notes, active/inactive state |
+| Construction company (工務店) | Name, postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional contact person, optional contact details, optional notes, active/inactive state |
 | Homeowner (施主) | Name, required postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional notes, active/inactive state |
 | Property (物件) | Required name, homeowner ID, construction-company ID, five-part address, active/inactive state |
 | Warranty service / product (保証サービス) | Name, default warranty period in positive integer whole years, active/inactive state |

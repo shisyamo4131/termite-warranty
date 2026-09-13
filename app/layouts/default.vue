@@ -6,17 +6,19 @@
         :key="item.to"
         :title="item.title"
         :to="item.to"
+        :prepend-icon="item.icon"
         exact
       />
       <v-list-group value="company-portal">
         <template #activator="{ props }">
-          <v-list-item v-bind="props" title="工務店管理ポータル" />
+          <v-list-item v-bind="props" title="工務店管理ポータル" prepend-icon="mdi-briefcase-account-outline" />
         </template>
         <v-list-item
           v-for="item in companyPortalMenuItems"
           :key="item.to"
           :title="item.title"
           :to="item.to"
+          :prepend-icon="item.icon"
           exact
         />
       </v-list-group>
@@ -42,15 +44,15 @@ const drawer = ref(true)
 const route = useRoute()
 const { profile, logout } = useSession()
 const primaryMenuItems = computed(() => [
-  { title: 'ダッシュボード', to: '/' },
-  { title: '案件一覧', to: '/cases' },
-  { title: '工務店', to: '/masters/construction-companies' },
-  { title: '施主', to: '/masters/homeowners' },
-  { title: '保証サービス', to: '/masters/warranty-services' },
-  { title: '物件', to: '/masters/properties' },
+  { title: 'ダッシュボード', to: '/', icon: 'mdi-view-dashboard-outline' },
+  { title: '案件一覧', to: '/cases', icon: 'mdi-clipboard-text-outline' },
+  { title: '工務店', to: '/masters/construction-companies', icon: 'mdi-office-building-outline' },
+  { title: '施主', to: '/masters/homeowners', icon: 'mdi-account-outline' },
+  { title: '保証サービス', to: '/masters/warranty-services', icon: 'mdi-shield-check-outline' },
+  { title: '物件', to: '/masters/properties', icon: 'mdi-home-city-outline' },
 ])
 const companyPortalMenuItems = [
-  { title: '通知管理', to: '/company-portal/notifications' },
-  { title: 'アカウント管理', to: '/company-portal/accounts' },
+  { title: '通知管理', to: '/company-portal/notifications', icon: 'mdi-bell-outline' },
+  { title: 'アカウント管理', to: '/company-portal/accounts', icon: 'mdi-account-cog-outline' },
 ]
 </script>

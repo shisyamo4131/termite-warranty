@@ -94,7 +94,6 @@ const constructionCompanySeeds = Array.from({ length: 10 }, (_, offset) => {
     fax: `000-0001-${String(index).padStart(4, '0')}`,
     contactPerson: `デモ担当者${pad2(index)}`,
     contactDetails: '平日 9:00～17:00（デモ）',
-    email: `builder-${pad2(index)}@example.invalid`,
     notes: `デモ表示用の工務店${pad2(index)}です。`,
   })]
 })

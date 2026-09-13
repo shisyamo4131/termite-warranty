@@ -23,9 +23,9 @@ Postal code, prefecture, municipality, and street/town and number are required. 
 
 ## Construction-Company Address and Contact Details
 
-Construction-company addresses use the same five stored parts as property addresses. Postal code, prefecture, municipality, and street/town and number are required; building name is optional. Telephone, fax, contact person, contact details, email, and notes are optional free-text fields.
+Construction-company addresses use the same five stored parts as property addresses. Postal code, prefecture, municipality, and street/town and number are required; building name is optional. Telephone, fax, contact person, contact details, and notes are optional free-text fields. The construction-company master does not store an email address; the separately issued construction-company account owns its login email.
 
-The selected future postal-code API direction covers property and homeowner entry. Applying automatic lookup to construction-company entry, and detailed validation for telephone, fax, email, and other optional contact fields, remain open.
+The selected future postal-code API direction covers property and homeowner entry. Applying automatic lookup to construction-company entry, and detailed validation for telephone, fax, and other optional contact fields, remain open.
 
 ## Confirmed Postal-Code Data Direction
 

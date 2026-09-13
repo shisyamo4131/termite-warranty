@@ -130,14 +130,13 @@ service cloud.firestore {
     }
 
     function validCompany(data) {
-      return data.keys().hasOnly(['name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'email', 'notes', 'active', 'nameSearch', 'revision', 'createdAt', 'updatedAt'])
+      return data.keys().hasOnly(['name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'notes', 'active', 'nameSearch', 'revision', 'createdAt', 'updatedAt'])
         && nonBlankString(data.name)
         && validAddress(data.address)
         && nullableString(data.telephone)
         && nullableString(data.fax)
         && nullableString(data.contactPerson)
         && nullableString(data.contactDetails)
-        && nullableString(data.email)
         && nullableString(data.notes)
         && validNameSearch(data.nameSearch);
     }

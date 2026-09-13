@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, increment, onSnapshot, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
+import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
 import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
@@ -30,8 +30,12 @@ export interface ManagedMaster {
   fax?: string | null
   contactPerson?: string | null
   contactDetails?: string | null
-  email?: string | null
   notes?: string | null
+}
+
+export interface ConstructionCompanyAccountSummary {
+  email: string
+  enabled: boolean
 }
 
 const COLLECTION_BY_TYPE: Record<MasterType, string> = {
@@ -54,7 +58,6 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   fax: data.fax ?? null,
   contactPerson: data.contactPerson ?? null,
   contactDetails: data.contactDetails ?? null,
-  email: data.email ?? null,
   notes: data.notes ?? null,
 })
 
@@ -74,11 +77,58 @@ export function useMasterManagement(masterType: MasterType) {
     (snapshot) => onRow(snapshot.exists() ? asMaster(snapshot.id, snapshot.data()) : null),
     () => onError('マスターデータを読み込めませんでした。'),
   )
-  const subscribeCompanyProperties = (companyId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) => onSnapshot(
-    createBoundedListQuery(query(collection($firebase.firestore, 'properties'), where('constructionCompanyId', '==', companyId))),
+  const subscribeProperties = (field: 'constructionCompanyId' | 'homeownerId', id: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) => onSnapshot(
+    createBoundedListQuery(query(collection($firebase.firestore, 'properties'), where(field, '==', id))),
     (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
-    () => onError('紐づく物件を読み込めませんでした。'),
+    () => onError('関連する物件を読み込めませんでした。'),
   )
+  const subscribeCompanyProperties = (companyId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) =>
+    subscribeProperties('constructionCompanyId', companyId, onRows, onError)
+  const subscribeHomeownerProperties = (homeownerId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) =>
+    subscribeProperties('homeownerId', homeownerId, onRows, onError)
+  const subscribeConstructionCompanyAccount = (companyId: string, onRow: (row: ConstructionCompanyAccountSummary | null) => void, onError: (message: string) => void) => onSnapshot(
+    query(collection($firebase.firestore, 'constructionCompanyAccounts'), where('constructionCompanyId', '==', companyId), limit(1)),
+    (snapshot) => {
+      const data = snapshot.docs[0]?.data()
+      onRow(data ? { email: String(data.email ?? ''), enabled: data.enabled === true } : null)
+    },
+    () => onError('工務店アカウントを読み込めませんでした。'),
+  )
+  const subscribeWarrantyServiceProperties = (serviceId: string, onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void) => {
+    let generation = 0
+    let stopped = false
+    const unsubscribe = onSnapshot(
+      query(
+        collectionGroup($firebase.firestore, 'appliedWarranties'),
+        where('warrantyServiceId', '==', serviceId),
+        where('status', '==', 'active'),
+        orderBy('updatedAt', 'desc'),
+        orderBy(documentId(), 'desc'),
+        limit(20),
+      ),
+      async (snapshot) => {
+        const currentGeneration = ++generation
+        try {
+          const caseIds = [...new Set(snapshot.docs.map(item => item.ref.parent.parent?.id).filter((id): id is string => Boolean(id)))]
+          const caseSnapshots = await Promise.all(caseIds.map(id => getDoc(doc($firebase.firestore, 'cases', id))))
+          const propertyIds = [...new Set(caseSnapshots.flatMap((item) => {
+            const data = item.data()
+            return item.exists() && data?.status === 'active' && data.propertyId ? [String(data.propertyId)] : []
+          }))]
+          const propertySnapshots = await Promise.all(propertyIds.map(id => getDoc(doc($firebase.firestore, 'properties', id))))
+          const properties = propertySnapshots.flatMap((item) => {
+            const data = item.data()
+            return item.exists() && data?.active === true ? [asMaster(item.id, data)] : []
+          })
+          if (!stopped && currentGeneration === generation) onRows(properties)
+        } catch {
+          if (!stopped && currentGeneration === generation) onError('対象物件を読み込めませんでした。')
+        }
+      },
+      () => onError('対象物件を読み込めませんでした。'),
+    )
+    return () => { stopped = true; generation += 1; unsubscribe() }
+  }
   const subscribePropertyReferences = (homeownerId: string, companyId: string, onRows: (rows: { homeowner: ManagedMaster | null; company: ManagedMaster | null }) => void, onError: (message: string) => void) => {
     let homeowner: ManagedMaster | null = null; let company: ManagedMaster | null = null
     const emit = () => onRows({ homeowner, company })
@@ -102,6 +152,7 @@ export function useMasterManagement(masterType: MasterType) {
   const updateMaster = async (id: string, fields: MasterWriteFields) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
       ...normalizeMasterFields(masterType, fields),
+      ...(masterType === 'constructionCompany' ? { email: deleteField() } : {}),
       revision: increment(1),
       updatedAt: serverTimestamp(),
     })
@@ -128,5 +179,17 @@ export function useMasterManagement(masterType: MasterType) {
     }
   }
 
-  return { subscribe, subscribeById, subscribeCompanyProperties, subscribePropertyReferences, createMaster, updateMaster, setMasterActive, loadPropertyReferences }
+  return {
+    subscribe,
+    subscribeById,
+    subscribeCompanyProperties,
+    subscribeHomeownerProperties,
+    subscribeConstructionCompanyAccount,
+    subscribeWarrantyServiceProperties,
+    subscribePropertyReferences,
+    createMaster,
+    updateMaster,
+    setMasterActive,
+    loadPropertyReferences,
+  }
 }

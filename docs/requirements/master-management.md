@@ -26,8 +26,9 @@ These are provisional initial-release requirements. The overall data behavior re
 ## Required Construction-Company Fields
 
 - Construction-company name, postal code, prefecture, municipality, and street/town and number are required.
-- Building name, telephone, fax, contact person, contact details, email, and notes are optional.
-- No telephone, fax, or email format rule is currently specified. See [branches and addresses](branches-and-addresses.md).
+- Building name, telephone, fax, contact person, contact details, and notes are optional.
+- Email belongs to the separately issued construction-company account rather than the construction-company master. When an account exists, its email address is shown on the construction-company detail screen.
+- No telephone or fax format rule is currently specified. See [branches and addresses](branches-and-addresses.md).
 
 ## Required Entry Points
 
@@ -39,14 +40,16 @@ The case-registration flow is the expected primary business starting point.
 ## Confirmed Local Prototype Navigation
 
 - After login, the top page is the dashboard and business menus are presented in a Navigation Drawer.
-- The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties.
+- The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties. Every Navigation Drawer menu title has a suitable icon on its left.
 - Branch management remains an initial-release requirement but is outside this four-master increment.
 - In these screens, a delete action means reversible inactivation. No physical-delete control is provided.
 - Registration and editing forms for the four current masters open as dialogs from their respective registration and row-edit buttons.
 - The case-registration dialog can open the required four-master creation dialogs without discarding the unsaved case input. Branch creation remains outside this increment.
 - Each of the four current master lists links to a separate detail screen at `/masters/{master-type}/{id}`.  The detail screen has a fixed link back to its master list and its edit button opens the same dialog used by the list; it does not provide a separate edit form.
 - An inactive current master remains readable from its list and detail URL.  A missing master ID shows an in-app not-found message and a link back to the corresponding list; a read failure is shown separately from not-found.
-- A construction-company detail screen lists every property whose stored construction-company ID matches the company, including inactive properties, and each row links to that property's detail screen.
+- A construction-company detail screen lists every property whose stored construction-company ID matches the company, including inactive properties, under `担当物件`, and each row links to that property's detail screen.
+- A homeowner detail screen lists every property whose stored homeowner ID matches the homeowner, including inactive properties, under `所有物件`, and each row links to that property's detail screen.
+- A warranty-service detail screen lists up to 20 active property masters under `対象物件` when they are linked through both an active case and an active applied warranty for that service. Each row links to the property's detail screen.
 - A property detail screen shows its current homeowner and construction-company references as links when their records can be resolved.  Missing referenced records remain visibly unresolved rather than being inferred or recreated.
 
 ## Master Name Search

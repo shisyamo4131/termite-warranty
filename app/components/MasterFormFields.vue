@@ -30,7 +30,6 @@
       v-model:fax="form.fax"
       v-model:contact-person="form.contactPerson"
       v-model:contact-details="form.contactDetails"
-      v-model:email="form.email"
       v-model:notes="form.notes"
     />
   </template>

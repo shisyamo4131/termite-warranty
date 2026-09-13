@@ -8,6 +8,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   Timestamp,
+  deleteField,
   deleteDoc,
   doc,
   getDoc,
@@ -48,7 +49,7 @@ const masterMetadata = () => ({
 
 const companyData = (overrides = {}) => ({
   name: 'Test company', address: validAddress, telephone: null, fax: null,
-  contactPerson: null, contactDetails: null, email: null, notes: null,
+  contactPerson: null, contactDetails: null, notes: null,
   nameSearch: validNameSearch, ...masterMetadata(), ...overrides,
 })
 
@@ -379,12 +380,33 @@ describe('business document validation', () => {
     const disabled = contextFor('disabled-user')
     await assertFails(setDoc(doc(disabled, 'homeowners', 'denied'), homeownerData()))
     await assertFails(setDoc(doc(db, 'homeowners', 'extra'), { ...homeownerData(), unexpected: true }))
+    await assertFails(setDoc(doc(db, 'constructionCompanies', 'company-email'), companyData({ email: 'master-email@example.invalid' })))
     await assertSucceeds(setDoc(doc(db, 'homeowners', 'homeowner-1'), homeownerData()))
     await assertFails(updateDoc(doc(db, 'homeowners', 'homeowner-1'), { name: 'Bad revision', revision: 5, updatedAt: serverTimestamp() }))
     await assertFails(setDoc(doc(db, 'properties', 'bad-property'), {
       name: 'Bad property', homeownerId: 'homeowner-1', constructionCompanyId: 'missing',
       address: validAddress, nameSearch: validNameSearch, ...masterMetadata(),
     }))
+  })
+
+  test('a normal company edit removes a legacy master email field', async () => {
+    await seedStaff('enabled-user')
+    const legacyTimestamp = Timestamp.fromMillis(1_700_000_000_000)
+    await seedDocument('constructionCompanies/legacy-company-email', {
+      name: 'Legacy company', address: validAddress, telephone: null, fax: null,
+      contactPerson: null, contactDetails: null, email: 'legacy@example.invalid', notes: null,
+      nameSearch: validNameSearch, active: true, revision: 1,
+      createdAt: legacyTimestamp, updatedAt: legacyTimestamp,
+    })
+    const reference = doc(contextFor('enabled-user'), 'constructionCompanies', 'legacy-company-email')
+    await assertSucceeds(updateDoc(reference, {
+      name: 'Edited company', address: validAddress, telephone: null, fax: null,
+      contactPerson: null, contactDetails: null, email: deleteField(), notes: null,
+      nameSearch: validNameSearch, revision: increment(1), updatedAt: serverTimestamp(),
+    }))
+    const stored = (await getDoc(reference)).data()
+    assert.equal(stored?.email, undefined)
+    assert.equal(stored?.revision, 2)
   })
 
   test('legacy company and homeowner records support lifecycle-only writes without field mutation', async () => {

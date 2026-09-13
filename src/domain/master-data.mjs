@@ -10,7 +10,7 @@ export const MASTER_TYPES = Object.freeze({
 const MASTER_TYPE_VALUES = Object.freeze(Object.values(MASTER_TYPES))
 const BASE_FIELDS = Object.freeze(['name'])
 const CONSTRUCTION_COMPANY_FIELDS = Object.freeze([
-  'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'email', 'notes',
+  'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'notes',
 ])
 const HOMEOWNER_FIELDS = Object.freeze(['name', 'address', 'telephone', 'fax', 'notes'])
 const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address'])
@@ -116,7 +116,6 @@ export function normalizeMasterFields(masterType, fields) {
       fax: nullableText(fields.fax, 'Fax'),
       contactPerson: nullableText(fields.contactPerson, 'Contact person'),
       contactDetails: nullableText(fields.contactDetails, 'Contact details'),
-      email: nullableText(fields.email, 'Email'),
       notes: nullableText(fields.notes, 'Notes'),
       nameSearch: createNameSearch(name),
     }

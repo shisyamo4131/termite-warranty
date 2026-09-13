@@ -39,7 +39,7 @@
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">TEL</div><div class="detail-field-value">{{ row.telephone || '—' }}</div></v-col>
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">FAX</div><div class="detail-field-value">{{ row.fax || '—' }}</div></v-col>
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">担当者</div><div class="detail-field-value">{{ row.contactPerson || '—' }}</div></v-col>
-          <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">メール</div><div class="detail-field-value">{{ row.email || '—' }}</div></v-col>
+          <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">アカウントのメールアドレス</div><div class="detail-field-value">{{ companyAccount?.email || 'アカウント未発行' }}</div></v-col>
           <v-col cols="12" class="detail-field px-1"><div class="detail-field-label">連絡先</div><div class="detail-field-value">{{ row.contactDetails || '—' }}</div></v-col>
           <v-col cols="12" class="detail-field px-1"><div class="detail-field-label">備考</div><div class="detail-field-value">{{ row.notes || '—' }}</div></v-col>
         </template>
@@ -51,10 +51,10 @@
       </v-row>
     </section>
 
-    <section v-if="masterType === 'constructionCompany'" class="mt-6">
-      <h2 class="detail-section-title mb-2">紐づく物件</h2>
-      <div class="text-caption mb-2">更新日時が新しい20件まで表示します。</div>
-      <v-table><tbody><tr v-for="property in properties" :key="property.id"><td><NuxtLink :to="`/masters/properties/${property.id}`">{{ property.name }}</NuxtLink></td><td class="text-right">{{ property.active ? '有効' : '無効' }}</td></tr><tr v-if="!properties.length"><td colspan="2">紐づく物件はありません。</td></tr></tbody></v-table>
+    <section v-if="propertySectionTitle" class="mt-6">
+      <h2 class="detail-section-title mb-2">{{ propertySectionTitle }}</h2>
+      <div class="text-caption mb-2">{{ propertySectionCaption }}</div>
+      <v-table><tbody><tr v-for="property in properties" :key="property.id"><td><NuxtLink :to="`/masters/properties/${property.id}`">{{ property.name }}</NuxtLink></td><td class="text-right">{{ property.active ? '有効' : '無効' }}</td></tr><tr v-if="!properties.length"><td colspan="2">{{ propertySectionTitle }}はありません。</td></tr></tbody></v-table>
     </section>
   </template>
 
@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ManagedMaster, MasterType } from '../composables/useMasterManagement'
+import type { ConstructionCompanyAccountSummary, ManagedMaster, MasterType } from '../composables/useMasterManagement'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
 const route = useRoute()
@@ -73,18 +73,32 @@ const properties = ref<ManagedMaster[]>([])
 const message = ref('')
 const loaded = ref(false)
 const editOpen = ref(false)
+const companyAccount = ref<ConstructionCompanyAccountSummary | null>(null)
 const references = reactive<{ homeowner: ManagedMaster | null; company: ManagedMaster | null }>({ homeowner: null, company: null })
-const { subscribeById, subscribeCompanyProperties, subscribePropertyReferences } = useMasterManagement(props.masterType)
+const {
+  subscribeById,
+  subscribeCompanyProperties,
+  subscribeHomeownerProperties,
+  subscribeConstructionCompanyAccount,
+  subscribeWarrantyServiceProperties,
+  subscribePropertyReferences,
+} = useMasterManagement(props.masterType)
 const segments = { constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }
 const listPath = `/masters/${segments[props.masterType]}`
 const address = computed(() => [row.value?.address?.prefecture, row.value?.address?.municipality, row.value?.address?.streetTownAndNumber, row.value?.address?.buildingName].filter(Boolean).join(''))
+const propertySectionLabels: Record<MasterType, string> = { constructionCompany: '担当物件', homeowner: '所有物件', warrantyService: '対象物件', property: '' }
+const propertySectionTitle = computed(() => propertySectionLabels[props.masterType])
+const propertySectionCaption = computed(() => props.masterType === 'warrantyService'
+  ? '現在有効な案件・適用保証・物件のうち、更新日時が新しい20件まで表示します。'
+  : '更新日時が新しい20件まで表示します。')
 
 let unsub: (() => void) | undefined
 let propertyUnsub: (() => void) | undefined
+let accountUnsub: (() => void) | undefined
 let referenceUnsubscribes: Array<() => void> = []
-const stop = () => { unsub?.(); propertyUnsub?.(); referenceUnsubscribes.forEach(unsubscribe => unsubscribe()); unsub = undefined; propertyUnsub = undefined; referenceUnsubscribes = [] }
+const stop = () => { unsub?.(); propertyUnsub?.(); accountUnsub?.(); referenceUnsubscribes.forEach(unsubscribe => unsubscribe()); unsub = undefined; propertyUnsub = undefined; accountUnsub = undefined; referenceUnsubscribes = [] }
 const start = (id: string) => {
-  stop(); row.value = null; properties.value = []; references.homeowner = null; references.company = null; message.value = ''; loaded.value = false
+  stop(); row.value = null; properties.value = []; companyAccount.value = null; references.homeowner = null; references.company = null; message.value = ''; loaded.value = false
   unsub = subscribeById(id, value => {
     row.value = value; loaded.value = true
     if (props.masterType === 'property' && value) {
@@ -92,7 +106,12 @@ const start = (id: string) => {
       if (value.homeownerId && value.constructionCompanyId) referenceUnsubscribes = subscribePropertyReferences(value.homeownerId, value.constructionCompanyId, value => Object.assign(references, value), error => { message.value = error })
     }
   }, error => { message.value = error; loaded.value = true })
-  if (props.masterType === 'constructionCompany') propertyUnsub = subscribeCompanyProperties(id, value => { properties.value = value }, error => { message.value = error })
+  if (props.masterType === 'constructionCompany') {
+    propertyUnsub = subscribeCompanyProperties(id, value => { properties.value = value }, error => { message.value = error })
+    accountUnsub = subscribeConstructionCompanyAccount(id, value => { companyAccount.value = value }, error => { message.value = error })
+  }
+  if (props.masterType === 'homeowner') propertyUnsub = subscribeHomeownerProperties(id, value => { properties.value = value }, error => { message.value = error })
+  if (props.masterType === 'warrantyService') propertyUnsub = subscribeWarrantyServiceProperties(id, value => { properties.value = value }, error => { message.value = error })
 }
 onMounted(() => start(String(route.params.id)))
 watch(() => route.params.id, id => start(String(id)))

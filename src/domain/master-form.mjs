@@ -39,7 +39,6 @@ export function createMasterFormDraft(masterType, row = null) {
       fax: row?.fax ?? '',
       contactPerson: row?.contactPerson ?? '',
       contactDetails: row?.contactDetails ?? '',
-      email: row?.email ?? '',
       notes: row?.notes ?? '',
     }
   }
@@ -84,7 +83,6 @@ export function masterFormDraftToFields(form) {
       fax: nullable(form.fax),
       contactPerson: nullable(form.contactPerson),
       contactDetails: nullable(form.contactDetails),
-      email: nullable(form.email),
       notes: nullable(form.notes),
     }
   }

@@ -40,7 +40,7 @@ test('construction-company address and optional contact fields normalize into th
       streetTownAndNumber: ' 千代田1-1 ', buildingName: ' ',
     },
     telephone: ' 03-1234-5678 ', fax: '', contactPerson: null,
-    contactDetails: ' 営業時間内 ', email: ' info@example.invalid ', notes: ' ',
+    contactDetails: ' 営業時間内 ', notes: ' ',
   })
   assert.deepEqual(result, {
     name: '工務店',
@@ -49,7 +49,7 @@ test('construction-company address and optional contact fields normalize into th
       streetTownAndNumber: '千代田1-1', buildingName: null,
     },
     telephone: '03-1234-5678', fax: null, contactPerson: null,
-    contactDetails: '営業時間内', email: 'info@example.invalid', notes: null,
+    contactDetails: '営業時間内', notes: null,
     nameSearch: createNameSearch('工務店'),
   })
 })
@@ -128,8 +128,14 @@ test('construction-company payload requires the complete declared shape', () => 
   assert.throws(() => normalizeMasterFields('constructionCompany', {
     name: '工務店',
     address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1', buildingName: null },
-    telephone: null, fax: null, contactPerson: null, contactDetails: null, email: null, notes: null,
+    telephone: null, fax: null, contactPerson: null, contactDetails: null, notes: null,
     unsupported: null,
+  }), MasterDataError)
+  assert.throws(() => normalizeMasterFields('constructionCompany', {
+    name: '工務店',
+    address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1', buildingName: null },
+    telephone: null, fax: null, contactPerson: null, contactDetails: null, notes: null,
+    email: 'master-email@example.invalid',
   }), MasterDataError)
 })
 
@@ -143,7 +149,7 @@ test('master form drafts initialize independently for every master type', () => 
     ['constructionCompany', {
       masterType: 'constructionCompany', name: '',
       address: { postalCode: '', prefecture: '', municipality: '', streetTownAndNumber: '', buildingName: '' },
-      telephone: '', fax: '', contactPerson: '', contactDetails: '', email: '', notes: '',
+      telephone: '', fax: '', contactPerson: '', contactDetails: '', notes: '',
     }],
     ['homeowner', {
       masterType: 'homeowner', name: '',
@@ -175,10 +181,10 @@ test('master form drafts restore stored rows into editable values', () => {
     }],
     ['constructionCompany', {
       name: '工務店', address, telephone: null, fax: '03', contactPerson: null,
-      contactDetails: '担当窓口', email: null, notes: '備考',
+      contactDetails: '担当窓口', notes: '備考',
     }, {
       masterType: 'constructionCompany', name: '工務店', address: { ...address, buildingName: '' },
-      telephone: '', fax: '03', contactPerson: '', contactDetails: '担当窓口', email: '', notes: '備考',
+      telephone: '', fax: '03', contactPerson: '', contactDetails: '担当窓口', notes: '備考',
     }],
     ['homeowner', { name: '施主', address, telephone: null, fax: null, notes: null }, {
       masterType: 'homeowner', name: '施主', address: { ...address, buildingName: '' },
@@ -208,10 +214,10 @@ test('master form mapper emits the exact write payload for every master type', (
     }],
     ['constructionCompany', {
       masterType: 'constructionCompany', name: ' 工務店 ', address,
-      telephone: '', fax: ' 03 ', contactPerson: '', contactDetails: ' 窓口 ', email: '', notes: '',
+      telephone: '', fax: ' 03 ', contactPerson: '', contactDetails: ' 窓口 ', notes: '',
     }, {
       name: ' 工務店 ', address: { ...address, buildingName: null },
-      telephone: null, fax: ' 03 ', contactPerson: null, contactDetails: ' 窓口 ', email: null, notes: null,
+      telephone: null, fax: ' 03 ', contactPerson: null, contactDetails: ' 窓口 ', notes: null,
     }],
     ['homeowner', {
       masterType: 'homeowner', name: ' 施主 ', address, telephone: '', fax: ' 03 ', notes: '',
@@ -288,7 +294,7 @@ test('master entry submission adapters execute payload and success contracts', a
       streetTownAndNumber: '1-1', buildingName: null,
     },
     telephone: null, fax: '03', contactPerson: '担当者', contactDetails: null,
-    email: 'info@example.invalid', notes: null,
+    notes: null,
   })
   let listFields
   let listCompleted = false
@@ -358,4 +364,29 @@ test('shared master form declares each type-specific section once', async () => 
     assert.equal(source.match(new RegExp(`<${component}\\b`, 'g'))?.length, component === 'MasterAddressFields' ? 3 : 1)
   }
   assert.match(source, /step="1"/)
+})
+
+test('master details expose the confirmed linked-property labels and account-owned company email', async () => {
+  const detail = await readProjectFile('app/components/MasterDetail.vue')
+  const repository = await readProjectFile('app/composables/useMasterManagement.ts')
+  const layout = await readProjectFile('app/layouts/default.vue')
+  const indexes = await readProjectFile('firestore.indexes.json')
+  const companyFields = await readProjectFile('app/components/MasterConstructionCompanyContactFields.vue')
+
+  for (const label of ['担当物件', '所有物件', '対象物件', 'アカウントのメールアドレス']) {
+    assert.match(detail, new RegExp(label))
+  }
+  assert.match(repository, /collectionGroup\(\$firebase\.firestore, 'appliedWarranties'\)/)
+  assert.match(repository, /where\('status', '==', 'active'\)/)
+  assert.match(repository, /data\?\.status === 'active'/)
+  assert.match(repository, /data\?\.active === true/)
+  assert.match(repository, /constructionCompanyAccounts/)
+  assert.match(repository, /email: deleteField\(\)/)
+  assert.doesNotMatch(companyFields, /メールアドレス|v-model="email"/)
+  assert.match(indexes, /"collectionGroup": "appliedWarranties"/)
+  assert.match(indexes, /"fieldPath": "homeownerId"/)
+  assert.equal((layout.match(/prepend-icon/g) ?? []).length >= 3, true)
+  for (const title of ['ダッシュボード', '案件一覧', '工務店', '施主', '保証サービス', '物件', '通知管理', 'アカウント管理']) {
+    assert.match(layout, new RegExp(`title: '${title}'.*icon:`))
+  }
 })
