@@ -420,3 +420,19 @@ test('transient operation results use the shared application snackbar', async ()
   assert.match(login, /showSnackbar\('パスワード設定・再設定メールを送信しました。/)
   assert.doesNotMatch(login, /successMessage/)
 })
+
+test('password setup and reset use the same-site Japanese action handler', async () => {
+  const [app, session, actionPage] = await Promise.all([
+    readProjectFile('app/app.vue'),
+    readProjectFile('app/composables/useSession.ts'),
+    readProjectFile('app/pages/auth/action.vue'),
+  ])
+
+  assert.match(app, /route\.path === '\/auth\/action'/)
+  assert.match(session, /auth\.languageCode = 'ja'/)
+  assert.match(actionPage, /verifyPasswordResetCode/)
+  assert.match(actionPage, /confirmPasswordReset/)
+  assert.equal((actionPage.match(/autocomplete="new-password"/g) ?? []).length, 2)
+  assert.match(actionPage, /route\.query\.mode !== 'resetPassword'/)
+  assert.match(actionPage, /有効期限が切れています/)
+})

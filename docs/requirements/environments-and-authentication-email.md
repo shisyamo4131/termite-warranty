@@ -12,7 +12,7 @@
 
 ## Confirmed Authentication-Email Requirements
 
-- Password-setup and password-reset messages use Firebase Authentication's standard email-delivery configuration in the initial release. Do not introduce custom SMTP, a custom sender domain, or a custom reply address merely to use the developer-designated Gmail address.
+- Password-setup and password-reset messages use Firebase Authentication's standard email-delivery configuration in the initial release. Their action link opens the Japanese `/auth/action` page on the same application origin, where the Firebase one-time code is verified and the new password is confirmed. Do not introduce custom SMTP, a custom sender domain, or a custom reply address merely to use the developer-designated Gmail address.
 - The developer-owned Firebase project's contract identity is a Gmail address. This does not by itself establish the actual `From` value of Firebase Authentication messages; verify the rendered message in the development environment before production release.
 - A custom sender identity, including the previous `株式会社AIR` display-name request, is deferred and may be introduced later.
 - Firebase Console manual creation is accepted for the initial developer-superuser bootstrap. It must create a Firebase Authentication email/password user and a matching enabled staff-account record with the `developer superuser` role; then use the Console's password-reset email to let the developer set the password. Custom claims are not required for this bootstrap.
@@ -25,9 +25,9 @@
 - Password setup/reset is self-service so access restoration does not wait for a House Solution administrator. House Solution retains account issue, disable, and re-enable authority.
 - Business-workflow email delivery is not configured. The proposal prototype writes synthetic `queued` outbox records without a real recipient for House Solution notifications and with the configured company account email for company notifications. Delivery, retry, sender identity, bounce handling, and monitoring remain unimplemented.
 
-## Implementation Constraint — Open Decision
+## Implementation Constraint — Remaining Open Decision
 
-Firebase Authentication supports configurable email templates and custom domains for authentication emails. A custom Gmail sender may require a supported custom SMTP or custom email-delivery implementation; its feasibility, credentials, delivery security, and operating cost are deferred. Revisit this only when a custom sender identity is again required.
+The same-site password action handler is accepted in [ADR 0024](../decisions/0024-same-site-password-action-handler.md). A custom Gmail sender may require a supported custom SMTP or custom email-delivery implementation; its feasibility, credentials, delivery security, and operating cost remain deferred. Revisit sender customization only when a custom sender identity is again required.
 
 ## Migration Intake — Provisional Requirement
 

@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-13
-- Specification version: 0.1.11
+- Specification version: 0.1.12
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -29,7 +29,7 @@ Provide House Solution Co., Ltd. with a management system for a new termite-warr
 
 Staff roles are `developer superuser`, `House Solution administrator`, and `general staff`. The proposal prototype also has one shared `construction company` account per construction company. Detailed permissions are described in the provisional [security and access posture](requirements/security-and-access.md).
 
-Staff sign in with Firebase Authentication email/password using browser-session persistence. A closed browser window clears the authentication state, so the next access requires login again. The developer superuser creates, edits, and disables House Solution administrator accounts only; House Solution administrators create, edit, and disable general-staff accounts. For a general-staff account, an administrator can edit email address, display name, and enabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, an administrator may select only roles other than `House Solution administrator` and `developer superuser`. Staff can reset their passwords. Account creation sends a password-setup email; email-address verification is not an initial-release requirement. Disabled accounts must become unusable immediately, including an existing signed-in session. The initial developer-superuser account is bootstrapped manually in Firebase Console without custom claims, by creating matching Firebase Authentication and enabled staff-account records.
+Staff sign in with Firebase Authentication email/password using browser-session persistence. A closed browser window clears the authentication state, so the next access requires login again. The developer superuser creates, edits, and disables House Solution administrator accounts only; House Solution administrators create, edit, and disable general-staff accounts. For a general-staff account, an administrator can edit email address, display name, and enabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, an administrator may select only roles other than `House Solution administrator` and `developer superuser`. Staff can reset their passwords. Account creation sends a password-setup email through Firebase's standard delivery, and its action opens a Japanese password page on the same application origin; email-address verification is not an initial-release requirement. Disabled accounts must become unusable immediately, including an existing signed-in session. The initial developer-superuser account is bootstrapped manually in Firebase Console without custom claims, by creating matching Firebase Authentication and enabled staff-account records.
 
 For the proposal prototype, a House Solution administrator issues and disables one shared account per construction company. The construction company sets and resets its own password through Firebase Authentication email. The account is server-bound to exactly one construction-company master and cannot access staff screens or another company's work items. Authentication identifies the company, not the individual operator; each response therefore requires the current contact person's name and email address.
 
@@ -54,7 +54,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 ### Provisional Construction-Company Portal Prototype
 
 - A House Solution administrator issues, disables, and re-enables one shared Firebase Authentication account per construction company. Self-sign-up is not provided.
-- The construction company sets or resets its own password from the login screen. House Solution does not select or handle the password.
+- The construction company requests password setup or reset from the login screen and completes it on the Japanese `/auth/action` page under the same application origin. House Solution does not select or handle the password.
 - A company account is associated with one construction-company ID on the server. The client cannot select or override that identity.
 - Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype.
 - A construction company can submit a new-case request. Its generated work-item ID is reserved as the future case ID so approval preserves a one-to-one relationship.

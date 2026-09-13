@@ -35,6 +35,7 @@
 | [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
 | [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Accepted | 2026-09-12 |
 | [0023](0023-construction-company-portal-prototype.md) | Construction-company portal proposal prototype | Provisional | 2026-09-13 |
+| [0024](0024-same-site-password-action-handler.md) | Same-site password action handler | Accepted | 2026-09-13 |
 
 ## Template
 

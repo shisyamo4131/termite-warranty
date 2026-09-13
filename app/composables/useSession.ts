@@ -95,6 +95,7 @@ export function useSession() {
 
   const logout = () => signOut($firebase.auth)
   const resetPassword = async (email: string) => {
+    $firebase.auth.languageCode = 'ja'
     await sendPasswordResetEmail($firebase.auth, email)
   }
 
