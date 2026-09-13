@@ -39,8 +39,8 @@ The case-registration flow is the expected primary business starting point.
 
 ## Confirmed Local Prototype Navigation
 
-- After login, the top page is the dashboard and business menus are presented in a Navigation Drawer.
-- The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties. Every Navigation Drawer menu title has a suitable icon on its left.
+- After login, the top page is the dashboard and business menus are presented in a Navigation Drawer that is initially closed.
+- The current local increment has separate management entries for construction companies, homeowners, warranty services, and properties. Every Navigation Drawer menu title has a suitable icon on its left, with compact icon-to-title spacing so the title remains readable.
 - Branch management remains an initial-release requirement but is outside this four-master increment.
 - In these screens, a delete action means reversible inactivation. No physical-delete control is provided.
 - Registration and editing forms for the four current masters open as dialogs from their respective registration and row-edit buttons.

@@ -385,6 +385,8 @@ test('master details expose the confirmed linked-property labels and account-own
   assert.doesNotMatch(companyFields, /メールアドレス|v-model="email"/)
   assert.match(indexes, /"collectionGroup": "appliedWarranties"/)
   assert.match(indexes, /"fieldPath": "homeownerId"/)
+  assert.match(layout, /<v-list nav slim>/)
+  assert.match(layout, /const drawer = ref\(false\)/)
   assert.equal((layout.match(/prepend-icon/g) ?? []).length >= 3, true)
   for (const title of ['ダッシュボード', '案件一覧', '工務店', '施主', '保証サービス', '物件', '通知管理', 'アカウント管理']) {
     assert.match(layout, new RegExp(`title: '${title}'.*icon:`))

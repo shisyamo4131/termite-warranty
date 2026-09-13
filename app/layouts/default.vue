@@ -1,6 +1,6 @@
 <template>
   <v-navigation-drawer v-model="drawer" color="surface">
-    <v-list nav>
+    <v-list nav slim>
       <v-list-item
         v-for="item in primaryMenuItems"
         :key="item.to"
@@ -40,7 +40,7 @@
 </template>
 
 <script setup lang="ts">
-const drawer = ref(true)
+const drawer = ref(false)
 const route = useRoute()
 const { profile, logout } = useSession()
 const primaryMenuItems = computed(() => [
