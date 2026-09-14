@@ -26,10 +26,13 @@ export interface CaseQuerySource {
 
 export const createFirestoreCaseQuerySource = (firestore: Firestore): CaseQuerySource => ({
   subscribeMaster(name, onDocuments, onError, cursor, complete = false) {
+    const masterQuery = complete
+      ? name === 'branches'
+        ? collection(firestore, name)
+        : createOrderedListQuery(collection(firestore, name))
+      : createBoundedListQuery(collection(firestore, name), cursor)
     return onSnapshot(
-      complete
-        ? createOrderedListQuery(collection(firestore, name))
-        : createBoundedListQuery(collection(firestore, name), cursor),
+      masterQuery,
       snapshot => onDocuments(documentsFromSnapshot(snapshot.docs)),
       onError,
     )

@@ -298,6 +298,11 @@ test('filtered case list reads complete ordered collections and skips exact-refe
   stop()
 })
 
+test('filtered case lists read timestamp-free branches without an updatedAt ordering constraint', async () => {
+  const source = await readProjectFile('app/repositories/firestoreCaseQuerySource.ts')
+  assert.match(source, /complete\s*\?\s*name === 'branches'\s*\? collection\(firestore, name\)\s*:\s*createOrderedListQuery/)
+})
+
 test('case list replaces exact-reference generations and ignores their late callbacks', () => {
   const source = new FakeCaseQuerySource()
   const states = []

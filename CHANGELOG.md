@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Added a manual, development-only seed for 25 internally consistent fictional construction-company, homeowner, property, and case records so filtered lists can verify results beyond 20; upgraded GitHub Actions dependencies to their Node.js 24-based current majors.
+- Kept timestamp-free branch names visible when a case filter switches the list to complete-collection mode.
 
 - Added 20-record pagination and total counts for complete filtered case/master results, added role-bounded House Solution staff-account management, and limited warranty-service short names to six displayed characters.
 
