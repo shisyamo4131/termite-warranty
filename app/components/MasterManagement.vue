@@ -39,28 +39,13 @@
           @show-detail="handleTableDetail"
           @change-active="handleTableActiveChange"
         />
-        <v-table v-else class="list-data-table" fixed-header>
-          <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
-          <tbody>
-            <tr v-for="row in visibleRows" :key="row.id">
-              <td>
-                {{ row.name }}
-                <div v-if="masterType === 'warrantyService'" class="text-caption d-flex ga-1">
-                  <span>{{ row.type === 'insurance' ? '保険' : '保証' }}</span><span>/</span><span class="warranty-short-name">{{ row.shortName }}</span><span>/ {{ row.defaultPeriodYears }}年</span>
-                </div>
-              </td>
-              <td v-if="hasAddress">{{ formatAddress(row) }}</td>
-              <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
-              <td>
-                <v-btn size="small" variant="text" :to="`/masters/${routeSegment}/${row.id}`">詳細</v-btn>
-                <v-btn size="small" variant="text" :aria-label="row.active ? `${row.name}を無効化` : `${row.name}を再有効化`" @click="toggle(row)">
-                  {{ row.active ? '無効化' : '再有効化' }}
-                </v-btn>
-              </td>
-            </tr>
-            <tr v-if="filteredRows.length === 0"><td :colspan="hasAddress ? 4 : 3" class="text-center py-8">該当するマスターはありません。</td></tr>
-          </tbody>
-        </v-table>
+        <WarrantyServiceTable
+          v-else
+          :items="visibleRows"
+          :loading="loading"
+          @show-detail="handleTableDetail"
+          @change-active="handleTableActiveChange"
+        />
         <div v-if="hasSearchCondition && filteredRows.length" class="list-pagination-bar">
           <span class="text-body-2 text-medium-emphasis">該当 {{ filteredRows.length }}件</span>
           <v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" density="comfortable" />
@@ -116,7 +101,6 @@ const cancelPostalLookup = () => masterFormFields.value?.cancelPostalLookup()
 
 const form = ref<MasterFormDraft>(createMasterFormDraft(props.masterType))
 const manager = useMasterManagement(props.masterType)
-const hasAddress = computed(() => props.masterType === 'property' || props.masterType === 'constructionCompany' || props.masterType === 'homeowner')
 const routeSegment = computed(() => ({ constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }[props.masterType]))
 const usesIndexedSearch = computed(() => props.masterType !== 'warrantyService')
 const normalizedFilter = computed(() => normalizeSearchText(filter.value ?? ''))
@@ -198,13 +182,6 @@ const handleTableActiveChange = async ({ id, nextActive }: { id: string; nextAct
   if (!row || row.active === nextActive) return
   await toggle(row)
 }
-
-const formatAddress = (row: ManagedMaster) => [
-  row.address?.prefecture,
-  row.address?.municipality,
-  row.address?.streetTownAndNumber,
-  row.address?.buildingName,
-].filter(Boolean).join('')
 
 let unsubscribe: (() => void) | undefined
 let subscriptionTimer: ReturnType<typeof setTimeout> | undefined

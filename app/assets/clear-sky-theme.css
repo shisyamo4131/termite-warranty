@@ -159,13 +159,6 @@ html {
   background: #fff;
 }
 
-.warranty-short-name {
-  max-width: 8em;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 @media (max-width: 599px) {
   .list-pagination-bar {
     align-items: flex-start;
