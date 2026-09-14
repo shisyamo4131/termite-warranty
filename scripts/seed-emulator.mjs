@@ -120,6 +120,7 @@ const propertySeeds = Array.from({ length: 30 }, (_, offset) => {
   return [firestore.doc(`properties/${seedId('demo-property', index)}`), withSearch(`デモ物件${pad2(index)}`, {
     homeownerId: seedId('demo-homeowner', homeownerIndex),
     constructionCompanyId: seedId('demo-builder', companyIndex),
+    buildingAreaSquareMeters: 80 + index + (index % 3) * 0.25,
     address: {
       postalCode,
       prefecture,
@@ -137,6 +138,7 @@ const warrantyServiceSeeds = warrantyPeriods.map((defaultPeriodYears, offset) =>
   return [firestore.doc(`warrantyServices/${seedId('demo-warranty', index)}`), {
     name: `デモ保証サービス${pad2(index)}（${defaultPeriodYears}年）`,
     shortName: `デモ保証${pad2(index)}`,
+    type: index % 2 === 0 ? 'insurance' : 'warranty',
     defaultPeriodYears,
     notes: `デモ表示用の保証サービス${pad2(index)}です。`,
     active: true,
@@ -284,6 +286,8 @@ if (!(await renewalWorkItemRef.get()).exists) {
     revision: 1,
     submittedAt: null,
     approvedAt: null,
+    withdrawnAt: null,
+    withdrawalReason: null,
     createdAt: now,
     updatedAt: now,
   })

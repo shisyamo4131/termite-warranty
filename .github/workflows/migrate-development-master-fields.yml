@@ -1,0 +1,33 @@
+name: Migrate Firebase development master fields
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Backfill demo master fields in termite-warranty-dev
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npx --yes npm@11.19.1 ci
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
+
+      - name: Backfill development-only demo values
+        run: node scripts/migrate-development-master-fields.mjs --apply --confirm=termite-warranty-dev

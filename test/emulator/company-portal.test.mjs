@@ -25,9 +25,9 @@ const call = (name, data = {}) => httpsCallable(functions, name)(data).then(resu
 const signIn = email => signInWithEmailAndPassword(auth, email, password)
 
 const newCaseResponse = {
-  contactName: '申請担当者', contactEmail: 'contact@example.invalid', requestedPeriodYears: 5, notes: '新規申請',
+  contactName: '申請担当者', requestedPeriodYears: 5, notes: '新規申請',
   applicationDate: '2026-09-01', handoverDate: '2026-09-02', warrantyStartDate: '2026-09-03',
-  homeownerName: '申請施主', propertyName: '申請物件',
+  homeownerName: '申請施主', propertyName: '申請物件', buildingAreaSquareMeters: 92.75,
   propertyAddress: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null },
 }
 
@@ -106,7 +106,7 @@ test('renewal task stays one-to-one with its case and approval adds the selected
   await call('updateCompanyCaseWorkItem', {
     id: 'case-1', expectedRevision: 1, submit: true,
     response: {
-      contactName: '更改担当者', contactEmail: 'renewal@example.invalid', requestedPeriodYears: 5,
+      contactName: '更改担当者', requestedPeriodYears: 5,
       renewalDecision: 'renew', warrantyStartDate: '2026-09-03', notes: null,
     },
   })
@@ -122,6 +122,7 @@ test('renewal task stays one-to-one with its case and approval adds the selected
     adminDb.doc('cases/case-1').get(),
   ])
   assert.equal(workItem.data()?.status, 'approved')
+  assert.equal(workItem.data()?.response?.contactEmail, 'portal-company@example.invalid')
   assert.equal(warranties.size, 2)
   assert.equal(caseSnapshot.data()?.listProjection?.appliedWarranties?.length, 2)
   assert.equal((await adminDb.collection('notificationOutbox').get()).size, 3)
@@ -139,14 +140,17 @@ test('new-case approval creates the case and its approved work item can be reuse
   await call('reviewCompanyCaseWorkItem', {
     id: submitted.id, expectedRevision: 1, action: 'approve', branchId: 'branch-1', warrantyServiceId: 'service-5',
   })
-  const [createdCase, approvedItem] = await Promise.all([
+  const [createdCase, approvedItem, createdProperties] = await Promise.all([
     adminDb.doc(`cases/${submitted.id}`).get(), adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get(),
+    adminDb.collection('properties').where('name', '==', '申請物件').get(),
   ])
   assert.equal(createdCase.exists, true)
   assert.equal(createdCase.data()?.constructionCompanyId, 'company-1')
   assert.equal(createdCase.data()?.caseNumber, '000002')
   assert.equal(approvedItem.data()?.status, 'approved')
   assert.equal(approvedItem.data()?.caseNumber, '000002')
+  assert.equal(approvedItem.data()?.response?.contactEmail, 'portal-company@example.invalid')
+  assert.equal(createdProperties.docs[0]?.data()?.buildingAreaSquareMeters, 92.75)
 
   await call('createRenewalWorkItem', { caseId: submitted.id })
   const renewalItem = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
@@ -165,6 +169,23 @@ test('a construction-company account cannot update another company work item', a
   await signIn('portal-company@example.invalid')
   await assert.rejects(call('updateCompanyCaseWorkItem', {
     id: 'other-company-case', expectedRevision: 1, submit: true,
-    response: { contactName: '担当', contactEmail: 'contact@example.invalid', requestedPeriodYears: 5, renewalDecision: 'renew', warrantyStartDate: '2026-09-03', notes: null },
+    response: { contactName: '担当', requestedPeriodYears: 5, renewalDecision: 'renew', warrantyStartDate: '2026-09-03', notes: null },
   }), error => error?.code === 'functions/not-found')
+})
+
+test('a construction company can withdraw its unapproved new case without deleting its audit record', async () => {
+  await signIn('portal-company@example.invalid')
+  const submitted = await call('createNewCaseWorkItem', { response: newCaseResponse, submit: true })
+  const result = await call('withdrawNewCaseWorkItem', { id: submitted.id, expectedRevision: 1, reason: '入力内容を見直すため' })
+  assert.equal(result.status, 'withdrawn')
+  const snapshot = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
+  assert.equal(snapshot.exists, true)
+  assert.equal(snapshot.data()?.status, 'withdrawn')
+  assert.equal(snapshot.data()?.withdrawalReason, '入力内容を見直すため')
+  assert.equal(snapshot.data()?.revision, 2)
+  assert.equal((await adminDb.collection('notificationOutbox').get()).size, 2)
+  await assert.rejects(
+    call('updateCompanyCaseWorkItem', { id: submitted.id, expectedRevision: 2, response: newCaseResponse, submit: true }),
+    error => error?.code === 'functions/failed-precondition',
+  )
 })

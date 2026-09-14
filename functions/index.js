@@ -14,6 +14,7 @@ import {
   reviewCompanyCaseWorkItemOperation,
   setConstructionCompanyAccountEnabledOperation,
   updateCompanyCaseWorkItemOperation,
+  withdrawNewCaseWorkItemOperation,
 } from './company-portal.js'
 import {
   StaffAccountError,
@@ -71,6 +72,8 @@ export const createNewCaseWorkItem = companyPortalCallable(request =>
   createNewCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
 export const updateCompanyCaseWorkItem = companyPortalCallable(request =>
   updateCompanyCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
+export const withdrawNewCaseWorkItem = companyPortalCallable(request =>
+  withdrawNewCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
 export const reviewCompanyCaseWorkItem = companyPortalCallable(request =>
   reviewCompanyCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
 

@@ -29,13 +29,15 @@ The staff navigation groups this feature under `工務店管理ポータル`, wi
 - New case: the generated work-item ID is stored as `caseId` and becomes the registered `cases/{caseId}` ID on approval.
 - Editable states are `awaiting_response`, `draft`, and `needs_correction`.
 - Company submission moves to `submitted`; only staff can then move it to `needs_correction` or `approved`.
+- A company may move its own `new_case` work item from `draft`, `submitted`, or `needs_correction` to terminal `withdrawn` with a required reason. The record is retained and cannot be reopened; an already approved request uses case cancellation instead.
 - Every mutable command compares a safe positive integer revision. A stale revision is rejected.
 - This prototype intentionally supports one current portal work item per case. It can recycle an approved item for another renewal cycle, but does not retain prior portal-response cycles; repeat-cycle history is an HSC-013 production decision.
 
 ## Registered-Data Promotion
 
 - A renewal approval adds an applied warranty using an active warranty-service master whose default period matches the requested five or ten years, rebuilds the parent projection, updates the parent timestamp, and approves the work item in one transaction.
-- A new-case approval selects the responsible branch and matching warranty service, creates homeowner/property masters, reserves the next case number, creates the case under the reserved work-item ID, creates its first applied warranty, and approves the work item in one transaction.
+- A new-case response includes the property's required building area. Its contact email is derived by the trusted server from the authenticated shared account. A new-case approval selects the responsible branch and matching warranty service, creates homeowner/property masters, reserves the next case number, creates the case under the reserved work-item ID, creates its first applied warranty, and approves the work item in one transaction.
+- The handover date initially fills the warranty start date while the start date remains blank or auto-filled; a manual start-date change is retained.
 - Declining renewal can be approved as a terminal company response without changing the case.
 
 ## Email Boundary

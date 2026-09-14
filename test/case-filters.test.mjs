@@ -8,7 +8,7 @@ const row = (overrides = {}) => ({
   propertyPrefecture: '東京都', propertyMunicipality: '千代田区',
   appliedWarranties: [{
     id: 'warranty-1', warrantyServiceId: 'service-1',
-    notificationStatus: 'not notified', expiryDate: '2031-09-09', status: 'active',
+    warrantyServiceType: 'warranty', notificationStatus: 'not notified', expiryDate: '2031-09-09', status: 'active',
   }],
   ...overrides,
 })
@@ -42,7 +42,7 @@ test('each case filter is exact and clearing all filters preserves order', () =>
     propertyPrefecture: '大阪府', propertyMunicipality: '大阪市',
     appliedWarranties: [{
       id: 'warranty-2', warrantyServiceId: 'service-2',
-      notificationStatus: 'notified', expiryDate: '2031-09-08', status: 'active',
+      warrantyServiceType: 'insurance', notificationStatus: 'notified', expiryDate: '2031-09-08', status: 'active',
     }],
   })]
   assert.deepEqual(filterCaseRows(rows, {}).map(({ id }) => id), ['case-1', 'case-2'])
@@ -50,7 +50,7 @@ test('each case filter is exact and clearing all filters preserves order', () =>
     caseNumber: ['000001', '00001'], homeownerId: ['homeowner-1', 'homeowner-x'],
     propertyId: ['property-1', 'property-x'], constructionCompanyId: ['company-1', 'company-x'],
     responsibleBranchId: ['branch-1', 'branch-x'], prefecture: ['東京都', '福岡県'],
-    municipality: ['千代田区', '福岡市'], warrantyServiceId: ['service-1', 'service-x'],
+    municipality: ['千代田区', '福岡市'], warrantyServiceId: ['service-1', 'service-x'], warrantyServiceType: ['warranty', 'other'],
     notificationStatus: ['not notified', 'not required'], expiryDate: ['2031-09-09', '2031-09-07'],
   }
   for (const [name, [matching, missing]] of Object.entries(filters)) {
@@ -64,20 +64,20 @@ test('all filled case filters are ANDed', () => {
   assert.deepEqual(filterCaseRows(rows, {
     caseNumber: '000001', homeownerId: 'homeowner-1', propertyId: 'property-1',
     constructionCompanyId: 'company-1', responsibleBranchId: 'branch-1',
-    prefecture: '東京都', municipality: '千代田区', warrantyServiceId: 'service-1',
+    prefecture: '東京都', municipality: '千代田区', warrantyServiceId: 'service-1', warrantyServiceType: 'warranty',
     notificationStatus: 'not notified', expiryDate: '2031-09-09',
   }).map(({ id }) => id), ['case-1'])
 })
 
 test('service, notification, and expiry must match the same applied warranty', () => {
   const split = row({ appliedWarranties: [
-    { id: 'w-1', warrantyServiceId: 'service-1', notificationStatus: 'notified', expiryDate: '2031-09-09' },
-    { id: 'w-2', warrantyServiceId: 'service-2', notificationStatus: 'not notified', expiryDate: '2031-09-09' },
+    { id: 'w-1', warrantyServiceId: 'service-1', warrantyServiceType: 'warranty', notificationStatus: 'notified', expiryDate: '2031-09-09' },
+    { id: 'w-2', warrantyServiceId: 'service-2', warrantyServiceType: 'insurance', notificationStatus: 'not notified', expiryDate: '2031-09-09' },
   ] })
   assert.deepEqual(filterCaseRows([split], {
     warrantyServiceId: 'service-1', notificationStatus: 'not notified', expiryDate: '2031-09-09',
   }), [])
   assert.deepEqual(filterCaseRows([split], {
-    warrantyServiceId: 'service-2', notificationStatus: 'not notified', expiryDate: '2031-09-09',
+    warrantyServiceId: 'service-2', warrantyServiceType: 'insurance', notificationStatus: 'not notified', expiryDate: '2031-09-09',
   }).map(({ id }) => id), ['case-1'])
 })

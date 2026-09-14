@@ -15,6 +15,7 @@ The search/list view must filter registered cases by:
 - Property address: prefecture and municipality
 - Responsible branch (master-record selection)
 - Warranty-service name (master-record selection)
+- Warranty-service type (`保証` or `保険`)
 - Expiry date
 - Notification status
 
@@ -23,6 +24,8 @@ The case list shows a `not notified` marker when at least one applied warranty o
 For an expiry-date filter, return a case when at least one of its applied warranties meets the date condition.
 
 For a notification-status filter, return a case when at least one of its applied warranties matches the selected status.
+
+When warranty-service, warranty-service type, expiry-date, or notification-status conditions are combined, the same applied warranty must satisfy all of those conditions.
 
 ## Alert Emphasis
 

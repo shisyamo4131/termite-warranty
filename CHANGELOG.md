@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added required property building area, required warranty-service type, case filtering by warranty-service type, and development-only backfill defaults.
+- Aligned staff and construction-company new-case dates with protected handover-to-warranty-start auto-fill, derived the portal response email from the authenticated company account, and added retained pre-approval new-case withdrawal.
+- Recorded deterioration countermeasure grade and grade-based warranty limits as HSC-034 and deferred prototype implementation.
+
 - Added a manual, development-only seed for 25 internally consistent fictional construction-company, homeowner, property, and case records so filtered lists can verify results beyond 20; upgraded GitHub Actions dependencies to their Node.js 24-based current majors.
 - Kept timestamp-free branch names visible when a case filter switches the list to complete-collection mode.
 

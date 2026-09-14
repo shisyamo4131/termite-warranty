@@ -16,7 +16,7 @@
         <v-btn color="primary" @click="openNewRequest">新規案件を申請</v-btn>
       </div>
 
-      <v-alert type="info" variant="tonal" class="mb-4">
+      <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
         このプロトタイプでは、メール通知は送信待ちキューの記録までを行います。実メールは送信しません。
       </v-alert>
       <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
@@ -52,6 +52,12 @@
                 variant="text"
                 @click="openExisting(item)"
               >入力・確認</v-btn>
+              <v-btn
+                v-if="canWithdraw(item)"
+                color="error"
+                variant="text"
+                @click="openWithdrawal(item)"
+              >取り下げ</v-btn>
             </v-card-actions>
           </v-card>
         </v-col>
@@ -68,7 +74,6 @@
       <v-card-text>
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
         <v-text-field v-model="form.contactName" label="今回の担当者名" required />
-        <v-text-field v-model="form.contactEmail" label="連絡先メールアドレス" type="email" required />
 
         <template v-if="editingItem?.kind === 'renewal'">
           <v-radio-group v-model="form.renewalDecision" label="更改のご意向" inline>
@@ -80,18 +85,19 @@
         <template v-if="editingItem?.kind !== 'renewal'">
           <v-text-field v-model="form.homeownerName" label="施主名" required />
           <v-text-field v-model="form.propertyName" label="物件名" required />
+          <v-text-field v-model.number="form.buildingAreaSquareMeters" label="建築面積（㎡）" type="number" min="0.01" step="0.01" required />
           <v-text-field v-model="form.postalCode" label="郵便番号" required />
           <v-text-field v-model="form.prefecture" label="都道府県" required />
           <v-text-field v-model="form.municipality" label="市区町村" required />
           <v-text-field v-model="form.streetTownAndNumber" label="町名番地" required />
           <v-text-field v-model="form.buildingName" label="建物名（任意）" />
-          <v-text-field v-model="form.applicationDate" label="申込日（YYYY-MM-DD）" required />
-          <v-text-field v-model="form.handoverDate" label="引渡日（YYYY-MM-DD）" required />
+          <v-date-input v-model="applicationDate" label="申込日" prepend-icon="" required />
+          <v-date-input v-model="handoverDate" label="引渡日" prepend-icon="" required />
         </template>
 
         <template v-if="editingItem?.kind !== 'renewal' || form.renewalDecision === 'renew'">
           <v-select v-model="form.requestedPeriodYears" :items="[5, 10]" label="希望保証期間（年）" required />
-          <v-text-field v-model="form.warrantyStartDate" label="保証開始日（YYYY-MM-DD）" required />
+          <v-date-input v-model="warrantyStartDate" label="保証開始日" prepend-icon="" required />
         </template>
         <v-textarea v-model="form.notes" label="連絡事項（任意）" rows="3" />
       </v-card-text>
@@ -103,11 +109,26 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <v-dialog v-model="withdrawalDialog" max-width="560" persistent>
+    <v-card title="新規案件申請を取り下げる">
+      <v-card-text>
+        <p class="mb-4">取下げ後は再開できません。必要な場合は新しい申請を作成してください。</p>
+        <v-textarea v-model="withdrawalReason" label="取下げ理由" rows="3" required />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn :disabled="saving" @click="withdrawalDialog = false">キャンセル</v-btn>
+        <v-btn color="error" :loading="saving" @click="withdrawRequest">取り下げる</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
 import { collection, documentId, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
 import type { CompanyAccountProfile, CompanyCaseWorkItem, NewCaseWorkItemInput, WorkItemResponse } from '../types/company-portal.ts'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 
 const { $firebase } = useNuxtApp()
 const { profile, logout } = useSession()
@@ -120,6 +141,9 @@ const dialog = ref(false)
 const dialogMessage = ref('')
 const saving = ref(false)
 const editingItem = ref<CompanyCaseWorkItem | null>(null)
+const withdrawalDialog = ref(false)
+const withdrawalItem = ref<CompanyCaseWorkItem | null>(null)
+const withdrawalReason = ref('')
 let unsubscribe: (() => void) | undefined
 
 const companyProfile = computed(() => profile.value?.accountType === 'construction_company'
@@ -129,9 +153,9 @@ const sortedItems = computed(() => [...items.value].sort((left, right) =>
   (right.updatedAt?.toMillis?.() ?? 0) - (left.updatedAt?.toMillis?.() ?? 0)))
 
 const emptyForm = () => ({
-  contactName: '', contactEmail: companyProfile.value?.email ?? '', requestedPeriodYears: 5 as 5 | 10,
+  contactName: '', requestedPeriodYears: 5 as 5 | 10,
   notes: '', renewalDecision: 'renew' as 'renew' | 'decline', warrantyStartDate: '',
-  applicationDate: '', handoverDate: '', homeownerName: '', propertyName: '',
+  applicationDate: '', handoverDate: '', homeownerName: '', propertyName: '', buildingAreaSquareMeters: null as number | null,
   postalCode: '', prefecture: '', municipality: '', streetTownAndNumber: '', buildingName: '',
 })
 const form = reactive(emptyForm())
@@ -139,12 +163,27 @@ const form = reactive(emptyForm())
 const statusLabel = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: '回答待ち', draft: '下書き', submitted: '確認待ち',
   needs_correction: '差戻し', approved: '本登録済み',
+  withdrawn: '取下げ',
 }[status])
 const statusColor = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: 'warning', draft: 'info', submitted: 'primary',
   needs_correction: 'error', approved: 'success',
+  withdrawn: 'default',
 }[status])
 const editable = (item: CompanyCaseWorkItem) => ['awaiting_response', 'draft', 'needs_correction'].includes(item.status)
+const canWithdraw = (item: CompanyCaseWorkItem) => item.kind === 'new_case' && ['draft', 'submitted', 'needs_correction'].includes(item.status)
+const applicationDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.applicationDate),
+  set: value => { form.applicationDate = formatCanonicalLocalDate(value) },
+})
+const handoverDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.handoverDate),
+  set: value => { form.handoverDate = formatCanonicalLocalDate(value) },
+})
+const warrantyStartDate = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(form.warrantyStartDate),
+  set: value => { form.warrantyStartDate = formatCanonicalLocalDate(value) },
+})
 
 const startSubscription = () => {
   if (!companyProfile.value) return
@@ -196,7 +235,6 @@ const openExisting = (item: CompanyCaseWorkItem) => {
 const responseFromForm = (): WorkItemResponse => {
   const common = {
     contactName: form.contactName,
-    contactEmail: form.contactEmail,
     requestedPeriodYears: form.requestedPeriodYears,
     notes: form.notes || null,
   }
@@ -212,12 +250,42 @@ const responseFromForm = (): WorkItemResponse => {
     warrantyStartDate: form.warrantyStartDate,
     homeownerName: form.homeownerName,
     propertyName: form.propertyName,
+    buildingAreaSquareMeters: Number(form.buildingAreaSquareMeters),
     propertyAddress: {
       postalCode: form.postalCode, prefecture: form.prefecture, municipality: form.municipality,
       streetTownAndNumber: form.streetTownAndNumber, buildingName: form.buildingName || null,
     },
   }
 }
+
+const openWithdrawal = (item: CompanyCaseWorkItem) => {
+  withdrawalItem.value = item
+  withdrawalReason.value = ''
+  withdrawalDialog.value = true
+}
+
+const withdrawRequest = async () => {
+  if (!withdrawalItem.value) return
+  saving.value = true
+  try {
+    await gateway.withdrawNewCaseWorkItem({
+      id: withdrawalItem.value.id,
+      expectedRevision: withdrawalItem.value.revision,
+      reason: withdrawalReason.value,
+    })
+    withdrawalDialog.value = false
+    showSnackbar('新規案件申請を取り下げました。', 'success')
+  } catch (error) {
+    showSnackbar(error instanceof Error ? error.message : '申請を取り下げできませんでした。', 'error')
+  } finally {
+    saving.value = false
+  }
+}
+
+watch(() => form.handoverDate, (value, previous) => {
+  if (editingItem.value?.kind === 'renewal') return
+  if (!form.warrantyStartDate || form.warrantyStartDate === previous) form.warrantyStartDate = value
+})
 
 const save = async (submit: boolean) => {
   saving.value = true

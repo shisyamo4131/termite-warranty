@@ -1,6 +1,6 @@
 import type { Timestamp } from 'firebase/firestore'
 
-export type CompanyWorkItemStatus = 'awaiting_response' | 'draft' | 'submitted' | 'needs_correction' | 'approved'
+export type CompanyWorkItemStatus = 'awaiting_response' | 'draft' | 'submitted' | 'needs_correction' | 'approved' | 'withdrawn'
 
 export interface CompanyAccountProfile {
   accountType: 'construction_company'
@@ -25,7 +25,7 @@ export type SessionProfile = StaffAccountProfile | CompanyAccountProfile
 
 export interface WorkItemResponse {
   contactName: string
-  contactEmail: string
+  contactEmail?: string
   requestedPeriodYears: 5 | 10
   notes: string | null
   renewalDecision?: 'renew' | 'decline'
@@ -34,6 +34,7 @@ export interface WorkItemResponse {
   warrantyStartDate?: string | null
   homeownerName?: string
   propertyName?: string
+  buildingAreaSquareMeters?: number
   propertyAddress?: {
     postalCode: string
     prefecture: string
@@ -58,13 +59,14 @@ export interface CompanyCaseWorkItem {
   revision: number
   submittedAt: Timestamp | null
   approvedAt: Timestamp | null
+  withdrawnAt?: Timestamp | null
+  withdrawalReason?: string | null
   createdAt: Timestamp
   updatedAt: Timestamp
 }
 
 export interface NewCaseWorkItemInput {
   contactName: string
-  contactEmail: string
   requestedPeriodYears: 5 | 10
   notes: string | null
   applicationDate: string
@@ -72,6 +74,7 @@ export interface NewCaseWorkItemInput {
   warrantyStartDate: string
   homeownerName: string
   propertyName: string
+  buildingAreaSquareMeters: number
   propertyAddress: {
     postalCode: string
     prefecture: string

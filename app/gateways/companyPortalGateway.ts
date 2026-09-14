@@ -16,6 +16,8 @@ export const createCompanyPortalGateway = (invoker: CompanyPortalInvoker) => ({
     invoker.invoke<{ response: NewCaseWorkItemInput; submit: boolean }, { id: string }>('createNewCaseWorkItem', { response, submit }),
   updateWorkItem: (input: { id: string; expectedRevision: number; response: WorkItemResponse; submit: boolean }) =>
     invoker.invoke<typeof input, { id: string; status: string }>('updateCompanyCaseWorkItem', input),
+  withdrawNewCaseWorkItem: (input: { id: string; expectedRevision: number; reason: string }) =>
+    invoker.invoke<typeof input, { id: string; status: 'withdrawn' }>('withdrawNewCaseWorkItem', input),
   reviewWorkItem: (input: {
     id: string
     expectedRevision: number

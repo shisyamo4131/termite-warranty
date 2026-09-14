@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-14
-- Specification version: 0.1.14
+- Specification version: 0.1.15
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -31,7 +31,7 @@ Staff roles are `developer superuser`, `House Solution administrator`, and `gene
 
 Staff sign in with Firebase Authentication email/password using browser-session persistence. A closed browser window clears the authentication state, so the next access requires login again. The developer superuser creates, edits, and disables House Solution administrator accounts only; House Solution administrators create, edit, and disable general-staff accounts. For a general-staff account, an administrator can edit email address, display name, and enabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, an administrator may select only roles other than `House Solution administrator` and `developer superuser`. Staff can reset their passwords. Account creation sends a password-setup email through Firebase's standard delivery, and its action opens a Japanese password page on the same application origin; email-address verification is not an initial-release requirement. Disabled accounts must become unusable immediately, including an existing signed-in session. The initial developer-superuser account is bootstrapped manually in Firebase Console without custom claims, by creating matching Firebase Authentication and enabled staff-account records.
 
-For the proposal prototype, a House Solution administrator issues and disables one shared account per construction company. The construction company sets and resets its own password through Firebase Authentication email. The account is server-bound to exactly one construction-company master and cannot access staff screens or another company's work items. Authentication identifies the company, not the individual operator; each response therefore requires the current contact person's name and email address.
+For the proposal prototype, a House Solution administrator issues and disables one shared account per construction company. The construction company sets and resets its own password through Firebase Authentication email. The account is server-bound to exactly one construction-company master and cannot access staff screens or another company's work items. Authentication identifies the company, not the individual operator; each response therefore requires the current contact person's name, while its email is derived from the authenticated shared account on the trusted server.
 
 ## Scope
 
@@ -50,6 +50,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 
 - The construction-company portal is approved as a proposal prototype, not yet accepted by House Solution for production operation.
 - File attachment is not included in the initial release.
+- Deterioration countermeasure grade, its change history, and any grade-based warranty limit are deferred under HSC-034 and are not implemented in the prototype.
 
 ### Provisional Construction-Company Portal Prototype
 
@@ -58,10 +59,11 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - A company account is associated with one construction-company ID on the server. The client cannot select or override that identity.
 - Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype. If that record is already approved, the next renewal request reinitializes the same record with a higher revision; an unfinished record still blocks duplicate creation.
 - A construction company can submit a new-case request. Its generated work-item ID is reserved as the future case ID so approval preserves a one-to-one relationship.
+- A construction company can withdraw its own unapproved new-case request from `draft`, `submitted`, or `needs correction`. Withdrawal requires a reason, retains the work item as an audit record, and cannot be reopened. An approved request uses the registered case cancellation flow instead.
 - A company can view and update only its own work items. It may edit only while the state is `awaiting response`, `draft`, or `needs correction`; submission locks editing until staff returns the item.
 - Basic conflict protection consists of a revision check, one current item per case, approved-record-only reinitialization, valid state transitions, and submission locking. Collaborative editing is not included.
 - After submission, House Solution staff either approve and atomically reflect the response in registered data or return it with a reason.
-- Authentication records the company account. The response separately records the current contact person's self-declared name and email.
+- Authentication records the company account. The response records the current contact person's self-declared name and the shared-account email derived by the trusted server; the company does not enter an email in the response form.
 - The prototype creates durable queued-email records for renewal creation, company submission, return, and approval. It does not connect to an email-delivery provider or claim delivery.
 
 ## Environment and Boundaries
@@ -71,7 +73,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 
 ## Functional Requirements
 
-- Warranty services have types and may have different warranty periods.
+- A warranty-service type is required and is either `保証` or `保険`. Warranty services may have different warranty periods.
 - The system must show an on-screen alert when an applied warranty service is 30 days from expiry.
 - An alert remains visible through expiry even when notification status is `notified`. The case list visually marks an active case when any of its applied warranties is alert eligible, and the dashboard lists that case.
 - Staff perform the actual customer notification at this stage. For each applied warranty, staff select notification status from `not notified`, `notified`, and `not required` through a combobox. The values and transitions may be changed later if operations require it.
@@ -81,8 +83,8 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - A case itself does not hold warranty-period or case-wide expiry-date information. Alert eligibility is determined from its applied warranties.
 - Each applied warranty holds a warranty start date. Calculate its initial expiry date as the day before the anniversary reached by adding its whole-year warranty period to that start date. Staff can manually correct the calculated expiry date.
 - If an initial enrolment date is needed, calculate it as the oldest warranty start date among active applied warranties; do not store it on the case.
-- The initial search/list view must filter by homeowner name, property address, construction-company name, warranty-service name, expiry date, and notification status. An expiry-date filter returns a case when at least one of its applied warranties matches the date condition.
-- A property has a required property name. The case list is narrowed by selecting construction-company, homeowner, and property master records; it does not directly free-text-search their names. Property address is narrowed by prefecture and municipality. Responsible branch and warranty service are also filtered by selecting master records.
+- The initial search/list view must filter by homeowner name, property address, construction-company name, warranty-service name, warranty-service type, expiry date, and notification status. Warranty-service, type, expiry-date, and notification conditions must match the same applied warranty.
+- A property has a required property name and a required building area in square metres with at most two decimal places. The case list is narrowed by selecting construction-company, homeowner, and property master records; it does not directly free-text-search their names. Property address is narrowed by prefecture and municipality. Responsible branch and warranty service are also filtered by selecting master records.
 - The initial case list and dashboard use one row per case. They need not display warranty-period or expiry-date information; an alert-eligible case must be visually identifiable. Applied-warranty details are viewed on the case detail screen.
 - With no search or filter value, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp, using document ID as a stable tie-breaker. When at least one search or filter condition is specified, the current prototype reads the complete corresponding collection in the same freshness order, filters all matching records, and presents them in 20-record pages with the total count. Changing an applied condition returns the list to page one. The unbounded path is permitted only while a condition is active; unfiltered full-collection and per-parent child-listener fallbacks remain prohibited. Case year/month semantics remain unresolved under HSC-032.
 - The case-list filter controls open in a dialog. Editing dialog values does not change the list until the user applies them; the dialog provides an initialization action that clears every draft condition.
@@ -107,6 +109,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - An applied warranty can independently be set to `cancelled` or `invalid`, without physically deleting it. This requires a free-text reason, cannot be restored to active, and makes that applied warranty ineligible for alerts.
 - A case remains active even when it has no active applied warranties.
 - Case registration requires an application date, handover date, property, homeowner, construction company, responsible branch, and at least one applied warranty service. Application date and handover date are required case-level business dates. No ordering rule between them is currently specified. Each applied warranty separately requires a warranty start date and has an automatically calculated expiry date that staff may manually correct.
+- In both staff case registration and construction-company new-case submission, entering or changing the handover date fills the warranty start date when it is blank or still contains the previously auto-filled handover date. A manually changed warranty start date is not overwritten.
 - Each case carries its responsible House Solution branch. Construction companies, homeowners, and properties do not carry a responsible-branch reference.
 - A case holds homeowner, construction-company, and property IDs. Selecting a property during registration, or changing it while the case is active, initially applies that property's current homeowner and construction-company IDs. Staff can then change either case reference before saving. Construction-company and homeowner names, and the property name and address, are displayed from their masters and follow subsequent master changes; they are not stored as case snapshots.
 - A property's homeowner and construction-company references remain editable after the property has been used by a case. Changing either property reference changes only the property and does not rewrite any existing case, regardless of case status.
@@ -115,7 +118,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
 - A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, and notes are optional. Email does not belong to the construction-company master; when a company account exists, the construction-company detail screen displays that account's email address.
 - A homeowner name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, and notes are optional.
-- A property name, postal code, prefecture, municipality, and street/town and number are required property fields. Building name is optional.
+- A property name, building area, postal code, prefecture, municipality, and street/town and number are required property fields. Building area is a positive square-metre value with at most two decimal places. Building name is optional.
 - Property and homeowner addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen and normalizes the stored value. Automatic lookup is a future API integration in the local prototype; until its API agreement and credentials are available, staff enter or correct the address manually.
 - Postal-code address lookup uses Google Maps Platform Geocoding API. Restrict lookup to Japan and the entered postal code, parse typed address components rather than the formatted-address string, and keep the provider behind a replaceable application boundary. For multiple locality or town-area candidates, auto-fill only values that can be resolved unambiguously and let staff select or enter the remaining street/town and number. Where the API has no reliable match, allow staff to enter the address manually. When lookup fails, show an address-lookup failure message, retain existing input, and allow manual entry and saving. Staff may correct auto-filled values. Billing, project/key ownership, quota, restrictions, availability, and detailed response mapping remain open under HSC-017.
 - The current FileMaker service receives new-enrolment and renewal information through a web form in a simply authenticated shared member page; the form sends email that staff manually process. This is context only: that member page does not meet the new service's requirements and is not reused.

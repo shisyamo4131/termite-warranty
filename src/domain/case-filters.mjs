@@ -22,13 +22,14 @@ export function filterCaseRows(rows, rawFilters = {}) {
     constructionCompanyId: stringValue(rawFilters.constructionCompanyId),
     responsibleBranchId: stringValue(rawFilters.responsibleBranchId),
     warrantyServiceId: stringValue(rawFilters.warrantyServiceId),
+    warrantyServiceType: stringValue(rawFilters.warrantyServiceType),
     prefecture: stringValue(rawFilters.prefecture),
     municipality: stringValue(rawFilters.municipality),
     notificationStatus: stringValue(rawFilters.notificationStatus),
     expiryDate: stringValue(rawFilters.expiryDate),
   }
   const hasWarrantyFilter = Boolean(
-    filters.warrantyServiceId || filters.notificationStatus || filters.expiryDate,
+    filters.warrantyServiceId || filters.warrantyServiceType || filters.notificationStatus || filters.expiryDate,
   )
 
   return rows.filter((row) => {
@@ -43,6 +44,7 @@ export function filterCaseRows(rows, rawFilters = {}) {
 
     return (row.appliedWarranties ?? []).some((warranty) =>
       (!filters.warrantyServiceId || warranty.warrantyServiceId === filters.warrantyServiceId)
+      && (!filters.warrantyServiceType || warranty.warrantyServiceType === filters.warrantyServiceType)
       && (!filters.notificationStatus || warranty.notificationStatus === filters.notificationStatus)
       && (!filters.expiryDate || warranty.expiryDate === filters.expiryDate),
     )

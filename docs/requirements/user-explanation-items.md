@@ -27,3 +27,18 @@
 - Explain both behaviors together so users understand why master saves normally proceed while case-related saves may require reopening and retrying.
 - Demonstrate two-user examples before production acceptance.
 - If either conflict policy changes, update the authoritative requirement or ADR, this checklist, UI messages, and concurrency tests together.
+
+## Construction Company Portal
+
+### New-case date assistance
+
+- When a construction company enters a handover date for a new case, the warranty start date is filled with the same date while the warranty start date is blank or still matches the previous handover date.
+- A manually changed warranty start date is preserved when the handover date is changed again.
+
+### New-case withdrawal
+
+- A construction company can withdraw only its own new-case work item while it is draft, submitted, or returned for correction.
+- A withdrawal reason is required. The work item is retained with the reason and cannot be edited or reopened by the construction company.
+- Withdrawing a submitted or returned item creates a House Solution-side notification; withdrawing a draft does not send that notification.
+- An approved case is outside this withdrawal flow and follows the separate case-cancellation procedure.
+- Authority: [workflow requirements](workflow.md) and [construction-company portal design](../design/construction-company-portal-prototype.md).

@@ -48,6 +48,9 @@ export function projectCaseRows({ cases, warranties, masters, today }) {
         periodYears: Number(warranty.periodYears ?? 0),
         startDate: String(warranty.startDate ?? ''),
         warrantyServiceName: String(lookup('warrantyServices', warranty.warrantyServiceId).name ?? '—'),
+        warrantyServiceType: ['warranty', 'insurance'].includes(lookup('warrantyServices', warranty.warrantyServiceId).type)
+          ? lookup('warrantyServices', warranty.warrantyServiceId).type
+          : '',
       })),
       hasNotNotified: applied.some((warranty) => warranty.notificationStatus === 'not notified'),
       isAlertEligible: applied.some((warranty) => isAlertEligible({

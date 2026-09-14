@@ -9,7 +9,7 @@
         </v-card-title>
         <v-card-text>
           <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-          <v-alert type="info" density="compact" variant="tonal" class="mb-4">
+          <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
             {{ hasSearchCondition ? `全件から絞り込み、該当${filteredRows.length}件を20件ずつ表示しています。` : '更新日時が新しい20件を表示しています。' }}
           </v-alert>
           <v-text-field
@@ -39,7 +39,7 @@
               <td>
                 {{ row.name }}
                 <div v-if="masterType === 'warrantyService'" class="text-caption d-flex ga-1">
-                  <span class="warranty-short-name">{{ row.shortName }}</span><span>/ {{ row.defaultPeriodYears }}年</span>
+                  <span>{{ row.type === 'insurance' ? '保険' : '保証' }}</span><span>/</span><span class="warranty-short-name">{{ row.shortName }}</span><span>/ {{ row.defaultPeriodYears }}年</span>
                 </div>
               </td>
               <td v-if="hasAddress">{{ formatAddress(row) }}</td>

@@ -7,7 +7,7 @@ These records support the current [specification](../specification.md). They are
 | [Business context](business-context.md) | Organization, product, and domain terms | HSC-011–013, HSC-031 |
 | [Workflow](workflow.md) | Current email entry and desired provisional-registration flow | HSC-003, HSC-005, HSC-013, HSC-028 |
 | [External submission options](external-submission-options.md) | Deferred form submission and its unapproved alternatives | HSC-013 |
-| [Initial data model](initial-data-model.md) | Provisional entities, fields, and notification-state requirement | HSC-001, HSC-003–004, HSC-009–010, HSC-014–015, HSC-019, HSC-029 |
+| [Initial data model](initial-data-model.md) | Provisional entities, fields, and notification-state requirement | HSC-001, HSC-003–004, HSC-009–010, HSC-014–015, HSC-019, HSC-029, HSC-034 |
 | [Search and list](search-and-list.md) | Initial-release filters | HSC-007, HSC-026 |
 | [Search architecture](search-architecture.md) | Adopted prototype search behavior and remaining production design criteria | HSC-022–023, HSC-026 |
 | [Master management](master-management.md) | Separate master screens and case-registration creation flow | HSC-008–009, HSC-019 |

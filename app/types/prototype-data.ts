@@ -8,6 +8,8 @@ export interface MasterOption {
   constructionCompanyId?: string
   defaultPeriodYears?: number
   shortName?: string
+  type?: 'warranty' | 'insurance'
+  buildingAreaSquareMeters?: number
   notes?: string | null
   address?: {
     postalCode?: string
@@ -46,6 +48,7 @@ export interface AppliedWarrantyRow {
   periodYears: number
   startDate: string
   warrantyServiceName: string
+  warrantyServiceType: 'warranty' | 'insurance' | ''
 }
 
 export interface CaseRow {
@@ -95,6 +98,7 @@ export interface CaseFilters {
   constructionCompanyId: string | null
   responsibleBranchId: string | null
   warrantyServiceId: string | null
+  warrantyServiceType: 'warranty' | 'insurance' | null
   prefecture: string | null
   municipality: string | null
   notificationStatus: string | null

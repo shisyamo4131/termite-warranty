@@ -30,6 +30,15 @@ const requestedPeriod = value => {
   if (![5, 10].includes(period)) fail('invalid-argument', '保証期間は5年または10年を選択してください。')
   return period
 }
+const buildingArea = value => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    fail('invalid-argument', '建築面積は0より大きい数値で入力してください。')
+  }
+  if (Math.abs(value * 100 - Math.round(value * 100)) > 1e-8) {
+    fail('invalid-argument', '建築面積は小数点以下2桁までで入力してください。')
+  }
+  return value
+}
 const requiredRevision = value => {
   if (!Number.isSafeInteger(value) || value < 1) fail('invalid-argument', '更新番号が不正です。')
   return value
@@ -76,10 +85,10 @@ const assertCompanyAccount = async (firestore, uid) => {
   return { uid, ...account }
 }
 
-const validateResponse = (kind, value) => {
+const validateResponse = (kind, value, accountEmail) => {
   const common = {
     contactName: text(value?.contactName, '今回の担当者名を入力してください。'),
-    contactEmail: email(value?.contactEmail, '連絡先メールアドレスを正しく入力してください。'),
+    contactEmail: email(accountEmail, '工務店アカウントのメールアドレスを確認できません。'),
     requestedPeriodYears: requestedPeriod(value?.requestedPeriodYears),
     notes: nullableText(value?.notes),
   }
@@ -102,6 +111,7 @@ const validateResponse = (kind, value) => {
     warrantyStartDate: canonicalDate(value?.warrantyStartDate, '保証開始日を正しく入力してください。'),
     homeownerName: text(value?.homeownerName, '施主名を入力してください。'),
     propertyName: text(value?.propertyName, '物件名を入力してください。'),
+    buildingAreaSquareMeters: buildingArea(value?.buildingAreaSquareMeters),
     propertyAddress: validateAddress(value?.propertyAddress),
   }
 }
@@ -226,7 +236,7 @@ export async function createRenewalWorkItemOperation(firestore, input, actorUid)
 
 export async function createNewCaseWorkItemOperation(firestore, input, actorUid) {
   const account = await assertCompanyAccount(firestore, actorUid)
-  const response = validateResponse('new_case', input?.response)
+  const response = validateResponse('new_case', input?.response, account.email)
   const submit = input?.submit === true
   const ref = firestore.collection('constructionCompanyCaseWorkItems').doc()
   return firestore.runTransaction(async transaction => {
@@ -244,6 +254,8 @@ export async function createNewCaseWorkItemOperation(firestore, input, actorUid)
       revision: 1,
       submittedAt: submit ? FieldValue.serverTimestamp() : null,
       approvedAt: null,
+      withdrawnAt: null,
+      withdrawalReason: null,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     })
@@ -266,7 +278,7 @@ export async function updateCompanyCaseWorkItemOperation(firestore, input, actor
     if (!snapshot.exists || current?.constructionCompanyId !== account.constructionCompanyId) fail('not-found', '対象データが見つかりません。')
     if (!['awaiting_response', 'draft', 'needs_correction'].includes(current.status)) fail('failed-precondition', '現在の状態では更新できません。')
     if (current.revision !== expectedRevision) fail('aborted', 'データが更新されています。最新の内容を確認してください。')
-    const response = validateResponse(current.kind, input?.response)
+    const response = validateResponse(current.kind, input?.response, account.email)
     transaction.update(ref, {
       response,
       propertyName: current.kind === 'new_case' ? response.propertyName : current.propertyName,
@@ -281,6 +293,34 @@ export async function updateCompanyCaseWorkItemOperation(firestore, input, actor
       audience: 'house_solution', template: 'company_response_submitted', workItemId: id,
     })
     return { id, status: submit ? 'submitted' : 'draft' }
+  })
+}
+
+export async function withdrawNewCaseWorkItemOperation(firestore, input, actorUid) {
+  const account = await assertCompanyAccount(firestore, actorUid)
+  const id = text(input?.id, '対象データを指定してください。')
+  const expectedRevision = requiredRevision(input?.expectedRevision)
+  const reason = text(input?.reason, '取下げ理由を入力してください。')
+  const ref = firestore.doc(`constructionCompanyCaseWorkItems/${id}`)
+  return firestore.runTransaction(async transaction => {
+    const snapshot = await transaction.get(ref)
+    const current = snapshot.data()
+    if (!snapshot.exists || current?.constructionCompanyId !== account.constructionCompanyId) fail('not-found', '対象データが見つかりません。')
+    if (current.kind !== 'new_case' || !['draft', 'submitted', 'needs_correction'].includes(current.status)) {
+      fail('failed-precondition', '現在の状態では取り下げできません。')
+    }
+    if (current.revision !== expectedRevision) fail('aborted', 'データが更新されています。最新の内容を確認してください。')
+    transaction.update(ref, {
+      status: 'withdrawn',
+      withdrawalReason: reason,
+      withdrawnAt: FieldValue.serverTimestamp(),
+      revision: current.revision + 1,
+      updatedAt: FieldValue.serverTimestamp(),
+    })
+    if (['submitted', 'needs_correction'].includes(current.status)) queueNotification(transaction, firestore, {
+      audience: 'house_solution', template: 'new_case_withdrawn', workItemId: id,
+    })
+    return { id, status: 'withdrawn' }
   })
 }
 
@@ -393,6 +433,7 @@ export async function reviewCompanyCaseWorkItemOperation(firestore, input, actor
       transaction.create(propertyRef, {
         name: response.propertyName, homeownerId: homeownerRef.id,
         constructionCompanyId: workItem.constructionCompanyId, address: response.propertyAddress,
+        buildingAreaSquareMeters: response.buildingAreaSquareMeters,
         notes: null, active: true, nameSearch: searchFields(response.propertyName), revision: 1, createdAt: now, updatedAt: now,
       })
       transaction.set(counterRef, { nextValue: nextValue + 1, lastCaseId: caseRef.id }, { merge: true })

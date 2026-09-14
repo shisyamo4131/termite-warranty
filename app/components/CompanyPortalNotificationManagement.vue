@@ -3,7 +3,7 @@
     <h1 class="text-h4 mb-2">通知管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">保証更改の通知と、工務店から提出された仮データを管理します。</p>
     <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <v-alert type="info" variant="tonal" class="mb-6">
+    <v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-grow-0">
       メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
     </v-alert>
 
@@ -52,7 +52,8 @@
           <v-list-item title="種別" :subtitle="reviewItem.kind === 'renewal' ? '保証更改' : '新規案件'" />
           <v-list-item title="工務店" :subtitle="companyName(reviewItem.constructionCompanyId)" />
           <v-list-item title="物件・施主" :subtitle="`${reviewItem.propertyName} / ${reviewItem.homeownerName}`" />
-          <v-list-item v-if="reviewItem.response" title="今回の担当者" :subtitle="`${reviewItem.response.contactName} / ${reviewItem.response.contactEmail}`" />
+          <v-list-item v-if="reviewItem.response" title="今回の担当者" :subtitle="`${reviewItem.response.contactName} / ${reviewItem.response.contactEmail || 'アカウントメール'}`" />
+          <v-list-item v-if="reviewItem.withdrawalReason" title="取下げ理由" :subtitle="reviewItem.withdrawalReason" />
           <v-list-item v-if="reviewItem.response" title="希望保証期間" :subtitle="`${reviewItem.response.requestedPeriodYears}年`" />
           <v-list-item v-if="reviewItem.response?.notes" title="連絡事項" :subtitle="reviewItem.response.notes" />
         </v-list>
@@ -123,10 +124,12 @@ const companyName = (id: string) => companies.value.find(item => item.id === id)
 const statusLabel = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: '工務店回答待ち', draft: '工務店下書き', submitted: '確認待ち',
   needs_correction: '差戻し', approved: '本登録済み',
+  withdrawn: '取下げ',
 }[status])
 const statusColor = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: 'warning', draft: 'info', submitted: 'primary',
   needs_correction: 'error', approved: 'success',
+  withdrawn: 'default',
 }[status])
 
 const subscribe = <T>(path: string, assign: (rows: T[]) => void) => {

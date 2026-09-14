@@ -9,6 +9,15 @@
     persistent-hint
     required
   />
+  <v-select
+    v-if="form.masterType === 'warrantyService'"
+    v-model="form.type"
+    :items="warrantyTypes"
+    item-title="title"
+    item-value="value"
+    label="種別"
+    required
+  />
   <v-text-field
     v-if="form.masterType === 'warrantyService'"
     v-model.number="form.defaultPeriodYears"
@@ -29,6 +38,15 @@
       v-model:construction-company-id="form.constructionCompanyId"
       :homeowners="props.homeowners"
       :companies="props.companies"
+    />
+    <v-text-field
+      v-model.number="form.buildingAreaSquareMeters"
+      label="建築面積（㎡）"
+      type="number"
+      min="0.01"
+      step="0.01"
+      :rules="[buildingAreaRule]"
+      required
     />
     <MasterAddressFields
       ref="propertyAddressFields"
@@ -80,6 +98,15 @@ const props = withDefaults(defineProps<{
 })
 const form = defineModel<MasterFormDraft>({ required: true })
 const shortNameRule = (value: unknown) => countDisplayCharacters(String(value ?? '').trim()) <= 6 || '略称は6文字以内で入力してください。'
+const warrantyTypes = [
+  { title: '保証', value: 'warranty' },
+  { title: '保険', value: 'insurance' },
+]
+const buildingAreaRule = (value: unknown) => {
+  const number = Number(value)
+  if (!Number.isFinite(number) || number <= 0) return '建築面積を入力してください。'
+  return Math.abs(number * 100 - Math.round(number * 100)) <= 1e-8 || '小数点以下2桁までで入力してください。'
+}
 
 type AddressFieldsHandle = { cancelPostalLookup: () => void }
 const propertyAddressFields = ref<AddressFieldsHandle | null>(null)

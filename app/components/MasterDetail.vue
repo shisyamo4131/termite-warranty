@@ -31,11 +31,13 @@
       <v-row class="detail-fields" no-gutters>
         <template v-if="masterType === 'warrantyService'">
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">略称</div><div class="detail-field-value">{{ row.shortName }}</div></v-col>
+          <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">種別</div><div class="detail-field-value">{{ row.type === 'insurance' ? '保険' : '保証' }}</div></v-col>
           <v-col cols="12" class="detail-field px-1"><div class="detail-field-label">備考</div><div class="detail-field-value">{{ row.notes || '—' }}</div></v-col>
         </template>
         <v-col v-if="row.address" cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">郵便番号</div><div class="detail-field-value">{{ row.address.postalCode }}</div></v-col>
         <v-col v-if="row.address" cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">住所</div><div class="detail-field-value">{{ address }}</div></v-col>
         <template v-if="masterType === 'property'">
+          <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">建築面積</div><div class="detail-field-value">{{ row.buildingAreaSquareMeters != null ? `${row.buildingAreaSquareMeters} ㎡` : '未登録' }}</div></v-col>
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">施主</div><div class="detail-field-value"><NuxtLink v-if="references.homeowner" :to="`/masters/homeowners/${references.homeowner.id}`">{{ references.homeowner.name }}</NuxtLink><span v-else>施主情報を解決できません。</span></div></v-col>
           <v-col cols="12" md="6" class="detail-field px-1"><div class="detail-field-label">工務店</div><div class="detail-field-value"><NuxtLink v-if="references.company" :to="`/masters/construction-companies/${references.company.id}`">{{ references.company.name }}</NuxtLink><span v-else>工務店情報を解決できません。</span></div></v-col>
           <v-col cols="12" class="detail-field px-1"><div class="detail-field-label">備考</div><div class="detail-field-value">{{ row.notes || '—' }}</div></v-col>

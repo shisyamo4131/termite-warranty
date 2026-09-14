@@ -6,6 +6,7 @@
           <v-col cols="12" md="3"><v-autocomplete v-model="filters.constructionCompanyId" :items="masters.constructionCompanies" :item-title="masterTitle" item-value="id" :custom-filter="indexedFilter" label="工務店" clearable /></v-col>
           <v-col cols="12" md="3"><v-autocomplete v-model="filters.responsibleBranchId" :items="masters.branches" :item-title="masterTitle" item-value="id" label="担当支店" clearable /></v-col>
           <v-col cols="12" md="3"><v-autocomplete v-model="filters.warrantyServiceId" :items="masters.warrantyServices" :item-title="masterTitle" item-value="id" :custom-filter="serviceFilter" label="保証サービス" clearable /></v-col>
+          <v-col cols="12" md="3"><v-select v-model="filters.warrantyServiceType" :items="warrantyTypes" item-title="title" item-value="value" label="保証種別" clearable /></v-col>
           <v-col cols="12" md="3"><v-select v-model="filters.prefecture" :items="prefectures" label="都道府県" clearable /></v-col>
           <v-col cols="12" md="3"><v-select v-model="filters.municipality" :items="municipalities" label="市区町村" clearable /></v-col>
           <v-col cols="12" md="3"><v-select v-model="filters.notificationStatus" :items="notificationStatuses" item-title="title" item-value="value" label="通知状態" clearable /></v-col>
@@ -43,6 +44,10 @@ const notificationStatuses = [
   { title: '未通知', value: 'not notified' },
   { title: '通知済み', value: 'notified' },
   { title: '通知不要', value: 'not required' },
+]
+const warrantyTypes = [
+  { title: '保証', value: 'warranty' },
+  { title: '保険', value: 'insurance' },
 ]
 const expiryDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(filters.value.expiryDate ?? ''),

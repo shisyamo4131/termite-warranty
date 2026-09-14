@@ -13,8 +13,8 @@ const CONSTRUCTION_COMPANY_FIELDS = Object.freeze([
   'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'notes',
 ])
 const HOMEOWNER_FIELDS = Object.freeze(['name', 'address', 'telephone', 'fax', 'notes'])
-const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address', 'notes'])
-const WARRANTY_FIELDS = Object.freeze(['name', 'shortName', 'defaultPeriodYears', 'notes'])
+const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'buildingAreaSquareMeters', 'address', 'notes'])
+const WARRANTY_FIELDS = Object.freeze(['name', 'shortName', 'type', 'defaultPeriodYears', 'notes'])
 const ADDRESS_FIELDS = Object.freeze([
   'postalCode',
   'prefecture',
@@ -64,6 +64,17 @@ const nullableText = (value, label) => {
   if (value === null || value === '') return null
   if (typeof value !== 'string') invalid(`${label} must be text or null.`)
   return value.trim() || null
+}
+
+const normalizeBuildingArea = (value) => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalid('建築面積は0より大きい数値で入力してください。')
+  if (Math.abs(value * 100 - Math.round(value * 100)) > 1e-8) invalid('建築面積は小数点以下2桁までで入力してください。')
+  return value
+}
+
+const normalizeWarrantyType = (value) => {
+  if (!['warranty', 'insurance'].includes(value)) invalid('種別は保証または保険を選択してください。')
+  return value
 }
 
 const normalizeAddress = (address) => {
@@ -120,6 +131,7 @@ export function normalizeMasterFields(masterType, fields) {
     return {
       name,
       shortName,
+      type: normalizeWarrantyType(fields.type),
       defaultPeriodYears: fields.defaultPeriodYears,
       notes: nullableText(fields.notes, 'Notes'),
     }
@@ -143,6 +155,7 @@ export function normalizeMasterFields(masterType, fields) {
       name,
       homeownerId: requiredText(fields.homeownerId, 'Homeowner'),
       constructionCompanyId: requiredText(fields.constructionCompanyId, 'Construction company'),
+      buildingAreaSquareMeters: normalizeBuildingArea(fields.buildingAreaSquareMeters),
       address: normalizeAddress(fields.address),
       notes: nullableText(fields.notes, 'Notes'),
       nameSearch: createNameSearch(name),

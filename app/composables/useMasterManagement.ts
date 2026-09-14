@@ -18,6 +18,8 @@ export interface ManagedMaster {
   }
   defaultPeriodYears?: number
   shortName?: string
+  type?: 'warranty' | 'insurance'
+  buildingAreaSquareMeters?: number
   homeownerId?: string
   constructionCompanyId?: string
   address?: {
@@ -53,6 +55,8 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   nameSearch: data.nameSearch,
   defaultPeriodYears: data.defaultPeriodYears,
   shortName: String(data.shortName ?? data.name ?? ''),
+  type: data.type,
+  buildingAreaSquareMeters: data.buildingAreaSquareMeters,
   homeownerId: data.homeownerId,
   constructionCompanyId: data.constructionCompanyId,
   address: data.address,

@@ -4,12 +4,12 @@ import { test } from 'node:test'
 
 const readProjectFile = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
 
-test('company portal gateway uses the six trusted callable commands', async () => {
+test('company portal gateway uses the seven trusted callable commands', async () => {
   const source = await readProjectFile('app/gateways/companyPortalGateway.ts')
   for (const callable of [
     'createConstructionCompanyAccount', 'setConstructionCompanyAccountEnabled',
     'createRenewalWorkItem', 'createNewCaseWorkItem',
-    'updateCompanyCaseWorkItem', 'reviewCompanyCaseWorkItem',
+    'updateCompanyCaseWorkItem', 'withdrawNewCaseWorkItem', 'reviewCompanyCaseWorkItem',
   ]) assert.match(source, new RegExp(`'${callable}'`))
 })
 
@@ -38,6 +38,8 @@ test('all company work-item writes stay behind callable functions and one-to-one
   assert.match(functions, /constructionCompanyAccountBindings/)
   assert.match(functions, /expectedRevision/)
   assert.match(functions, /status: submit \? 'submitted' : 'draft'/)
+  assert.match(functions, /status: 'withdrawn'/)
+  assert.match(functions, /withdrawalReason: reason/)
   assert.match(functions, /previousWorkItem\?\.status !== 'approved'/)
   assert.match(functions, /transaction\.set\(workItemRef/)
   assert.match(indexes, /"collectionGroup": "constructionCompanyCaseWorkItems"/)
@@ -64,6 +66,22 @@ test('prototype email behavior is visibly queued rather than presented as delive
   assert.match(company, /実メールは送信しません/)
   assert.match(functions, /notificationOutbox/)
   assert.match(functions, /status: 'queued'/)
+})
+
+test('new-case portal derives email, captures building area, auto-fills dates, and supports retained withdrawal', async () => {
+  const [company, staffRegistration, functions, gateway] = await Promise.all([
+    readProjectFile('app/components/ConstructionCompanyPortal.vue'),
+    readProjectFile('app/components/PrototypeDashboard.vue'),
+    readProjectFile('functions/company-portal.js'),
+    readProjectFile('app/gateways/companyPortalGateway.ts'),
+  ])
+  assert.doesNotMatch(company, /v-model="form\.contactEmail"/)
+  assert.match(company, /v-model\.number="form\.buildingAreaSquareMeters"/)
+  assert.match(company, /watch\(\(\) => form\.handoverDate/)
+  assert.match(staffRegistration, /watch\(\(\) => registrationForm\.handoverDate/)
+  assert.match(functions, /contactEmail: email\(accountEmail/)
+  assert.match(functions, /buildingAreaSquareMeters: response\.buildingAreaSquareMeters/)
+  assert.match(gateway, /'withdrawNewCaseWorkItem'/)
 })
 
 test('staff portal management is split into notification-first submenu screens', async () => {

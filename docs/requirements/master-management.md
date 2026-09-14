@@ -15,12 +15,13 @@ These are provisional initial-release requirements. The overall data behavior re
 ## Required Property Fields
 
 - Property name is required.
+- Building area is required as a positive square-metre value with at most two decimal places.
 - Postal code, prefecture, municipality, and street/town and number are required; building name is optional. See [branches and addresses](branches-and-addresses.md).
 - Notes are optional.
 
 ## Required Warranty-Service Fields
 
-- Name and short name are required. After surrounding whitespace is removed, the short name must contain no more than six displayed characters; Japanese and Latin letters/digits each count as one displayed character.
+- Name, short name, and type are required. Type is either `保証` or `保険`. After surrounding whitespace is removed, the short name must contain no more than six displayed characters; Japanese and Latin letters/digits each count as one displayed character.
 - The default warranty period is a required positive integer number of whole years.
 - Notes are optional.
 

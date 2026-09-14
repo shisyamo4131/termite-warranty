@@ -15,6 +15,7 @@ interface NamedDraft<T extends MasterType> {
 
 export interface WarrantyServiceFormDraft extends NamedDraft<'warrantyService'> {
   shortName: string
+  type: 'warranty' | 'insurance'
   defaultPeriodYears: number
   notes: string
 }
@@ -22,6 +23,7 @@ export interface WarrantyServiceFormDraft extends NamedDraft<'warrantyService'> 
 export interface PropertyFormDraft extends NamedDraft<'property'> {
   homeownerId: string
   constructionCompanyId: string
+  buildingAreaSquareMeters: number | null
   address: MasterAddressDraft
   notes: string
 }
@@ -51,7 +53,9 @@ export type MasterFormDraft =
 export interface MasterRowInput {
   name?: string
   shortName?: string
+  type?: 'warranty' | 'insurance'
   defaultPeriodYears?: number
+  buildingAreaSquareMeters?: number | null
   homeownerId?: string
   constructionCompanyId?: string
   address?: Omit<Partial<MasterAddressDraft>, 'buildingName'> & { buildingName?: string | null }
@@ -67,8 +71,8 @@ export interface MasterAddressFields extends Omit<MasterAddressDraft, 'buildingN
 }
 
 export type MasterWriteFields =
-  | { name: string; shortName: string; defaultPeriodYears: number; notes: string | null }
-  | { name: string; homeownerId: string; constructionCompanyId: string; address: MasterAddressFields; notes: string | null }
+  | { name: string; shortName: string; type: 'warranty' | 'insurance'; defaultPeriodYears: number; notes: string | null }
+  | { name: string; homeownerId: string; constructionCompanyId: string; buildingAreaSquareMeters: number | null; address: MasterAddressFields; notes: string | null }
   | { name: string; address: MasterAddressFields; telephone: string | null; fax: string | null; contactPerson: string | null; contactDetails: string | null; notes: string | null }
   | { name: string; address: MasterAddressFields; telephone: string | null; fax: string | null; notes: string | null }
 

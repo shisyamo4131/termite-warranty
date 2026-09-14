@@ -23,6 +23,7 @@ export function createMasterFormDraft(masterType, row = null) {
       masterType,
       name,
       shortName: row?.shortName ?? row?.name ?? '',
+      type: row?.type ?? 'warranty',
       defaultPeriodYears: row?.defaultPeriodYears ?? 1,
       notes: row?.notes ?? '',
     }
@@ -33,6 +34,7 @@ export function createMasterFormDraft(masterType, row = null) {
       name,
       homeownerId: row?.homeownerId ?? '',
       constructionCompanyId: row?.constructionCompanyId ?? '',
+      buildingAreaSquareMeters: row?.buildingAreaSquareMeters ?? null,
       address: row ? editableAddress(row.address) : emptyAddress(),
       notes: row?.notes ?? '',
     }
@@ -75,6 +77,7 @@ export function masterFormDraftToFields(form) {
     return {
       name: form.name,
       shortName: form.shortName,
+      type: form.type,
       defaultPeriodYears: form.defaultPeriodYears,
       notes: nullable(form.notes),
     }
@@ -84,6 +87,7 @@ export function masterFormDraftToFields(form) {
       name: form.name,
       homeownerId: form.homeownerId,
       constructionCompanyId: form.constructionCompanyId,
+      buildingAreaSquareMeters: form.buildingAreaSquareMeters,
       address: addressFields(form.address),
       notes: nullable(form.notes),
     }

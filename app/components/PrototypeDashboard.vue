@@ -85,7 +85,7 @@
 <script setup lang="ts">
 import { filterCaseRows } from '../../src/domain/case-filters.mjs'
 import type { CaseFilters, CaseRow, MasterCatalog } from '../types/prototype-data'
-import { currentLocalDate, formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
+import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 import type { MasterType } from '../composables/useMasterManagement'
 
 const masterCatalog = useMasterCatalog()
@@ -103,13 +103,13 @@ const registrationMessage = ref('')
 const loadError = ref('')
 const { showSnackbar } = useAppSnackbar()
 const registrationForm = reactive({
-  propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: currentLocalDate(),
+  propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '', startDate: '',
   applicationDate: '', handoverDate: '',
   homeownerOverridden: false, constructionCompanyOverridden: false,
 })
 const emptyCaseFilters = (): CaseFilters => ({
   caseNumber: null, homeownerId: null, propertyId: null, constructionCompanyId: null,
-  responsibleBranchId: null, warrantyServiceId: null, prefecture: null, municipality: null,
+  responsibleBranchId: null, warrantyServiceId: null, warrantyServiceType: null, prefecture: null, municipality: null,
   notificationStatus: null, expiryDate: null,
 })
 const filters = reactive<CaseFilters>(emptyCaseFilters())
@@ -166,6 +166,9 @@ const applyCaseFilters = () => {
 watch(() => filteredRows.value.length, () => {
   if (page.value > pageCount.value) page.value = pageCount.value
 })
+watch(() => registrationForm.handoverDate, (value, previous) => {
+  if (!registrationForm.startDate || registrationForm.startDate === previous) registrationForm.startDate = value
+})
 
 const applyProperty = () => {
   const property = selectableMasters.value.properties.find((item) => item.id === registrationForm.propertyId)
@@ -177,7 +180,7 @@ const applyProperty = () => {
 const resetRegistration = () => {
   Object.assign(registrationForm, {
     propertyId: '', homeownerId: '', constructionCompanyId: '', branchId: '', warrantyServiceId: '',
-    startDate: currentLocalDate(),
+    startDate: '',
     applicationDate: '', handoverDate: '',
     homeownerOverridden: false, constructionCompanyOverridden: false,
   })

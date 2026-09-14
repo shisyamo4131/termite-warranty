@@ -28,7 +28,7 @@ test('name search uses fixed normalization and token-map oracles', () => {
 test('supported master fields normalize into the trusted write shape', () => {
   const table = [
     ['homeowner', { name: ' 施主 ', address: { postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ', streetTownAndNumber: ' 1-1 ', buildingName: '' }, telephone: ' 03-0000-0000 ', fax: '', notes: ' ' }, { name: '施主', address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null }, telephone: '03-0000-0000', fax: null, notes: null, nameSearch: createNameSearch('施主') }],
-    ['warrantyService', { name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: ' ' }, { name: '保証', shortName: '保証5', defaultPeriodYears: 5, notes: null }],
+    ['warrantyService', { name: ' 保証 ', shortName: ' 保証5 ', type: 'warranty', defaultPeriodYears: 5, notes: ' ' }, { name: '保証', shortName: '保証5', type: 'warranty', defaultPeriodYears: 5, notes: null }],
   ]
   for (const [masterType, input, expected] of table) {
     assert.deepEqual(normalizeMasterFields(masterType, input), expected)
@@ -59,7 +59,7 @@ test('construction-company address and optional contact fields normalize into th
 
 test('property fields normalize postal code and nullable building name', () => {
   const result = normalizeMasterFields('property', {
-    name: ' 住宅 ', homeownerId: ' homeowner-1 ', constructionCompanyId: ' company-1 ',
+    name: ' 住宅 ', homeownerId: ' homeowner-1 ', constructionCompanyId: ' company-1 ', buildingAreaSquareMeters: 98.25,
     address: {
       postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ',
       streetTownAndNumber: ' 千代田1-1 ', buildingName: '',
@@ -69,6 +69,7 @@ test('property fields normalize postal code and nullable building name', () => {
   assert.equal(result.address.postalCode, '1000001')
   assert.equal(result.address.buildingName, null)
   assert.equal(result.homeownerId, 'homeowner-1')
+  assert.equal(result.buildingAreaSquareMeters, 98.25)
   assert.equal(result.notes, 'メモ')
   assert.equal(result.nameSearch.normalized, '住宅')
 })
@@ -91,15 +92,15 @@ test('request parsers enforce exact action field allowlists', () => {
     (error) => error instanceof MasterDataError && error.code === 'invalid-argument',
   )
   assert.deepEqual(
-    parseUpdateMasterRequest({ masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } }),
-    { masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } },
+    parseUpdateMasterRequest({ masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', type: 'insurance', defaultPeriodYears: 1, notes: null } }),
+    { masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', type: 'insurance', defaultPeriodYears: 1, notes: null } },
   )
   assert.deepEqual(
     parseSetMasterActiveRequest({ masterType: 'homeowner', id: 'a', active: false }),
     { masterType: 'homeowner', id: 'a', active: false },
   )
   for (const request of [
-    { masterType: 'warrantyService', id: 'a', expectedRevision: 1, fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } },
+    { masterType: 'warrantyService', id: 'a', expectedRevision: 1, fields: { name: 'A', shortName: 'A', type: 'warranty', defaultPeriodYears: 1, notes: null } },
     { masterType: 'homeowner', id: 'a', expectedRevision: 1, active: false },
   ]) {
     assert.throws(
@@ -117,9 +118,9 @@ test('invalid required values are rejected table-wise', () => {
   const invalidFields = [
     ['constructionCompany', { name: '  ' }],
     ['homeowner', { name: '***' }],
-    ['warrantyService', { name: 'Warranty', shortName: 'W', defaultPeriodYears: 1.5, notes: null }],
+    ['warrantyService', { name: 'Warranty', shortName: 'W', type: 'warranty', defaultPeriodYears: 1.5, notes: null }],
     ['property', {
-      name: 'House', homeownerId: 'h', constructionCompanyId: 'c',
+      name: 'House', homeownerId: 'h', constructionCompanyId: 'c', buildingAreaSquareMeters: 10.123,
       address: { postalCode: '123', prefecture: 'P', municipality: 'M', streetTownAndNumber: 'S', buildingName: null },
       notes: null,
     }],
@@ -147,9 +148,9 @@ test('construction-company payload requires the complete declared shape', () => 
 
 test('master form drafts initialize independently for every master type', () => {
   const table = [
-    ['warrantyService', { masterType: 'warrantyService', name: '', shortName: '', defaultPeriodYears: 1, notes: '' }],
+    ['warrantyService', { masterType: 'warrantyService', name: '', shortName: '', type: 'warranty', defaultPeriodYears: 1, notes: '' }],
     ['property', {
-      masterType: 'property', name: '', homeownerId: '', constructionCompanyId: '',
+      masterType: 'property', name: '', homeownerId: '', constructionCompanyId: '', buildingAreaSquareMeters: null,
       address: { postalCode: '', prefecture: '', municipality: '', streetTownAndNumber: '', buildingName: '' },
       notes: '',
     }],
@@ -181,9 +182,9 @@ test('master form drafts restore stored rows into editable values', () => {
     streetTownAndNumber: '1-1', buildingName: null,
   }
   const table = [
-    ['warrantyService', { name: '保証', shortName: '保証10', defaultPeriodYears: 10, notes: '長期' }, { masterType: 'warrantyService', name: '保証', shortName: '保証10', defaultPeriodYears: 10, notes: '長期' }],
-    ['property', { name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1', address, notes: '南向き' }, {
-      masterType: 'property', name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1',
+    ['warrantyService', { name: '保証', shortName: '保証10', type: 'insurance', defaultPeriodYears: 10, notes: '長期' }, { masterType: 'warrantyService', name: '保証', shortName: '保証10', type: 'insurance', defaultPeriodYears: 10, notes: '長期' }],
+    ['property', { name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1', buildingAreaSquareMeters: 88.5, address, notes: '南向き' }, {
+      masterType: 'property', name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1', buildingAreaSquareMeters: 88.5,
       address: { ...address, buildingName: '' },
       notes: '南向き',
     }],
@@ -211,13 +212,13 @@ test('master form mapper emits the exact write payload for every master type', (
     streetTownAndNumber: ' 1-1 ', buildingName: '',
   }
   const table = [
-    ['warrantyService', { masterType: 'warrantyService', name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: '' }, {
-      name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: null,
+    ['warrantyService', { masterType: 'warrantyService', name: ' 保証 ', shortName: ' 保証5 ', type: 'warranty', defaultPeriodYears: 5, notes: '' }, {
+      name: ' 保証 ', shortName: ' 保証5 ', type: 'warranty', defaultPeriodYears: 5, notes: null,
     }],
     ['property', {
-      masterType: 'property', name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ', address, notes: '',
+      masterType: 'property', name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ', buildingAreaSquareMeters: 101.25, address, notes: '',
     }, {
-      name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ',
+      name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ', buildingAreaSquareMeters: 101.25,
       address: { ...address, buildingName: null }, notes: null,
     }],
     ['constructionCompany', {
@@ -298,14 +299,23 @@ test('warranty short name accepts at most six displayed characters after trimmin
   assert.equal(countDisplayCharacters('シロアリ10'), 6)
   assert.equal(countDisplayCharacters('か\u3099'), 1)
   assert.equal(normalizeMasterFields('warrantyService', {
-    name: '長期保証', shortName: ' 保証10年 ', defaultPeriodYears: 10, notes: null,
+    name: '長期保証', shortName: ' 保証10年 ', type: 'warranty', defaultPeriodYears: 10, notes: null,
   }).shortName, '保証10年')
   assert.throws(
     () => normalizeMasterFields('warrantyService', {
-      name: '長期保証', shortName: 'シロアリ保証1', defaultPeriodYears: 10, notes: null,
+      name: '長期保証', shortName: 'シロアリ保証1', type: 'warranty', defaultPeriodYears: 10, notes: null,
     }),
     error => error instanceof MasterDataError && error.message === '略称は6文字以内で入力してください。',
   )
+})
+
+test('property building area and warranty-service type enforce the confirmed values', () => {
+  const address = { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null }
+  const property = { name: '住宅', homeownerId: 'h', constructionCompanyId: 'c', buildingAreaSquareMeters: 123.45, address, notes: null }
+  assert.equal(normalizeMasterFields('property', property).buildingAreaSquareMeters, 123.45)
+  assert.throws(() => normalizeMasterFields('property', { ...property, buildingAreaSquareMeters: 123.456 }), /小数点以下2桁/)
+  assert.equal(normalizeMasterFields('warrantyService', { name: '保険商品', shortName: '保険', type: 'insurance', defaultPeriodYears: 5, notes: null }).type, 'insurance')
+  assert.throws(() => normalizeMasterFields('warrantyService', { name: '不明', shortName: '不明', type: 'other', defaultPeriodYears: 5, notes: null }), /保証または保険/)
 })
 
 test('managed master matching supports one character and verifies contiguous normalized text', () => {
@@ -333,11 +343,18 @@ test('development warranty short-name migration is compatible and idempotent', (
   assert.throws(() => masterFieldMigrationPatch('properties', { name: '物件' }), /Unsupported migration collection/)
 })
 
-test('development migration has explicit fictional demo abbreviations and fails closed on unresolved values', async () => {
-  const source = await readProjectFile('scripts/migrate-development-master-fields.mjs')
+test('development migration has explicit fictional defaults for all demo records', async () => {
+  const [source, workflow] = await Promise.all([
+    readProjectFile('scripts/migrate-development-master-fields.mjs'),
+    readProjectFile('.github/workflows/migrate-development-master-fields.yml'),
+  ])
   assert.match(source, /'development-demo-standard', '安心5年'/)
   assert.match(source, /'development-demo-long', '長期10年'/)
-  assert.match(source, /if \(unresolved\.length > 0\) throw new Error/)
+  assert.match(source, /shortName: 'デモ保証', type: 'warranty'/)
+  assert.match(source, /buildingAreaSquareMeters: 100/)
+  assert.match(workflow, /^on:\s*\n\s*workflow_dispatch:/m)
+  assert.match(workflow, /node scripts\/migrate-development-master-fields\.mjs --apply --confirm=termite-warranty-dev/)
+  assert.doesNotMatch(workflow, /\bpush:/)
 })
 
 test('master entry submission adapters execute payload and success contracts', async () => {
@@ -361,7 +378,7 @@ test('master entry submission adapters execute payload and success contracts', a
   assert.equal(listCompleted, true)
 
   const propertyForm = createMasterFormDraft('property', {
-    name: '物件', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1',
+    name: '物件', homeownerId: 'homeowner-1', constructionCompanyId: 'company-1', buildingAreaSquareMeters: 100,
     address: {
       postalCode: '1000002', prefecture: '東京都', municipality: '千代田区',
       streetTownAndNumber: '2-2', buildingName: '建物',

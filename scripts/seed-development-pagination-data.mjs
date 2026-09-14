@@ -31,6 +31,7 @@ export function buildDevelopmentPaginationSeed() {
     id: 'development-pagination-warranty',
     name: 'ページ確認5年保証',
     shortName: '確認5年',
+    type: 'warranty',
     defaultPeriodYears: 5,
     notes: '開発環境のページング確認用架空データです。',
     active: true,
@@ -71,6 +72,7 @@ export function buildDevelopmentPaginationSeed() {
       ...withSearch(`ページ確認物件${suffix}`, {
         homeownerId,
         constructionCompanyId,
+        buildingAreaSquareMeters: 100 + index + 0.25,
         address: { postalCode: '1000001', prefecture: '東京都', municipality: 'ページ確認市', streetTownAndNumber: `架空住宅地${index}-${index}`, buildingName: null },
         notes: '開発環境のページング確認用架空データです。',
       }),
@@ -96,7 +98,7 @@ export function buildDevelopmentPaginationSeed() {
 const assertExistingMaster = (snapshot, expected) => {
   if (!snapshot.exists) return
   const current = snapshot.data()
-  for (const field of ['name', 'active', 'shortName', 'defaultPeriodYears']) {
+  for (const field of ['name', 'active', 'shortName', 'type', 'defaultPeriodYears', 'buildingAreaSquareMeters']) {
     if (!(field in expected)) continue
     if (current[field] !== expected[field]) throw new Error(`Existing pagination seed differs at ${snapshot.ref.path}.${field}.`)
   }
