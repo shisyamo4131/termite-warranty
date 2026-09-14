@@ -20,7 +20,7 @@ These are provisional initial-release requirements. The overall data behavior re
 
 ## Required Warranty-Service Fields
 
-- Name and short name are required.
+- Name and short name are required. After surrounding whitespace is removed, the short name must contain no more than six displayed characters; Japanese and Latin letters/digits each count as one displayed character.
 - The default warranty period is a required positive integer number of whole years.
 - Notes are optional.
 
@@ -63,7 +63,7 @@ The case-registration flow is the expected primary business starting point.
 
 - Construction-company, homeowner, and property master lists and their case-filter selection dialogs support name search using the adopted N-Gram normalization and token-generation behavior.
 - The case list itself does not directly perform a name-based free-text query; it filters cases by the selected master record IDs.
-- A blank master-name condition shows the freshest 20 records. Any nonblank normalized name condition switches the prototype to the complete master collection and displays every matching name, including a one-character condition.
+- A blank master-name condition shows the freshest 20 records. Any nonblank normalized name condition switches the prototype to the complete master collection, evaluates every matching name including a one-character condition, and presents matches in 20-record pages with the total count.
 
 ## Master Update Concurrency
 

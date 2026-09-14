@@ -147,6 +147,32 @@ html {
   flex: 0 0 auto;
 }
 
+.list-pagination-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--clear-sky-border);
+  background: #fff;
+}
+
+.warranty-short-name {
+  max-width: 8em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 599px) {
+  .list-pagination-bar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 .list-data-table.v-table--fixed-header > .v-table__wrapper > table > thead > tr > th {
   background: var(--clear-sky-soft-surface);
 }

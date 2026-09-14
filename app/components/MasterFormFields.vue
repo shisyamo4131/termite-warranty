@@ -4,6 +4,9 @@
     v-if="form.masterType === 'warrantyService'"
     v-model="form.shortName"
     label="略称"
+    :rules="[shortNameRule]"
+    hint="6文字以内"
+    persistent-hint
     required
   />
   <v-text-field
@@ -65,6 +68,7 @@
 import type { MasterFormDraft } from '../../src/domain/master-form.mjs'
 import type { PostalLookupProvider } from '../../src/domain/postal-lookup.mjs'
 import type { ManagedMaster } from '../composables/useMasterManagement'
+import { countDisplayCharacters } from '../../src/domain/master-data.mjs'
 
 const props = withDefaults(defineProps<{
   homeowners?: ManagedMaster[]
@@ -75,6 +79,7 @@ const props = withDefaults(defineProps<{
   companies: () => [],
 })
 const form = defineModel<MasterFormDraft>({ required: true })
+const shortNameRule = (value: unknown) => countDisplayCharacters(String(value ?? '').trim()) <= 6 || '略称は6文字以内で入力してください。'
 
 type AddressFieldsHandle = { cancelPostalLookup: () => void }
 const propertyAddressFields = ref<AddressFieldsHandle | null>(null)

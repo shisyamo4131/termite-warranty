@@ -50,6 +50,9 @@ const primaryMenuItems = computed(() => [
   { title: '施主', to: '/masters/homeowners', icon: 'mdi-account-outline' },
   { title: '保証サービス', to: '/masters/warranty-services', icon: 'mdi-shield-check-outline' },
   { title: '物件', to: '/masters/properties', icon: 'mdi-home-city-outline' },
+  ...(['developer_superuser', 'house_solution_administrator'].includes(profile.value?.role ?? '')
+    ? [{ title: '担当者アカウント', to: '/staff-accounts', icon: 'mdi-account-key-outline' }]
+    : []),
 ])
 const companyPortalMenuItems = [
   { title: '通知管理', to: '/company-portal/notifications', icon: 'mdi-bell-outline' },

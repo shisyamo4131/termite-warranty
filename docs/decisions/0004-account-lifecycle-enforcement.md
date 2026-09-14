@@ -24,7 +24,7 @@ The enabled-account check closes the gap left by an otherwise valid issued ID to
 ## Impact
 
 - Account-management operations cannot be implemented only in a browser client.
-- The server-side runtime, retry behavior, partial-failure recovery, staff-account document path, and rules test cases must be designed before implementation.
+- The prototype server path cleans up a newly created Authentication user if its staff record cannot be created, disables the Firestore record before Authentication/revocation, and enables Authentication before exposing the enabled Firestore record. Emulator tests cover the principal role and lifecycle paths; production retry and operator-recovery procedures remain to be defined.
 - Browser-session persistence is an initial-release requirement and is recorded in [decision 0005](0005-spa-and-session-persistence.md). It does not replace immediate disabled-account enforcement.
 
 ## Alternatives

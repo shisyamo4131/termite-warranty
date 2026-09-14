@@ -44,8 +44,8 @@ const data = {
     ['development-demo-hinata', '日向の家', 'development-demo-morikawa', 'development-demo-hokushin', '東京都', '千代田区', '青葉町8-3'],
   ],
   warrantyServices: [
-    ['development-demo-standard', '住まい安心5年保証', 5],
-    ['development-demo-long', '住まい長期10年保証', 10],
+    ['development-demo-standard', '住まい安心5年保証', '安心5年', 5],
+    ['development-demo-long', '住まい長期10年保証', '長期10年', 10],
   ],
 }
 
@@ -53,7 +53,7 @@ const writes = []
 for (const [id, name, prefecture, municipality, streetTownAndNumber] of data.constructionCompanies) writes.push([`constructionCompanies/${id}`, withSearch(name, { address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, telephone: '000-0000-0000', fax: null, contactPerson: '架空 担当', contactDetails: null, notes: '開発環境の架空データです。' })])
 for (const [id, name, prefecture, municipality, streetTownAndNumber] of data.homeowners) writes.push([`homeowners/${id}`, withSearch(name, { address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, telephone: '000-1000-0000', fax: null, notes: '開発環境の架空データです。' })])
 for (const [id, name, homeownerId, constructionCompanyId, prefecture, municipality, streetTownAndNumber] of data.properties) writes.push([`properties/${id}`, withSearch(name, { homeownerId, constructionCompanyId, address: { postalCode: '1000001', prefecture, municipality, streetTownAndNumber, buildingName: null }, notes: '開発環境の架空データです。' })])
-for (const [id, name, defaultPeriodYears] of data.warrantyServices) writes.push([`warrantyServices/${id}`, { name, shortName: name, defaultPeriodYears, notes: '開発環境の架空データです。', active: true }])
+for (const [id, name, shortName, defaultPeriodYears] of data.warrantyServices) writes.push([`warrantyServices/${id}`, { name, shortName, defaultPeriodYears, notes: '開発環境の架空データです。', active: true }])
 writes.push(['branches/development-demo-east', { name: '東関東支店', active: true }])
 
 const batch = firestore.batch()

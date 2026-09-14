@@ -13,16 +13,35 @@ if (apply && confirmation !== projectId) {
 const firestore = getFirestore(initializeApp({ credential: applicationDefault(), projectId }))
 const collectionNames = ['warrantyServices']
 const snapshots = await Promise.all(collectionNames.map(name => firestore.collection(name).get()))
-const planned = snapshots.flatMap((snapshot, index) => snapshot.docs.flatMap(document => {
+const demoWarrantyShortNames = new Map([
+  ['development-demo-standard', '安心5年'],
+  ['development-demo-long', '長期10年'],
+])
+const planned = []
+const unresolved = []
+for (const [index, snapshot] of snapshots.entries()) {
   const collectionName = collectionNames[index]
-  const patch = masterFieldMigrationPatch(collectionName, document.data())
-  return patch ? [{ collectionName, document, patch }] : []
-}))
+  for (const document of snapshot.docs) {
+    const data = document.data()
+    const demoShortName = demoWarrantyShortNames.get(document.id)
+    if (demoShortName) {
+      if (data.shortName !== demoShortName) planned.push({ collectionName, document, patch: { shortName: demoShortName } })
+      continue
+    }
+    try {
+      const patch = masterFieldMigrationPatch(collectionName, data)
+      if (patch) planned.push({ collectionName, document, patch })
+    } catch {
+      unresolved.push(`${collectionName}/${document.id}`)
+    }
+  }
+}
 
 const counts = Object.fromEntries(collectionNames.map(name => [name, planned.filter(item => item.collectionName === name).length]))
-console.log(JSON.stringify({ projectId, mode: apply ? 'apply' : 'dry-run', counts }))
+console.log(JSON.stringify({ projectId, mode: apply ? 'apply' : 'dry-run', counts, unresolvedCount: unresolved.length, unresolved }))
 
 if (apply) {
+  if (unresolved.length > 0) throw new Error('Refusing to write while warranty-service short names require a manual decision.')
   for (let offset = 0; offset < planned.length; offset += 450) {
     const batch = firestore.batch()
     for (const { document, patch } of planned.slice(offset, offset + 450)) {

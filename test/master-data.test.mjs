@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import {
   MasterDataError,
+  countDisplayCharacters,
   createNameSearch,
   masterFieldMigrationPatch,
   normalizeMasterFields,
@@ -279,7 +280,7 @@ test('construction-company and homeowner lists delegate presentation to bounded 
   assert.match(parentSource, /v-if="masterType === 'constructionCompany'"/)
   assert.match(parentSource, /<HomeOwnerTable/)
   assert.match(parentSource, /v-else-if="masterType === 'homeowner'"/)
-  assert.equal(parentSource.match(/:items="filteredRows"/g)?.length, 2)
+  assert.equal(parentSource.match(/:items="visibleRows"/g)?.length, 2)
   assert.equal(parentSource.match(/@show-detail="handleTableDetail"/g)?.length, 2)
   assert.equal(parentSource.match(/@change-active="handleTableActiveChange"/g)?.length, 2)
 
@@ -291,6 +292,20 @@ test('construction-company and homeowner lists delegate presentation to bounded 
     assert.match(tableSource, /:items-per-page="-1"/)
     assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
   }
+})
+
+test('warranty short name accepts at most six displayed characters after trimming', () => {
+  assert.equal(countDisplayCharacters('シロアリ10'), 6)
+  assert.equal(countDisplayCharacters('か\u3099'), 1)
+  assert.equal(normalizeMasterFields('warrantyService', {
+    name: '長期保証', shortName: ' 保証10年 ', defaultPeriodYears: 10, notes: null,
+  }).shortName, '保証10年')
+  assert.throws(
+    () => normalizeMasterFields('warrantyService', {
+      name: '長期保証', shortName: 'シロアリ保証1', defaultPeriodYears: 10, notes: null,
+    }),
+    error => error instanceof MasterDataError && error.message === '略称は6文字以内で入力してください。',
+  )
 })
 
 test('managed master matching supports one character and verifies contiguous normalized text', () => {
@@ -311,7 +326,18 @@ test('development warranty short-name migration is compatible and idempotent', (
     shortName: '標準保証',
   })
   assert.equal(masterFieldMigrationPatch('warrantyServices', { name: '標準保証', shortName: '標準', notes: null }), null)
+  assert.throws(
+    () => masterFieldMigrationPatch('warrantyServices', { name: '住まい安心5年保証' }),
+    /must be selected manually/,
+  )
   assert.throws(() => masterFieldMigrationPatch('properties', { name: '物件' }), /Unsupported migration collection/)
+})
+
+test('development migration has explicit fictional demo abbreviations and fails closed on unresolved values', async () => {
+  const source = await readProjectFile('scripts/migrate-development-master-fields.mjs')
+  assert.match(source, /'development-demo-standard', '安心5年'/)
+  assert.match(source, /'development-demo-long', '長期10年'/)
+  assert.match(source, /if \(unresolved\.length > 0\) throw new Error/)
 })
 
 test('master entry submission adapters execute payload and success contracts', async () => {
@@ -411,10 +437,14 @@ test('list screens share the compact card-title action layout and simple list ti
   assert.match(dashboard, /条件を初期化/)
   assert.match(dashboard, /startCaseList\(Object\.values\(normalized\)\.some\(Boolean\)\)/)
   assert.match(dashboard, /loadAllMasters\(\)/)
-  assert.match(dashboard, /一致する案件を全件から表示しています/)
+  assert.match(dashboard, /該当\$\{filteredRows\.length\}件を20件ずつ表示しています/)
+  assert.match(dashboard, /<v-pagination/)
+  assert.match(dashboard, /filteredRows\.value\.slice/)
   assert.doesNotMatch(dashboard, /20件の中を絞り込み/)
   assert.match(masters, /restartSubscription\(complete\)/)
-  assert.match(masters, /一致するデータを全件から表示しています/)
+  assert.match(masters, /該当\$\{filteredRows\.length\}件を20件ずつ表示しています/)
+  assert.match(masters, /<v-pagination/)
+  assert.match(masters, /filteredRows\.value\.slice/)
   assert.doesNotMatch(masters, /20件の中を絞り込み/)
 
   for (const path of [

@@ -22,6 +22,16 @@ const ADDRESS_FIELDS = Object.freeze([
   'streetTownAndNumber',
   'buildingName',
 ])
+const shortNameSegmenter = typeof Intl.Segmenter === 'function'
+  ? new Intl.Segmenter('ja', { granularity: 'grapheme' })
+  : null
+
+export const countDisplayCharacters = value => {
+  const normalized = String(value ?? '').normalize('NFC')
+  return shortNameSegmenter
+    ? [...shortNameSegmenter.segment(normalized)].length
+    : Array.from(normalized).length
+}
 
 export class MasterDataError extends Error {
   constructor(code, message) {
@@ -105,9 +115,11 @@ export function normalizeMasterFields(masterType, fields) {
     if (!Number.isInteger(fields.defaultPeriodYears) || fields.defaultPeriodYears < 1) {
       invalid('Default warranty period must be a positive integer.')
     }
+    const shortName = requiredText(fields.shortName, 'Short name')
+    if (countDisplayCharacters(shortName) > 6) invalid('略称は6文字以内で入力してください。')
     return {
       name,
-      shortName: requiredText(fields.shortName, 'Short name'),
+      shortName,
       defaultPeriodYears: fields.defaultPeriodYears,
       notes: nullableText(fields.notes, 'Notes'),
     }
@@ -156,7 +168,11 @@ export function masterFieldMigrationPatch(collectionName, data) {
   if (collectionName === 'warrantyServices') {
     const patch = {}
     if (typeof data.shortName !== 'string' || data.shortName.trim().length === 0) {
-      patch.shortName = requiredText(data.name, 'Name')
+      const shortName = requiredText(data.name, 'Name')
+      if (countDisplayCharacters(shortName) > 6) invalid('A short name of six displayed characters or fewer must be selected manually.')
+      patch.shortName = shortName
+    } else if (countDisplayCharacters(data.shortName.trim()) > 6) {
+      invalid('A short name of six displayed characters or fewer must be selected manually.')
     }
     return Object.keys(patch).length > 0 ? patch : null
   }

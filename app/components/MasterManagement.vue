@@ -10,7 +10,7 @@
         <v-card-text>
           <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
           <v-alert type="info" density="compact" variant="tonal" class="mb-4">
-            {{ hasSearchCondition ? '名称に一致するデータを全件から表示しています。' : '更新日時が新しい20件を表示しています。' }}
+            {{ hasSearchCondition ? `全件から絞り込み、該当${filteredRows.length}件を20件ずつ表示しています。` : '更新日時が新しい20件を表示しています。' }}
           </v-alert>
           <v-text-field
             v-model="filter"
@@ -20,14 +20,14 @@
         </v-card-text>
         <ConstructionCompanyTable
           v-if="masterType === 'constructionCompany'"
-          :items="filteredRows"
+          :items="visibleRows"
           :loading="loading"
           @show-detail="handleTableDetail"
           @change-active="handleTableActiveChange"
         />
         <HomeOwnerTable
           v-else-if="masterType === 'homeowner'"
-          :items="filteredRows"
+          :items="visibleRows"
           :loading="loading"
           @show-detail="handleTableDetail"
           @change-active="handleTableActiveChange"
@@ -35,11 +35,11 @@
         <v-table v-else class="list-data-table" fixed-header>
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
-            <tr v-for="row in filteredRows" :key="row.id">
+            <tr v-for="row in visibleRows" :key="row.id">
               <td>
                 {{ row.name }}
-                <div v-if="masterType === 'warrantyService'" class="text-caption">
-                  {{ row.shortName }} / {{ row.defaultPeriodYears }}年
+                <div v-if="masterType === 'warrantyService'" class="text-caption d-flex ga-1">
+                  <span class="warranty-short-name">{{ row.shortName }}</span><span>/ {{ row.defaultPeriodYears }}年</span>
                 </div>
               </td>
               <td v-if="hasAddress">{{ formatAddress(row) }}</td>
@@ -54,6 +54,10 @@
             <tr v-if="filteredRows.length === 0"><td :colspan="hasAddress ? 4 : 3" class="text-center py-8">該当するマスターはありません。</td></tr>
           </tbody>
         </v-table>
+        <div v-if="hasSearchCondition && filteredRows.length" class="list-pagination-bar">
+          <span class="text-body-2 text-medium-emphasis">該当 {{ filteredRows.length }}件</span>
+          <v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" density="comfortable" />
+        </div>
       </v-card>
     </v-col>
     </v-row>
@@ -88,6 +92,7 @@ import { createMasterFormDraft, type MasterFormDraft } from '../../src/domain/ma
 import { submitMasterCreate } from '../utils/masterFormSubmission.mjs'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
+const PAGE_SIZE = 20
 const rows = ref<ManagedMaster[]>([])
 const loading = ref(true)
 const filter = ref<string | null>('')
@@ -117,6 +122,11 @@ const filteredRows = computed(() => {
   }
   return rows.value.filter((row) => normalizeSearchText(row.name).includes(needle))
 })
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / PAGE_SIZE)))
+const visibleRows = computed(() => hasSearchCondition.value
+  ? filteredRows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
+  : filteredRows.value)
 
 const resetForm = () => {
   cancelPostalLookup()
@@ -207,7 +217,12 @@ const restartSubscription = (complete: boolean) => {
 watch(hasSearchCondition, (complete) => {
   if (!mounted) return
   if (subscriptionTimer) clearTimeout(subscriptionTimer)
+  page.value = 1
   subscriptionTimer = setTimeout(() => restartSubscription(complete), 250)
+})
+watch(normalizedFilter, () => { page.value = 1 })
+watch(() => filteredRows.value.length, () => {
+  if (page.value > pageCount.value) page.value = pageCount.value
 })
 
 onMounted(async () => {

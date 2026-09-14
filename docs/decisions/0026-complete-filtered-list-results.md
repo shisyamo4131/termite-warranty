@@ -11,7 +11,7 @@ The current screens subscribed to the 20 freshest records and then filtered only
 
 ## Decision
 
-Keep the freshest-20 realtime subscription when no condition is specified. When any search or filter condition is active, subscribe to the complete corresponding case or master collection in the same freshness order and apply the condition in the application. Clearing every condition restores the bounded subscription.
+Keep the freshest-20 realtime subscription when no condition is specified. When any search or filter condition is active, subscribe to the complete corresponding case or master collection in the same freshness order and apply the condition in the application. Matching records are presented in 20-record pages under [decision 0027](0027-filtered-list-pagination.md). Clearing every condition restores the bounded subscription.
 
 Case conditions are edited as a draft in a dialog. Cancel leaves the active conditions unchanged, initialize clears the draft, and apply replaces the active conditions and selects the appropriate subscription mode.
 

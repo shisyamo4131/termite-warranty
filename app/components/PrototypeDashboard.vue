@@ -15,13 +15,13 @@
       <v-card-text>
         <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
         <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
-          {{ hasActiveFilters ? '指定した条件に一致する案件を全件から表示しています。' : '更新日時が新しい20件を表示しています。' }}
+          {{ hasActiveFilters ? `全件から絞り込み、該当${filteredRows.length}件を20件ずつ表示しています。` : '更新日時が新しい20件を表示しています。' }}
         </v-alert>
       </v-card-text>
       <v-table class="list-data-table" fixed-header>
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
       <tbody>
-        <tr v-for="row in filteredRows" :key="row.id" :class="{ 'alert-row': row.isAlertEligible }">
+        <tr v-for="row in visibleRows" :key="row.id" :class="{ 'alert-row': row.isAlertEligible }">
           <td><NuxtLink :to="`/cases/${row.id}`">{{ row.caseNumber }}</NuxtLink></td><td>{{ row.homeownerName }}</td><td>{{ row.propertyAddress }}</td>
           <td>{{ row.constructionCompanyName }}</td><td>{{ row.branchName }}</td>
           <td>
@@ -34,6 +34,10 @@
         <tr v-if="filteredRows.length === 0"><td colspan="7" class="text-center py-8">条件に一致する案件はありません。</td></tr>
       </tbody>
       </v-table>
+      <div v-if="hasActiveFilters && filteredRows.length" class="list-pagination-bar">
+        <span class="text-body-2 text-medium-emphasis">該当 {{ filteredRows.length }}件</span>
+        <v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" density="comfortable" />
+      </div>
     </v-card>
       </v-col>
     </v-row>
@@ -85,6 +89,7 @@ import { currentLocalDate, formatCanonicalLocalDate, parseCanonicalLocalDate } f
 import type { MasterType } from '../composables/useMasterManagement'
 
 const masterCatalog = useMasterCatalog()
+const PAGE_SIZE = 20
 const allMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const filterMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const registrationMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
@@ -115,6 +120,11 @@ const selectableMasters = computed(() => masterCatalog.activeMasters(registratio
 const activeFilterCount = computed(() => Object.values(filters).filter(value => String(value ?? '').trim()).length)
 const hasActiveFilters = computed(() => activeFilterCount.value > 0)
 const filteredRows = computed(() => filterCaseRows(rows.value, filters))
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredRows.value.length / PAGE_SIZE)))
+const visibleRows = computed(() => hasActiveFilters.value
+  ? filteredRows.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE)
+  : filteredRows.value)
 const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
   set: (value) => { registrationForm.startDate = formatCanonicalLocalDate(value) },
@@ -149,9 +159,13 @@ const applyCaseFilters = () => {
     return [key, trimmed || null]
   })) as unknown as CaseFilters
   Object.assign(filters, normalized)
+  page.value = 1
   filterDialog.value = false
   startCaseList(Object.values(normalized).some(Boolean))
 }
+watch(() => filteredRows.value.length, () => {
+  if (page.value > pageCount.value) page.value = pageCount.value
+})
 
 const applyProperty = () => {
   const property = selectableMasters.value.properties.find((item) => item.id === registrationForm.propertyId)

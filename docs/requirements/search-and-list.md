@@ -48,7 +48,7 @@ The list has one row per case. It does not need to display warranty-period or ex
 - When no search or filter value is specified, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp.
 - Use document ID as the stable tie-breaker when freshness timestamps are equal.
 - Do not load an entire collection or create one child listener per listed parent as the fallback for an unfiltered list.
-- When at least one condition is specified, the current prototype reads the complete corresponding collection in freshness order and displays every matching record. Clearing all conditions returns the list to the freshest-20 subscription.
+- When at least one condition is specified, the current prototype reads the complete corresponding collection in freshness order and evaluates every matching record. The UI shows the total count and presents the matches in pages of 20 records. Changing the applied conditions returns to page one. Clearing all conditions returns the list to the freshest-20 subscription.
 - The case-list conditions are edited in a dialog and take effect only when applied. The dialog can initialize all draft conditions without immediately changing the active list.
 - This complete filtered read is an approved prototype tradeoff. Production pagination and a scalable filtered query/index model remain to be confirmed from measured volume, response time, and cost. Case-list filtering by a selected year and month is likely, including a possible applied-warranty expiry-month condition, but the date meaning and default month are unresolved under HSC-032.
 

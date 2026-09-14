@@ -32,7 +32,7 @@ The separation lets the developer safely bootstrap and support the production sy
 ## Impact
 
 - The staff-account data contract must encode the three roles and an enabled state.
-- Cloud Functions need authorization tests for each caller/target-role combination, as well as failure and retry/recovery tests for account disabling.
+- Cloud Functions and Emulator tests enforce the caller/target-role combinations and principal create/edit/disable paths. Development-environment acceptance and production retry/recovery procedures remain outstanding.
 - The production-bootstrap runbook must verify that both matching records are created, that no custom claim is required, and that the account can access only its intended account-management surface.
 - Role selection is not presently available because `general staff` is the only role a House Solution administrator may assign. If further roles are introduced, the function must exclude `House Solution administrator` and `developer superuser`.
 
