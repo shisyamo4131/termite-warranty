@@ -62,7 +62,7 @@ test('deploy must consume the verified Hosting artifact without rebuilding it', 
     /reject a missing Hosting index artifact/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace('actions/download-artifact@v4', 'actions/cache@v4'), policy),
+    () => validateDevelopmentWorkflow(workflow.replace('actions/download-artifact@v8', 'actions/cache@v4'), policy),
     /download the verified Hosting artifact/,
   )
   assert.throws(

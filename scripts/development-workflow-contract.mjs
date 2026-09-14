@@ -63,7 +63,10 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   const verifyText = verify.lines.join('\n')
   const deployText = deploy.lines.join('\n')
   if (!/runs-on:\s*windows-latest/.test(verifyText)) throw new Error('Verification must use the supported Windows runtime profile.')
-  if (!/actions\/setup-java@v4/.test(verifyText) || !/java-version:\s*['"]?21['"]?/.test(verifyText)) {
+  if (!/actions\/checkout@v7/.test(verifyText)
+    || !/actions\/setup-node@v7/.test(verifyText)
+    || !/actions\/setup-java@v6/.test(verifyText)
+    || !/java-version:\s*['"]?21['"]?/.test(verifyText)) {
     throw new Error('Verification must install Java 21 for the Emulator gate.')
   }
   if (/google-github-actions\/auth|FIREBASE_SERVICE_ACCOUNT/.test(verifyText)) {
@@ -72,7 +75,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   if (runCommands(verify).some(command => command.includes('firebase deploy'))) {
     throw new Error('Verification job must not perform a deployment.')
   }
-  if (!/actions\/upload-artifact@v4/.test(verifyText)
+  if (!/actions\/upload-artifact@v7/.test(verifyText)
     || !/name:\s*firebase-hosting-\$\{\{ github\.sha \}\}/.test(verifyText)
     || !/path:\s*\.output\/public/.test(verifyText)
     || !/if-no-files-found:\s*error/.test(verifyText)
@@ -107,12 +110,14 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   if (!/^    if:\s*github\.event_name == ['"]workflow_dispatch['"]\s*$/m.test(deployText)) {
     throw new Error('Deploy job must require an explicit manual workflow dispatch.')
   }
-  if (!/actions\/download-artifact@v4/.test(deployText)
+  if (!/actions\/checkout@v7/.test(deployText)
+    || !/actions\/setup-node@v7/.test(deployText)
+    || !/actions\/download-artifact@v8/.test(deployText)
     || !/name:\s*firebase-hosting-\$\{\{ github\.sha \}\}/.test(deployText)
     || !/path:\s*\.output\/public/.test(deployText)) {
     throw new Error('Deploy job must download the verified Hosting artifact for this revision.')
   }
-  if (!/google-github-actions\/auth@v2/.test(deployText) || !/FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV/.test(deployText)) {
+  if (!/google-github-actions\/auth@v3/.test(deployText) || !/FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV/.test(deployText)) {
     throw new Error('Deploy job is missing its explicit development authentication step.')
   }
   const deployCommands = steps(deploy).flatMap(step => typeof step.run === 'string' ? [step.run] : [])
