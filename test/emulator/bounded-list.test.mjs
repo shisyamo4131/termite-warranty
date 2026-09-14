@@ -12,7 +12,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore'
-import { createBoundedListQuery, listCursorFromDocuments } from '../../app/repositories/boundedListQuery.ts'
+import { createBoundedListQuery, createOrderedListQuery, listCursorFromDocuments } from '../../app/repositories/boundedListQuery.ts'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -68,6 +68,15 @@ test('default case query returns 20 freshest rows with stable ID tie-break and c
   assert.ok(cursor)
   const second = await getDocs(createBoundedListQuery(collection(db, 'cases'), cursor))
   assert.deepEqual(second.docs.map(item => item.id), ['case-00'])
+})
+
+test('complete ordered query returns records beyond the default window for filtered lists', async () => {
+  const db = testEnvironment.authenticatedContext('staff-1').firestore()
+  const snapshot = await getDocs(createOrderedListQuery(collection(db, 'cases')))
+
+  assert.equal(snapshot.size, 21)
+  assert.equal(snapshot.docs[0].id, 'case-20')
+  assert.equal(snapshot.docs.at(-1).id, 'case-00')
 })
 
 test('filtered linked-property query remains capped at 20 in freshness order', async () => {

@@ -63,6 +63,7 @@ The case-registration flow is the expected primary business starting point.
 
 - Construction-company, homeowner, and property master lists and their case-filter selection dialogs support name search using the adopted N-Gram normalization and token-generation behavior.
 - The case list itself does not directly perform a name-based free-text query; it filters cases by the selected master record IDs.
+- A blank master-name condition shows the freshest 20 records. Any nonblank normalized name condition switches the prototype to the complete master collection and displays every matching name, including a one-character condition.
 
 ## Master Update Concurrency
 

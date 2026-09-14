@@ -37,6 +37,7 @@
 | [0023](0023-construction-company-portal-prototype.md) | Construction-company portal proposal prototype | Provisional | 2026-09-13 |
 | [0024](0024-same-site-password-action-handler.md) | Same-site password action handler | Accepted | 2026-09-13 |
 | [0025](0025-authentication-focused-firestore-rules.md) | Authentication-focused Firestore Rules | Accepted | 2026-09-14 |
+| [0026](0026-complete-filtered-list-results.md) | Complete filtered list results in the prototype | Accepted | 2026-09-14 |
 
 ## Template
 

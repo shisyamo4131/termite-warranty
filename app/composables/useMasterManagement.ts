@@ -1,8 +1,8 @@
 import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
-import { matchesSearchTokenMap } from '../../src/domain/search-tokens.mjs'
-import { createBoundedListQuery } from '../repositories/boundedListQuery.ts'
+import { matchesSearchTokenMap, normalizeSearchText } from '../../src/domain/search-tokens.mjs'
+import { createBoundedListQuery, createOrderedListQuery } from '../repositories/boundedListQuery.ts'
 import type { ListCursor } from '../types/prototype-data.ts'
 
 export type { MasterType } from '../../src/domain/master-form.mjs'
@@ -63,14 +63,21 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   notes: data.notes ?? null,
 })
 
-export const matchesManagedMasterName = (master: ManagedMaster, value: string) =>
-  matchesSearchTokenMap(master.nameSearch, value)
+export const matchesManagedMasterName = (master: ManagedMaster, value: string) => {
+  const normalized = normalizeSearchText(value)
+  if (!normalized) return true
+  if (normalized.length < 2) return normalizeSearchText(master.name).includes(normalized)
+  return matchesSearchTokenMap(master.nameSearch, value)
+    && normalizeSearchText(master.name).includes(normalized)
+}
 
 export function useMasterManagement(masterType: MasterType) {
   const { $firebase } = useNuxtApp()
-  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void, cursor?: ListCursor) =>
+  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void, cursor?: ListCursor, complete = false) =>
     onSnapshot(
-      createBoundedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]), cursor),
+      complete
+        ? createOrderedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
+        : createBoundedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]), cursor),
       (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
       () => onError('マスターデータを読み込めませんでした。'),
     )

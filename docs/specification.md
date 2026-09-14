@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-14
-- Specification version: 0.1.13
+- Specification version: 0.1.14
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -84,7 +84,8 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - The initial search/list view must filter by homeowner name, property address, construction-company name, warranty-service name, expiry date, and notification status. An expiry-date filter returns a case when at least one of its applied warranties matches the date condition.
 - A property has a required property name. The case list is narrowed by selecting construction-company, homeowner, and property master records; it does not directly free-text-search their names. Property address is narrowed by prefecture and municipality. Responsible branch and warranty service are also filtered by selecting master records.
 - The initial case list and dashboard use one row per case. They need not display warranty-period or expiry-date information; an alert-eligible case must be visually identifiable. Applied-warranty details are viewed on the case detail screen.
-- With no search or filter value, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp, using document ID as a stable tie-breaker. Unbounded full-collection and per-parent child-listener fallbacks are not permitted. Case year/month semantics remain unresolved under HSC-032.
+- With no search or filter value, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp, using document ID as a stable tie-breaker. When at least one search or filter condition is specified, the current prototype reads the complete corresponding collection in the same freshness order and displays every matching record. The unbounded path is permitted only while a condition is active; unfiltered full-collection and per-parent child-listener fallbacks remain prohibited. Case year/month semantics remain unresolved under HSC-032.
+- The case-list filter controls open in a dialog. Editing dialog values does not change the list until the user applies them; the dialog provides an initialization action that clears every draft condition.
 - The current local prototype case list links to `/cases/{id}`. That detail screen is readable for active, cancelled, and invalid cases, shows all applied-warranty details and terminal reasons, returns to the dashboard/list, and offers the existing edit dialog only for an active case. A missing ID is reported in the signed-in application with a return link rather than being treated as a case record.
 - Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Display it in the case list and dashboard. The production format remains unresolved under HSC-004.
 - Display responsible branch in the case list and dashboard.

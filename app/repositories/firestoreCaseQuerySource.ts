@@ -8,7 +8,7 @@ import {
   type Firestore,
 } from 'firebase/firestore'
 import type { ListCursor, MasterCollection, QueryDocument } from '../types/prototype-data.ts'
-import { createBoundedListQuery, REFERENCE_QUERY_CHUNK_SIZE } from './boundedListQuery.ts'
+import { createBoundedListQuery, createOrderedListQuery, REFERENCE_QUERY_CHUNK_SIZE } from './boundedListQuery.ts'
 import { documentsFromSnapshot } from './masterCatalogRepository.ts'
 
 type Unsubscribe = () => void
@@ -17,17 +17,19 @@ type DocumentCallback = (document: QueryDocument | null) => void
 type ErrorCallback = (error: unknown) => void
 
 export interface CaseQuerySource {
-  subscribeMaster(name: MasterCollection, onDocuments: DocumentsCallback, onError: ErrorCallback, cursor?: ListCursor): Unsubscribe
+  subscribeMaster(name: MasterCollection, onDocuments: DocumentsCallback, onError: ErrorCallback, cursor?: ListCursor, complete?: boolean): Unsubscribe
   subscribeMastersByIds(name: MasterCollection, ids: string[], onDocuments: DocumentsCallback, onError: ErrorCallback): Unsubscribe
-  subscribeCases(onDocuments: DocumentsCallback, onError: ErrorCallback, cursor?: ListCursor): Unsubscribe
+  subscribeCases(onDocuments: DocumentsCallback, onError: ErrorCallback, cursor?: ListCursor, complete?: boolean): Unsubscribe
   subscribeCase(caseId: string, onDocument: DocumentCallback, onError: ErrorCallback): Unsubscribe
   subscribeWarranties(caseId: string, onDocuments: DocumentsCallback, onError: ErrorCallback): Unsubscribe
 }
 
 export const createFirestoreCaseQuerySource = (firestore: Firestore): CaseQuerySource => ({
-  subscribeMaster(name, onDocuments, onError, cursor) {
+  subscribeMaster(name, onDocuments, onError, cursor, complete = false) {
     return onSnapshot(
-      createBoundedListQuery(collection(firestore, name), cursor),
+      complete
+        ? createOrderedListQuery(collection(firestore, name))
+        : createBoundedListQuery(collection(firestore, name), cursor),
       snapshot => onDocuments(documentsFromSnapshot(snapshot.docs)),
       onError,
     )
@@ -45,9 +47,11 @@ export const createFirestoreCaseQuerySource = (firestore: Firestore): CaseQueryS
       onError,
     )
   },
-  subscribeCases(onDocuments, onError, cursor) {
+  subscribeCases(onDocuments, onError, cursor, complete = false) {
     return onSnapshot(
-      createBoundedListQuery(collection(firestore, 'cases'), cursor),
+      complete
+        ? createOrderedListQuery(collection(firestore, 'cases'))
+        : createBoundedListQuery(collection(firestore, 'cases'), cursor),
       snapshot => onDocuments(documentsFromSnapshot(snapshot.docs)),
       onError,
     )

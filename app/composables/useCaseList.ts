@@ -12,10 +12,10 @@ export const useCaseList = () => {
     unsubscribe?.()
     unsubscribe = undefined
   }
-  const start = () => {
+  const start = (complete = false) => {
     stop()
     state.value = initialCaseListQueryState()
-    unsubscribe = subscribeCaseList(source, next => { state.value = next }, currentLocalDate)
+    unsubscribe = subscribeCaseList(source, next => { state.value = next }, currentLocalDate, undefined, complete)
   }
   const retry = () => start()
 

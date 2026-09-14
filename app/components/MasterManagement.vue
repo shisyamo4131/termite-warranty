@@ -10,14 +10,12 @@
         <v-card-text>
           <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
           <v-alert type="info" density="compact" variant="tonal" class="mb-4">
-            更新日時が新しい20件を表示しています。名称検索は、この20件の中を絞り込みます。
+            {{ hasSearchCondition ? '名称に一致するデータを全件から表示しています。' : '更新日時が新しい20件を表示しています。' }}
           </v-alert>
           <v-text-field
             v-model="filter"
             label="名称で絞り込み"
             clearable
-            :hint="searchHint"
-            :persistent-hint="Boolean(searchHint)"
           />
         </v-card-text>
         <ConstructionCompanyTable
@@ -110,16 +108,11 @@ const hasAddress = computed(() => props.masterType === 'property' || props.maste
 const routeSegment = computed(() => ({ constructionCompany: 'construction-companies', homeowner: 'homeowners', property: 'properties', warrantyService: 'warranty-services' }[props.masterType]))
 const usesIndexedSearch = computed(() => props.masterType !== 'warrantyService')
 const normalizedFilter = computed(() => normalizeSearchText(filter.value ?? ''))
-const searchHint = computed(() =>
-  usesIndexedSearch.value && (filter.value?.length ?? 0) > 0 && normalizedFilter.value.length < 2
-    ? '正規化後2文字以上を入力すると検索します。'
-    : '',
-)
+const hasSearchCondition = computed(() => normalizedFilter.value.length > 0)
 const filteredRows = computed(() => {
   const needle = normalizedFilter.value
   if (!needle) return rows.value
   if (usesIndexedSearch.value) {
-    if (needle.length < 2) return rows.value
     return rows.value.filter((row) => matchesManagedMasterName(row, filter.value ?? ''))
   }
   return rows.value.filter((row) => normalizeSearchText(row.name).includes(needle))
@@ -197,14 +190,34 @@ const formatAddress = (row: ManagedMaster) => [
 ].filter(Boolean).join('')
 
 let unsubscribe: (() => void) | undefined
-onMounted(async () => {
+let subscriptionTimer: ReturnType<typeof setTimeout> | undefined
+let mounted = false
+const restartSubscription = (complete: boolean) => {
+  unsubscribe?.()
+  loading.value = true
+  loadError.value = ''
   unsubscribe = manager.subscribe(
     (nextRows) => { rows.value = nextRows; loading.value = false },
     (error) => { loadError.value = error; loading.value = false },
+    undefined,
+    complete,
   )
+}
+
+watch(hasSearchCondition, (complete) => {
+  if (!mounted) return
+  if (subscriptionTimer) clearTimeout(subscriptionTimer)
+  subscriptionTimer = setTimeout(() => restartSubscription(complete), 250)
+})
+
+onMounted(async () => {
+  mounted = true
+  restartSubscription(hasSearchCondition.value)
   await refreshReferences()
 })
 onBeforeUnmount(() => {
+  mounted = false
+  if (subscriptionTimer) clearTimeout(subscriptionTimer)
   cancelPostalLookup()
   unsubscribe?.()
 })

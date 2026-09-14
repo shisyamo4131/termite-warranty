@@ -1,7 +1,7 @@
 # 0017 Bounded Default List Subscriptions
 
 - Date: 2026-09-12
-- Status: Accepted
+- Status: Accepted; filtered-list constraint superseded by [0026](0026-complete-filtered-list-results.md)
 - Related specification: [Search and list](../requirements/search-and-list.md#default-bounded-result)
 - Supersedes: Unbounded client-side collection subscription as the prototype default
 
@@ -13,7 +13,7 @@ The prototype subscribes to complete master and case collections and creates an 
 
 When no search or filter value is specified, subscribe to at most the 20 documents with the freshest server-maintained update timestamp, descending, with document ID as a stable tie-breaker.
 
-Do not use an unbounded full-collection subscription or one child listener per parent as the fallback. Filtered queries must also be bounded or use a separately approved bounded read model. Case-list year/month semantics remain unresolved under HSC-032.
+Do not use an unbounded full-collection subscription or one child listener per parent as the unfiltered fallback. The original requirement that filtered queries also remain bounded was superseded for the prototype by [decision 0026](0026-complete-filtered-list-results.md). Case-list year/month semantics remain unresolved under HSC-032.
 
 ## Rationale
 

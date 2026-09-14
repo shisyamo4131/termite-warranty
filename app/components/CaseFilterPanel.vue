@@ -1,8 +1,5 @@
 <template>
-  <v-expansion-panels class="mb-4">
-    <v-expansion-panel title="案件を絞り込む">
-      <v-expansion-panel-text>
-        <v-row dense>
+  <v-row dense>
           <v-col cols="12" md="3"><v-text-field v-model="filters.caseNumber" label="案件番号（完全一致）" clearable /></v-col>
           <v-col cols="12" md="3"><v-autocomplete v-model="filters.homeownerId" :items="masters.homeowners" :item-title="masterTitle" item-value="id" :custom-filter="indexedFilter" label="施主" clearable /></v-col>
           <v-col cols="12" md="3"><v-autocomplete v-model="filters.propertyId" :items="masters.properties" :item-title="masterTitle" item-value="id" :custom-filter="indexedFilter" label="物件" clearable /></v-col>
@@ -13,11 +10,7 @@
           <v-col cols="12" md="3"><v-select v-model="filters.municipality" :items="municipalities" label="市区町村" clearable /></v-col>
           <v-col cols="12" md="3"><v-select v-model="filters.notificationStatus" :items="notificationStatuses" item-title="title" item-value="value" label="通知状態" clearable /></v-col>
           <v-col cols="12" md="3"><v-date-input v-model="expiryDate" label="満了日（完全一致）" prepend-icon="" clearable /></v-col>
-          <v-col cols="12" class="d-flex justify-end"><v-btn variant="text" @click="clear">条件をクリア</v-btn></v-col>
-        </v-row>
-      </v-expansion-panel-text>
-    </v-expansion-panel>
-  </v-expansion-panels>
+  </v-row>
 </template>
 
 <script setup lang="ts">
@@ -54,10 +47,5 @@ const notificationStatuses = [
 const expiryDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(filters.value.expiryDate ?? ''),
   set: (date) => { filters.value.expiryDate = formatCanonicalLocalDate(date) || null },
-})
-const clear = () => Object.assign(filters.value, {
-  caseNumber: null, homeownerId: null, propertyId: null, constructionCompanyId: null,
-  responsibleBranchId: null, warrantyServiceId: null, prefecture: null, municipality: null,
-  notificationStatus: null, expiryDate: null,
 })
 </script>

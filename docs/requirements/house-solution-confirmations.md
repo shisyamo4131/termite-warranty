@@ -18,8 +18,8 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-004 | [Production case-number rules](house-solution-confirmations/HSC-004-case-number-rules.md) | Not yet asked | House Solution |
 | HSC-005 | [Notification workflow and history](house-solution-confirmations/HSC-005-notification-workflow.md) | Not yet asked | House Solution |
 | HSC-006 | [Dashboard presentation and accessibility](house-solution-confirmations/HSC-006-dashboard-presentation.md) | Not yet asked | House Solution |
-| HSC-007 | [Case search and list behavior](house-solution-confirmations/HSC-007-case-search-list.md) | Not yet asked | House Solution |
-| HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | Not yet asked | House Solution |
+| HSC-007 | [Case search and list behavior](house-solution-confirmations/HSC-007-case-search-list.md) | Partially answered | House Solution |
+| HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | Partially answered | House Solution |
 | HSC-009 | [Editing masters already used by cases](house-solution-confirmations/HSC-009-used-master-editing.md) | Not yet asked | House Solution |
 | HSC-010 | [Warranty payer and contracting party](house-solution-confirmations/HSC-010-payer-contracting-party.md) | Not yet asked | House Solution |
 | HSC-011 | [Legal and operational data ownership](house-solution-confirmations/HSC-011-data-ownership.md) | Not yet asked | House Solution |

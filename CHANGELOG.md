@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Changed case and master lists so blank conditions show the freshest 20 records while any active condition searches the complete ordered collection; moved case conditions into an apply/cancel dialog with a draft reset action.
+
 ### Added
 
 - Added required warranty-service short names, optional warranty-service/property notes, aligned list layouts and titles, and a development-only short-name backfill.

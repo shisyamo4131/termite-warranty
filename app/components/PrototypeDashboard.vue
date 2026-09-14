@@ -2,17 +2,21 @@
   <section class="list-page">
     <v-row class="list-page-row">
       <v-col cols="12" class="list-page-column">
-    <v-card class="list-data-card">
+      <v-card class="list-data-card">
       <v-card-title class="d-flex align-center justify-space-between ga-4">
         <span>案件一覧</span>
-        <v-btn color="primary" @click="openRegistration">新規登録</v-btn>
+        <div class="d-flex ga-2">
+          <v-btn variant="outlined" prepend-icon="mdi-filter-variant" @click="openCaseFilters">
+            絞り込み{{ activeFilterCount ? `（${activeFilterCount}）` : '' }}
+          </v-btn>
+          <v-btn color="primary" @click="openRegistration">新規登録</v-btn>
+        </div>
       </v-card-title>
       <v-card-text>
         <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
         <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
-          更新日時が新しい20件を表示しています。現在の検索条件は、この20件の中を絞り込みます。
+          {{ hasActiveFilters ? '指定した条件に一致する案件を全件から表示しています。' : '更新日時が新しい20件を表示しています。' }}
         </v-alert>
-        <case-filter-panel v-model="filters" :masters="allMasters" />
       </v-card-text>
       <v-table class="list-data-table" fixed-header>
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
@@ -33,6 +37,24 @@
     </v-card>
       </v-col>
     </v-row>
+
+    <v-dialog v-model="filterDialog" max-width="960" persistent>
+      <v-card title="案件を絞り込む">
+        <v-card-text>
+          <v-alert v-if="filterLoadError" type="error" density="compact" variant="tonal" class="mb-4">
+            {{ filterLoadError }}
+          </v-alert>
+          <v-progress-linear v-if="filterLoading" indeterminate color="primary" class="mb-4" />
+          <case-filter-panel v-model="draftFilters" :masters="filterMasters" />
+        </v-card-text>
+        <v-card-actions>
+          <v-btn variant="text" :disabled="filterLoading" @click="resetDraftFilters">条件を初期化</v-btn>
+          <v-spacer />
+          <v-btn :disabled="filterLoading" @click="filterDialog = false">キャンセル</v-btn>
+          <v-btn color="primary" :disabled="filterLoading" @click="applyCaseFilters">適用</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <v-dialog v-model="registrationDialog" max-width="720" persistent>
     <v-card title="案件登録" subtitle="物件から施主・工務店を反映し、初回保証を登録します">
@@ -64,9 +86,13 @@ import type { MasterType } from '../composables/useMasterManagement'
 
 const masterCatalog = useMasterCatalog()
 const allMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
+const filterMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const registrationMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
 const rows = ref<CaseRow[]>([])
 const saving = ref(false)
+const filterDialog = ref(false)
+const filterLoading = ref(false)
+const filterLoadError = ref('')
 const registrationDialog = ref(false)
 const registrationMessage = ref('')
 const loadError = ref('')
@@ -76,14 +102,18 @@ const registrationForm = reactive({
   applicationDate: '', handoverDate: '',
   homeownerOverridden: false, constructionCompanyOverridden: false,
 })
-const filters = reactive<CaseFilters>({
+const emptyCaseFilters = (): CaseFilters => ({
   caseNumber: null, homeownerId: null, propertyId: null, constructionCompanyId: null,
   responsibleBranchId: null, warrantyServiceId: null, prefecture: null, municipality: null,
   notificationStatus: null, expiryDate: null,
 })
+const filters = reactive<CaseFilters>(emptyCaseFilters())
+const draftFilters = reactive<CaseFilters>(emptyCaseFilters())
 const { registerCase } = useCaseCommands()
 const { state: caseListState, start: startCaseList } = useCaseList()
 const selectableMasters = computed(() => masterCatalog.activeMasters(registrationMasters))
+const activeFilterCount = computed(() => Object.values(filters).filter(value => String(value ?? '').trim()).length)
+const hasActiveFilters = computed(() => activeFilterCount.value > 0)
 const filteredRows = computed(() => filterCaseRows(rows.value, filters))
 const warrantyStartDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.startDate),
@@ -97,6 +127,31 @@ const handoverDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(registrationForm.handoverDate),
   set: (value) => { registrationForm.handoverDate = formatCanonicalLocalDate(value) },
 })
+
+const resetDraftFilters = () => Object.assign(draftFilters, emptyCaseFilters())
+const openCaseFilters = async () => {
+  Object.assign(draftFilters, filters)
+  Object.assign(filterMasters, allMasters)
+  filterLoadError.value = ''
+  filterDialog.value = true
+  filterLoading.value = true
+  try {
+    Object.assign(filterMasters, await masterCatalog.loadAllMasters())
+  } catch {
+    filterLoadError.value = '絞り込み条件の選択肢をすべて読み込めませんでした。'
+  } finally {
+    filterLoading.value = false
+  }
+}
+const applyCaseFilters = () => {
+  const normalized = Object.fromEntries(Object.entries(draftFilters).map(([key, value]) => {
+    const trimmed = typeof value === 'string' ? value.trim() : value
+    return [key, trimmed || null]
+  })) as unknown as CaseFilters
+  Object.assign(filters, normalized)
+  filterDialog.value = false
+  startCaseList(Object.values(normalized).some(Boolean))
+}
 
 const applyProperty = () => {
   const property = selectableMasters.value.properties.find((item) => item.id === registrationForm.propertyId)
@@ -170,7 +225,7 @@ watch(caseListState, (next) => {
     ? 'データ参照権限を確認できません。再ログインしてください。'
     : ''
 })
-onMounted(startCaseList)
+onMounted(() => startCaseList(false))
 </script>
 
 <style scoped>

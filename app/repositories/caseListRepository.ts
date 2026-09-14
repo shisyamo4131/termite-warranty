@@ -21,6 +21,7 @@ export const subscribeCaseList = (
   onState: (state: CaseListQueryState) => void,
   today: () => string,
   cursor?: ListCursor,
+  complete = false,
 ) => {
   const cases = new Map<string, Record<string, unknown>>()
   const warranties = new Map<string, Record<string, unknown>[]>()
@@ -119,13 +120,13 @@ export const subscribeCaseList = (
       catalogMasters.set(name, new Map(documents.map(item => [item.id, item.data])))
       masterReady.add(name)
       emit()
-    }, fail))
+    }, fail, undefined, complete))
   }
 
   parentUnsubscribes.push(source.subscribeCases(documents => {
     if (!active) return
     try {
-      nextCursor = listCursorFromDocuments(documents)
+      nextCursor = complete ? null : listCursorFromDocuments(documents)
     } catch (cause) {
       fail(cause)
       return
@@ -137,9 +138,9 @@ export const subscribeCaseList = (
       warranties.set(item.id, readCaseListWarranties(item.data))
     }
     casesReady = true
-    replaceReferences(documents)
+    if (!complete) replaceReferences(documents)
     emit()
-  }, fail, cursor))
+  }, fail, cursor, complete))
 
   emit()
 

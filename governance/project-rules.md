@@ -36,7 +36,7 @@ The product boundary is an independent business-management system for a new term
 
 - When a list has no search or filter value, subscribe to at most the 20 documents with the freshest server-maintained update timestamp, in descending order, using document ID as a stable tie-breaker.
 - Do not implement an unfiltered list by subscribing to an entire business collection or by creating one child listener per parent record. A record type without a reliable server-maintained freshness field must gain one before this default can be implemented.
-- A filtered list must use a bounded query or another approved bounded read model. If the requested filter cannot be implemented without an unbounded read, stop and record the query/read-model decision rather than silently falling back to all-record client filtering.
+- In the approved prototype, specifying any search or filter condition switches that list to a complete, freshness-ordered collection subscription and applies the conditions in the application. This is an explicit usability-first exception to the default bounded-read rule; do not extend it to unfiltered lists. Reconsider the filtered read model before production if measured volume, latency, or Firestore cost makes complete subscriptions unsuitable.
 - Case-list month semantics are not confirmed by this rule. Route the choice of application month, handover month, applied-warranty expiry month, default month, and result-limit interaction through HSC-032.
 
 ## Project-specific Roles and Workstreams

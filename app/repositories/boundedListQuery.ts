@@ -11,6 +11,12 @@ import type { ListCursor, QueryDocument } from '../types/prototype-data.ts'
 export const DEFAULT_LIST_LIMIT = 20
 export const REFERENCE_QUERY_CHUNK_SIZE = 10
 
+export const createOrderedListQuery = (reference: Query) => query(
+  reference,
+  orderBy('updatedAt', 'desc'),
+  orderBy(documentId(), 'desc'),
+)
+
 export const createBoundedListQuery = (reference: Query, cursor?: ListCursor) => {
   if (cursor && (!cursor.id || !cursor.updatedAt)) throw new Error('一覧カーソルが不正です。')
   return query(

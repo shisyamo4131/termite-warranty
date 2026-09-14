@@ -6,6 +6,8 @@
 - Decision: [ADR 0017](../decisions/0017-bounded-default-list-subscriptions.md)
 - Baseline: `8063dcccf2cefa8fec019d0bc5beee31ce397696` on `codex/tr-005-bounded-list-subscriptions`
 
+> Current behavior note: [decision 0026](../decisions/0026-complete-filtered-list-results.md) supersedes this increment's 20-document-window behavior while a search or filter condition is active. Its unfiltered freshest-20 boundary remains in force.
+
 ## Objective
 
 Make default list cost depend on a 20-document visible window instead of retained collection size. Preserve realtime list updates and existing detail behavior without deciding the unresolved case year/month or final pagination semantics.

@@ -12,6 +12,7 @@ import {
 } from '../src/domain/master-data.mjs'
 import { createMasterFormDraft, masterFormDraftToFields } from '../src/domain/master-form.mjs'
 import { submitMasterCreate, submitMasterUpdate } from '../app/utils/masterFormSubmission.mjs'
+import { matchesManagedMasterName } from '../app/composables/useMasterManagement.ts'
 
 const readProjectFile = (relativePath) => readFile(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 
@@ -292,6 +293,16 @@ test('construction-company and homeowner lists delegate presentation to bounded 
   }
 })
 
+test('managed master matching supports one character and verifies contiguous normalized text', () => {
+  const nameSearch = createNameSearch('青葉住宅')
+  const master = { id: 'company-1', name: '青葉住宅', active: true, nameSearch }
+
+  assert.equal(matchesManagedMasterName(master, '青'), true)
+  assert.equal(matchesManagedMasterName(master, '住宅'), true)
+  assert.equal(matchesManagedMasterName(master, '葉青'), false)
+  assert.equal(matchesManagedMasterName(master, '不存在'), false)
+})
+
 test('development warranty short-name migration is compatible and idempotent', () => {
   assert.deepEqual(masterFieldMigrationPatch('warrantyServices', { name: '標準保証', defaultPeriodYears: 5 }), {
     shortName: '標準保証',
@@ -396,6 +407,15 @@ test('list screens share the compact card-title action layout and simple list ti
   assert.match(dashboard, /list-page-row/)
   assert.match(dashboard, /list-data-card/)
   assert.match(dashboard, /flex-grow-0/)
+  assert.match(dashboard, /<v-dialog v-model="filterDialog"/)
+  assert.match(dashboard, /条件を初期化/)
+  assert.match(dashboard, /startCaseList\(Object\.values\(normalized\)\.some\(Boolean\)\)/)
+  assert.match(dashboard, /loadAllMasters\(\)/)
+  assert.match(dashboard, /一致する案件を全件から表示しています/)
+  assert.doesNotMatch(dashboard, /20件の中を絞り込み/)
+  assert.match(masters, /restartSubscription\(complete\)/)
+  assert.match(masters, /一致するデータを全件から表示しています/)
+  assert.doesNotMatch(masters, /20件の中を絞り込み/)
 
   for (const path of [
     'app/pages/masters/construction-companies/index.vue',

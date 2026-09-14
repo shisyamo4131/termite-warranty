@@ -39,12 +39,16 @@ class FakeCaseQuerySource {
     return () => { entry.unsubscribeCount += 1 }
   }
 
-  subscribeMaster(name, next, error) {
-    return this.record(this.masters.get(name), next, error)
+  subscribeMaster(name, next, error, _cursor, complete = false) {
+    const unsubscribe = this.record(this.masters.get(name), next, error)
+    this.masters.get(name).at(-1).complete = complete
+    return unsubscribe
   }
 
-  subscribeCases(next, error) {
-    return this.record(this.cases, next, error)
+  subscribeCases(next, error, _cursor, complete = false) {
+    const unsubscribe = this.record(this.cases, next, error)
+    this.cases.at(-1).complete = complete
+    return unsubscribe
   }
 
   subscribeMastersByIds(name, ids, next, error) {
@@ -275,6 +279,23 @@ test('case list uses the parent projection, resolves bounded master references, 
   assert.ok(source.masterReferences.every(record => record.unsubscribeCount === 1))
   source.emitCases([document('late', caseListData())], 0)
   assert.equal(states.length, beforeStop)
+})
+
+test('filtered case list reads complete ordered collections and skips exact-reference listeners', () => {
+  const source = new FakeCaseQuerySource()
+  const states = []
+  const stop = subscribeCaseList(source, state => states.push(state), () => '2026-09-01', undefined, true)
+
+  emitAllMasters(source)
+  source.emitCases([document('case-1', caseListData())])
+
+  assert.ok([...source.masters.values()].every(records => records[0].complete === true))
+  assert.equal(source.cases[0].complete, true)
+  assert.equal(source.masterReferences.length, 0)
+  assert.equal(states.at(-1).status, 'ready')
+  assert.equal(states.at(-1).nextCursor, null)
+  assert.equal(states.at(-1).rows[0].id, 'case-1')
+  stop()
 })
 
 test('case list replaces exact-reference generations and ignores their late callbacks', () => {
