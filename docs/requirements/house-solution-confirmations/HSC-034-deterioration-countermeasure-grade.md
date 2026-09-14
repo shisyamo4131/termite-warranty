@@ -18,11 +18,14 @@ The Japanese Housing Performance Indication System describes the grade as a leve
 5. Must the system answer how many renewals remain, or only the latest permitted warranty expiry date? How are warranty products with different periods handled near the limit?
 6. Should grade history be recorded against the property, the case, or a dated assessment record, and what decision-time value must be retained with each applied warranty?
 
-## Current Design Discussion — Not Approved
+## Recommended Proposal — Awaiting House Solution Decision
 
-- A grade describes the building at an assessment point, while the warranty limit is a business decision made when an applied warranty is accepted.
-- One candidate is to retain dated grade assessments against the property and copy the grade, assessment date, and calculated limit used for each accepted applied warranty. This would preserve both property history and the reason for past warranty decisions.
-- A case-level history alone may be insufficient because one case can contain several applied warranties accepted at different times. This is only a design observation, not an approved data model.
+- Treat the grade as a dated assessment of the physical property. Retain assessment history against the property, including at least the grade, assessment date, and evidence or source document.
+- When an applied warranty is accepted, retain a decision-time snapshot of the grade, assessment date, warranty-limit rule, and calculated latest permitted expiry used for that acceptance. A later property reassessment must not rewrite the basis of an earlier acceptance.
+- Calculate renewal availability from the latest permitted expiry and the requested warranty period instead of storing a fixed `remaining renewal count`. For example, ten years remaining could permit either one 10-year renewal or two 5-year renewals, subject to the product and business rules confirmed by House Solution.
+- If a retrofit or reassessment changes the grade, append a new property assessment rather than replacing the prior assessment. Whether the new assessment applies from the next renewal or can affect an existing warranty remains a House Solution decision.
+- Do not use a case-level grade history as the sole record. One case can contain multiple applied warranties accepted at different times, so it cannot by itself preserve which assessment and limit justified each acceptance.
+- Recommended future model: property-owned dated assessment history plus an applied-warranty decision snapshot. This is a proposal for discussion, not an approved requirement, and remains excluded from the prototype.
 
 ## Sources
 
