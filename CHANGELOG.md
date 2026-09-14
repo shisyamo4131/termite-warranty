@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added five-record pagination to dependent-property lists on master details and the applied-warranty list on case details; kept the notification-management guidance alert from shrinking and aligned property-form field order.
 - Added required property building area, required warranty-service type, case filtering by warranty-service type, and development-only backfill defaults.
 - Aligned staff and construction-company new-case dates with protected handover-to-warranty-start auto-fill, derived the portal response email from the authenticated company account, and added retained pre-approval new-case withdrawal.
 - Recorded deterioration countermeasure grade and grade-based warranty limits as HSC-034 and deferred prototype implementation.

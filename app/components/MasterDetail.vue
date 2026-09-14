@@ -61,7 +61,11 @@
     <section v-if="propertySectionTitle" class="mt-6">
       <h2 class="detail-section-title mb-2">{{ propertySectionTitle }}</h2>
       <div class="text-caption mb-2">{{ propertySectionCaption }}</div>
-      <v-table><tbody><tr v-for="property in properties" :key="property.id"><td><NuxtLink :to="`/masters/properties/${property.id}`">{{ property.name }}</NuxtLink></td><td class="text-right">{{ property.active ? '有効' : '無効' }}</td></tr><tr v-if="!properties.length"><td colspan="2">{{ propertySectionTitle }}はありません。</td></tr></tbody></v-table>
+      <v-table><tbody><tr v-for="property in visibleProperties" :key="property.id"><td><NuxtLink :to="`/masters/properties/${property.id}`">{{ property.name }}</NuxtLink></td><td class="text-right">{{ property.active ? '有効' : '無効' }}</td></tr><tr v-if="!properties.length"><td colspan="2">{{ propertySectionTitle }}はありません。</td></tr></tbody></v-table>
+      <div v-if="properties.length" class="list-pagination-bar">
+        <span class="text-body-2 text-medium-emphasis">{{ properties.length }}件</span>
+        <v-pagination v-if="propertyPageCount > 1" v-model="propertyPage" :length="propertyPageCount" density="comfortable" />
+      </div>
     </section>
   </template>
 
@@ -74,6 +78,7 @@
 import type { ConstructionCompanyAccountSummary, ManagedMaster, MasterType } from '../composables/useMasterManagement'
 
 const props = defineProps<{ masterType: MasterType; title: string }>()
+const PAGE_SIZE = 5
 const { showSnackbar } = useAppSnackbar()
 const route = useRoute()
 const row = ref<ManagedMaster | null>(null)
@@ -83,6 +88,7 @@ const loaded = ref(false)
 const editOpen = ref(false)
 const companyAccount = ref<ConstructionCompanyAccountSummary | null>(null)
 const references = reactive<{ homeowner: ManagedMaster | null; company: ManagedMaster | null }>({ homeowner: null, company: null })
+const propertyPage = ref(1)
 const {
   subscribeById,
   subscribeCompanyProperties,
@@ -99,6 +105,8 @@ const propertySectionTitle = computed(() => propertySectionLabels[props.masterTy
 const propertySectionCaption = computed(() => props.masterType === 'warrantyService'
   ? '現在有効な案件・適用保証・物件のうち、更新日時が新しい20件まで表示します。'
   : '更新日時が新しい20件まで表示します。')
+const propertyPageCount = computed(() => Math.max(1, Math.ceil(properties.value.length / PAGE_SIZE)))
+const visibleProperties = computed(() => properties.value.slice((propertyPage.value - 1) * PAGE_SIZE, propertyPage.value * PAGE_SIZE))
 
 let unsub: (() => void) | undefined
 let propertyUnsub: (() => void) | undefined
@@ -106,7 +114,7 @@ let accountUnsub: (() => void) | undefined
 let referenceUnsubscribes: Array<() => void> = []
 const stop = () => { unsub?.(); propertyUnsub?.(); accountUnsub?.(); referenceUnsubscribes.forEach(unsubscribe => unsubscribe()); unsub = undefined; propertyUnsub = undefined; accountUnsub = undefined; referenceUnsubscribes = [] }
 const start = (id: string) => {
-  stop(); row.value = null; properties.value = []; companyAccount.value = null; references.homeowner = null; references.company = null; message.value = ''; loaded.value = false
+  stop(); row.value = null; properties.value = []; propertyPage.value = 1; companyAccount.value = null; references.homeowner = null; references.company = null; message.value = ''; loaded.value = false
   unsub = subscribeById(id, value => {
     row.value = value; loaded.value = true
     if (props.masterType === 'property' && value) {
@@ -115,11 +123,11 @@ const start = (id: string) => {
     }
   }, error => { message.value = error; loaded.value = true })
   if (props.masterType === 'constructionCompany') {
-    propertyUnsub = subscribeCompanyProperties(id, value => { properties.value = value }, error => { message.value = error })
+    propertyUnsub = subscribeCompanyProperties(id, value => { properties.value = value; if (propertyPage.value > propertyPageCount.value) propertyPage.value = propertyPageCount.value }, error => { message.value = error })
     accountUnsub = subscribeConstructionCompanyAccount(id, value => { companyAccount.value = value }, error => { message.value = error })
   }
-  if (props.masterType === 'homeowner') propertyUnsub = subscribeHomeownerProperties(id, value => { properties.value = value }, error => { message.value = error })
-  if (props.masterType === 'warrantyService') propertyUnsub = subscribeWarrantyServiceProperties(id, value => { properties.value = value }, error => { message.value = error })
+  if (props.masterType === 'homeowner') propertyUnsub = subscribeHomeownerProperties(id, value => { properties.value = value; if (propertyPage.value > propertyPageCount.value) propertyPage.value = propertyPageCount.value }, error => { message.value = error })
+  if (props.masterType === 'warrantyService') propertyUnsub = subscribeWarrantyServiceProperties(id, value => { properties.value = value; if (propertyPage.value > propertyPageCount.value) propertyPage.value = propertyPageCount.value }, error => { message.value = error })
 }
 onMounted(() => start(String(route.params.id)))
 watch(() => route.params.id, id => start(String(id)))

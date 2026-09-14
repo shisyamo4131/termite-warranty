@@ -33,6 +33,12 @@
     label="備考（任意）"
   />
   <template v-if="form.masterType === 'property'">
+    <MasterAddressFields
+      ref="propertyAddressFields"
+      v-model="form.address"
+      lookup-subject="property"
+      :postal-lookup-provider="props.postalLookupProvider"
+    />
     <MasterPropertyReferenceFields
       v-model:homeowner-id="form.homeownerId"
       v-model:construction-company-id="form.constructionCompanyId"
@@ -47,12 +53,6 @@
       step="0.01"
       :rules="[buildingAreaRule]"
       required
-    />
-    <MasterAddressFields
-      ref="propertyAddressFields"
-      v-model="form.address"
-      lookup-subject="property"
-      :postal-lookup-provider="props.postalLookupProvider"
     />
     <v-textarea v-model="form.notes" label="備考（任意）" />
   </template>

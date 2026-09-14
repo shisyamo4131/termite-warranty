@@ -27,7 +27,11 @@
 
     <section class="mt-6">
       <div class="d-flex align-center justify-space-between mb-2"><h2 class="detail-section-title mb-0">適用保証</h2><v-btn v-if="row.status === 'active'" color="primary" size="small" @click="openWarranty(null)">適用保証を追加</v-btn></div>
-      <v-table><thead><tr><th>サービス</th><th>期間</th><th>開始日</th><th>満了日</th><th>通知</th><th>状態</th><th>操作</th></tr></thead><tbody><tr v-for="warranty in row.appliedWarranties" :key="warranty.id"><td>{{ warranty.warrantyServiceName }}</td><td>{{ warranty.periodYears }}年</td><td>{{ warranty.startDate }}</td><td>{{ warranty.expiryDate }}</td><td>{{ warranty.notificationStatus }}</td><td>{{ statusLabel(warranty.status) }}<span v-if="warranty.statusReason">（{{ warranty.statusReason }}）</span></td><td><v-btn v-if="row.status === 'active' && warranty.status === 'active'" size="small" variant="text" @click="openWarranty(warranty)">編集</v-btn></td></tr></tbody></v-table>
+      <v-table><thead><tr><th>サービス</th><th>期間</th><th>開始日</th><th>満了日</th><th>通知</th><th>状態</th><th>操作</th></tr></thead><tbody><tr v-for="warranty in visibleWarranties" :key="warranty.id"><td>{{ warranty.warrantyServiceName }}</td><td>{{ warranty.periodYears }}年</td><td>{{ warranty.startDate }}</td><td>{{ warranty.expiryDate }}</td><td>{{ warranty.notificationStatus }}</td><td>{{ statusLabel(warranty.status) }}<span v-if="warranty.statusReason">（{{ warranty.statusReason }}）</span></td><td><v-btn v-if="row.status === 'active' && warranty.status === 'active'" size="small" variant="text" @click="openWarranty(warranty)">編集</v-btn></td></tr></tbody></v-table>
+      <div v-if="row.appliedWarranties.length" class="list-pagination-bar">
+        <span class="text-body-2 text-medium-emphasis">{{ row.appliedWarranties.length }}件</span>
+        <v-pagination v-if="warrantyPageCount > 1" v-model="warrantyPage" :length="warrantyPageCount" density="comfortable" />
+      </div>
     </section>
   </template>
 
@@ -40,11 +44,13 @@
 <script setup lang="ts">
 import type { CaseRow, MasterCatalog } from '../types/prototype-data'
 
+const PAGE_SIZE = 5
 const route = useRoute()
 const { showSnackbar } = useAppSnackbar()
 const editOpen = ref(false)
 const warrantyOpen = ref(false)
 const selectedWarranty = ref<CaseRow['appliedWarranties'][number] | null>(null)
+const warrantyPage = ref(1)
 const { state, start } = useCaseDetail()
 const masterCatalog = useMasterCatalog()
 const dialogMasters = reactive<MasterCatalog>(masterCatalog.emptyMasterCatalog())
@@ -53,6 +59,8 @@ const row = computed(() => state.value.row)
 const message = computed(() => dialogLoadError.value || (state.value.status === 'error' ? '案件データを読み込めませんでした。' : ''))
 const loaded = computed(() => state.value.status !== 'loading')
 const selectableMasters = computed(() => masterCatalog.activeMasters(dialogMasters))
+const warrantyPageCount = computed(() => Math.max(1, Math.ceil((row.value?.appliedWarranties.length ?? 0) / PAGE_SIZE)))
+const visibleWarranties = computed(() => row.value?.appliedWarranties.slice((warrantyPage.value - 1) * PAGE_SIZE, warrantyPage.value * PAGE_SIZE) ?? [])
 const statusLabel = (value: string) => ({ active: '有効', cancelled: '取消', invalid: '無効' }[value] ?? value)
 const loadDialogMasters = async () => {
   dialogLoadError.value = ''
@@ -74,5 +82,8 @@ const openWarranty = async (warranty: CaseRow['appliedWarranties'][number] | nul
 }
 const handleWarrantySaved = () => showSnackbar(selectedWarranty.value ? '適用保証を更新しました。' : '適用保証を追加しました。', 'success')
 onMounted(() => start(String(route.params.id)))
-watch(() => route.params.id, id => start(String(id)))
+watch(() => route.params.id, id => { warrantyPage.value = 1; start(String(id)) })
+watch(() => row.value?.appliedWarranties.length ?? 0, () => {
+  if (warrantyPage.value > warrantyPageCount.value) warrantyPage.value = warrantyPageCount.value
+})
 </script>

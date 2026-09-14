@@ -437,6 +437,15 @@ test('shared master form declares each type-specific section once', async () => 
   assert.match(source, /step="1"/)
   assert.match(source, /v-model="form\.shortName"[\s\S]*label="略称"[\s\S]*required/)
   assert.equal((source.match(/label="備考（任意）"/g) ?? []).length, 2)
+  assert.match(
+    source,
+    /v-if="form\.masterType === 'property'"[\s\S]*<MasterAddressFields[\s\S]*<MasterPropertyReferenceFields[\s\S]*form\.buildingAreaSquareMeters[\s\S]*form\.notes/,
+  )
+})
+
+test('notification-management guidance cannot shrink below its content height', async () => {
+  const source = await readProjectFile('app/components/CompanyPortalNotificationManagement.vue')
+  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-shrink-0">/)
 })
 
 test('list screens share the compact card-title action layout and simple list titles', async () => {
@@ -476,6 +485,7 @@ test('list screens share the compact card-title action layout and simple list ti
 
 test('master details expose the confirmed linked-property labels and account-owned company email', async () => {
   const detail = await readProjectFile('app/components/MasterDetail.vue')
+  const caseDetail = await readProjectFile('app/components/CaseDetail.vue')
   const repository = await readProjectFile('app/composables/useMasterManagement.ts')
   const layout = await readProjectFile('app/layouts/default.vue')
   const indexes = await readProjectFile('firestore.indexes.json')
@@ -484,6 +494,12 @@ test('master details expose the confirmed linked-property labels and account-own
   for (const label of ['担当物件', '所有物件', '対象物件', 'アカウントのメールアドレス']) {
     assert.match(detail, new RegExp(label))
   }
+  assert.match(detail, /const PAGE_SIZE = 5/)
+  assert.match(detail, /v-for="property in visibleProperties"/)
+  assert.match(detail, /<v-pagination v-if="propertyPageCount > 1"/)
+  assert.match(caseDetail, /const PAGE_SIZE = 5/)
+  assert.match(caseDetail, /v-for="warranty in visibleWarranties"/)
+  assert.match(caseDetail, /<v-pagination v-if="warrantyPageCount > 1"/)
   assert.match(repository, /collectionGroup\(\$firebase\.firestore, 'appliedWarranties'\)/)
   assert.match(repository, /where\('status', '==', 'active'\)/)
   assert.match(repository, /data\?\.status === 'active'/)
