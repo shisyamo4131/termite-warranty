@@ -1,5 +1,5 @@
 import { applicationDefault, initializeApp } from 'firebase-admin/app'
-import { FieldValue, Timestamp, getFirestore } from 'firebase-admin/firestore'
+import { getFirestore } from 'firebase-admin/firestore'
 import { masterFieldMigrationPatch } from '../src/domain/master-data.mjs'
 
 const projectId = 'termite-warranty-dev'
@@ -25,13 +25,8 @@ console.log(JSON.stringify({ projectId, mode: apply ? 'apply' : 'dry-run', count
 if (apply) {
   for (let offset = 0; offset < planned.length; offset += 450) {
     const batch = firestore.batch()
-    const now = Timestamp.now()
     for (const { document, patch } of planned.slice(offset, offset + 450)) {
-      batch.update(document.ref, {
-        ...patch,
-        revision: FieldValue.increment(1),
-        updatedAt: now,
-      })
+      batch.update(document.ref, patch)
     }
     await batch.commit()
   }
