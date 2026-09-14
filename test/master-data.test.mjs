@@ -270,20 +270,23 @@ test('all three master entry points use the shared form and payload mapper', asy
   assert.match(quickSource, /form\.value = createMasterFormDraft\(props\.masterType\)/)
 })
 
-test('construction-company and homeowner lists delegate presentation to bounded user-designed tables', async () => {
+test('construction-company, homeowner, and property lists delegate presentation to bounded user-designed tables', async () => {
   const parentSource = await readProjectFile('app/components/MasterManagement.vue')
   const tableSources = [
     await readProjectFile('app/components/ConstructionCompanyTable.vue'),
     await readProjectFile('app/components/HomeOwnerTable.vue'),
+    await readProjectFile('app/components/PropertyTable.vue'),
   ]
 
   assert.match(parentSource, /<ConstructionCompanyTable/)
   assert.match(parentSource, /v-if="masterType === 'constructionCompany'"/)
   assert.match(parentSource, /<HomeOwnerTable/)
   assert.match(parentSource, /v-else-if="masterType === 'homeowner'"/)
-  assert.equal(parentSource.match(/:items="visibleRows"/g)?.length, 2)
-  assert.equal(parentSource.match(/@show-detail="handleTableDetail"/g)?.length, 2)
-  assert.equal(parentSource.match(/@change-active="handleTableActiveChange"/g)?.length, 2)
+  assert.match(parentSource, /<PropertyTable/)
+  assert.match(parentSource, /v-else-if="masterType === 'property'"/)
+  assert.equal(parentSource.match(/:items="visibleRows"/g)?.length, 3)
+  assert.equal(parentSource.match(/@show-detail="handleTableDetail"/g)?.length, 3)
+  assert.equal(parentSource.match(/@change-active="handleTableActiveChange"/g)?.length, 3)
 
   for (const tableSource of tableSources) {
     assert.match(tableSource, /items: ManagedMaster\[\]/)
@@ -293,6 +296,11 @@ test('construction-company and homeowner lists delegate presentation to bounded 
     assert.match(tableSource, /:items-per-page="-1"/)
     assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
   }
+
+  const propertyTableSource = tableSources[2]
+  assert.match(propertyTableSource, /建築面積 \(㎡\)/)
+  assert.match(propertyTableSource, /mdAndUp/)
+  assert.match(propertyTableSource, /lgAndUp/)
 })
 
 test('warranty short name accepts at most six displayed characters after trimming', () => {

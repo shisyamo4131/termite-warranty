@@ -1,6 +1,6 @@
 # Property Table Component Contract
 
-- Status: Ready for user authoring
+- Status: Integrated after accepted review on 2026-09-14
 - User workbench file: `/.user-ui-workbench/components/PropertyTable.vue`
 - Proposed tracked destination: `/app/components/PropertyTable.vue`
 - Initial integration point: the property branch of `/app/components/MasterManagement.vue`
@@ -96,3 +96,11 @@ No slots are required. Any proposed slot must be documented for review and integ
 The workbench version is ready for review when all preview states render without console errors, both events use the exact payloads above, inactive and lifecycle meaning do not rely on color alone, long content and 360-pixel width keep actions usable, and the component contains no Firebase, API, Router, global-store, or environment access.
 
 After the user identifies it as ready, the coordinator reviews it against this contract before tracked integration.
+
+## Integration Record
+
+- Integrated tracked component: `/app/components/PropertyTable.vue`
+- Integrated parent: the property branch of `/app/components/MasterManagement.vue`
+- The tracked TypeScript component preserves the submitted responsive headers, status chip, detail/lifecycle controls, optional hover and empty-message defaults, and semantic Clear Sky colors.
+- The submitted `建物面積` heading was aligned to the confirmed product term `建築面積`; legacy rows without an address are rendered safely.
+- Data subscription, search, paging, navigation, and active-state mutation remain owned by the parent. The tracked application does not import the ignored workbench component or fixture.

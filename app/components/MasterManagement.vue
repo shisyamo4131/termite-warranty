@@ -32,6 +32,13 @@
           @show-detail="handleTableDetail"
           @change-active="handleTableActiveChange"
         />
+        <PropertyTable
+          v-else-if="masterType === 'property'"
+          :items="visibleRows"
+          :loading="loading"
+          @show-detail="handleTableDetail"
+          @change-active="handleTableActiveChange"
+        />
         <v-table v-else class="list-data-table" fixed-header>
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>

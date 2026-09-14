@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Integrated the user-authored responsive property-list table while retaining parent-owned search, paging, navigation, and lifecycle mutations.
 - Added inclusive application-date and handover-date range filters with one-sided ranges and reversed-bound validation; rejected mandatory/default case year-month filtering while retaining freshest-20 and complete filtered paging behavior.
 - Extended the provider-neutral postal-lookup seam to construction-company forms, added blocking digits-and-hyphens validation for homeowner/construction-company TEL and FAX, and confirmed minimal normalized authentication-email validation.
 - Accepted the shared-account construction-company portal as the initial structured response workflow, defined reversible non-deleting account lifecycle and the financial/contracting-party boundary, and removed the obsolete cross-service FileMaker cutover assumption.
