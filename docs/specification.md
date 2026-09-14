@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
-- Last updated: 2026-09-13
-- Specification version: 0.1.12
+- Last updated: 2026-09-14
+- Specification version: 0.1.13
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -128,6 +128,7 @@ For the proposal prototype, a House Solution administrator issues and disables o
 - Actual registration volume is not measured. The proposal assumes that five- and ten-year warranty cycles and building-based cases make hundreds of daily procedures and simultaneous same-company updates to one case very unlikely. This assumption requires House Solution confirmation before production sizing.
 - Reducing manual-entry work and human error is a confirmed business objective.
 - Do not implement an operation-history or audit-log feature in the initial release. Registration and update timestamps required for list ordering remain in scope.
+- Staff-facing business-data Rules are limited to Firebase Authentication and the live enabled-account boundary. Document shape and business validation belong to the supported application flow; the prototype does not guarantee authenticated Create, Update, or Delete requests made outside that flow. Account, construction-company ownership, and server-owned state retain their explicit access boundaries.
 
 ## Data and State
 

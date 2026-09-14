@@ -393,7 +393,7 @@ export async function reviewCompanyCaseWorkItemOperation(firestore, input, actor
       transaction.create(propertyRef, {
         name: response.propertyName, homeownerId: homeownerRef.id,
         constructionCompanyId: workItem.constructionCompanyId, address: response.propertyAddress,
-        active: true, nameSearch: searchFields(response.propertyName), revision: 1, createdAt: now, updatedAt: now,
+        notes: null, active: true, nameSearch: searchFields(response.propertyName), revision: 1, createdAt: now, updatedAt: now,
       })
       transaction.set(counterRef, { nextValue: nextValue + 1, lastCaseId: caseRef.id }, { merge: true })
       transaction.create(reservationRef, { caseId: caseRef.id })

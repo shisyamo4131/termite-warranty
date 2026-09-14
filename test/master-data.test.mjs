@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import {
   MasterDataError,
   createNameSearch,
+  masterFieldMigrationPatch,
   normalizeMasterFields,
   parseCreateMasterRequest,
   parseSetMasterActiveRequest,
@@ -25,7 +26,7 @@ test('name search uses fixed normalization and token-map oracles', () => {
 test('supported master fields normalize into the trusted write shape', () => {
   const table = [
     ['homeowner', { name: ' 施主 ', address: { postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ', streetTownAndNumber: ' 1-1 ', buildingName: '' }, telephone: ' 03-0000-0000 ', fax: '', notes: ' ' }, { name: '施主', address: { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null }, telephone: '03-0000-0000', fax: null, notes: null, nameSearch: createNameSearch('施主') }],
-    ['warrantyService', { name: ' 保証 ', defaultPeriodYears: 5 }, { name: '保証', defaultPeriodYears: 5 }],
+    ['warrantyService', { name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: ' ' }, { name: '保証', shortName: '保証5', defaultPeriodYears: 5, notes: null }],
   ]
   for (const [masterType, input, expected] of table) {
     assert.deepEqual(normalizeMasterFields(masterType, input), expected)
@@ -61,10 +62,12 @@ test('property fields normalize postal code and nullable building name', () => {
       postalCode: '100-0001', prefecture: ' 東京都 ', municipality: ' 千代田区 ',
       streetTownAndNumber: ' 千代田1-1 ', buildingName: '',
     },
+    notes: ' メモ ',
   })
   assert.equal(result.address.postalCode, '1000001')
   assert.equal(result.address.buildingName, null)
   assert.equal(result.homeownerId, 'homeowner-1')
+  assert.equal(result.notes, 'メモ')
   assert.equal(result.nameSearch.normalized, '住宅')
 })
 
@@ -86,15 +89,15 @@ test('request parsers enforce exact action field allowlists', () => {
     (error) => error instanceof MasterDataError && error.code === 'invalid-argument',
   )
   assert.deepEqual(
-    parseUpdateMasterRequest({ masterType: 'warrantyService', id: 'a', fields: { name: 'A', defaultPeriodYears: 1 } }),
-    { masterType: 'warrantyService', id: 'a', fields: { name: 'A', defaultPeriodYears: 1 } },
+    parseUpdateMasterRequest({ masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } }),
+    { masterType: 'warrantyService', id: 'a', fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } },
   )
   assert.deepEqual(
     parseSetMasterActiveRequest({ masterType: 'homeowner', id: 'a', active: false }),
     { masterType: 'homeowner', id: 'a', active: false },
   )
   for (const request of [
-    { masterType: 'warrantyService', id: 'a', expectedRevision: 1, fields: { name: 'A', defaultPeriodYears: 1 } },
+    { masterType: 'warrantyService', id: 'a', expectedRevision: 1, fields: { name: 'A', shortName: 'A', defaultPeriodYears: 1, notes: null } },
     { masterType: 'homeowner', id: 'a', expectedRevision: 1, active: false },
   ]) {
     assert.throws(
@@ -112,10 +115,11 @@ test('invalid required values are rejected table-wise', () => {
   const invalidFields = [
     ['constructionCompany', { name: '  ' }],
     ['homeowner', { name: '***' }],
-    ['warrantyService', { name: 'Warranty', defaultPeriodYears: 1.5 }],
+    ['warrantyService', { name: 'Warranty', shortName: 'W', defaultPeriodYears: 1.5, notes: null }],
     ['property', {
       name: 'House', homeownerId: 'h', constructionCompanyId: 'c',
       address: { postalCode: '123', prefecture: 'P', municipality: 'M', streetTownAndNumber: 'S', buildingName: null },
+      notes: null,
     }],
   ]
   for (const [masterType, fields] of invalidFields) {
@@ -141,10 +145,11 @@ test('construction-company payload requires the complete declared shape', () => 
 
 test('master form drafts initialize independently for every master type', () => {
   const table = [
-    ['warrantyService', { masterType: 'warrantyService', name: '', defaultPeriodYears: 1 }],
+    ['warrantyService', { masterType: 'warrantyService', name: '', shortName: '', defaultPeriodYears: 1, notes: '' }],
     ['property', {
       masterType: 'property', name: '', homeownerId: '', constructionCompanyId: '',
       address: { postalCode: '', prefecture: '', municipality: '', streetTownAndNumber: '', buildingName: '' },
+      notes: '',
     }],
     ['constructionCompany', {
       masterType: 'constructionCompany', name: '',
@@ -174,10 +179,11 @@ test('master form drafts restore stored rows into editable values', () => {
     streetTownAndNumber: '1-1', buildingName: null,
   }
   const table = [
-    ['warrantyService', { name: '保証', defaultPeriodYears: 10 }, { masterType: 'warrantyService', name: '保証', defaultPeriodYears: 10 }],
-    ['property', { name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1', address }, {
+    ['warrantyService', { name: '保証', shortName: '保証10', defaultPeriodYears: 10, notes: '長期' }, { masterType: 'warrantyService', name: '保証', shortName: '保証10', defaultPeriodYears: 10, notes: '長期' }],
+    ['property', { name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1', address, notes: '南向き' }, {
       masterType: 'property', name: '住宅', homeownerId: 'h1', constructionCompanyId: 'c1',
       address: { ...address, buildingName: '' },
+      notes: '南向き',
     }],
     ['constructionCompany', {
       name: '工務店', address, telephone: null, fax: '03', contactPerson: null,
@@ -203,14 +209,14 @@ test('master form mapper emits the exact write payload for every master type', (
     streetTownAndNumber: ' 1-1 ', buildingName: '',
   }
   const table = [
-    ['warrantyService', { masterType: 'warrantyService', name: ' 保証 ', defaultPeriodYears: 5 }, {
-      name: ' 保証 ', defaultPeriodYears: 5,
+    ['warrantyService', { masterType: 'warrantyService', name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: '' }, {
+      name: ' 保証 ', shortName: ' 保証5 ', defaultPeriodYears: 5, notes: null,
     }],
     ['property', {
-      masterType: 'property', name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ', address,
+      masterType: 'property', name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ', address, notes: '',
     }, {
       name: ' 住宅 ', homeownerId: ' h1 ', constructionCompanyId: ' c1 ',
-      address: { ...address, buildingName: null },
+      address: { ...address, buildingName: null }, notes: null,
     }],
     ['constructionCompany', {
       masterType: 'constructionCompany', name: ' 工務店 ', address,
@@ -284,6 +290,17 @@ test('construction-company and homeowner lists delegate presentation to bounded 
     assert.match(tableSource, /:items-per-page="-1"/)
     assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
   }
+})
+
+test('development warranty short-name migration is compatible and idempotent', () => {
+  assert.deepEqual(masterFieldMigrationPatch('warrantyServices', { name: '標準保証', defaultPeriodYears: 5 }), {
+    shortName: '標準保証',
+  })
+  assert.deepEqual(masterFieldMigrationPatch('warrantyServices', { name: '標準保証', shortName: ' ', notes: null }), {
+    shortName: '標準保証',
+  })
+  assert.equal(masterFieldMigrationPatch('warrantyServices', { name: '標準保証', shortName: '標準', notes: null }), null)
+  assert.throws(() => masterFieldMigrationPatch('properties', { name: '物件' }), /Unsupported migration collection/)
 })
 
 test('master entry submission adapters execute payload and success contracts', async () => {
@@ -364,6 +381,30 @@ test('shared master form declares each type-specific section once', async () => 
     assert.equal(source.match(new RegExp(`<${component}\\b`, 'g'))?.length, component === 'MasterAddressFields' ? 3 : 1)
   }
   assert.match(source, /step="1"/)
+  assert.match(source, /v-model="form\.shortName"[\s\S]*label="略称"[\s\S]*required/)
+  assert.equal((source.match(/label="備考（任意）"/g) ?? []).length, 2)
+})
+
+test('list screens share the compact card-title action layout and simple list titles', async () => {
+  const dashboard = await readProjectFile('app/components/PrototypeDashboard.vue')
+  const masters = await readProjectFile('app/components/MasterManagement.vue')
+
+  for (const source of [dashboard, masters]) {
+    assert.match(source, /justify-space-between/)
+    assert.match(source, /新規登録/)
+  }
+  assert.match(dashboard, /list-page-row/)
+  assert.match(dashboard, /list-data-card/)
+  assert.match(dashboard, /flex-grow-0/)
+
+  for (const path of [
+    'app/pages/masters/construction-companies/index.vue',
+    'app/pages/masters/homeowners/index.vue',
+    'app/pages/masters/properties/index.vue',
+    'app/pages/masters/warranty-services/index.vue',
+  ]) {
+    assert.doesNotMatch(await readProjectFile(path), /マスター/)
+  }
 })
 
 test('master details expose the confirmed linked-property labels and account-owned company email', async () => {

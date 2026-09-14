@@ -1,18 +1,19 @@
 <template>
   <section class="list-page">
-    <h1 class="text-h4 mb-6">案件一覧</h1>
-    <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <div class="d-flex justify-end mb-4">
-      <v-btn color="primary" @click="openRegistration">案件を登録</v-btn>
-    </div>
-
-    <case-filter-panel v-model="filters" :masters="allMasters" />
-
-    <v-alert type="info" density="compact" variant="tonal" class="mb-4">
-      更新日時が新しい20件を表示しています。現在の検索条件は、この20件の中を絞り込みます。
-    </v-alert>
-
-    <v-card class="list-data-card" title="案件一覧・アラート">
+    <v-row class="list-page-row">
+      <v-col cols="12" class="list-page-column">
+    <v-card class="list-data-card">
+      <v-card-title class="d-flex align-center justify-space-between ga-4">
+        <span>案件一覧</span>
+        <v-btn color="primary" @click="openRegistration">新規登録</v-btn>
+      </v-card-title>
+      <v-card-text>
+        <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
+        <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
+          更新日時が新しい20件を表示しています。現在の検索条件は、この20件の中を絞り込みます。
+        </v-alert>
+        <case-filter-panel v-model="filters" :masters="allMasters" />
+      </v-card-text>
       <v-table class="list-data-table" fixed-header>
       <thead><tr><th>案件番号</th><th>施主</th><th>物件住所</th><th>工務店</th><th>担当支店</th><th>状態</th><th>操作</th></tr></thead>
       <tbody>
@@ -30,6 +31,8 @@
       </tbody>
       </v-table>
     </v-card>
+      </v-col>
+    </v-row>
 
     <v-dialog v-model="registrationDialog" max-width="720" persistent>
     <v-card title="案件登録" subtitle="物件から施主・工務店を反映し、初回保証を登録します">

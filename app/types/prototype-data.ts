@@ -7,6 +7,8 @@ export interface MasterOption {
   homeownerId?: string
   constructionCompanyId?: string
   defaultPeriodYears?: number
+  shortName?: string
+  notes?: string | null
   address?: {
     postalCode?: string
     prefecture?: string

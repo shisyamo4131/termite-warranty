@@ -17,6 +17,7 @@ export interface ManagedMaster {
     two: Record<string, true>
   }
   defaultPeriodYears?: number
+  shortName?: string
   homeownerId?: string
   constructionCompanyId?: string
   address?: {
@@ -51,6 +52,7 @@ const asMaster = (id: string, data: DocumentData): ManagedMaster => ({
   active: data.active === true,
   nameSearch: data.nameSearch,
   defaultPeriodYears: data.defaultPeriodYears,
+  shortName: String(data.shortName ?? data.name ?? ''),
   homeownerId: data.homeownerId,
   constructionCompanyId: data.constructionCompanyId,
   address: data.address,

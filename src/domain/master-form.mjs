@@ -19,7 +19,13 @@ const nullable = (value) => value || null
 export function createMasterFormDraft(masterType, row = null) {
   const name = row?.name ?? ''
   if (masterType === 'warrantyService') {
-    return { masterType, name, defaultPeriodYears: row?.defaultPeriodYears ?? 1 }
+    return {
+      masterType,
+      name,
+      shortName: row?.shortName ?? row?.name ?? '',
+      defaultPeriodYears: row?.defaultPeriodYears ?? 1,
+      notes: row?.notes ?? '',
+    }
   }
   if (masterType === 'property') {
     return {
@@ -28,6 +34,7 @@ export function createMasterFormDraft(masterType, row = null) {
       homeownerId: row?.homeownerId ?? '',
       constructionCompanyId: row?.constructionCompanyId ?? '',
       address: row ? editableAddress(row.address) : emptyAddress(),
+      notes: row?.notes ?? '',
     }
   }
   if (masterType === 'constructionCompany') {
@@ -65,7 +72,12 @@ const addressFields = (address) => ({
 
 export function masterFormDraftToFields(form) {
   if (form.masterType === 'warrantyService') {
-    return { name: form.name, defaultPeriodYears: form.defaultPeriodYears }
+    return {
+      name: form.name,
+      shortName: form.shortName,
+      defaultPeriodYears: form.defaultPeriodYears,
+      notes: nullable(form.notes),
+    }
   }
   if (form.masterType === 'property') {
     return {
@@ -73,6 +85,7 @@ export function masterFormDraftToFields(form) {
       homeownerId: form.homeownerId,
       constructionCompanyId: form.constructionCompanyId,
       address: addressFields(form.address),
+      notes: nullable(form.notes),
     }
   }
   if (form.masterType === 'constructionCompany') {

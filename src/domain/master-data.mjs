@@ -13,8 +13,8 @@ const CONSTRUCTION_COMPANY_FIELDS = Object.freeze([
   'name', 'address', 'telephone', 'fax', 'contactPerson', 'contactDetails', 'notes',
 ])
 const HOMEOWNER_FIELDS = Object.freeze(['name', 'address', 'telephone', 'fax', 'notes'])
-const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address'])
-const WARRANTY_FIELDS = Object.freeze(['name', 'defaultPeriodYears'])
+const PROPERTY_FIELDS = Object.freeze(['name', 'homeownerId', 'constructionCompanyId', 'address', 'notes'])
+const WARRANTY_FIELDS = Object.freeze(['name', 'shortName', 'defaultPeriodYears', 'notes'])
 const ADDRESS_FIELDS = Object.freeze([
   'postalCode',
   'prefecture',
@@ -105,7 +105,12 @@ export function normalizeMasterFields(masterType, fields) {
     if (!Number.isInteger(fields.defaultPeriodYears) || fields.defaultPeriodYears < 1) {
       invalid('Default warranty period must be a positive integer.')
     }
-    return { name, defaultPeriodYears: fields.defaultPeriodYears }
+    return {
+      name,
+      shortName: requiredText(fields.shortName, 'Short name'),
+      defaultPeriodYears: fields.defaultPeriodYears,
+      notes: nullableText(fields.notes, 'Notes'),
+    }
   }
 
   if (masterType === MASTER_TYPES.CONSTRUCTION_COMPANY) {
@@ -127,6 +132,7 @@ export function normalizeMasterFields(masterType, fields) {
       homeownerId: requiredText(fields.homeownerId, 'Homeowner'),
       constructionCompanyId: requiredText(fields.constructionCompanyId, 'Construction company'),
       address: normalizeAddress(fields.address),
+      notes: nullableText(fields.notes, 'Notes'),
       nameSearch: createNameSearch(name),
     }
   }
@@ -143,6 +149,18 @@ export function normalizeMasterFields(masterType, fields) {
   }
 
   return { name, nameSearch: createNameSearch(name) }
+}
+
+export function masterFieldMigrationPatch(collectionName, data) {
+  if (!isPlainObject(data)) invalid('Master data must be an object.')
+  if (collectionName === 'warrantyServices') {
+    const patch = {}
+    if (typeof data.shortName !== 'string' || data.shortName.trim().length === 0) {
+      patch.shortName = requiredText(data.name, 'Name')
+    }
+    return Object.keys(patch).length > 0 ? patch : null
+  }
+  invalid('Unsupported migration collection.')
 }
 
 export function parseCreateMasterRequest(input) {

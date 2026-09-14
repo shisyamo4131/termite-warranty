@@ -2,15 +2,16 @@
   <section class="list-page">
     <v-row class="list-page-row">
       <v-col cols="12" class="list-page-column">
-      <v-card class="list-data-card" :title="`${title}一覧`">
+      <v-card class="list-data-card">
+        <v-card-title class="d-flex align-center justify-space-between ga-4">
+          <span>{{ title }}一覧</span>
+          <v-btn color="primary" @click="openCreate">新規登録</v-btn>
+        </v-card-title>
         <v-card-text>
           <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
           <v-alert type="info" density="compact" variant="tonal" class="mb-4">
             更新日時が新しい20件を表示しています。名称検索は、この20件の中を絞り込みます。
           </v-alert>
-          <div class="d-flex justify-end mb-4">
-            <v-btn color="primary" @click="openCreate">新規登録</v-btn>
-          </div>
           <v-text-field
             v-model="filter"
             label="名称で絞り込み"
@@ -37,7 +38,12 @@
           <thead><tr><th>名称</th><th v-if="hasAddress">住所</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="row in filteredRows" :key="row.id">
-              <td>{{ row.name }}<div v-if="masterType === 'warrantyService'" class="text-caption">{{ row.defaultPeriodYears }}年</div></td>
+              <td>
+                {{ row.name }}
+                <div v-if="masterType === 'warrantyService'" class="text-caption">
+                  {{ row.shortName }} / {{ row.defaultPeriodYears }}年
+                </div>
+              </td>
               <td v-if="hasAddress">{{ formatAddress(row) }}</td>
               <td><v-chip :color="row.active ? 'success' : 'default'" size="small">{{ row.active ? '有効' : '無効' }}</v-chip></td>
               <td>

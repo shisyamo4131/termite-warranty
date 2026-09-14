@@ -4,6 +4,8 @@
 
 ### Added
 
+- Added required warranty-service short names, optional warranty-service/property notes, aligned list layouts and titles, and a development-only short-name backfill.
+
 - Added a provisional construction-company portal prototype with one shared account per company, self-service password setup/reset, company-scoped pending case work, staff return/approval, atomic promotion to registered data, and explicitly simulated queued email notifications.
 
 - Added the zero-network TR-009 postal-lookup foundation with optional property/homeowner-only provider injection, sanitized provider-neutral results, per-field stale-response protection, and save/close/reset cancellation; no Google adapter or credential is present.
@@ -14,6 +16,10 @@
 - Added active-case applied-warranty add/edit/cancel/invalidate controls backed by an atomic callable transaction with stale-update protection and immutable service/period history.
 - Adopted the Clear Sky Vuetify theme across the local prototype UI.
 - Added separate, list-linked detail routes for the four supported masters and cases. The screens reuse existing edit dialogs, preserve readable inactive masters and terminal cases, provide return/not-found states, show all applied-warranty details, and list a construction company's linked properties.
+
+### Changed
+
+- Restored the provisional authentication-focused Firestore Rules posture for staff business data. Rules retain enabled-account, construction-company ownership, account, and server-owned-state boundaries but no longer claim schema, workflow, or soft-delete integrity for authenticated requests outside the supported application flow.
 - Added a deterministic, clearly synthetic local Emulator case dataset covering active alert/non-alert, notification, cancelled, and invalid states without selecting a real Firebase project.
 - Added button-triggered create/edit dialogs for the four supported masters and case registration, including nested four-master creation that preserves the current case draft.
 - Added active-case editing with stale-update protection and property-derived homeowner/company references, plus exact case/master/address/warranty filters with Vuetify expiry-date input.
@@ -50,7 +56,7 @@
 - Restricted local seeding to this project's exact dedicated Auth and Firestore Emulator endpoints so inherited environment variables cannot redirect writes into another local project's Emulator process.
 - Moved the local Nuxt and Firebase Emulator services to a dedicated non-conflicting port set, with the colocated AirGuardV2 environment retaining priority.
 - Removed the unused self-profile Callable from the local Functions surface while retaining the live Rules-governed staff-profile subscription and the separate future server-enforced account-management boundary.
-- Replaced construction-company, homeowner, property, and warranty-service CUD Callables with direct Firestore writes governed by enabled-staff and data-integrity Rules, while retaining atomic revision diagnostics and removing the unused master Functions surface.
+- Replaced construction-company, homeowner, property, and warranty-service CUD Callables with direct Firestore writes, while retaining atomic revision diagnostics and removing the unused master Functions surface. Its original Rules-based data-integrity boundary was later superseded by ADR 0025.
 - Made the development Firebase deployment fail closed behind every registered verification gate, bound Hosting deployment to the verified generated artifact, registered the complete Callable integration set, recursively syntax-checked all Functions modules, and removed the routine general-purpose `--force` bypass.
 - Made the generated Functions copy of `src/domain` deterministic and self-verifying across the supported Emulator, Callable-test, syntax-check, and Firebase predeploy paths, with an independent drift check.
 - Implemented last-write-wins for the four trusted-callable master update and lifecycle paths while retaining server-managed revisions, validation, atomic writes, property non-propagation, and the separate case/applied-warranty stale-baseline policy; the registered Emulator gate now covers the master Callable boundary and concurrent full-payload behavior.

@@ -1,1 +1,1 @@
-<template><div><MasterDetail master-type="warrantyService" title="保証サービスマスター" /></div></template>
+<template><div><MasterDetail master-type="warrantyService" title="保証サービス" /></div></template>

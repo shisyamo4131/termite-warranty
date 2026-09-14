@@ -70,6 +70,8 @@ export async function updateCaseTransaction(firestore: Firestore, input: CaseUpd
       const company = await transaction.get(doc(firestore, 'constructionCompanies', constructionCompanyId))
       if (!company.exists() || company.data()?.active !== true) throw new Error('有効な工務店を選択してください。')
     }
+    const branch = await transaction.get(doc(firestore, 'branches', input.responsibleBranchId))
+    if (!branch.exists() || branch.data()?.active !== true) throw new Error('有効な担当支店を選択してください。')
     const statusReason = input.status === 'active' ? null : input.statusReason?.trim() || null
     if (input.status !== 'active' && !statusReason) throw new Error('取消・無効には理由が必要です。')
 

@@ -13,8 +13,8 @@ This is a provisional business-record model for requirements discovery. It is no
 | Construction-company account (工務店アカウント) | Firebase Authentication UID, construction-company ID, shared email address, role (`construction company`), enabled/disabled state, registration/update timestamps |
 | Construction company (工務店) | Name, postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional contact person, optional contact details, optional notes, active/inactive state |
 | Homeowner (施主) | Name, required postal code, prefecture, municipality, street/town and number, optional building name, optional telephone, optional fax, optional notes, active/inactive state |
-| Property (物件) | Required name, homeowner ID, construction-company ID, five-part address, active/inactive state |
-| Warranty service / product (保証サービス) | Name, default warranty period in positive integer whole years, active/inactive state |
+| Property (物件) | Required name, homeowner ID, construction-company ID, five-part address, optional notes, active/inactive state |
+| Warranty service / product (保証サービス) | Required name, required short name, default warranty period in positive integer whole years, optional notes, active/inactive state |
 | Case (案件) | Fixed-width auto-assigned case number (initially `000001` sequence; preserve legacy number when available), required application date, required handover date, homeowner ID, property ID, construction-company ID, responsible branch ID, case status, cancellation/invalidation reason when applicable, registration timestamp, update timestamp |
 | Applied warranty (案件内適用保証) | Case ID, warranty-service ID, warranty period in whole years, warranty start date, expiry date, notification status, status, cancellation/invalidation reason when applicable |
 | Construction-company case work item (工務店対応データ) | Reserved/current case ID, construction-company ID, new-case/renewal kind, workflow status, revision, displayed case/property/homeowner context, company response, review comment, submission/approval and registration/update timestamps |

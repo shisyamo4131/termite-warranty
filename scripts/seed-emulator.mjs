@@ -127,6 +127,7 @@ const propertySeeds = Array.from({ length: 30 }, (_, offset) => {
       streetTownAndNumber: `デモ住宅地${Math.floor(offset / 10) + 1}-${index}`,
       buildingName: index % 3 === 0 ? `デモレジデンス${pad2(index)}` : null,
     },
+    notes: `デモ表示用の物件${pad2(index)}です。`,
   })]
 })
 
@@ -135,7 +136,9 @@ const warrantyServiceSeeds = warrantyPeriods.map((defaultPeriodYears, offset) =>
   const index = offset + 1
   return [firestore.doc(`warrantyServices/${seedId('demo-warranty', index)}`), {
     name: `デモ保証サービス${pad2(index)}（${defaultPeriodYears}年）`,
+    shortName: `デモ保証${pad2(index)}`,
     defaultPeriodYears,
+    notes: `デモ表示用の保証サービス${pad2(index)}です。`,
     active: true,
   }]
 })

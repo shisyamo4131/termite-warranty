@@ -1,7 +1,7 @@
 # 0018 Direct Master Writes Under the Provisional Access Posture
 
 - Date: 2026-09-12
-- Status: Accepted and implemented by TR-007
+- Status: Superseded by [decision 0025](0025-authentication-focused-firestore-rules.md)
 - Related specification: [Security and access posture](../requirements/security-and-access.md), [master management](../requirements/master-management.md)
 - Supersedes: None
 
@@ -49,3 +49,7 @@ No data migration is authorized by this decision. Existing valid revision fields
 - The system must defend derived search integrity against malicious authenticated clients.
 - Search indexing moves to a server-owned index or another database.
 - Regulatory, contractual, or customer requirements require a stronger server-side command boundary.
+
+## Supersession
+
+Decision 0025 retains direct master writes but removes the schema and business-integrity enforcement assigned here to Firestore Rules. The earlier access posture remains authoritative: Rules protect authentication, enabled-account, ownership, and explicit server-authority boundaries; the prototype does not guarantee authenticated writes made outside the supported application flow.

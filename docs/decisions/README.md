@@ -29,13 +29,14 @@
 | [0015](0015-no-legacy-data-migration.md) | No legacy-data migration | Accepted | 2026-09-11 |
 | [0016](0016-master-last-write-wins.md) | Master last-write-wins | Accepted | 2026-09-12 |
 | [0017](0017-bounded-default-list-subscriptions.md) | Bounded default list subscriptions | Accepted | 2026-09-12 |
-| [0018](0018-direct-master-writes.md) | Direct master writes under the provisional access posture | Accepted | 2026-09-12 |
+| [0018](0018-direct-master-writes.md) | Direct master writes under the provisional access posture | Superseded | 2026-09-12 |
 | [0019](0019-remove-unused-profile-callable.md) | Remove the unused profile Callable | Accepted | 2026-09-12 |
 | [0020](0020-local-port-allocation.md) | Dedicated local ports with AirGuardV2 priority | Accepted | 2026-09-12 |
 | [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
 | [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Accepted | 2026-09-12 |
 | [0023](0023-construction-company-portal-prototype.md) | Construction-company portal proposal prototype | Provisional | 2026-09-13 |
 | [0024](0024-same-site-password-action-handler.md) | Same-site password action handler | Accepted | 2026-09-13 |
+| [0025](0025-authentication-focused-firestore-rules.md) | Authentication-focused Firestore Rules | Accepted | 2026-09-14 |
 
 ## Template
 

@@ -2,12 +2,23 @@
   <v-text-field v-model="form.name" label="名称" required />
   <v-text-field
     v-if="form.masterType === 'warrantyService'"
+    v-model="form.shortName"
+    label="略称"
+    required
+  />
+  <v-text-field
+    v-if="form.masterType === 'warrantyService'"
     v-model.number="form.defaultPeriodYears"
     label="標準保証期間（年）"
     type="number"
     min="1"
     step="1"
     required
+  />
+  <v-textarea
+    v-if="form.masterType === 'warrantyService'"
+    v-model="form.notes"
+    label="備考（任意）"
   />
   <template v-if="form.masterType === 'property'">
     <MasterPropertyReferenceFields
@@ -22,6 +33,7 @@
       lookup-subject="property"
       :postal-lookup-provider="props.postalLookupProvider"
     />
+    <v-textarea v-model="form.notes" label="備考（任意）" />
   </template>
   <template v-if="form.masterType === 'constructionCompany'">
     <MasterAddressFields v-model="form.address" />
