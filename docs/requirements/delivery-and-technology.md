@@ -16,11 +16,11 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 - Through mid-October 2026: build the production environment and prepare the release.
 - End of October 2026: switch new registrations to the new system and officially release to production.
 
-## Confirmed Cutover Direction
+## Confirmed Independent-Service Boundary
 
-- Use temporary parallel operation of FileMaker and the new system as a safety measure before official release, despite the additional user workload.
-- No final data migration is performed. The purpose and necessity of parallel operation must be reconsidered on that basis.
-- The duration of parallel operation, system-of-record boundary, new-registration switch timing, rollback decision, and official cutover procedure remain open.
+- The current FileMaker service and the new service are separate systems for separate services. There is no business-data cutover, parallel system-of-record operation, or rollback between them.
+- No final data migration is performed. Each service retains and manages its own records.
+- Deployment rollback, backup/recovery, and incident response for the new system remain production-operation decisions.
 
 ## Confirmed Prototype Stack
 

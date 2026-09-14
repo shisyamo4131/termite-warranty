@@ -22,3 +22,4 @@ The disposable implementation belongs under `/.user-ui-workbench/components/`; t
 
 - [Construction company table](construction-company-table.md)
 - [Homeowner table](homeowner-table.md)
+- [Property table](property-table.md)

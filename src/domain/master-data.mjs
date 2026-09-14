@@ -66,6 +66,18 @@ const nullableText = (value, label) => {
   return value.trim() || null
 }
 
+export const isTelephoneOrFaxValue = value => {
+  if (value === null || value === undefined || value === '') return true
+  if (typeof value !== 'string') return false
+  const normalized = value.trim()
+  return normalized === '' || /^[0-9-]+$/.test(normalized)
+}
+
+const nullableTelephoneOrFax = (value, label) => {
+  if (!isTelephoneOrFaxValue(value)) invalid(`${label}は数字とハイフンのみで入力してください。`)
+  return nullableText(value, label)
+}
+
 const normalizeBuildingArea = (value) => {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) invalid('建築面積は0より大きい数値で入力してください。')
   if (Math.abs(value * 100 - Math.round(value * 100)) > 1e-8) invalid('建築面積は小数点以下2桁までで入力してください。')
@@ -141,8 +153,8 @@ export function normalizeMasterFields(masterType, fields) {
     return {
       name,
       address: normalizeAddress(fields.address),
-      telephone: nullableText(fields.telephone, 'Telephone'),
-      fax: nullableText(fields.fax, 'Fax'),
+      telephone: nullableTelephoneOrFax(fields.telephone, 'TEL'),
+      fax: nullableTelephoneOrFax(fields.fax, 'FAX'),
       contactPerson: nullableText(fields.contactPerson, 'Contact person'),
       contactDetails: nullableText(fields.contactDetails, 'Contact details'),
       notes: nullableText(fields.notes, 'Notes'),
@@ -166,8 +178,8 @@ export function normalizeMasterFields(masterType, fields) {
     return {
       name,
       address: normalizeAddress(fields.address),
-      telephone: nullableText(fields.telephone, 'Telephone'),
-      fax: nullableText(fields.fax, 'Fax'),
+      telephone: nullableTelephoneOrFax(fields.telephone, 'TEL'),
+      fax: nullableTelephoneOrFax(fields.fax, 'FAX'),
       notes: nullableText(fields.notes, 'Notes'),
       nameSearch: createNameSearch(name),
     }

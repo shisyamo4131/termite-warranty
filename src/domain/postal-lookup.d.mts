@@ -1,6 +1,6 @@
 import type { MasterAddressDraft, MasterType } from './master-form.mjs'
 
-export type PostalLookupSubject = Extract<MasterType, 'property' | 'homeowner'>
+export type PostalLookupSubject = Extract<MasterType, 'property' | 'homeowner' | 'constructionCompany'>
 export type PostalLookupAddress = Pick<MasterAddressDraft, 'prefecture' | 'municipality' | 'streetTownAndNumber'>
 
 export type PostalLookupResult =

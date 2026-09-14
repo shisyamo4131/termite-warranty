@@ -103,6 +103,10 @@ export interface CaseFilters {
   municipality: string | null
   notificationStatus: string | null
   expiryDate: string | null
+  applicationDateFrom: string | null
+  applicationDateTo: string | null
+  handoverDateFrom: string | null
+  handoverDateTo: string | null
 }
 
 export interface AppliedWarrantyMutation {

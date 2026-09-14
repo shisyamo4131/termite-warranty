@@ -1,17 +1,19 @@
 # HSC-016: Cutover, Parallel Operation, and Rollback
 
-- Status: Not yet asked
+- Status: Resolved
 - Decision owner: House Solution
 
 ## Confirmed Context
 
-Existing-system data will not be migrated into the new system. Temporary parallel operation remains the initial safety direction, but its purpose, duration, authority boundary, and rollback procedure must be reconsidered without a final data migration.
+The new system is for a new service and does not replace the current FileMaker service. Existing-system data and accounts are not migrated.
 
-## Questions
+## Resolution
 
-1. Is temporary parallel operation still required when the new system starts without legacy data, and if so, how long will it continue?
-2. On what date do new registrations move to the new system, and which system is authoritative for records created during any parallel period?
-3. Who approves cutover or rollback, using which criteria, and how are records entered in the new system handled after a rollback?
+- Decision: There is no business-data cutover, parallel system-of-record operation, or rollback between the current FileMaker service and the new service. Each service retains and manages its own records.
+- Boundary: Deployment rollback, backup/recovery, and incident response for the new system remain production-operation matters; they are not a FileMaker cutover.
+- Decision maker/date: Project owner, 2026-09-14.
+- Evidence: Explicit instruction and approval in the current Codex task, together with the confirmed independent-new-service boundary.
+- Promoted to: `docs/specification.md`, delivery/technology, roadmap, and decision 0028.
 
 ## Affected Documents
 

@@ -80,6 +80,8 @@ test('new-case portal derives email, captures building area, auto-fills dates, a
   assert.match(company, /watch\(\(\) => form\.handoverDate/)
   assert.match(staffRegistration, /watch\(\(\) => registrationForm\.handoverDate/)
   assert.match(functions, /contactEmail: email\(accountEmail/)
+  assert.match(functions, /text\(value, message\)\.toLowerCase\(\)/)
+  assert.match(functions, /\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$/)
   assert.match(functions, /buildingAreaSquareMeters: response\.buildingAreaSquareMeters/)
   assert.match(gateway, /'withdrawNewCaseWorkItem'/)
 })

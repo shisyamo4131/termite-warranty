@@ -44,10 +44,13 @@ declare module '*src/domain/case-filters.mjs' {
     responsibleBranchId: string
     propertyPrefecture: string
     propertyMunicipality: string
+    applicationDate: string
+    handoverDate: string
     appliedWarranties: Array<{
       warrantyServiceId: string
       notificationStatus: string
       expiryDate: string
     }>
   }>(rows: T[], filters: Record<string, string | null | undefined>): T[]
+  export function validateCaseFilterRanges(filters: Record<string, string | null | undefined>): string | null
 }

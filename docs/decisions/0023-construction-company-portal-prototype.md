@@ -1,8 +1,8 @@
-# 0023 Construction-Company Portal Proposal Prototype
+# 0023 Construction-Company Portal Workflow
 
 - Date: 2026-09-13
-- Status: Provisional
-- Related specification: [Provisional construction-company portal prototype](../specification.md#provisional-construction-company-portal-prototype)
+- Status: Accepted
+- Related specification: [Construction-company portal workflow](../specification.md#construction-company-portal-workflow)
 
 ## Context
 
@@ -12,7 +12,7 @@ The planning assumption is low request volume, five- or ten-year warranty cycles
 
 ## Decision
 
-Build a proposal prototype with one shared Firebase Authentication account per construction company. A House Solution administrator issues and disables accounts; the construction company sets and resets its own password. Server-owned account data binds the authenticated UID to one construction-company ID.
+Use one shared Firebase Authentication account per construction company. A House Solution administrator issues and disables accounts; the construction company sets and resets its own password. Server-owned account data binds the authenticated UID to one construction-company ID.
 
 Use one provisional work item per existing or future case. An approved work item may be reinitialized in place for the next renewal request with an incremented revision, while an unfinished item blocks duplicate creation. Company users can access only their own work items and change only permitted response fields in editable states through trusted Callables. Submission locks editing. Staff approve and atomically reflect the result in registered data, or return it with a reason. Basic conflict control is revision comparison, one current item per case, approved-record-only reinitialization, state validation, and submission locking.
 
@@ -30,9 +30,9 @@ Company-level accounts limit account administration to the number of participati
 
 ## Impact
 
-The prototype adds a construction-company account profile, company-only portal, staff management/review page, case-linked work items, notification outbox, six Callables, Rules boundaries, synthetic data, and tests. Company-level authentication cannot identify the individual operator; each response therefore records a self-declared contact.
+The workflow adds a construction-company account profile, company-only portal, staff management/review page, case-linked work items, notification outbox, trusted Callables, Rules boundaries, synthetic data, and tests. Company-level authentication cannot identify the individual operator; each response therefore records a self-declared contact.
 
-Actual email delivery, scheduled renewal generation, reminders, retained portal-response history across renewal cycles, attachments, production abuse controls, retention, audit requirements, and House Solution acceptance remain unresolved.
+Actual email delivery, scheduled renewal generation, reminders, retained portal-response history across renewal cycles, attachments, production abuse controls, retention, and audit requirements remain unresolved under their respective matters. These do not change the accepted response-intake workflow.
 
 ## Migration
 

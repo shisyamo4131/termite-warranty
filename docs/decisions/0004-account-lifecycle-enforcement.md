@@ -15,7 +15,7 @@ Use Cloud Functions for Firebase with Firebase Admin SDK for staff-account creat
 
 For Firestore application data, require both an authenticated Firebase user and a corresponding enabled staff-account record. The enabled check is a narrow exception for account lifecycle only; it is not role- or record-level CRUD authorization.
 
-On disable, first or atomically mark the staff-account record disabled so subsequent Firestore requests are denied, then disable the Firebase Authentication user and revoke its refresh tokens. Retain user accounts; do not physically delete them.
+On disable, first or atomically mark the staff-account record disabled so subsequent Firestore requests are denied, then disable the Firebase Authentication user and revoke its refresh tokens. Retain user accounts, identity bindings, and email reservations; do not physically delete them or reuse the email for another account.
 
 ## Rationale
 

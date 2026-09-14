@@ -17,6 +17,8 @@ test('staff account management uses four trusted callables and keeps role assign
   }
   assert.match(functions, /role === 'developer_superuser'.*'house_solution_administrator'/s)
   assert.match(functions, /role === 'house_solution_administrator'.*'general_staff'/s)
+  assert.match(functions, /requiredText\(value, 'メールアドレスを入力してください。'\)\.toLowerCase\(\)/)
+  assert.match(functions, /\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$/)
   assert.doesNotMatch(component, /v-model=.*role/)
   assert.match(component, /sendPasswordSetupEmail/)
   assert.match(rules, /match \/staffAccounts\/\{uid\}[\s\S]*allow write: if false;/)

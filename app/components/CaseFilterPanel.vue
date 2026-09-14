@@ -11,6 +11,10 @@
           <v-col cols="12" md="3"><v-select v-model="filters.municipality" :items="municipalities" label="市区町村" clearable /></v-col>
           <v-col cols="12" md="3"><v-select v-model="filters.notificationStatus" :items="notificationStatuses" item-title="title" item-value="value" label="通知状態" clearable /></v-col>
           <v-col cols="12" md="3"><v-date-input v-model="expiryDate" label="満了日（完全一致）" prepend-icon="" clearable /></v-col>
+          <v-col cols="12" md="3"><v-date-input v-model="applicationDateFrom" label="申込日（開始）" prepend-icon="" clearable /></v-col>
+          <v-col cols="12" md="3"><v-date-input v-model="applicationDateTo" label="申込日（終了）" prepend-icon="" clearable /></v-col>
+          <v-col cols="12" md="3"><v-date-input v-model="handoverDateFrom" label="引渡日（開始）" prepend-icon="" clearable /></v-col>
+          <v-col cols="12" md="3"><v-date-input v-model="handoverDateTo" label="引渡日（終了）" prepend-icon="" clearable /></v-col>
   </v-row>
 </template>
 
@@ -52,5 +56,21 @@ const warrantyTypes = [
 const expiryDate = computed<Date | null>({
   get: () => parseCanonicalLocalDate(filters.value.expiryDate ?? ''),
   set: (date) => { filters.value.expiryDate = formatCanonicalLocalDate(date) || null },
+})
+const applicationDateFrom = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(filters.value.applicationDateFrom ?? ''),
+  set: (date) => { filters.value.applicationDateFrom = formatCanonicalLocalDate(date) || null },
+})
+const applicationDateTo = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(filters.value.applicationDateTo ?? ''),
+  set: (date) => { filters.value.applicationDateTo = formatCanonicalLocalDate(date) || null },
+})
+const handoverDateFrom = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(filters.value.handoverDateFrom ?? ''),
+  set: (date) => { filters.value.handoverDateFrom = formatCanonicalLocalDate(date) || null },
+})
+const handoverDateTo = computed<Date | null>({
+  get: () => parseCanonicalLocalDate(filters.value.handoverDateTo ?? ''),
+  set: (date) => { filters.value.handoverDateTo = formatCanonicalLocalDate(date) || null },
 })
 </script>

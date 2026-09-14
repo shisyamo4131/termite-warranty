@@ -8,7 +8,7 @@
 
 The new service does not reuse this member page because it does not identify construction companies individually and does not satisfy the new service requirements.
 
-## Proposal-Prototype Workflow — House Solution Review Pending
+## Initial Construction-Company Workflow
 
 1. A House Solution administrator issues or disables one shared account per construction company; the construction company sets or resets its own password.
 2. For renewal, staff create a case-linked pending work item and the system queues an email notification. For a new case, the construction company starts a new request.
@@ -18,7 +18,7 @@ The new service does not reuse this member page because it does not identify con
 6. A return reopens company editing and queues a construction-company notification.
 7. Before approval, the construction company may withdraw its own new-case request with a required reason. The work item remains as an audit record and cannot be reopened.
 
-This workflow is approved for a proposal prototype. It is not yet an accepted House Solution production requirement. Email delivery, reminder timing, retention, detailed audit needs, and final screen behavior remain open.
+This structured response-intake workflow is accepted for the initial scope. Email delivery, reminder timing, retention, detailed audit needs, and production service/security behavior remain open under their respective matters.
 
 ## Initial Release — Confirmed Scope
 

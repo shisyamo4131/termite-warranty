@@ -13,7 +13,7 @@ House Solution staff require email/password sign-in, role-bounded account manage
 
 Use Firebase Authentication email/password for staff authentication, configured with browser-session persistence.
 
-The developer superuser creates, edits, and disables House Solution administrator accounts only. House Solution administrators create, edit, and disable general-staff accounts; their editable fields are email address, display name, and enabled/disabled state. The role is currently fixed to `general staff`; future roles selectable by a House Solution administrator must exclude `House Solution administrator` and `developer superuser`. Account creation sends a password-setup email. Email-address verification is not initially required. Staff can reset their password. Disabling an account must make it unusable immediately, including an already signed-in session.
+The developer superuser creates, edits, and disables House Solution administrator accounts only. House Solution administrators create, edit, and disable general-staff accounts; their editable fields are email address, display name, and enabled/disabled state. The role is currently fixed to `general staff`; future roles selectable by a House Solution administrator must exclude `House Solution administrator` and `developer superuser`. Account creation sends a password-setup email. Email-address verification is not initially required. Staff can reset their password. Disabling an account must make it unusable immediately, including an already signed-in session. Account removal means reversible disablement/re-enablement; a disabled identity and email remain reserved and are not physically deleted or reused.
 
 ## Rationale
 

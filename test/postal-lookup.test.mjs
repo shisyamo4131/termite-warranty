@@ -31,20 +31,18 @@ test('postal lookup normalization accepts only seven digits with an optional hyp
   }
 })
 
-test('invalid input and unsupported subjects never call the provider', async () => {
+test('invalid input never calls the provider and all three address masters support lookup', async () => {
   let calls = 0
   const provider = { lookup: async () => { calls += 1; return { status: 'not_found' } } }
   const invalidAddress = createAddress({ postalCode: '100-' })
   const invalid = createPostalLookupCoordinator({ subject: 'property', getAddress: () => invalidAddress, provider })
   assert.deepEqual(await invalid.lookup(), { state: 'skipped' })
 
-  const companyAddress = createAddress()
-  const company = createPostalLookupCoordinator({ subject: 'constructionCompany', getAddress: () => companyAddress, provider })
-  assert.deepEqual(await company.lookup(), { state: 'skipped' })
   assert.equal(calls, 0)
   assert.equal(supportsPostalLookupSubject('property'), true)
   assert.equal(supportsPostalLookupSubject('homeowner'), true)
-  assert.equal(supportsPostalLookupSubject('constructionCompany'), false)
+  assert.equal(supportsPostalLookupSubject('constructionCompany'), true)
+  assert.equal(supportsPostalLookupSubject('warrantyService'), false)
 })
 
 test('resolved results update only provider-neutral address fields', async () => {
@@ -254,7 +252,7 @@ test('cancel then reset and reopen cannot receive a delayed response from the pr
   assert.equal(address.municipality, '渋谷区')
 })
 
-test('UI contract wires only property and homeowner and retains the manual-entry path', async () => {
+test('UI contract wires property, homeowner, and construction company and retains the manual-entry path', async () => {
   const formSource = await readFile(new URL('../app/components/MasterFormFields.vue', import.meta.url), 'utf8')
   const addressSource = await readFile(new URL('../app/components/MasterAddressFields.vue', import.meta.url), 'utf8')
   const propertySection = formSource.match(/<template v-if="form\.masterType === 'property'">([\s\S]*?)<\/template>/)?.[1]
@@ -263,8 +261,10 @@ test('UI contract wires only property and homeowner and retains the manual-entry
 
   assert.match(propertySection, /lookup-subject="property"/)
   assert.match(homeownerSection, /lookup-subject="homeowner"/)
-  assert.doesNotMatch(companySection, /lookup-subject|postal-lookup-provider/)
+  assert.match(companySection, /lookup-subject="constructionCompany"/)
+  assert.match(companySection, /postal-lookup-provider/)
   assert.match(homeownerSection, /住所の自動入力は未接続です。郵便番号を含め手入力してください。/)
+  assert.match(companySection, /住所の自動入力は未接続です。郵便番号を含め手入力してください。/)
   assert.match(addressSource, /onBeforeUnmount\(cancelPostalLookup\)/)
   assert.match(addressSource, /defineExpose\(\{ cancelPostalLookup \}\)/)
   assert.match(addressSource, /watch\([\s\S]*props\.lookupSubject[\s\S]*props\.postalLookupProvider[\s\S]*cancelPostalLookup\(\)[\s\S]*flush: 'sync'/)

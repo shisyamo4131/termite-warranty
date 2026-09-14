@@ -6,7 +6,7 @@
 ## Confirmed Context
 
 - The application currently recognizes `developer superuser`, `House Solution administrator`, and `general staff` values for sign-in profiles, while the user-facing operational description groups accounts as “administrator” and “general”. The final role terminology and whether the developer superuser is a separate operational role require confirmation.
-- Account-management screens and account-mutation Functions for creation, editing, disabling, deletion, or restoration are not implemented.
+- Role-bounded staff and construction-company account-management screens and trusted mutation Functions are implemented. Account removal means disable/re-enable rather than physical deletion under resolved HSC-021.
 - The provisional requirements assign different account-management responsibilities to the two administrator roles, but all enabled authenticated staff currently have the same business-data CRUD access and no implemented role-specific business-function restriction.
 
 ## Questions

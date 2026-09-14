@@ -23,7 +23,7 @@
 | [0009](0009-warranty-extension-history.md) | Warranty-extension history | Accepted | 2026-09-10 |
 | [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Superseded | 2026-09-10 |
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
-| [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Accepted | 2026-09-10 |
+| [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Superseded | 2026-09-10 |
 | [0013](0013-local-emulator-verification.md) | Local emulator verification before development environment | Accepted | 2026-09-10 |
 | [0014](0014-preserve-case-party-references.md) | Preserve existing case party references | Accepted | 2026-09-11 |
 | [0015](0015-no-legacy-data-migration.md) | No legacy-data migration | Accepted | 2026-09-11 |
@@ -34,11 +34,12 @@
 | [0020](0020-local-port-allocation.md) | Dedicated local ports with AirGuardV2 priority | Accepted | 2026-09-12 |
 | [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
 | [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Accepted | 2026-09-12 |
-| [0023](0023-construction-company-portal-prototype.md) | Construction-company portal proposal prototype | Provisional | 2026-09-13 |
+| [0023](0023-construction-company-portal-prototype.md) | Construction-company portal workflow | Accepted | 2026-09-13 |
 | [0024](0024-same-site-password-action-handler.md) | Same-site password action handler | Accepted | 2026-09-13 |
 | [0025](0025-authentication-focused-firestore-rules.md) | Authentication-focused Firestore Rules | Accepted | 2026-09-14 |
 | [0026](0026-complete-filtered-list-results.md) | Complete filtered list results in the prototype | Accepted | 2026-09-14 |
 | [0027](0027-filtered-list-pagination.md) | Filtered-list pagination | Accepted | 2026-09-14 |
+| [0028](0028-independent-service-release-boundary.md) | Independent-service release boundary | Accepted | 2026-09-14 |
 
 ## Template
 

@@ -1,17 +1,19 @@
 # HSC-032: Case-list Year/Month Basis
 
-- Status: Not yet asked
+- Status: Resolved
 - Decision owner: House Solution
 
 ## Confirmed Context
 
-An unfiltered list subscribes to at most the 20 documents with the freshest server-maintained update timestamp. House Solution expects that the case list will probably always be narrowed by a selected year and month, potentially by whether an applied warranty expires in that month. The exact month semantics are not yet confirmed.
+An unfiltered list subscribes to at most the 20 documents with the freshest server-maintained update timestamp. Mandatory year/month filtering was considered as a possible list behavior.
 
-## Questions
+## Resolution
 
-1. Which date defines the selected year/month: application date, handover date, any applied-warranty expiry date, or a selectable date type?
-2. Which year/month is selected initially, and can users clear it to use the 20-freshest default?
-3. When a month is selected, does the list show every matching case, the freshest 20 matches, or paginated matches, and how are cases with multiple matching warranties handled?
+- Decision: Reject mandatory or default year/month filtering. Blank conditions show the freshest 20 cases. Any optional condition searches the complete collection and presents all matches in 20-record pages.
+- Decision: Application date and handover date use optional inclusive start/end ranges under HSC-007. No dedicated mandatory month selector is added.
+- Decision maker/date: Project owner, 2026-09-14.
+- Evidence: Explicit instruction and approval in the current Codex task.
+- Promoted to: `docs/specification.md`, search/list requirements, project list-query boundary, decisions 0017/0026/0027, and tests.
 
 ## Affected Documents
 

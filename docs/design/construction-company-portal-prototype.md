@@ -1,8 +1,8 @@
-# Construction-Company Portal Proposal Prototype
+# Construction-Company Portal Workflow
 
-- Status: Implemented and technically deployed to Dev for proposal evaluation
+- Status: Accepted initial workflow; implemented and technically deployed to Dev
 - Decision: [0023](../decisions/0023-construction-company-portal-prototype.md)
-- Open matter: [HSC-013](../requirements/house-solution-confirmations/HSC-013-construction-company-submission.md)
+- Resolved matter: [HSC-013](../requirements/house-solution-confirmations/HSC-013-construction-company-submission.md); notification delivery/reminders remain under HSC-005
 
 ## Demonstrated Flow
 
@@ -31,7 +31,7 @@ The staff navigation groups this feature under `工務店管理ポータル`, wi
 - Company submission moves to `submitted`; only staff can then move it to `needs_correction` or `approved`.
 - A company may move its own `new_case` work item from `draft`, `submitted`, or `needs_correction` to terminal `withdrawn` with a required reason. The record is retained and cannot be reopened; an already approved request uses case cancellation instead.
 - Every mutable command compares a safe positive integer revision. A stale revision is rejected.
-- This prototype intentionally supports one current portal work item per case. It can recycle an approved item for another renewal cycle, but does not retain prior portal-response cycles; repeat-cycle history is an HSC-013 production decision.
+- This workflow intentionally supports one current portal work item per case. It can recycle an approved item for another renewal cycle, but does not retain prior portal-response cycles; adding retained repeat-cycle history requires a future scope change.
 
 ## Registered-Data Promotion
 
@@ -53,7 +53,7 @@ The prototype creates `notificationOutbox` documents with `queued` status at ren
 
 ## Known Prototype Limits
 
-- House Solution has not accepted this workflow or field set.
+- The response-intake workflow and current field set are accepted for the initial scope; production hardening remains incomplete.
 - Actual email delivery and scheduled expiry-job creation are not implemented.
 - Account creation failure recovery is best-effort across Authentication and Firestore; production needs an explicit retry/reconciliation procedure.
 - The one-work-item-per-case rule does not model a second renewal cycle.

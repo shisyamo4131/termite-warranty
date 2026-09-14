@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { filterCaseRows } from '../../src/domain/case-filters.mjs'
+import { filterCaseRows, validateCaseFilterRanges } from '../../src/domain/case-filters.mjs'
 import type { CaseFilters, CaseRow, MasterCatalog } from '../types/prototype-data'
 import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 import type { MasterType } from '../composables/useMasterManagement'
@@ -110,7 +110,8 @@ const registrationForm = reactive({
 const emptyCaseFilters = (): CaseFilters => ({
   caseNumber: null, homeownerId: null, propertyId: null, constructionCompanyId: null,
   responsibleBranchId: null, warrantyServiceId: null, warrantyServiceType: null, prefecture: null, municipality: null,
-  notificationStatus: null, expiryDate: null,
+  notificationStatus: null, expiryDate: null, applicationDateFrom: null, applicationDateTo: null,
+  handoverDateFrom: null, handoverDateTo: null,
 })
 const filters = reactive<CaseFilters>(emptyCaseFilters())
 const draftFilters = reactive<CaseFilters>(emptyCaseFilters())
@@ -158,6 +159,12 @@ const applyCaseFilters = () => {
     const trimmed = typeof value === 'string' ? value.trim() : value
     return [key, trimmed || null]
   })) as unknown as CaseFilters
+  const rangeError = validateCaseFilterRanges(normalized)
+  if (rangeError) {
+    filterLoadError.value = rangeError
+    return
+  }
+  filterLoadError.value = ''
   Object.assign(filters, normalized)
   page.value = 1
   filterDialog.value = false

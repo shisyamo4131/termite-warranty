@@ -1,17 +1,18 @@
 # HSC-010: Warranty Payer and Contracting Party
 
-- Status: Not yet asked
+- Status: Resolved
 - Decision owner: House Solution
 
 ## Confirmed Context
 
 A case currently references a homeowner. Whether the warranty-service payer or contracting party can differ from that homeowner has not been decided.
 
-## Questions
+## Resolution
 
-1. Can the payer or contracting party differ from the property homeowner?
-2. If so, is it selected from an existing master or stored as a separate person or organization?
-3. Which party must appear in searches, invoices, notices, and historical snapshots?
+- Decision: The system does not manage monetary transfers, billing, payment status, payer identity, or a separate contracting party. A homeowner is not inferred to be the contracting party. Adding a separate contracting party or financial-management function requires a future scope change.
+- Decision maker/date: Project owner, 2026-09-14.
+- Evidence: Explicit instruction and approval in the current Codex task.
+- Promoted to: `docs/specification.md` and the initial data-model boundary.
 
 ## Affected Documents
 

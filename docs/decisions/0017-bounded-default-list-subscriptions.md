@@ -13,7 +13,7 @@ The prototype subscribes to complete master and case collections and creates an 
 
 When no search or filter value is specified, subscribe to at most the 20 documents with the freshest server-maintained update timestamp, descending, with document ID as a stable tie-breaker.
 
-Do not use an unbounded full-collection subscription or one child listener per parent as the unfiltered fallback. The original requirement that filtered queries also remain bounded was superseded for the prototype by [decision 0026](0026-complete-filtered-list-results.md). Case-list year/month semantics remain unresolved under HSC-032.
+Do not use an unbounded full-collection subscription or one child listener per parent as the unfiltered fallback. The original requirement that filtered queries also remain bounded was superseded for the prototype by [decision 0026](0026-complete-filtered-list-results.md). Mandatory/default case-list year/month filtering was later rejected under resolved HSC-032.
 
 ## Rationale
 

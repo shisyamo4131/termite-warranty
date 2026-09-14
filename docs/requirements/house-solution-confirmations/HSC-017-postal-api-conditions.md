@@ -5,7 +5,7 @@
 
 ## Confirmed Context
 
-Google Maps Platform Geocoding API is the selected provider for property and homeowner postal-code lookup. This supersedes the former Japan Post API selection. Local manual entry remains available before and after integration when lookup is unavailable or inconclusive.
+Google Maps Platform Geocoding API is the selected provider for property, homeowner, and construction-company postal-code lookup. This supersedes the former Japan Post API selection. Local manual entry remains available before and after integration when lookup is unavailable or inconclusive.
 
 The provider choice was approved on 2026-09-12 after comparing data-source authority with operational ownership. Google was selected because the development and production API resources can follow the existing separate Google Cloud/Firebase project boundary. Development remains developer-owned; production project, billing, and credential ownership still require House Solution confirmation. Credentials and passwords are never stored in chat-derived documents or source control.
 

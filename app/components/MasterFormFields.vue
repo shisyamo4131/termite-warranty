@@ -57,7 +57,13 @@
     <v-textarea v-model="form.notes" label="備考（任意）" />
   </template>
   <template v-if="form.masterType === 'constructionCompany'">
-    <MasterAddressFields v-model="form.address" />
+    <v-alert v-if="!props.postalLookupProvider" type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
+    <MasterAddressFields
+      ref="companyAddressFields"
+      v-model="form.address"
+      lookup-subject="constructionCompany"
+      :postal-lookup-provider="props.postalLookupProvider"
+    />
     <MasterConstructionCompanyContactFields
       v-model:telephone="form.telephone"
       v-model:fax="form.fax"
@@ -110,10 +116,12 @@ const buildingAreaRule = (value: unknown) => {
 
 type AddressFieldsHandle = { cancelPostalLookup: () => void }
 const propertyAddressFields = ref<AddressFieldsHandle | null>(null)
+const companyAddressFields = ref<AddressFieldsHandle | null>(null)
 const homeownerAddressFields = ref<AddressFieldsHandle | null>(null)
 
 function cancelPostalLookup() {
   propertyAddressFields.value?.cancelPostalLookup()
+  companyAddressFields.value?.cancelPostalLookup()
   homeownerAddressFields.value?.cancelPostalLookup()
 }
 

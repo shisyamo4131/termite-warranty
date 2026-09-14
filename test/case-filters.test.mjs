@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { filterCaseRows, selectActiveMasterCatalog } from '../src/domain/case-filters.mjs'
+import { filterCaseRows, selectActiveMasterCatalog, validateCaseFilterRanges } from '../src/domain/case-filters.mjs'
 
 const row = (overrides = {}) => ({
   id: 'case-1', caseNumber: '000001', homeownerId: 'homeowner-1', propertyId: 'property-1',
   constructionCompanyId: 'company-1', responsibleBranchId: 'branch-1',
+  applicationDate: '2026-09-10', handoverDate: '2026-09-20',
   propertyPrefecture: '東京都', propertyMunicipality: '千代田区',
   appliedWarranties: [{
     id: 'warranty-1', warrantyServiceId: 'service-1',
@@ -80,4 +81,30 @@ test('service, notification, and expiry must match the same applied warranty', (
   assert.deepEqual(filterCaseRows([split], {
     warrantyServiceId: 'service-2', warrantyServiceType: 'insurance', notificationStatus: 'not notified', expiryDate: '2031-09-09',
   }).map(({ id }) => id), ['case-1'])
+})
+
+test('application and handover date ranges are inclusive, one-sided, and ANDed', () => {
+  const rows = [
+    row(),
+    row({ id: 'case-2', applicationDate: '2026-09-01', handoverDate: '2026-09-30' }),
+    row({ id: 'case-3', applicationDate: '2026-09-30', handoverDate: '2026-09-01' }),
+  ]
+  assert.deepEqual(filterCaseRows(rows, { applicationDateFrom: '2026-09-10' }).map(({ id }) => id), ['case-1', 'case-3'])
+  assert.deepEqual(filterCaseRows(rows, { applicationDateTo: '2026-09-10' }).map(({ id }) => id), ['case-1', 'case-2'])
+  assert.deepEqual(filterCaseRows(rows, {
+    applicationDateFrom: '2026-09-10', applicationDateTo: '2026-09-10',
+    handoverDateFrom: '2026-09-20', handoverDateTo: '2026-09-20',
+  }).map(({ id }) => id), ['case-1'])
+})
+
+test('date range validation rejects reversed bounds', () => {
+  assert.equal(validateCaseFilterRanges({
+    applicationDateFrom: '2026-09-11', applicationDateTo: '2026-09-10',
+  }), '申込日の開始日は終了日以前にしてください。')
+  assert.equal(validateCaseFilterRanges({
+    handoverDateFrom: '2026-09-21', handoverDateTo: '2026-09-20',
+  }), '引渡日の開始日は終了日以前にしてください。')
+  assert.equal(validateCaseFilterRanges({
+    applicationDateFrom: '2026-09-10', applicationDateTo: '2026-09-10', handoverDateFrom: '2026-09-20',
+  }), null)
 })

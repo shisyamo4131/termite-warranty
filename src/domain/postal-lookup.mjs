@@ -1,4 +1,4 @@
-const LOOKUP_SUBJECTS = new Set(['property', 'homeowner'])
+const LOOKUP_SUBJECTS = new Set(['property', 'homeowner', 'constructionCompany'])
 const WRITABLE_FIELDS = ['prefecture', 'municipality', 'streetTownAndNumber']
 
 export function normalizePostalLookupCode(value) {

@@ -18,8 +18,12 @@ The search/list view must filter registered cases by:
 - Warranty-service type (`保証` or `保険`)
 - Expiry date
 - Notification status
+- Application date (optional inclusive start and end)
+- Handover date (optional inclusive start and end)
 
 The case list shows a `not notified` marker when at least one applied warranty on the case has notification status `not notified`; it does not show a case-level notification-status value.
+
+Either boundary of an application-date or handover-date range may be omitted. Both ranges and all other conditions are combined with AND. A start date later than its corresponding end date blocks application of the draft filter.
 
 For an expiry-date filter, return a case when at least one of its applied warranties meets the date condition.
 
@@ -53,8 +57,8 @@ The list has one row per case. It does not need to display warranty-period or ex
 - Do not load an entire collection or create one child listener per listed parent as the fallback for an unfiltered list.
 - When at least one condition is specified, the current prototype reads the complete corresponding collection in freshness order and evaluates every matching record. The UI shows the total count and presents the matches in pages of 20 records. Changing the applied conditions returns to page one. Clearing all conditions returns the list to the freshest-20 subscription.
 - The case-list conditions are edited in a dialog and take effect only when applied. The dialog can initialize all draft conditions without immediately changing the active list.
-- This complete filtered read is an approved prototype tradeoff. Production pagination and a scalable filtered query/index model remain to be confirmed from measured volume, response time, and cost. Case-list filtering by a selected year and month is likely, including a possible applied-warranty expiry-month condition, but the date meaning and default month are unresolved under HSC-032.
+- This complete filtered read is an approved prototype tradeoff. Production pagination and a scalable filtered query/index model remain to be confirmed from measured volume, response time, and cost. The list has no mandatory or default year/month condition. Export, saved searches, selectable columns, and alternate sorting are outside the initial scope.
 
 ## Unresolved-Matter Routing
 
-See [HSC-007 case search/list behavior](house-solution-confirmations/HSC-007-case-search-list.md), [HSC-026 scale/performance targets](house-solution-confirmations/HSC-026-scale-performance-targets.md), and [HSC-032 case-list month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) in the central register.
+HSC-007 and HSC-032 are resolved. Production scale and query design remain routed through [HSC-026 scale/performance targets](house-solution-confirmations/HSC-026-scale-performance-targets.md) in the central register.

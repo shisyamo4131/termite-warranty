@@ -12,6 +12,8 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - The developer-owned developer superuser account can create, edit, and disable House Solution administrator accounts only; it does not manage general-staff accounts.
 - A House Solution administrator can create, edit, and disable general-staff accounts through the system. A general-staff account's editable fields are email address, display name, and enabled/disabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, a House Solution administrator may select only roles other than `House Solution administrator` and `developer superuser`.
 - Account creation sends a password-setup email; email-address verification is not required initially, and staff can reset their passwords.
+- Account email input removes surrounding whitespace, converts to lowercase, and uses only a minimal email regular-expression check before Firebase Authentication's own validation.
+- Account removal means reversible disablement and re-enablement. The initial scope does not physically delete Authentication users or account documents. Disabled accounts retain and reserve their identity, role or company binding, and email address; no disable reason, separate approval, or lifecycle notification is required.
 - Bootstrap the initial developer-superuser account manually in Firebase Console without custom claims. Create both its Firebase Authentication user and the matching enabled staff-account record; do not grant business-data access to an Authentication-only record.
 - Disabling an account must make it unusable immediately, including for an already signed-in session.
 - Cloud Functions for Firebase with Firebase Admin SDK performs Firebase Authentication user administration and enforces the account-management role boundary.
@@ -49,7 +51,7 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 
 Account-management screens are a confirmed role-specific function. The account-lifecycle controls needed for creation, password setup/reset, immediate disable, and browser-session persistence are a bounded, server-enforced exception to the UI-only posture. When another business-data role-specific functional restriction is confirmed, decide its enforcement method and update this posture. No general access-control hardening milestone is currently committed before production release. This does not remove the stated residual risks or make UI visibility an authorization boundary.
 
-See [HSC-021 account lifecycle](house-solution-confirmations/HSC-021-account-lifecycle.md) and [HSC-024 role types and functional permissions](house-solution-confirmations/HSC-024-role-business-data-access.md) in the central unresolved-matter register.
+HSC-021 account lifecycle is resolved. See [HSC-024 role types and functional permissions](house-solution-confirmations/HSC-024-role-business-data-access.md) for remaining role questions in the central unresolved-matter register.
 
 ## Technical References
 

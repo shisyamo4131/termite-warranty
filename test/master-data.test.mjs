@@ -318,6 +318,20 @@ test('property building area and warranty-service type enforce the confirmed val
   assert.throws(() => normalizeMasterFields('warrantyService', { name: '不明', shortName: '不明', type: 'other', defaultPeriodYears: 5, notes: null }), /保証または保険/)
 })
 
+test('optional telephone and fax accept only digits and hyphens after trimming', () => {
+  const address = { postalCode: '1000001', prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '1-1', buildingName: null }
+  const homeowner = { name: '施主', address, telephone: ' 03-1234-5678 ', fax: '', notes: null }
+  const normalized = normalizeMasterFields('homeowner', homeowner)
+  assert.equal(normalized.telephone, '03-1234-5678')
+  assert.equal(normalized.fax, null)
+  for (const invalidValue of ['03 1234 5678', '+81-3-1234-5678', '０３-１２３４-５６７８', '03(1234)5678']) {
+    assert.throws(
+      () => normalizeMasterFields('homeowner', { ...homeowner, telephone: invalidValue }),
+      error => error instanceof MasterDataError && error.message === 'TELは数字とハイフンのみで入力してください。',
+    )
+  }
+})
+
 test('managed master matching supports one character and verifies contiguous normalized text', () => {
   const nameSearch = createNameSearch('青葉住宅')
   const master = { id: 'company-1', name: '青葉住宅', active: true, nameSearch }

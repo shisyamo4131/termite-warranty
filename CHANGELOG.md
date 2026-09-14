@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added inclusive application-date and handover-date range filters with one-sided ranges and reversed-bound validation; rejected mandatory/default case year-month filtering while retaining freshest-20 and complete filtered paging behavior.
+- Extended the provider-neutral postal-lookup seam to construction-company forms, added blocking digits-and-hyphens validation for homeowner/construction-company TEL and FAX, and confirmed minimal normalized authentication-email validation.
+- Accepted the shared-account construction-company portal as the initial structured response workflow, defined reversible non-deleting account lifecycle and the financial/contracting-party boundary, and removed the obsolete cross-service FileMaker cutover assumption.
+- Added the tracked contract and ignored scaffold/fixture/preview foundation for user customization of the property-list table.
 - Added five-record pagination to dependent-property lists on master details and the applied-warranty list on case details; kept the notification-management guidance alert from shrinking and aligned property-form field order.
 - Added required property building area, required warranty-service type, case filtering by warranty-service type, and development-only backfill defaults.
 - Aligned staff and construction-company new-case dates with protected handover-to-warranty-start auto-fill, derived the portal response email from the authenticated company account, and added retained pre-approval new-case withdrawal.

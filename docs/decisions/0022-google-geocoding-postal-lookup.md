@@ -18,7 +18,7 @@ Use Google Maps Platform Geocoding API for postal-code address lookup.
 - Restrict lookup to Japan and the entered postal code.
 - Read typed address components; do not parse `formatted_address` as a stable schema.
 - Keep the provider behind a replaceable application boundary.
-- Preserve manual entry and correction for no-match, ambiguous, partial, and failed requests.
+- Apply the same lookup and preserve manual entry and correction for property, homeowner, and construction-company forms on no-match, ambiguous, partial, and failed requests.
 - Separate development and production Google Cloud projects, quotas, and credentials in accordance with the environment isolation policy. Keep billing and ownership environment-scoped; their production assignment remains unresolved.
 - Never reuse an unrelated application's key or store credentials in source control, documentation, fixtures, logs, or chat-derived evidence.
 

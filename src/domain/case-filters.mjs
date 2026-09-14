@@ -27,6 +27,10 @@ export function filterCaseRows(rows, rawFilters = {}) {
     municipality: stringValue(rawFilters.municipality),
     notificationStatus: stringValue(rawFilters.notificationStatus),
     expiryDate: stringValue(rawFilters.expiryDate),
+    applicationDateFrom: stringValue(rawFilters.applicationDateFrom),
+    applicationDateTo: stringValue(rawFilters.applicationDateTo),
+    handoverDateFrom: stringValue(rawFilters.handoverDateFrom),
+    handoverDateTo: stringValue(rawFilters.handoverDateTo),
   }
   const hasWarrantyFilter = Boolean(
     filters.warrantyServiceId || filters.warrantyServiceType || filters.notificationStatus || filters.expiryDate,
@@ -40,6 +44,10 @@ export function filterCaseRows(rows, rawFilters = {}) {
     if (filters.responsibleBranchId && row.responsibleBranchId !== filters.responsibleBranchId) return false
     if (filters.prefecture && row.propertyPrefecture !== filters.prefecture) return false
     if (filters.municipality && row.propertyMunicipality !== filters.municipality) return false
+    if (filters.applicationDateFrom && row.applicationDate < filters.applicationDateFrom) return false
+    if (filters.applicationDateTo && row.applicationDate > filters.applicationDateTo) return false
+    if (filters.handoverDateFrom && row.handoverDate < filters.handoverDateFrom) return false
+    if (filters.handoverDateTo && row.handoverDate > filters.handoverDateTo) return false
     if (!hasWarrantyFilter) return true
 
     return (row.appliedWarranties ?? []).some((warranty) =>
@@ -49,4 +57,18 @@ export function filterCaseRows(rows, rawFilters = {}) {
       && (!filters.expiryDate || warranty.expiryDate === filters.expiryDate),
     )
   })
+}
+
+export function validateCaseFilterRanges(rawFilters = {}) {
+  const applicationDateFrom = stringValue(rawFilters.applicationDateFrom)
+  const applicationDateTo = stringValue(rawFilters.applicationDateTo)
+  const handoverDateFrom = stringValue(rawFilters.handoverDateFrom)
+  const handoverDateTo = stringValue(rawFilters.handoverDateTo)
+  if (applicationDateFrom && applicationDateTo && applicationDateFrom > applicationDateTo) {
+    return '申込日の開始日は終了日以前にしてください。'
+  }
+  if (handoverDateFrom && handoverDateTo && handoverDateFrom > handoverDateTo) {
+    return '引渡日の開始日は終了日以前にしてください。'
+  }
+  return null
 }

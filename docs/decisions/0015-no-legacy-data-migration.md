@@ -15,7 +15,7 @@ Do not import current-system records, fields, relationships, case numbers, or us
 
 House Solution retains the FileMaker data outside the new-system datastore. Production-release acceptance does not require a FileMaker export, migration tooling, data cleaning, migrated-count reconciliation, a migration report, or migration acceptance tests.
 
-Operational cutover and rollback remain necessary decisions, but they must be designed without a final data migration.
+The operational boundary was later resolved by [0028 Independent-service release boundary](0028-independent-service-release-boundary.md): because the systems serve different services, there is no cross-system cutover or rollback.
 
 ## Rationale
 

@@ -1,11 +1,11 @@
 # 0012 Parallel Cutover Strategy
 
 - Date: 2026-09-10
-- Status: Accepted
+- Status: Superseded
 - Related specification: [Delivery and Technology](../requirements/delivery-and-technology.md)
 - Supersedes: None
 
-The migration-specific clauses of this decision were superseded on 2026-09-11 by [0015 No legacy-data migration](0015-no-legacy-data-migration.md). The temporary parallel-operation direction remains accepted, subject to HSC-016 confirming whether it is still necessary and how system-of-record and rollback boundaries work without a final migration.
+The migration-specific clauses were superseded on 2026-09-11 by [0015 No legacy-data migration](0015-no-legacy-data-migration.md). The remaining parallel-operation direction was superseded on 2026-09-14 by [0028 Independent-service release boundary](0028-independent-service-release-boundary.md), because the two systems serve different services and have no shared system-of-record transition.
 
 ## Context
 

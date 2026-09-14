@@ -28,7 +28,7 @@ These are provisional initial-release requirements. The overall data behavior re
 ## Required Homeowner Fields
 
 - Homeowner name, postal code, prefecture, municipality, and street/town and number are required.
-- Building name, telephone, fax, and notes are optional. No telephone or fax format rule is currently specified.
+- Building name, telephone, fax, and notes are optional. A nonempty telephone or fax accepts only ASCII digits and hyphens after trimming; no digit-count or separator-position rule applies.
 - Existing pre-change homeowner records without these fields remain readable. A normal edit supplies the required address parts.
 
 ## Required Construction-Company Fields
@@ -36,7 +36,7 @@ These are provisional initial-release requirements. The overall data behavior re
 - Construction-company name, postal code, prefecture, municipality, and street/town and number are required.
 - Building name, telephone, fax, contact person, contact details, and notes are optional.
 - Email belongs to the separately issued construction-company account rather than the construction-company master. When an account exists, its email address is shown on the construction-company detail screen.
-- No telephone or fax format rule is currently specified. See [branches and addresses](branches-and-addresses.md).
+- Telephone and fax use the homeowner digits-and-hyphens rule. See [branches and addresses](branches-and-addresses.md).
 
 ## Required Entry Points
 

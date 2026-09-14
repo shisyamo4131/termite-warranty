@@ -29,7 +29,7 @@ For the current prototype and expected presentation dataset, complete matching i
 ## Alternatives
 
 - Continue filtering only the freshest 20: rejected because it does not meet the confirmed list behavior.
-- Implement every filter as a server-side Firestore query now: deferred because combined conditions, pagination, indexes, scale, and HSC-032 month semantics remain unresolved.
+- Implement every filter as a server-side Firestore query now: deferred because combined conditions, pagination, indexes, and scale remain unresolved. HSC-032 later rejected mandatory/default month filtering.
 
 ## Verification
 
