@@ -112,6 +112,10 @@ html {
   flex-direction: column;
 }
 
+.notification-guidance-alert {
+  flex: 0 0 auto;
+}
+
 .list-page-row,
 .list-page-column,
 .list-data-card,

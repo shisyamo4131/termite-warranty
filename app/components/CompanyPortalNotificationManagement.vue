@@ -3,7 +3,7 @@
     <h1 class="text-h4 mb-2">通知管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">保証更改の通知と、工務店から提出された仮データを管理します。</p>
     <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-grow-0">
+    <v-alert type="info" density="compact" variant="tonal" class="notification-guidance-alert mb-6">
       メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
     </v-alert>
 
