@@ -70,12 +70,16 @@ test('company portal uses the 要修正 wording while preserving the needs_corre
 })
 
 test('notification-management info alert uses the peer screen flex-growth guard', async () => {
-  const [source, theme] = await Promise.all([
+  const [source, accounts, theme] = await Promise.all([
     readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
+    readProjectFile('app/components/CompanyPortalAccountManagement.vue'),
     readProjectFile('app/assets/clear-sky-theme.css'),
   ])
-  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="(?=[^"]*notification-guidance-alert)(?=[^"]*mb-6)[^"]+">/)
-  assert.match(theme, /\.notification-guidance-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
+  assert.match(theme, /\.list-page > \.v-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
+  assert.match(source, /<section class="list-page">[\s\S]*?<v-alert v-if="loadError"/)
+  assert.match(accounts, /<section class="list-page">[\s\S]*?<v-alert v-if="loadError"/)
+  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6">/)
+  assert.doesNotMatch(source, /notification-guidance-alert|flex-grow-0|flex-shrink-0/)
 })
 
 test('prototype email behavior is visibly queued rather than presented as delivered', async () => {

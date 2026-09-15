@@ -112,7 +112,7 @@ html {
   flex-direction: column;
 }
 
-.notification-guidance-alert {
+.list-page > .v-alert {
   flex: 0 0 auto;
 }
 

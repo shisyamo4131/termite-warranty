@@ -477,8 +477,9 @@ test('notification-management guidance cannot grow vertically beyond its content
     readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
     readProjectFile('app/assets/clear-sky-theme.css'),
   ])
-  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="(?=[^"]*notification-guidance-alert)(?=[^"]*mb-6)[^"]+">/)
-  assert.match(theme, /\.notification-guidance-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
+  assert.match(theme, /\.list-page > \.v-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
+  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6">/)
+  assert.doesNotMatch(source, /notification-guidance-alert|flex-grow-0|flex-shrink-0/)
 })
 
 test('list screens share the compact card-title action layout and simple list titles', async () => {
