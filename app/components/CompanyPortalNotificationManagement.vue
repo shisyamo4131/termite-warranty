@@ -3,7 +3,7 @@
     <h1 class="text-h4 mb-2">通知管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">保証更改の通知と、工務店から提出された仮データを管理します。</p>
     <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-shrink-0">
+    <v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-grow-0">
       メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
     </v-alert>
 
@@ -74,13 +74,13 @@
             item-value="id"
             label="担当支店"
           />
-          <v-textarea v-model="reviewForm.comment" label="確認コメント／差戻し理由" rows="3" />
+          <v-textarea v-model="reviewForm.comment" label="確認コメント／要修正理由" rows="3" />
         </template>
       </v-card-text>
       <v-card-actions>
         <v-btn @click="reviewDialog = false">閉じる</v-btn><v-spacer />
         <template v-if="reviewItem?.status === 'submitted'">
-          <v-btn color="error" variant="outlined" :loading="saving" @click="review('return')">差戻し</v-btn>
+          <v-btn color="error" variant="outlined" :loading="saving" @click="review('return')">要修正</v-btn>
           <v-btn color="primary" :loading="saving" @click="review('approve')">本登録</v-btn>
         </template>
       </v-card-actions>
@@ -123,7 +123,7 @@ const matchingServices = computed(() => services.value.filter(service => service
 const companyName = (id: string) => companies.value.find(item => item.id === id)?.name ?? id
 const statusLabel = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: '工務店回答待ち', draft: '工務店下書き', submitted: '確認待ち',
-  needs_correction: '差戻し', approved: '本登録済み',
+  needs_correction: '要修正', approved: '本登録済み',
   withdrawn: '取下げ',
 }[status])
 const statusColor = (status: CompanyCaseWorkItem['status']) => ({
@@ -169,7 +169,7 @@ const review = async (action: 'approve' | 'return') => {
       warrantyServiceId: reviewForm.warrantyServiceId || undefined,
     })
     reviewDialog.value = false
-    showSnackbar(action === 'approve' ? '本データへ反映しました。' : '工務店へ差し戻しました。', 'success')
+    showSnackbar(action === 'approve' ? '本データへ反映しました。' : '工務店へ要修正として返しました。', 'success')
   } catch (error) {
     showSnackbar(error instanceof Error ? error.message : '確認結果を保存できませんでした。', 'error')
   } finally { saving.value = false }

@@ -51,9 +51,27 @@ test('staff renewal candidates include approved one-to-one work items but exclud
   assert.match(source, /workItem\.id === item\.id && workItem\.status !== 'approved'/)
 })
 
-test('company portal labels staff comments according to the final review state', async () => {
-  const source = await readProjectFile('app/components/ConstructionCompanyPortal.vue')
-  assert.match(source, /item\.status === 'needs_correction' \? '差戻し内容' : '確認コメント'/)
+test('company portal uses the 要修正 wording while preserving the needs_correction identifier', async () => {
+  const [company, staff, functions] = await Promise.all([
+    readProjectFile('app/components/ConstructionCompanyPortal.vue'),
+    readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
+    readProjectFile('functions/company-portal.js'),
+  ])
+  for (const source of [company, staff, functions]) {
+    assert.doesNotMatch(source, /差戻し|差し戻し/)
+    assert.match(source, /要修正/)
+  }
+  assert.match(company, /needs_correction: '要修正'/)
+  assert.match(company, /item\.status === 'needs_correction' \? '要修正内容' : '確認コメント'/)
+  assert.match(staff, /needs_correction: '要修正'/)
+  assert.match(staff, /要修正理由/)
+  assert.match(functions, /要修正理由を入力してください。/)
+  assert.match(functions, /status: 'needs_correction'/)
+})
+
+test('notification-management info alert uses the peer screen flex-growth guard', async () => {
+  const source = await readProjectFile('app/components/CompanyPortalNotificationManagement.vue')
+  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6 flex-grow-0">/)
 })
 
 test('prototype email behavior is visibly queued rather than presented as delivered', async () => {

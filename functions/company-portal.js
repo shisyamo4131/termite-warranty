@@ -342,7 +342,7 @@ export async function reviewCompanyCaseWorkItemOperation(firestore, input, actor
     const recipientEmail = accountSnapshot.empty ? null : accountSnapshot.docs[0].data().email
 
     if (action === 'return') {
-      const reviewComment = text(input?.reviewComment, '差戻し理由を入力してください。')
+      const reviewComment = text(input?.reviewComment, '要修正理由を入力してください。')
       transaction.update(ref, {
         status: 'needs_correction', reviewComment,
         revision: workItem.revision + 1, updatedAt: FieldValue.serverTimestamp(),

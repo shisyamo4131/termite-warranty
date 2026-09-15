@@ -41,7 +41,7 @@
                 variant="tonal"
                 class="mt-4"
               >
-                {{ item.status === 'needs_correction' ? '差戻し内容' : '確認コメント' }}：{{ item.reviewComment }}
+                {{ item.status === 'needs_correction' ? '要修正内容' : '確認コメント' }}：{{ item.reviewComment }}
               </v-alert>
             </v-card-text>
             <v-card-actions>
@@ -162,7 +162,7 @@ const form = reactive(emptyForm())
 
 const statusLabel = (status: CompanyCaseWorkItem['status']) => ({
   awaiting_response: '回答待ち', draft: '下書き', submitted: '確認待ち',
-  needs_correction: '差戻し', approved: '本登録済み',
+  needs_correction: '要修正', approved: '本登録済み',
   withdrawn: '取下げ',
 }[status])
 const statusColor = (status: CompanyCaseWorkItem['status']) => ({
