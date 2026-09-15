@@ -36,6 +36,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-031 | [Mobile-device usage and support scope](house-solution-confirmations/HSC-031-mobile-device-support.md) | Not yet asked | House Solution |
 | HSC-033 | [Branch management necessity](house-solution-confirmations/HSC-033-branch-management-necessity.md) | Not yet asked | House Solution |
 | HSC-034 | [Deterioration countermeasure grade and warranty limit](house-solution-confirmations/HSC-034-deterioration-countermeasure-grade.md) | Not yet asked | House Solution |
+| HSC-035 | [Case cancellation and invalidation criteria](house-solution-confirmations/HSC-035-case-cancellation-invalidation-criteria.md) | Not yet asked | House Solution |
 
 ## Resolved Matters
 
