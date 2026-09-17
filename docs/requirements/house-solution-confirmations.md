@@ -19,7 +19,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-005 | [Notification workflow and history](house-solution-confirmations/HSC-005-notification-workflow.md) | Partially answered | House Solution |
 | HSC-006 | [Dashboard presentation and accessibility](house-solution-confirmations/HSC-006-dashboard-presentation.md) | Not yet asked | House Solution |
 | HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | Partially answered | House Solution |
-| HSC-017 | [Postal-code API operating conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md) | Partially answered | Project, with House Solution production input |
 | HSC-020 | [Production Firebase environment and operations](house-solution-confirmations/HSC-020-production-firebase-operations.md) | Open technical decision | Project, with House Solution input |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | Open technical decision | Project, with House Solution input |
 | HSC-023 | [Firestore N-Gram query and consistency design](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | Open technical decision | Project technical decision |
@@ -48,6 +47,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-014 | [Legacy FileMaker data delivery](house-solution-confirmations/HSC-014-legacy-data-delivery.md) | 2026-09-11 | House Solution | Current Codex task instruction: existing-system data migration is not required |
 | HSC-015 | [Migration scope and data cleaning](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 2026-09-11 | House Solution | Current Codex task instruction: existing-system data migration is not required |
 | HSC-016 | [Cutover, parallel operation, and rollback](house-solution-confirmations/HSC-016-cutover-rollback.md) | 2026-09-14 | Project owner | Current Codex task: independent-service boundary |
+| HSC-017 | [Japan Post postal data and lookup operations](house-solution-confirmations/HSC-017-postal-api-conditions.md) | 2026-09-17 | Project owner | Current Codex task: replace Google lookup with Japan Post nationwide CSV |
 | HSC-018 | [Construction-company postal-code lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md) | 2026-09-14 | Project owner | Current Codex task: same lookup behavior as property/homeowner |
 | HSC-019 | [Address and contact-field validation](house-solution-confirmations/HSC-019-address-contact-validation.md) | 2026-09-14 | Project owner | Current Codex task: address, TEL/FAX, and email validation rules |
 | HSC-021 | [Account creation, deletion, and recovery](house-solution-confirmations/HSC-021-account-lifecycle.md) | 2026-09-14 | Project owner, then project | Current Codex task: reversible account lifecycle |

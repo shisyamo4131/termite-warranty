@@ -15,7 +15,7 @@ This backlog records approved implementation work. It does not turn unresolved p
 3. TR-008: remove the unused profile Callable while preserving the live staff-document subscription and the future server-enforced account-management boundary.
 4. TR-004 and TR-006: remove duplicated form logic and split the central composable before adding more fields or screens.
 5. TR-005: replace unbounded list reads after the query boundary exists; implement the common 20-document default independently of the unresolved case-month details where possible.
-6. TR-009: add the provider-neutral postal lookup foundation, then implement Google response mapping and environment setup only after the corresponding HSC-017 and external-approval gates are resolved.
+6. TR-009: implement the adopted Japan Post CSV transformation, Hosting shards, manifest, freshness warning, and provider-neutral lookup activation after the HSC-017 decision.
 
 ## TR-001: Align Master Writes with Last-write-wins
 
@@ -101,17 +101,16 @@ This backlog records approved implementation work. It does not turn unresolved p
 - Completion contract: the local Functions inventory contains only `registerCase`, `addAppliedWarranty`, and `updateAppliedWarranty`; no repository client refers to `getOwnProfile`; self-read/other-user denial/staff-write denial/disabled-account regressions remain registered; affected design, decision, roadmap, indexes, operations, and changelog agree; remote existence, consumers, and deletion remain explicitly unverified and unperformed.
 - Required validation: governance check, domain/workflow tests, application typecheck, aggregate Auth/Firestore/Functions Emulator regression, recursive Functions syntax, seed syntax, and independent review. Application build is omitted because no application, Nuxt, dependency, TypeScript, or build configuration changes.
 
-## TR-009: Add Google Postal-Code Lookup
+## TR-009: Add Japan Post Postal-Data Lookup
 
-- Status: Provider-neutral foundation implemented, reviewed, deployed to Dev, and smoke-verified; Google adapter and external setup not started
-- Decision: [ADR 0022](../decisions/0022-google-geocoding-postal-lookup.md)
-- Detailed design: [TR-009 Google postal-code lookup boundary](../design/tr-009-google-postal-lookup.md)
-- Review evidence: read-only independent review on 2026-09-12 found four Medium and one Low draft issues; the final design incorporates per-field concurrency protection, an honest official-UI scope boundary, the confirmed ambiguous-field limit, a provider-policy/attribution gate, and item-specific provenance.
-- Confirmed scope: add replaceable Google Geocoding lookup for property, homeowner, and construction-company forms while preserving manual entry, correction, current stored address fields, and no-match/ambiguous/failure fallbacks.
-- Security boundary: the browser calls an authenticated Firebase Callable; the server verifies the enabled staff record and owns request construction. Any credential is environment-scoped, function-bound Secret Manager data and is never placed in the browser, repository, fixtures, logs, or artifacts.
-- Blocked decisions: HSC-017 must resolve the Japanese response-component mapping, authentication/restriction model, production ownership, billing, quotas, cost controls, availability, provider-content persistence/attribution/public-policy obligations, request-abuse controls, and operations before the affected slices proceed. API enablement, credential creation, billing changes, live Google requests, deployment, and production setup require separate approvals.
-- Next slice: Google adapter and live-provider UI activation remain blocked until the response-mapping, provider-policy, credential/restriction, quota/abuse-control, and external-setup gates in HSC-017 are approved.
-- Completion contract: the approved mapping is covered by synthetic fixtures; enabled/missing/disabled staff are rejected; approved request-rate and cost-abuse controls hold; late responses cannot overwrite any newer field input; ambiguous results never auto-fill street/town and number; manual save always remains available; approved persistence/attribution behavior is verified; credentials and raw provider data cannot reach the client or logs; all policy-selected documentation, UI, application, Functions, Rules, syntax, and build gates pass independently.
+- Status: Provider-neutral foundation implemented, reviewed, deployed to Dev, and smoke-verified; Japan Post CSV transformation, Hosting publication, and freshness operations not started
+- Decision: [ADR 0031](../decisions/0031-japan-post-postal-data.md)
+- Detailed design: [TR-009 Japan Post postal-data lookup](../design/tr-009-japan-post-postal-data.md)
+- Review evidence: the provider-neutral foundation was independently reviewed on 2026-09-12; its reusable concurrency protection and manual-entry boundary remain applicable, while the former Google-specific review gates are superseded by ADR-0031.
+- Confirmed scope: transform Japan Post's nationwide UTF-8 CSV into bounded postal-code shards served from Firebase Hosting on the same origin for property, homeowner, and construction-company forms. Preserve manual entry, correction, current stored address fields, and no-match/ambiguous/failure fallbacks.
+- Design boundary: the manifest records source/basis date, `lastCheckedAt`, `generatedAt`, schema version, shard/count/checksum metadata; monthly manual checking is planned and a 60-day stale-check administrator warning is required. No runtime external API, credential, billing, quota, App Check, or Google attribution is required.
+- Remaining work: update command, deterministic CSV transformation, shards, manifest, Hosting publication, candidate selection wiring, freshness warning, and focused regression remain unimplemented. HSC-017 is resolved as a direction, not an implementation-complete gate.
+- Completion contract: the normalized CSV transformation and manifest are covered by synthetic fixtures; generated shards have verified counts/checksums; candidate selection and freshness warning work; late responses cannot overwrite newer field input; ambiguous results never silently choose a candidate; manual save always remains available; no runtime network request or credential is introduced; all policy-selected documentation, UI, application, syntax, and build gates pass independently.
 - Foundation evidence: the provider-neutral domain/types, optional property/homeowner/construction-company UI seam, per-field/generation concurrency protection, provider replacement/removal handling, and synchronous full/quick/edit form cancellation are implemented with registered dependency-free tests. The initial property/homeowner-only revision was independently reviewed and deployed; HSC-018 later authorized the same seam for construction companies. Current hosts still inject no provider and make no network request. Mounted provider timing remains deferred because no approved provider is injected.
 
 ## Earlier Remediation Evidence Source (TR-001–TR-008)

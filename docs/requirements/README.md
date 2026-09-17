@@ -14,7 +14,7 @@ These records support the current [specification](../specification.md). They are
 | [User explanation items](user-explanation-items.md) | Confirmed behavior that must be explained during acceptance, training, or release preparation | Update when an underlying confirmed behavior changes |
 | [Alerts and dashboard](alerts-and-dashboard.md) | Continuing expiry alerts, list emphasis, and dashboard cases | HSC-005–006 |
 | [Case warranties](case-warranties.md) | Multiple applied warranty services and periods per case | HSC-005, HSC-007 |
-| [Branches and addresses](branches-and-addresses.md) | Branch master, five-part addresses, and postal-code API direction | HSC-017–019 |
+| [Branches and addresses](branches-and-addresses.md) | Branch master, five-part addresses, and Japan Post postal-data lookup direction | HSC-017–019 |
 | [Security and access](security-and-access.md) | Provisional role and authorization approach | HSC-011–012, HSC-020, HSC-024–025, HSC-030 |
 | [Legacy system and objectives](legacy-and-objectives.md) | FileMaker use, concurrent access, cost and data-quality concerns | HSC-014–016, HSC-027 |
 | [Delivery and technology](delivery-and-technology.md) | Agile intent and approved prototype technology | HSC-002, HSC-013, HSC-016, HSC-020, HSC-022, HSC-025–026, HSC-031 |

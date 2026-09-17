@@ -1,33 +1,32 @@
-# HSC-017: Postal-Code API Operating Conditions
+# HSC-017: Japan Post Postal Data and Lookup Operations
 
-- Status: Partially answered
-- Decision owner: Project, with House Solution production input
+- Status: Resolved
+- Decision owner: Project owner
 
 ## Confirmed Context
 
-Google Maps Platform Geocoding API is the selected provider for property, homeowner, and construction-company postal-code lookup. This supersedes the former Japan Post API selection. Local manual entry remains available before and after integration when lookup is unavailable or inconclusive.
+Postal-code lookup must help staff complete Japanese prefecture and municipality, and initialize the town-area portion of the existing `street/town and number` field while preserving manual correction. The former Google Maps Platform Geocoding API direction is withdrawn. The adopted source is Japan Post's official nationwide CSV, 「住所の郵便番号（1レコード1行、UTF-8形式）」. Japan Post's official download page states that nationwide data is published in UTF-8 with one postal code per record; its explanatory page states that the postal-code data is freely distributable. Source URLs and file URLs are intentionally not fixed here because they can change.
 
-The provider choice was approved on 2026-09-12 after comparing data-source authority with operational ownership. Google was selected because the development and production API resources can follow the existing separate Google Cloud/Firebase project boundary. Development remains developer-owned; production project, billing, and credential ownership still require House Solution confirmation. Credentials and passwords are never stored in chat-derived documents or source control.
+## Resolution
 
-## Questions
+- Obtain the nationwide Japan Post CSV and transform it into search data. Split generated data by postal-code leading digits (or an equivalent bounded shard key) and serve shards from Firebase Hosting on the same origin.
+- Complete prefecture and municipality and use the matched town-area as the initial value or leading portion of the existing `street/town and number` field. The user selects among multiple candidates, then appends or corrects chome and lot number in that same field; building name remains a separate manual field. All address fields remain editable after selection, and no new persisted address field is added.
+- Always allow manual entry and correction, both before lookup and after automatic completion.
+- Provide an initial-release manual update command and check for updates monthly. Automatic updates are a separate future decision.
+- The published data must record the source/data basis date and `lastCheckedAt`. If the last update check is at least 60 days old, the system must show an administrator warning; a monthly check may update `lastCheckedAt` even when the source is unchanged. TR-009 adopts `generatedAt`, `schemaVersion`, shard/count, checksum, and related verifiable manifest metadata as the implementation design detail for validating publication.
+- No external runtime API, API key, billing, quota allocation, App Check, Google attribution, or live Google request is part of this decision.
+- The existing provider-neutral UI/domain foundation may remain reusable, but the update command, CSV transformation, shards, manifest, freshness warning, and Hosting data publication are not implemented by this decision.
 
-1. Will House Solution own the production Google Cloud project, billing account, quota policy, and production API credential, as currently intended?
-2. Which API authentication method and application/API restrictions will be used for browser-to-service or server-to-service access without exposing an unrestricted key?
-3. What monthly and daily quota, budget alert, hard usage limit, support level, and failure procedure are acceptable, including the environment owner and preapproved server-side kill switch, credential/quota containment order, observable stop signal, recovery order, and safe re-enable criteria?
-4. When must the integration be available relative to production release?
-5. Which exact Google response components map to prefecture, municipality, and street/town and number for ambiguous and Japan-specific results?
-6. Under the production billing owner's applicable Google Maps Platform agreement, may structured address values be retained as shared staff-visible master data, and what attribution, public Terms of Use, Privacy Policy, isolation, retention, refresh, App Check, rate/concurrency, and abuse-control requirements apply?
+## Evidence and Sources
+
+- Evidence: Explicit user approval in the current Codex task.
+- Japan Post official download page: <https://www.post.japanpost.jp/service/search/zipcode/download/utf-zip.html>
+- Japan Post official explanatory page: <https://www.post.japanpost.jp/service/search/zipcode/download/readme.html>
+
+## Decision maker/date
+
+Project owner, 2026-09-17.
 
 ## Affected Documents
 
-Address requirements, external-service boundaries, secrets, operations, cost, and tests.
-
-## Decision Evidence
-
-- Decision: adopt Google Maps Platform Geocoding API for postal-code lookup.
-- Decision maker: Project owner.
-- Decision date: 2026-09-12.
-- Evidence: current Codex task instruction, “GoogleのGeocoding APIを採用します。” A task/thread or share identifier was not available to the repository authoring context.
-- Reflected documents: current specification, delivery/technology requirements, branch/address requirements, ADR 0022, operations, and changelog.
-
-This matter remains unresolved because production ownership, restrictions, quotas, cost controls, availability, response mapping, provider-content persistence, attribution, public-policy, and request-abuse controls still require confirmation.
+Specification, branches and addresses, delivery and technology, operations, TR-009, ADR-0022/0031, HSC-018, and technical-remediation/initial-delivery roadmaps. Implementation remains pending.

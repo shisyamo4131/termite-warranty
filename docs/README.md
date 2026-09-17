@@ -31,7 +31,7 @@
 - [TR-005 detailed design](design/tr-005-bounded-list-subscriptions.md): implementation contract for bounded freshest-20 lists and parent-case warranty projections.
 - [TR-007 detailed design](design/tr-007-direct-master-writes.md): implementation contract for the reduced direct-Firestore master mutation boundary.
 - [TR-008 detailed design](design/tr-008-remove-unused-profile-callable.md): implementation contract for removing the unused profile Callable without changing session or account-management behavior.
-- [TR-009 detailed design](design/tr-009-google-postal-lookup.md): pre-implementation contract for Google postal-code lookup, secure Dev/Prod credentials, and the unresolved Japanese response-mapping gate.
+- [TR-009 detailed design](design/tr-009-japan-post-postal-data.md): pre-implementation design for Japan Post CSV transformation, same-origin Hosting shards, manifest metadata, and freshness warnings.
 - [Construction-company portal workflow](design/construction-company-portal-prototype.md): implemented shared-company-account flow for provisional case data, review, and queued notifications.
 - [UI component contracts](design/ui-component-contracts/README.md): durable contracts for user-authored JavaScript UI components before tracked integration.
 - [Custom UI component collaboration](runbooks/custom-ui-component-collaboration.md): ownership, concurrency, handoff, and integration procedure for the ignored local UI workbench.

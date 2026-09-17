@@ -1,9 +1,10 @@
 # 0022 Google Geocoding for Postal-Code Lookup
 
 - Date: 2026-09-12
-- Status: Accepted
+- Status: Superseded
 - Related specification: [Functional Requirements](../specification.md#functional-requirements)
 - Supersedes: [0008 Postal-Code Address API](0008-postal-code-address-api.md)
+- Superseded by: [0031 Japan Post postal data](0031-japan-post-postal-data.md)
 
 ## Context
 

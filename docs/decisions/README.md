@@ -33,7 +33,7 @@
 | [0019](0019-remove-unused-profile-callable.md) | Remove the unused profile Callable | Accepted | 2026-09-12 |
 | [0020](0020-local-port-allocation.md) | Dedicated local ports with AirGuardV2 priority | Accepted | 2026-09-12 |
 | [0021](0021-user-authored-ui-component-collaboration.md) | User-authored UI component collaboration | Accepted | 2026-09-12 |
-| [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Accepted | 2026-09-12 |
+| [0022](0022-google-geocoding-postal-lookup.md) | Google Geocoding for postal-code lookup | Superseded | 2026-09-12 |
 | [0023](0023-construction-company-portal-prototype.md) | Construction-company portal workflow | Accepted | 2026-09-13 |
 | [0024](0024-same-site-password-action-handler.md) | Same-site password action handler | Accepted | 2026-09-13 |
 | [0025](0025-authentication-focused-firestore-rules.md) | Authentication-focused Firestore Rules | Accepted | 2026-09-14 |
@@ -42,6 +42,7 @@
 | [0028](0028-independent-service-release-boundary.md) | Independent-service release boundary | Accepted | 2026-09-14 |
 | [0029](0029-data-responsibility-and-decision-authority.md) | Data responsibility and decision authority | Accepted | 2026-09-17 |
 | [0030](0030-no-initial-homeowner-access.md) | No initial homeowner access | Accepted | 2026-09-17 |
+| [0031](0031-japan-post-postal-data.md) | Japan Post postal data for postal-code lookup | Accepted | 2026-09-17 |
 
 ## Template
 
