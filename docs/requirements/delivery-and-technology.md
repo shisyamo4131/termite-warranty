@@ -20,7 +20,7 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 
 - The current FileMaker service and the new service are separate systems for separate services. There is no business-data cutover, parallel system-of-record operation, or rollback between them.
 - No final data migration is performed. Each service retains and manages its own records.
-- Deployment rollback, backup/recovery, and incident response for the new system remain production-operation decisions.
+- Deployment rollback, backup/recovery, and incident response follow the HSC-020 production-operation plan; implementation, rehearsal, and verification remain pending.
 
 ## Confirmed Prototype Stack
 
@@ -30,7 +30,8 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 - Cloud Functions for Firebase is adopted for server-side Firebase Admin SDK account-management operations.
 - Firebase Hosting is adopted to host the Nuxt SPA.
 - Japan Post's official nationwide UTF-8 postal-code CSV is adopted for postal-code lookup. Transformed data is planned for same-origin Firebase Hosting delivery with manual entry and correction fallback; update/transform/shard/manifest/freshness implementation remains pending.
-- Provide the prototype in a developer-owned development environment. Development and production use separate Firebase projects; production project ownership and project identifiers are not selected yet.
+- Provide the prototype in a developer-owned development environment. Development and production use separate Firebase projects; House Solution owns and contractually controls production, while its project ID, accounts, IAM bindings, and settings are recorded during provisioning.
+- Production is owned and contractually controlled by House Solution and uses the Blaze plan. If Firestore is selected under HSC-022, production Firestore and Cloud Functions use `asia-northeast1`. Provisioning must record the project ID, accounts, IAM bindings, and settings. Environment-fixed Dev/Prod workflows, verified revision-bound artifacts, concurrent-deploy prevention, rollback, monitoring, and backup/recovery are required by HSC-020 but remain unimplemented.
 - File attachment is outside the initial-release scope, so storage for attachments is not an initial-release selection criterion.
 - Exact prototype dependency versions are pinned in `package.json` and `package-lock.json`. The verified development deployment target is `termite-warranty-dev`, with Firestore, callable Functions, and Hosting configured for the development prototype; this is not approval of production identifiers, production package promotion, or a complete production architecture. Browser-session persistence is required for staff sign-in. Password emails use standard Firebase Authentication delivery initially; Cloud Functions account-management transaction/retry/recovery design remains open. See [decision 0004](../decisions/0004-account-lifecycle-enforcement.md), [decision 0005](../decisions/0005-spa-and-session-persistence.md), [decision 0006](../decisions/0006-account-management-roles.md), [decision 0007](../decisions/0007-development-and-production-isolation.md), and [environments and authentication email](environments-and-authentication-email.md).
 
@@ -49,4 +50,4 @@ The detailed schedule and progress basis are in the [2026 initial-delivery roadm
 
 - Confirm the minimum usable scope and release acceptance criteria for the mandatory operational deadline.
 - Validate the production schema against confirmed workflows and representative synthetic volumes before approval.
-- Confirm Firebase Admin SDK deployment/failure recovery, Firebase Hosting and Cloud Functions deployment configuration, monitoring, production package promotion, and the production database based on prototype evidence, operating cost, security, and delivery constraints.
+- Implement and verify Firebase Admin SDK failure recovery, Firebase Hosting and Cloud Functions deployment configuration, monitoring, and production package promotion according to HSC-020; confirm the production database separately under HSC-022 based on prototype evidence, operating cost, security, and delivery constraints.

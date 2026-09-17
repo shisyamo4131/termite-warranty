@@ -19,7 +19,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-005 | [Notification workflow and history](house-solution-confirmations/HSC-005-notification-workflow.md) | Partially answered | House Solution |
 | HSC-006 | [Dashboard presentation and accessibility](house-solution-confirmations/HSC-006-dashboard-presentation.md) | Not yet asked | House Solution |
 | HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | Partially answered | House Solution |
-| HSC-020 | [Production Firebase environment and operations](house-solution-confirmations/HSC-020-production-firebase-operations.md) | Open technical decision | Project, with House Solution input |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | Open technical decision | Project, with House Solution input |
 | HSC-023 | [Firestore N-Gram query and consistency design](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | Open technical decision | Project technical decision |
 | HSC-024 | [Role types and functional permissions](house-solution-confirmations/HSC-024-role-business-data-access.md) | Not yet asked | House Solution, then project |
@@ -50,5 +49,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-017 | [Japan Post postal data and lookup operations](house-solution-confirmations/HSC-017-postal-api-conditions.md) | 2026-09-17 | Project owner | Current Codex task: replace Google lookup with Japan Post nationwide CSV |
 | HSC-018 | [Construction-company postal-code lookup](house-solution-confirmations/HSC-018-company-postal-lookup.md) | 2026-09-14 | Project owner | Current Codex task: same lookup behavior as property/homeowner |
 | HSC-019 | [Address and contact-field validation](house-solution-confirmations/HSC-019-address-contact-validation.md) | 2026-09-14 | Project owner | Current Codex task: address, TEL/FAX, and email validation rules |
+| HSC-020 | [Production Firebase environment and operations](house-solution-confirmations/HSC-020-production-firebase-operations.md) | 2026-09-17 | Project owner | Current Codex task: House Solution production ownership and bounded operations plan |
 | HSC-021 | [Account creation, deletion, and recovery](house-solution-confirmations/HSC-021-account-lifecycle.md) | 2026-09-14 | Project owner, then project | Current Codex task: reversible account lifecycle |
 | HSC-032 | [Case-list year/month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) | 2026-09-14 | Project owner | Current Codex task: reject mandatory year/month filtering |

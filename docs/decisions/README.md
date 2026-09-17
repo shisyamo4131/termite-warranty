@@ -43,6 +43,7 @@
 | [0029](0029-data-responsibility-and-decision-authority.md) | Data responsibility and decision authority | Accepted | 2026-09-17 |
 | [0030](0030-no-initial-homeowner-access.md) | No initial homeowner access | Accepted | 2026-09-17 |
 | [0031](0031-japan-post-postal-data.md) | Japan Post postal data for postal-code lookup | Accepted | 2026-09-17 |
+| [0032](0032-production-firebase-operations.md) | Production Firebase environment and operations | Accepted | 2026-09-17 |
 
 ## Template
 

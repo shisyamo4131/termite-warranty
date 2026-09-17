@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Resolved HSC-020 with House Solution production ownership, separated Dev/Prod operations, conditional Firestore/Functions region, deployment authentication and approval baseline, bounded backup/recovery targets, and monitoring thresholds; provisioning and implementation remain pending.
 - Resolved HSC-017 by withdrawing Google Geocoding and adopting Japan Post's official nationwide UTF-8 postal-code CSV with same-origin Hosting lookup design; ADR-0022 is superseded and implementation has not started.
 - Resolved HSC-011 and recorded data responsibility and decision authority: House Solution directs business-data purpose and lifecycle; processors and cloud-provider production terms remain bounded and partly unconfirmed.
 - Resolved HSC-012: no direct homeowner account or self-service access in the initial release; homeowner requests use a House Solution contact channel, while contact and notification behavior remain open.

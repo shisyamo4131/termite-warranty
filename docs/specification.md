@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-17
-- Specification version: 0.1.21
+- Specification version: 0.1.22
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -70,8 +70,8 @@ For the initial construction-company workflow, a House Solution administrator is
 ## Environment and Boundaries
 
 - The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
-- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate, unprovisioned Firebase project whose ownership, identifiers, and regions are under confirmation. External-service boundaries remain unconfirmed.
-- House Solution has operational authority and is the final decision-maker for business data in this system: it determines purpose, approved access, correction, retention, and deletion. A homeowner is the personal-information subject rather than a database-record owner; construction-company portal submitters are responsible for the lawful acquisition context and submitted content. Development/maintenance providers act only under House Solution instruction, and Google/Firebase remain planned cloud processing providers pending the production contract and environment decisions under HSC-020/HSC-025. See [decision 0029](decisions/0029-data-responsibility-and-decision-authority.md).
+- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate Firebase project whose provisioning, project ID, accounts, IAM bindings, and settings must be recorded during provisioning. House Solution owns and contractually controls production; if Firestore is selected under HSC-022, production Firestore and Functions use `asia-northeast1`, and production uses the Blaze plan. See [HSC-020](requirements/house-solution-confirmations/HSC-020-production-firebase-operations.md) and [decision 0032](decisions/0032-production-firebase-operations.md).
+- House Solution has operational authority and is the final decision-maker for business data in this system: it determines purpose, approved access, correction, retention, and deletion. A homeowner is the personal-information subject rather than a database-record owner; construction-company portal submitters are responsible for the lawful acquisition context and submitted content. Development/maintenance providers act only under House Solution instruction, and Google/Firebase remain planned cloud processing providers; exact provider contract terms, subprocessors, and termination conditions remain under HSC-025. See [decision 0029](decisions/0029-data-responsibility-and-decision-authority.md).
 
 ## Functional Requirements
 
@@ -149,7 +149,7 @@ For the initial construction-company workflow, a House Solution administrator is
 - Case-warranty requirements are in [case warranties](requirements/case-warranties.md).
 - Branch and address requirements are in [branches and addresses](requirements/branches-and-addresses.md).
 - Homeowners and construction companies do not have a parent-child relationship. A case directly references its homeowner, construction company, and property. The property supplies both initial selections, after which the active case may store independently selected references. Later changes to the property's homeowner or construction-company reference do not alter any existing case reference. See [decision 0014](decisions/0014-preserve-case-party-references.md).
-- House Solution retains the FileMaker data outside the new-system datastore. No migration mapping, cleaning, reconciliation report, or migration acceptance test is required for release. Because the systems serve different services, there is no business-data cutover, parallel system-of-record operation, or rollback between them; deployment rollback and recovery for the new system remain production-operation matters.
+- House Solution retains the FileMaker data outside the new-system datastore. No migration mapping, cleaning, reconciliation report, or migration acceptance test is required for release. Because the systems serve different services, there is no business-data cutover, parallel system-of-record operation, or rollback between them; deployment rollback and recovery for the new system follow the HSC-020 production-operation plan and remain pending implementation and rehearsal.
 
 ## Error Handling
 
@@ -162,7 +162,7 @@ Customer names and addresses are in scope. Existing-system homeowner data is not
 ## Current Phase Completion Criteria
 
 - Confirm the minimum usable scope, roles, data fields, and alert rules needed for initial operation.
-- Decide the new system's deployment rollback, backup/recovery, and incident procedures before production release.
+- Implement, rehearse, and verify the HSC-020 deployment rollback, backup/recovery, and incident procedures before production release.
 - Make explicit technology and deployment decisions before implementation begins.
 
 ## Unresolved Matters

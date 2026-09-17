@@ -41,7 +41,7 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 
 - House Solution has operational authority and is the final decision-maker for business data, including purpose, approved access, correction, retention, and deletion. Routine access and correction use approved business permissions; output requires House Solution administrator approval.
 - Homeowners are personal-information subjects, not database-record owners. Construction companies are responsible for the lawful acquisition context and submitted content while their portal submission is editable; once submitted, including while it is awaiting review and after registration, House Solution manages it operationally.
-- Development and maintenance providers are processors under House Solution instruction. Independent use, third-party provision, unilateral bulk export, deletion, or taking copies is not permitted. Google/Firebase are planned cloud processing providers, while exact production contracting entity, region, subprocessors, and termination conditions remain unconfirmed under HSC-020/HSC-025.
+- Development and maintenance providers are processors under House Solution instruction. Independent use, third-party provision, unilateral bulk export, deletion, or taking copies is not permitted. Google/Firebase are planned cloud processing providers; House Solution production ownership and operation are resolved under HSC-020, while exact provider contract terms, subprocessors, and termination conditions remain unconfirmed under HSC-025.
 - Retention periods and individual deletion remain subject to HSC-001, and detailed role permissions remain subject to HSC-024. This boundary does not itself authorize an export feature or change the provisional authentication-focused Rules posture.
 
 ## Homeowner Access Boundary
@@ -49,6 +49,12 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - The initial release has no homeowner-facing account, login, my page, warranty viewing or editing, document download, application, or response function. Homeowners are personal-information subjects rather than application accounts.
 - Requests for disclosure, correction, restriction of use, or similar handling are received through House Solution instead of direct system access. Contact method and notification behavior remain open under HSC-005 and related matters.
 - Future homeowner access would require a separate scope covering purpose, identity verification, permitted data/actions, sale or inheritance relationship changes, account recovery and expiry, unauthorized viewing, and support. Read-only access may be considered first; no future behavior is authorized by this boundary.
+
+## Production Environment Boundary
+
+- House Solution owns and contractually controls the production Firebase/Google Cloud project and billing. Initial provisioning may use a temporary House Solution-supplied account; after verification, House Solution changes its password, revokes sessions, and the temporary credentials are destroyed. Ongoing maintenance uses individual developer Google accounts with only necessary IAM permissions.
+- Routine maintenance accounts do not receive project-deletion permission. House Solution-controlled deletion, suspension, or changes to project, IAM, billing, or resources are not guaranteed to be fully reversible by routine maintenance access.
+- Production is separate from development. Environment-fixed deployment workflows use environment-specific authentication and verified artifacts; WIF is preferred subject to Firebase CLI deployment verification, with a restricted rotated key as fallback if required. HSC-020 resolves the monitoring, backup, and recovery targets, while detailed security/privacy requirements and provider contract terms remain under HSC-025.
 
 ## Consequences and Residual Risks
 

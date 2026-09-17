@@ -27,7 +27,7 @@ The system supports a newly established termite-warranty service; it is not a re
 
 - House Solution has operational authority and is the final decision-maker for business data in the new system, including cases, applied warranties, masters, notifications, and staff accounts. It decides purpose, approved access, correction, retention, and deletion.
 - A homeowner is the personal-information subject, not a database-record owner. Disclosure, correction, restriction-of-use, and similar requests are received through House Solution and handled under applicable law, contracts, and retention duties.
-- Construction companies are responsible for the lawful acquisition context and content submitted through the portal. Development and maintenance providers act under House Solution instruction and may handle only the necessary scope. Google/Firebase production processing terms remain subject to HSC-020/HSC-025.
+- Construction companies are responsible for the lawful acquisition context and content submitted through the portal. Development and maintenance providers act under House Solution instruction and may handle only the necessary scope. House Solution production ownership and operations are resolved under HSC-020; exact Google/Firebase provider contract terms, subprocessors, and termination conditions remain subject to HSC-025.
 
 ## Homeowner Access — Initial Release
 

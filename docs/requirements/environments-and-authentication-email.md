@@ -4,10 +4,10 @@
 
 - Provide the mid-September 2026 prototype in a development environment.
 - Use separate Firebase projects for the development and production environments.
-- The development Firebase project is owned by the developer. Production Firebase-project ownership is under confirmation.
+- The development Firebase project is owned by the developer. House Solution owns and contractually controls the production Firebase/Google Cloud project and billing; its project ID, accounts, IAM bindings, and settings are recorded during provisioning.
 - The provisioned and verified development Firebase project ID is `termite-warranty-dev`; its registered web app is `TermiteWarranty Dev Web`, its Hosting site is `termite-warranty-dev`, and its default Firestore location is `asia-northeast1` (Tokyo). These identifiers do not authorize or imply any production target.
-- Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. Production regions remain open.
-- Production deployment configuration, regions, monitoring, backup/recovery, and release procedure remain open.
+- Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. If Firestore is selected for production under HSC-022, production Firestore and Functions use `asia-northeast1`. Production uses the Blaze plan.
+- Production provisioning and implementation remain pending. The adopted operation plan covers environment-fixed deployment workflows, environment-specific authentication, verified artifacts, concurrency protection, rollback, monitoring, backups, and recovery; exact project settings and recorded identifiers are created during provisioning.
 - Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another separately approved purpose requires a confidentiality agreement. Do not place that data in source control, documentation, test fixtures, or logs.
 
 ## Confirmed Authentication-Email Requirements

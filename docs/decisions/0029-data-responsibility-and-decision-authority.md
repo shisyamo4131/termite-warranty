@@ -15,7 +15,7 @@ The system handles cases, applied warranties, masters, notifications, staff acco
 - A homeowner is the personal-information subject, not a database-record owner. House Solution receives disclosure, correction, restriction-of-use, and similar requests and handles them under applicable law, contracts, and retention duties.
 - Construction companies are responsible for the lawful acquisition context and content they submit through the portal. They may correct editable submissions; once submitted, including while it is awaiting review and after registration, House Solution manages the data operationally. This is not an ownership transfer.
 - Development and maintenance providers are processors under House Solution instruction, limited to necessary handling. They may not independently use, provide, export, remove, or copy the data.
-- Google/Firebase are planned cloud processing providers. The exact production contracting entity, storage region, subprocessors, and termination conditions require separate confirmation under HSC-020/HSC-025.
+- Google/Firebase are planned cloud processing providers. House Solution production ownership and operation are resolved under HSC-020; exact provider contract terms, subprocessors, and termination conditions require separate confirmation under HSC-025.
 - Routine access and correction use approved permissions; output requires House Solution administrator approval. Retention/deletion policy remains under HSC-001, and detailed role permissions remain under HSC-024. Contract termination must allow House Solution to receive necessary data before provider copies are deleted within the contractually specified period. No export feature is approved for initial-release implementation by this decision.
 - Source-code/IP, fees, and contract-termination terms themselves are separate contract matters.
 
@@ -30,7 +30,7 @@ This separates operational accountability from legal and contractual concepts, p
 
 ## Impact
 
-Update specification, business context, security/access, operations, HSC-011, and the central register. Keep HSC-001, HSC-024, HSC-020, and HSC-025 open where they govern retention, detailed permissions, and production contracts.
+Update specification, business context, security/access, operations, HSC-011, and the central register. Keep HSC-001, HSC-024, and HSC-025 open where they govern retention, detailed permissions, and remaining production provider-contract details; HSC-020 is resolved by this project's separate operations decision.
 
 ## Migration
 
