@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
-- Last updated: 2026-09-14
-- Specification version: 0.1.17
+- Last updated: 2026-09-17
+- Specification version: 0.1.18
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -113,6 +113,7 @@ For the initial construction-company workflow, a House Solution administrator is
 - A case holds homeowner, construction-company, and property IDs. Selecting a property during registration, or changing it while the case is active, initially applies that property's current homeowner and construction-company IDs. Staff can then change either case reference before saving. Construction-company and homeowner names, and the property name and address, are displayed from their masters and follow subsequent master changes; they are not stored as case snapshots.
 - A property's homeowner and construction-company references remain editable after the property has been used by a case. Changing either property reference changes only the property and does not rewrite any existing case, regardless of case status.
 - Master update, inactivation, and reactivation use last-write-wins. This rule does not change the separately implemented stale-baseline checks for case and applied-warranty multi-record workflows.
+- A master being referenced by an existing case does not by itself require an edit warning, reason, approval, or master edit history. Existing cases display current master values; ordinary input validation, reference integrity, and lifecycle rules continue to apply.
 - A property holds a construction-company ID. At case registration and when an active case's property is changed, the property supplies the initially selected construction company; the case construction company remains editable before saving and while the case is active.
 - When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
 - A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, and notes are optional. Email does not belong to the construction-company master; when a company account exists, the construction-company detail screen displays that account's email address. Nonempty TEL and FAX values accept only ASCII digits and hyphens after trimming; no separator-position or digit-count rule applies.

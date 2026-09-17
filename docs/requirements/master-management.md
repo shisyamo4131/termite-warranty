@@ -79,6 +79,7 @@ Master records that are already referenced by a case are not physically deleted.
 - Inactive masters are excluded from selection for a new case.
 - Existing cases retain their master references and continue to display the current master name/address even after the master becomes inactive.
 - Construction-company names, homeowner names, and property names/addresses in existing cases follow the respective master changes; none is stored as a case snapshot.
+- Use by a case does not by itself require a pre-edit warning, reason, approval, or master edit history. Ordinary input validation, reference integrity, and existing lifecycle rules continue to apply. Past-value display or history management requires a future explicit scope request.
 - A property's homeowner and construction-company references remain editable after the property is used by a case. Changing either property reference changes only the property and does not rewrite an existing case, including a cancelled or invalid case.
 - A property holds homeowner and construction-company IDs. Selecting the property while registering a case, or changing the property on an active case, initially selects both references; staff may change either case value before saving.
 - Changing a property master's homeowner or construction-company ID does not alter existing cases. See [decision 0014](../decisions/0014-preserve-case-party-references.md).
@@ -87,4 +88,4 @@ Master records that are already referenced by a case are not physically deleted.
 
 ## Unresolved-Matter Routing
 
-See [HSC-008 master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) and [HSC-009 used-master editing](house-solution-confirmations/HSC-009-used-master-editing.md) in the central register. Duplicate master records remain permitted without a warning or merge requirement.
+See [HSC-008 master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) in the central register. Duplicate master records remain permitted without a warning or merge requirement.

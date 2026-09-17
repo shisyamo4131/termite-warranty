@@ -35,15 +35,14 @@
 2. Which event starts that period: case closure, final warranty expiry, final billing/payment, last warranty response, or the latest of these events?
 3. Which circumstances must suspend deletion, such as an unresolved complaint, claim, unpaid balance, investigation, or dispute?
 4. At the end of the period, should the system physically delete the case and its applied warranties, or anonymize personal information while retaining non-identifying business totals?
-5. Must the system preserve the homeowner, billing party, construction company, property, and warranty-service information as it appeared at application or billing time, independently of later master changes?
-6. Are invoices, contracts, claim records, or other legally relevant records stored in this system, or are they retained authoritatively in another system?
-7. After all applicable retention periods and holds end, may the system physically delete an inactive master that has no remaining references from cases, applied warranties, or other masters?
-8. Does House Solution accept or revise the proposed one-year retention and deletion/anonymization treatment for withdrawn, unregistered new-case work items and their queued-notification records?
+5. Are invoices, contracts, claim records, or other legally relevant records stored in this system, or are they retained authoritatively in another system?
+6. After all applicable retention periods and holds end, may the system physically delete an inactive master that has no remaining references from cases, applied warranties, or other masters?
+7. Does House Solution accept or revise the proposed one-year retention and deletion/anonymization treatment for withdrawn, unregistered new-case work items and their queued-notification records?
 
 ## Why Confirmation Is Required
 
 - The answer affects warranty support, billing evidence, complaints and disputes, personal-information minimization, Firestore storage, backup, migration, and deletion procedures.
-- The current live-master display model requires referenced masters to remain available for as long as retained cases need those values. Preserving past values independently would require a separate snapshot requirement and data-model change.
+- The current live-master display model requires referenced masters to remain available for as long as retained cases need those values. Application-time snapshots are not adopted; an explicit House Solution request for past-value display or history management would be a new scope and data-model decision.
 - Japanese tax guidance commonly requires corporate books and transaction documents to be retained for seven years, and for some periods ten years. Whether a particular system record is itself subject to those rules depends on its content and role, so this does not determine the product retention period by itself.
 - Japan's Personal Information Protection Commission states that the Act does not prescribe one general retention period and that personal data should be deleted without delay when its use is no longer necessary. The business purpose and other retention obligations therefore need to be identified first.
 
