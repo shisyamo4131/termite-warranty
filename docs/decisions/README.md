@@ -40,6 +40,7 @@
 | [0026](0026-complete-filtered-list-results.md) | Complete filtered list results in the prototype | Accepted | 2026-09-14 |
 | [0027](0027-filtered-list-pagination.md) | Filtered-list pagination | Accepted | 2026-09-14 |
 | [0028](0028-independent-service-release-boundary.md) | Independent-service release boundary | Accepted | 2026-09-14 |
+| [0029](0029-data-responsibility-and-decision-authority.md) | Data responsibility and decision authority | Accepted | 2026-09-17 |
 
 ## Template
 

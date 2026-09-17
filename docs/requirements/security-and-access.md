@@ -37,6 +37,13 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - Shared authentication establishes company-level attribution only. Each response stores a self-declared contact name and contact email for operational follow-up; it is not an independently authenticated individual identity.
 - App Check, rate limits, password policy, multi-factor authentication, notification delivery controls, retention, and production incident procedures remain unconfirmed. This prototype does not claim production-grade external access security.
 
+## Data Responsibility Boundary
+
+- House Solution has operational authority and is the final decision-maker for business data, including purpose, approved access, correction, retention, and deletion. Routine access and correction use approved business permissions; output requires House Solution administrator approval.
+- Homeowners are personal-information subjects, not database-record owners. Construction companies are responsible for the lawful acquisition context and submitted content while their portal submission is editable; once submitted, including while it is awaiting review and after registration, House Solution manages it operationally.
+- Development and maintenance providers are processors under House Solution instruction. Independent use, third-party provision, unilateral bulk export, deletion, or taking copies is not permitted. Google/Firebase are planned cloud processing providers, while exact production contracting entity, region, subprocessors, and termination conditions remain unconfirmed under HSC-020/HSC-025.
+- Retention periods and individual deletion remain subject to HSC-001, and detailed role permissions remain subject to HSC-024. This boundary does not itself authorize an export feature or change the provisional authentication-focused Rules posture.
+
 ## Consequences and Residual Risks
 
 - Shared construction-company credentials reduce account-administration cost but prevent individual operator attribution and require password rotation when access within the company changes.

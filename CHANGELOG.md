@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Resolved HSC-011 and recorded data responsibility and decision authority: House Solution directs business-data purpose and lifecycle; processors and cloud-provider production terms remain bounded and partly unconfirmed.
 - Resolved HSC-009: retained live master values for existing cases without use-based snapshots, edit warnings, reasons, approvals, or master edit history; preserved ordinary validation, reference integrity, and lifecycle rules.
 - Aligned the warranty-service list with the responsive data-table design used by the other master lists while retaining type, short name, and default warranty period.
 - Integrated the user-authored responsive property-list table while retaining parent-owned search, paging, navigation, and lifecycle mutations.

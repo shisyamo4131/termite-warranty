@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-17
-- Specification version: 0.1.18
+- Specification version: 0.1.19
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -69,6 +69,7 @@ For the initial construction-company workflow, a House Solution administrator is
 
 - The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
 - Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate, unprovisioned Firebase project whose ownership, identifiers, and regions are under confirmation. External-service boundaries remain unconfirmed.
+- House Solution has operational authority and is the final decision-maker for business data in this system: it determines purpose, approved access, correction, retention, and deletion. A homeowner is the personal-information subject rather than a database-record owner; construction-company portal submitters are responsible for the lawful acquisition context and submitted content. Development/maintenance providers act only under House Solution instruction, and Google/Firebase remain planned cloud processing providers pending the production contract and environment decisions under HSC-020/HSC-025. See [decision 0029](decisions/0029-data-responsibility-and-decision-authority.md).
 
 ## Functional Requirements
 

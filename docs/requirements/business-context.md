@@ -23,6 +23,12 @@ The system supports a newly established termite-warranty service; it is not a re
 - The application roles are developer superuser, House Solution administrator, and general staff. The developer superuser manages House Solution administrator accounts; a House Solution administrator manages general-staff accounts. Detailed permissions outside account management are not yet confirmed.
 - Account creation sends a password-setup email; email-address verification is not required initially, and staff can reset their passwords. Disabled accounts must immediately become unusable, including existing signed-in sessions.
 
+## Data Responsibility and Decision Authority
+
+- House Solution has operational authority and is the final decision-maker for business data in the new system, including cases, applied warranties, masters, notifications, and staff accounts. It decides purpose, approved access, correction, retention, and deletion.
+- A homeowner is the personal-information subject, not a database-record owner. Disclosure, correction, restriction-of-use, and similar requests are received through House Solution and handled under applicable law, contracts, and retention duties.
+- Construction companies are responsible for the lawful acquisition context and content submitted through the portal. Development and maintenance providers act under House Solution instruction and may handle only the necessary scope. Google/Firebase production processing terms remain subject to HSC-020/HSC-025.
+
 ## Unresolved-Matter Routing
 
 See [HSC-011 data ownership](house-solution-confirmations/HSC-011-data-ownership.md), [HSC-012 homeowner access](house-solution-confirmations/HSC-012-homeowner-access.md), and [HSC-013 construction-company submission](house-solution-confirmations/HSC-013-construction-company-submission.md) in the central register.
