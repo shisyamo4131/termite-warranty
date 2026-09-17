@@ -20,6 +20,8 @@ The new service does not reuse this member page because it does not identify con
 
 This structured response-intake workflow is accepted for the initial scope. Email delivery, reminder timing, retention, detailed audit needs, and production service/security behavior remain open under their respective matters.
 
+Homeowners do not receive direct application access in the initial release: there is no homeowner account, login, my page, warranty/document self-service, application, or response workflow. Homeowner disclosure, correction, restriction-of-use, and similar requests are handled through a House Solution contact channel; the contact method and notification behavior remain open under HSC-005 and related matters.
+
 ## Initial Release — Confirmed Scope
 
 - Staff perform warranty registration.

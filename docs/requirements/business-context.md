@@ -29,6 +29,12 @@ The system supports a newly established termite-warranty service; it is not a re
 - A homeowner is the personal-information subject, not a database-record owner. Disclosure, correction, restriction-of-use, and similar requests are received through House Solution and handled under applicable law, contracts, and retention duties.
 - Construction companies are responsible for the lawful acquisition context and content submitted through the portal. Development and maintenance providers act under House Solution instruction and may handle only the necessary scope. Google/Firebase production processing terms remain subject to HSC-020/HSC-025.
 
+## Homeowner Access — Initial Release
+
+- Homeowners are personal-information subjects, not direct application users. The initial release provides no homeowner account, login, my page, warranty viewing or editing, document download, application, or response function.
+- New applications and renewals use the construction-company portal and House Solution review/confirmation workflow. Homeowner disclosure, correction, restriction-of-use, and similar requests are handled through House Solution rather than direct system access.
+- This does not select a homeowner contact method or email-notification behavior; those remain open under HSC-005 and related matters. Any future homeowner access is a new scope requiring purpose, identity verification, data/actions, relationship changes, recovery/expiry, unauthorized viewing, and support decisions.
+
 ## Unresolved-Matter Routing
 
 See [HSC-011 data ownership](house-solution-confirmations/HSC-011-data-ownership.md), [HSC-012 homeowner access](house-solution-confirmations/HSC-012-homeowner-access.md), and [HSC-013 construction-company submission](house-solution-confirmations/HSC-013-construction-company-submission.md) in the central register.

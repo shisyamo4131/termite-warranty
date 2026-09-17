@@ -44,6 +44,12 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - Development and maintenance providers are processors under House Solution instruction. Independent use, third-party provision, unilateral bulk export, deletion, or taking copies is not permitted. Google/Firebase are planned cloud processing providers, while exact production contracting entity, region, subprocessors, and termination conditions remain unconfirmed under HSC-020/HSC-025.
 - Retention periods and individual deletion remain subject to HSC-001, and detailed role permissions remain subject to HSC-024. This boundary does not itself authorize an export feature or change the provisional authentication-focused Rules posture.
 
+## Homeowner Access Boundary
+
+- The initial release has no homeowner-facing account, login, my page, warranty viewing or editing, document download, application, or response function. Homeowners are personal-information subjects rather than application accounts.
+- Requests for disclosure, correction, restriction of use, or similar handling are received through House Solution instead of direct system access. Contact method and notification behavior remain open under HSC-005 and related matters.
+- Future homeowner access would require a separate scope covering purpose, identity verification, permitted data/actions, sale or inheritance relationship changes, account recovery and expiry, unauthorized viewing, and support. Read-only access may be considered first; no future behavior is authorized by this boundary.
+
 ## Consequences and Residual Risks
 
 - Shared construction-company credentials reduce account-administration cost but prevent individual operator attribution and require password rotation when access within the company changes.

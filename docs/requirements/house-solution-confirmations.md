@@ -19,7 +19,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-005 | [Notification workflow and history](house-solution-confirmations/HSC-005-notification-workflow.md) | Partially answered | House Solution |
 | HSC-006 | [Dashboard presentation and accessibility](house-solution-confirmations/HSC-006-dashboard-presentation.md) | Not yet asked | House Solution |
 | HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | Partially answered | House Solution |
-| HSC-012 | [Homeowner system access](house-solution-confirmations/HSC-012-homeowner-access.md) | Not yet asked | House Solution |
 | HSC-017 | [Postal-code API operating conditions](house-solution-confirmations/HSC-017-postal-api-conditions.md) | Partially answered | Project, with House Solution production input |
 | HSC-020 | [Production Firebase environment and operations](house-solution-confirmations/HSC-020-production-firebase-operations.md) | Open technical decision | Project, with House Solution input |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | Open technical decision | Project, with House Solution input |
@@ -44,6 +43,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-009 | [Editing masters already used by cases](house-solution-confirmations/HSC-009-used-master-editing.md) | 2026-09-17 | Project owner | Current Codex task: no use-based snapshot, warning, reason, approval, or edit-history requirement |
 | HSC-010 | [Warranty payer and contracting party](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 2026-09-14 | Project owner | Current Codex task: financial and contracting-party scope boundary |
 | HSC-011 | [Legal and operational data ownership](house-solution-confirmations/HSC-011-data-ownership.md) | 2026-09-17 | Project owner | Current Codex task: data responsibility and decision authority under House Solution direction |
+| HSC-012 | [Homeowner system access](house-solution-confirmations/HSC-012-homeowner-access.md) | 2026-09-17 | Project owner | Current Codex task: no direct homeowner access in the initial release |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | 2026-09-14 | Project owner | Current Codex task: initial portal workflow acceptance |
 | HSC-014 | [Legacy FileMaker data delivery](house-solution-confirmations/HSC-014-legacy-data-delivery.md) | 2026-09-11 | House Solution | Current Codex task instruction: existing-system data migration is not required |
 | HSC-015 | [Migration scope and data cleaning](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 2026-09-11 | House Solution | Current Codex task instruction: existing-system data migration is not required |

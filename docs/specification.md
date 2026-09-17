@@ -1,7 +1,7 @@
 # termite-warranty Specification
 
 - Last updated: 2026-09-17
-- Specification version: 0.1.19
+- Specification version: 0.1.20
 - Status: Prototype implementation
 - Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
 
@@ -26,6 +26,7 @@ Provide House Solution Co., Ltd. with a management system for a new termite-warr
 
 - House Solution Co., Ltd. staff who receive and review warranty enrolment information.
 - Participating construction companies (工務店), who are expected to submit enrolment information through a form in the target workflow.
+- Homeowners are personal-information subjects, not direct application users in the initial release; no homeowner account or self-service page is provided.
 
 Staff roles are `developer superuser`, `House Solution administrator`, and `general staff`. The initial construction-company workflow has one shared `construction company` account per construction company. Detailed permissions are described in the provisional [security and access posture](requirements/security-and-access.md).
 
@@ -45,6 +46,7 @@ For the initial construction-company workflow, a House Solution administrator is
 - Provide search and list views for registered information.
 - Start the new system without importing data from the current FileMaker system. Existing-system data migration is not a production-release requirement.
 - Provide the construction-company portal workflow described below for structured new-case and renewal responses.
+- Handle homeowner disclosure, correction, restriction-of-use, and similar requests through a House Solution contact channel rather than direct system access. The contact method and notification behavior remain open under HSC-005 and related matters.
 
 ### Not Yet a Confirmed Production Requirement
 
