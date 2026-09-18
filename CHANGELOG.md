@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Improved the same-site password setup/reset form with a verified username field and stable password-manager attributes; Dev deployment is pending.
+- Improved the same-site password setup/reset form with a verified username field and stable password-manager attributes; revision `3a59f1110f6eba54bae3de42fb32206ed3b5f0df` was deployed to Dev on 2026-09-18 by GitHub Actions run 35297212067. Real Chrome password-manager association remains pending user acceptance testing.
 - Resolved HSC-020 with House Solution production ownership, separated Dev/Prod operations, conditional Firestore/Functions region, deployment authentication and approval baseline, bounded backup/recovery targets, and monitoring thresholds; provisioning and implementation remain pending.
 - Resolved HSC-017 by withdrawing Google Geocoding and adopting Japan Post's official nationwide UTF-8 postal-code CSV with same-origin Hosting lookup design; ADR-0022 is superseded and implementation has not started.
 - Resolved HSC-011 and recorded data responsibility and decision authority: House Solution directs business-data purpose and lifecycle; processors and cloud-provider production terms remain bounded and partly unconfirmed.
