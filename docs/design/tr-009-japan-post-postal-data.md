@@ -1,6 +1,6 @@
 # TR-009 Japan Post Postal-Data Lookup
 
-- Status: Implemented locally; Dev publication and browser smoke remain pending
+- Status: Dev deployment complete; authenticated UI visual smoke remains pending
 - Roadmap: [TR-009](../roadmaps/technical-remediation.md#tr-009-japan-post-postal-data)
 - Decision: [ADR 0031](../decisions/0031-japan-post-postal-data.md)
 - Resolved matter: [HSC-017](../requirements/house-solution-confirmations/HSC-017-postal-api-conditions.md); HSC-018 is resolved
@@ -39,7 +39,7 @@ The existing provider-neutral application/domain seam, field-level stale-respons
 - `src/domain/hosted-postal-lookup.mjs` loads only the relevant same-origin shard and checks schema, count, and SHA-256 before caching it.
 - Property, homeowner, and construction-company forms use the provider-neutral seam; multiple candidates require selection and no-match/error leaves manual editing available.
 - The safe source-check path is `npm run postal-data:check` (or `node scripts/postal-data.mjs --check-only`). Applying a reviewed source update uses `npm run postal-data:update -- --confirm=postal-data --basis-date=YYYY-MM-DD`; the script passes `--apply`, while the command still requires the explicit confirmation token and basis date. The apply path is read-only unless all required arguments are present. The parser treats the official one-record-per-line UTF-8 format as a line boundary and rejects an unclosed quoted field rather than guessing.
-- Focused parser, deterministic-generator, and provider integrity tests pass. Dev deployment and browser smoke are pending.
+- Focused parser, deterministic-generator, and provider integrity tests pass. Revision `1d113e5b3e719679ed8d7d82ac3c313b0e6daf71` was deployed to `termite-warranty-dev` by successful push verification [run 35303358082](https://github.com/shisyamo4131/termite-warranty/actions/runs/35303358082) and workflow dispatch deployment [run 35303604261](https://github.com/shisyamo4131/termite-warranty/actions/runs/35303604261), including Firestore, Functions, and Hosting. Public smoke returned HTTP 200 for `/`; the deployed manifest reported schema 1, normalization 2, 124,522 records, 948 shards, source SHA-256 `7d42728c4c9023e30668b1ef144fd5ffd831a417011c82d3e85ca3c35db43b15`, and aggregate SHA-256 `413f822cd3b23d723826a5d560049bd80efbaf69564c5804c812c2fb9af0c8aa`; representative shards `001`, `500`, and `999` returned HTTP 200 with matching counts and hashes. Authenticated UI visual smoke remains pending.
 
 ## Operational and Security Notes
 
