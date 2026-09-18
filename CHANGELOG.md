@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Implemented the Japan Post UTF-8 postal-data transformation, 948 same-origin Hosting shards, manifest integrity metadata, provider lookup, candidate selection, and manual fallback for all three address master forms; Dev publication and browser smoke remain pending.
 - Improved the same-site password setup/reset form with a verified username field and stable password-manager attributes; revision `3a59f1110f6eba54bae3de42fb32206ed3b5f0df` was deployed to Dev on 2026-09-18 by GitHub Actions run 35297212067. On 2026-09-18, Chrome associated and saved the generated reset password with the correct account email as intended.
 - Resolved HSC-020 with House Solution production ownership, separated Dev/Prod operations, conditional Firestore/Functions region, deployment authentication and approval baseline, bounded backup/recovery targets, and monitoring thresholds; provisioning and implementation remain pending.
 - Resolved HSC-017 by withdrawing Google Geocoding and adopting Japan Post's official nationwide UTF-8 postal-code CSV with same-origin Hosting lookup design; ADR-0022 is superseded and implementation has not started.

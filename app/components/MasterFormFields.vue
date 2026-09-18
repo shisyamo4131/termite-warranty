@@ -1,4 +1,7 @@
 <template>
+  <v-alert v-if="postalDataStale" type="warning" variant="tonal" class="mb-3">
+    郵便番号データの最終確認から60日以上経過しています。必要に応じて管理者へ確認してください。
+  </v-alert>
   <v-text-field v-model="form.name" label="名称" required />
   <v-text-field
     v-if="form.masterType === 'warrantyService'"
@@ -37,7 +40,7 @@
       ref="propertyAddressFields"
       v-model="form.address"
       lookup-subject="property"
-      :postal-lookup-provider="props.postalLookupProvider"
+      :postal-lookup-provider="effectivePostalLookupProvider"
     />
     <MasterPropertyReferenceFields
       v-model:homeowner-id="form.homeownerId"
@@ -57,12 +60,11 @@
     <v-textarea v-model="form.notes" label="備考（任意）" />
   </template>
   <template v-if="form.masterType === 'constructionCompany'">
-    <v-alert v-if="!props.postalLookupProvider" type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
     <MasterAddressFields
       ref="companyAddressFields"
       v-model="form.address"
       lookup-subject="constructionCompany"
-      :postal-lookup-provider="props.postalLookupProvider"
+      :postal-lookup-provider="effectivePostalLookupProvider"
     />
     <MasterConstructionCompanyContactFields
       v-model:telephone="form.telephone"
@@ -73,12 +75,11 @@
     />
   </template>
   <template v-if="form.masterType === 'homeowner'">
-    <v-alert v-if="!props.postalLookupProvider" type="info" variant="tonal" class="mb-3">住所の自動入力は未接続です。郵便番号を含め手入力してください。</v-alert>
     <MasterAddressFields
       ref="homeownerAddressFields"
       v-model="form.address"
       lookup-subject="homeowner"
-      :postal-lookup-provider="props.postalLookupProvider"
+      :postal-lookup-provider="effectivePostalLookupProvider"
     />
     <MasterHomeownerContactFields
       v-model:telephone="form.telephone"
@@ -91,6 +92,7 @@
 <script setup lang="ts">
 import type { MasterFormDraft } from '../../src/domain/master-form.mjs'
 import type { PostalLookupProvider } from '../../src/domain/postal-lookup.mjs'
+import { hostedPostalLookupProvider } from '../../src/domain/hosted-postal-lookup.mjs'
 import type { ManagedMaster } from '../composables/useMasterManagement'
 import { countDisplayCharacters } from '../../src/domain/master-data.mjs'
 
@@ -101,6 +103,19 @@ const props = withDefaults(defineProps<{
 }>(), {
   homeowners: () => [],
   companies: () => [],
+})
+const effectivePostalLookupProvider = computed(() => props.postalLookupProvider ?? hostedPostalLookupProvider)
+const postalDataLastCheckedAt = ref<string | null>(null)
+const postalDataStale = computed(() => {
+  if (!postalDataLastCheckedAt.value) return false
+  const checkedAt = Date.parse(postalDataLastCheckedAt.value)
+  return Number.isFinite(checkedAt) && Date.now() - checkedAt >= 60 * 24 * 60 * 60 * 1000
+})
+onMounted(async () => {
+  try {
+    const response = await fetch('/postal-data/manifest.json')
+    if (response.ok) postalDataLastCheckedAt.value = (await response.json()).lastCheckedAt ?? null
+  } catch { /* manual entry remains available when freshness metadata is unavailable */ }
 })
 const form = defineModel<MasterFormDraft>({ required: true })
 const shortNameRule = (value: unknown) => countDisplayCharacters(String(value ?? '').trim()) <= 6 || '略称は6文字以内で入力してください。'

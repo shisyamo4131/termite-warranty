@@ -103,15 +103,15 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-009: Add Japan Post Postal-Data Lookup
 
-- Status: Provider-neutral foundation implemented, reviewed, deployed to Dev, and smoke-verified; Japan Post CSV transformation, Hosting publication, and freshness operations not started
+- Status: Local implementation complete; generated Hosting assets and freshness operations implemented, Dev publication/browser smoke pending
 - Decision: [ADR 0031](../decisions/0031-japan-post-postal-data.md)
 - Detailed design: [TR-009 Japan Post postal-data lookup](../design/tr-009-japan-post-postal-data.md)
 - Review evidence: the provider-neutral foundation was independently reviewed on 2026-09-12; its reusable concurrency protection and manual-entry boundary remain applicable, while the former Google-specific review gates are superseded by ADR-0031.
 - Confirmed scope: transform Japan Post's nationwide UTF-8 CSV into bounded postal-code shards served from Firebase Hosting on the same origin for property, homeowner, and construction-company forms. Preserve manual entry, correction, current stored address fields, and no-match/ambiguous/failure fallbacks.
 - Design boundary: the manifest records source/basis date, `lastCheckedAt`, `generatedAt`, schema version, shard/count/checksum metadata; monthly manual checking is planned and a 60-day stale-check administrator warning is required. No runtime external API, credential, billing, quota, App Check, or Google attribution is required.
-- Remaining work: update command, deterministic CSV transformation, shards, manifest, Hosting publication, candidate selection wiring, freshness warning, and focused regression remain unimplemented. HSC-017 is resolved as a direction, not an implementation-complete gate.
+- Evidence: the 2026-08-31 official source generated 124,522 normalized records across 948 deterministic shards (14,774,729 bytes including manifest); parser/generator/provider focused tests pass; all three master form types use same-origin lookup with candidate selection and manual fallback.
 - Completion contract: the normalized CSV transformation and manifest are covered by synthetic fixtures; generated shards have verified counts/checksums; candidate selection and freshness warning work; late responses cannot overwrite newer field input; ambiguous results never silently choose a candidate; manual save always remains available; no runtime network request or credential is introduced; all policy-selected documentation, UI, application, syntax, and build gates pass independently.
-- Foundation evidence: the provider-neutral domain/types, optional property/homeowner/construction-company UI seam, per-field/generation concurrency protection, provider replacement/removal handling, and synchronous full/quick/edit form cancellation are implemented with registered dependency-free tests. The initial property/homeowner-only revision was independently reviewed and deployed; HSC-018 later authorized the same seam for construction companies. Current hosts still inject no provider and make no network request. Mounted provider timing remains deferred because no approved provider is injected.
+- Foundation evidence: the provider-neutral domain/types, all three master UI paths, per-field/generation concurrency protection, provider replacement/removal handling, and synchronous full/quick/edit form cancellation are implemented with registered tests. The generated assets are local; Dev publication and browser smoke remain pending.
 
 ## Earlier Remediation Evidence Source (TR-001–TR-008)
 

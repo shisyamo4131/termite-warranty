@@ -5,7 +5,7 @@ export type PostalLookupAddress = Pick<MasterAddressDraft, 'prefecture' | 'munic
 
 export type PostalLookupResult =
   | { status: 'resolved'; address: Partial<PostalLookupAddress> }
-  | { status: 'ambiguous'; address: Partial<Pick<PostalLookupAddress, 'prefecture' | 'municipality'>> }
+  | { status: 'ambiguous'; address: Partial<Pick<PostalLookupAddress, 'prefecture' | 'municipality'>>; candidates?: Partial<PostalLookupAddress>[] }
   | { status: 'not_found' }
   | { status: 'unavailable' }
 

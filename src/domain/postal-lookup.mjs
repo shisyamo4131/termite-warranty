@@ -35,8 +35,17 @@ function safeResult(result) {
       if (value !== '') address[field] = value
     }
   }
+  const candidates = result.status === 'ambiguous' && Array.isArray(result.candidates)
+    ? result.candidates.map((candidate) => {
+      const value = {}
+      for (const field of WRITABLE_FIELDS) {
+        if (typeof candidate?.[field] === 'string' && candidate[field].trim()) value[field] = candidate[field].trim()
+      }
+      return value
+    }).filter((candidate) => Object.keys(candidate).length > 0)
+    : undefined
   return Object.keys(address).length > 0
-    ? { status: result.status, address }
+    ? { status: result.status, address, ...(candidates ? { candidates } : {}) }
     : unavailableResult()
 }
 
