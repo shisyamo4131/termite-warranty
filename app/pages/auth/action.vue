@@ -21,17 +21,30 @@
 
           <v-form v-else @submit.prevent="submit">
             <p class="mb-4">
-              <strong>{{ email }}</strong> の新しいパスワードを入力してください。
+              新しいパスワードを入力してください。
             </p>
             <v-text-field
+              id="reset-email"
+              v-model="email"
+              name="username"
+              label="メールアドレス"
+              type="email"
+              autocomplete="username"
+              readonly
+            />
+            <v-text-field
+              id="new-password"
               v-model="password"
+              name="new-password"
               label="新しいパスワード"
               type="password"
               autocomplete="new-password"
               required
             />
             <v-text-field
+              id="new-password-confirmation"
               v-model="passwordConfirmation"
+              name="new-password-confirmation"
               label="新しいパスワード（確認）"
               type="password"
               autocomplete="new-password"
