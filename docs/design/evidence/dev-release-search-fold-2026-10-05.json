@@ -1,0 +1,13 @@
+{
+  "projectId": "termite-warranty-dev",
+  "baseCommit": "22aa822de20454cb74c6eee840f330e9270ff3a5",
+  "deploymentTargets": [
+    "hosting"
+  ],
+  "uncommittedWorktree": true,
+  "sourceFileCount": 131,
+  "sourceTreeSha256": "848fe316d138e9cbe0f228a46bbf6f0e4f66003c2114f2bc24dd10f19026659f",
+  "hostingFileCount": 1026,
+  "hostingTreeSha256": "d009e7e40e9c97aa8808e252b7b2edcc3b6a5d62a8afb23893a5908ba6c4a264",
+  "hostingIndexSha256": "e120fcc814adcb43e2b11305d820d677d091eb86f465bc74a6ab931a1bf53fa5"
+}
