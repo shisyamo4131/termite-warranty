@@ -1,3 +1,4 @@
+import { nextInsuranceReportLabel } from '../app/utils/insuranceReportDisplay.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { coveragePeriods, fiscalYear, warrantyNumber, initialGroups, japanDate, reportRows, csvCell, normalizeProperty } from '../src/domain/property-warranty.mjs'
@@ -188,7 +189,7 @@ async function prototypeViewForTest(invoke){
   const vue=await import('vue')
   const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
   const inputRules=await import('../src/domain/input-rules.mjs')
-  const notifications=[];const env={notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},useNuxtApp:()=>({$firebase:{functions:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},useNuxtApp:()=>({$firebase:{functions:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   return new Function(...Object.keys(env),code+';return {current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
 }
@@ -292,10 +293,10 @@ test('insurance report sends only month; renewal label ends with warranty but re
  v.tab.value='report';await new Promise(r=>setImmediate(r));calls.length=0
  v.filter.month='2026-10';v.filter.search='hidden';v.filter.companyId='hidden';await v.fetchRows()
  assert.deepEqual(calls.at(-1).filter,{reportMonth:'2026-10'})
- const row={expiryDate:'2036-10-05',insuranceExpiryDate:'2036-10-05',insuranceRenewalMonth:'203610'}
- assert.equal(v.insuranceRenewalLabel(row),'保証満了')
- assert.equal(v.insuranceRenewalLabel({...row,insuranceExpiryDate:'2037-10-05'}),'保証満了')
- assert.equal(v.insuranceRenewalLabel({...row,expiryDate:'2046-10-05'}),'2036年10月')
+ const row={insuranceReported:true,insuranceEvents:[],expiryDate:'2036-10-05',insuranceExpiryDate:'2036-10-05',insuranceRenewalMonth:'203610'}
+ assert.equal(v.insuranceRenewalLabel(row),'次回報告不要（保証延長がなければ）')
+ assert.equal(v.insuranceRenewalLabel({...row,insuranceExpiryDate:'2037-10-05'}),'次回報告不要（保証延長がなければ）')
+ assert.equal(v.insuranceRenewalLabel({...row,expiryDate:'2046-10-05'}),'2036年10月分')
  assert.equal(v.insuranceRenewalLabel({}),'要確認')
 })
 
@@ -353,3 +354,17 @@ test('keyboard date entry formats complete digits and rejects impossible dates w
  assert.notEqual(monthRule(format('202613','month')),true)
 })
 
+
+ test('report display distinguishes unreported, renewal, final coverage and incomplete history without mutation',()=>{
+ const row={status:'active',insuranceReported:false,insuranceEvents:[],expiryDate:'2035-09-30',insuranceExpiryDate:'2035-09-30',insuranceRenewalMonth:'203509'}
+ const before=structuredClone(row)
+ assert.equal(nextInsuranceReportLabel(row),'初回報告が必要')
+ assert.equal(nextInsuranceReportLabel({...row,insuranceReported:true}),'次回報告不要（保証延長がなければ）')
+ assert.equal(nextInsuranceReportLabel({...row,insuranceReported:true,expiryDate:'2045-09-30'}),'2035年09月分')
+ assert.equal(nextInsuranceReportLabel({...row,insuranceHistoryIncomplete:true}),'要確認（記録不足）')
+ assert.equal(nextInsuranceReportLabel({...row,status:'cancelled'}),'対象外（物件・保証取消）')
+ assert.equal(nextInsuranceReportLabel({...row,status:'draft'}),'本登録前')
+ assert.equal(nextInsuranceReportLabel({...row,insuranceReported:true,expiryDate:'2045-09-30',insuranceRenewalMonth:'203513'}),'要確認')
+ assert.equal(nextInsuranceReportLabel({}),'要確認')
+ assert.deepEqual(row,before)
+})

@@ -63,7 +63,7 @@
         <v-card v-if="['warranty','insurance'].includes(noticeMode)" variant="outlined"><v-card-title>{{ ['warranty','billing'].includes(noticeMode) ? '保証の満了・案内状況' : '保険の満了・報告状況' }}</v-card-title><v-card-text><dl class="notice-details">
           <dt>対象期間</dt><dd>{{ ['warranty','billing'].includes(noticeMode) ? current.startDate : current.insuranceStartDate }} ～ {{ ['warranty','billing'].includes(noticeMode) ? current.expiryDate : current.insuranceExpiryDate }}</dd>
           <template v-if="['warranty','billing'].includes(noticeMode)"><dt>案内状況</dt><dd>{{ current.warrantyNotified ? '案内済み' : '未案内' }}</dd><dt>保証年数／上限</dt><dd>{{ current.years }}年／{{ current.maxYears }}年 — {{ current.years>=current.maxYears ? '最終満了・延長不可' : '延長可能' }}</dd></template>
-          <template v-else><dt>報告有無</dt><dd>{{ current.insuranceReported ? '報告済み' : '未報告' }}</dd><dt>次回更新年月</dt><dd>{{ insuranceRenewalLabel(current) }}</dd></template>
+          <template v-else><dt>報告有無</dt><dd>{{ current.insuranceReported ? '報告済み' : '未報告' }}</dd><dt>次回報告の対象年月</dt><dd>{{ insuranceRenewalLabel(current) }}</dd></template>
         </dl></v-card-text></v-card>
         <p class="text-body-2 mt-4">{{ noticeMode==='warranty' ? '連絡はHSが別途行います。ここでは案内状況のみ変更できます。' : noticeMode==='billing' ? '物件情報は閲覧専用です。保証期間ごとの請求状態を下のカードで管理できます。' : '報告対象の抽出と報告済みの操作は「保険報告用一覧」で行ってください。' }} 物件の訂正・保証延長は「物件・保証」で行ってください。</p>
       </template>
@@ -110,6 +110,7 @@
 </template>
 
 <script setup lang="ts">
+import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { latestInsuranceReport, handoverChangeBlockers } from "../../src/domain/property-warranty.mjs"
 import { requiredRule, requiredRules, optionalRules, postalRule, phoneRule, emailRule, prefixRule, areaRule, dateRule, monthRule, yearRule } from '../../src/domain/input-rules.mjs'
 import { httpsCallable } from 'firebase/functions'
@@ -194,7 +195,7 @@ async function newProperty(){noticeMode.value='';await run(loadCatalog);if(error
 async function openProperty(id:string){noticeMode.value=tab.value==='alerts' ? 'warranty' : tab.value==='insuranceAlerts' ? 'insurance' : tab.value==='report' ? 'report' : tab.value==='billing' ? 'billing' : '';await run(async()=>{await loadCatalog();resetDialogCatalog();const row=await call('detail',{id});await companyBranches(row.constructionCompanyId);if(!dialogCompanies.value.some(c=>c.id===row.constructionCompanyId))dialogCompanies.value.push({id:row.constructionCompanyId,name:row.companyLabel});current.value=row;propertyFormal.value=row.status==='active';errors.property='';propertyId.value=id;form.value={...emptyAddress(),...row,applicationDate:row.applicationDate || (row.status==='draft' ? japanDate() : '')};requestId.value=crypto.randomUUID();confirmDates.value=false;propertyDialog.value=true})}
 const dateChanged=computed(()=>current.value?.status==='active' && current.value.handoverDate!==form.value.handoverDate)
 const formatMonth=(value:string)=>/^\d{6}$/.test(value || '') ? `${value.slice(0,4)}年${value.slice(4,6)}月` : '要確認'
-function insuranceRenewalLabel(row:Row){return row.expiryDate && row.insuranceExpiryDate && row.insuranceExpiryDate>=row.expiryDate ? '保証満了' : formatMonth(row.insuranceRenewalMonth)}
+function insuranceRenewalLabel(row:Row){return nextInsuranceReportLabel(row)}
 const previewStart=computed(()=>form.value.handoverDate || '未入力')
 const previewExpiry=computed(()=>{try{return coveragePeriods(form.value.handoverDate,current.value?.years || 10).at(-1)?.expiryDate}catch{return '日付を確認してください'}})
 const handoverBlockers=computed(()=>handoverChangeBlockers(current.value))

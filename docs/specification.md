@@ -1,5 +1,11 @@
 # termite-warranty Specification
 
+## 2026-10-05 保険報告カードの明確化（0.1.106）
+
+オーナーが推奨表示案を採用。「次回更新年月」を「次回報告の対象年月」へ変更し、初回未報告は「初回報告が必要」、報告済みで現在の保証満了まで到達していれば「次回報告不要（保証延長がなければ）」、更新待ちは「○年○月分」とする。対象年月は実際の提出月ではなく報告一覧の対象月（9月分は10月月初に報告）。記録不足は要確認を維持。初回未報告を不要判定にしない。
+
+保証の区分を「初回保証」「延長保証（1回目／2回目）」とし、各5年の行を「前半5年の保険」「後半5年の保険」、将来期間の注記を「保険対象期間の開始前」とする。保存データ・報告対象判定・期間計算は不変。Hostingキャッシュの変更は相談のみで、採用・変更しない。
+
 ## 2026-10-05 年月入力・物件一覧（0.1.105）
 
 オーナーのDev操作結果による変更。年月入力は年・月だけで確定し、日付選択を要求しない。物件／保証一覧は「申込日／引渡日」の順に表示し、「現在の保証期間」の下へ「現在の保険期間」を表示する。保険未報告の場合は期間を適用済みのように表示せず「未報告」とする。物件名は詳細ダイアログを開くリンクにする。他の一覧の期間の意味・保存形式・状態遷移は変更しない。
@@ -65,7 +71,7 @@ UI改修・Dev反映・架空データ3件の準備と開発側表示確認を�
 UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
 
 - Last updated: 2026-10-04
-- Specification version: 0.1.105
+- Specification version: 0.1.106
 - Status: Confirmed initial-release requirements; implementation and acceptance incomplete
 - Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
 

@@ -25,13 +25,13 @@
   <v-card v-if="showInsurance" class="my-4 lifecycle-card">
     <v-card-title>保険の適用・報告状況</v-card-title>
     <v-card-text>
-      <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption">次回更新年月</div><div>{{ renewalLabel }}</div></v-col></v-row>
+      <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption">次回報告の対象年月</div><div>{{ renewalLabel }}</div></v-col></v-row>
       <v-expansion-panels multiple variant="accordion" class="mt-5">
         <v-expansion-panel v-for="period in insuranceGroups" :key="period.id">
           <v-expansion-panel-title><div><strong>{{ period.label }}</strong><div class="text-body-2 mt-1">{{ period.startDate }} ～ {{ period.expiryDate }}</div><div class="text-caption mt-1">前半・後半の保険報告を確認</div></div></v-expansion-panel-title>
           <v-expansion-panel-text>
             <div v-for="half in period.halves" :key="half.startDate" class="insurance-row">
-              <div><div class="font-weight-bold mb-1">{{ half.label }}5年</div><div>{{ half.startDate }} ～ {{ half.expiryDate }}</div><div v-if="half.startDate>japanDate()" class="text-caption mt-1">開始前の期間</div></div>
+              <div><div class="font-weight-bold mb-1">{{ half.label }}5年の保険</div><div>{{ half.startDate }} ～ {{ half.expiryDate }}</div><div v-if="half.startDate>japanDate()" class="text-caption mt-1">保険対象期間の開始前</div></div>
               <div><div class="text-caption mb-1">保険会社への報告</div><v-chip size="small" :color="half.report ? 'success' : 'default'">{{ half.state }}</v-chip><div v-if="half.report" class="text-caption mt-1">対象月：{{ half.report.month }}</div></div>
             </div>
           </v-expansion-panel-text>
@@ -39,17 +39,18 @@
       </v-expansion-panels>
       <v-alert v-if="incomplete" type="warning" variant="tonal" class="mt-4">旧データの報告記録には不足があります。記録のない期間を未報告とは断定できません。訂正は開発側に確認してください。</v-alert>
       <v-alert v-if="unmatchedReports.length" type="warning" variant="tonal" class="mt-3"><p>現在の保証期間に対応づけられない報告があります。</p><p v-for="report in unmatchedReports" :key="report.requestId">{{ report.startDate }} ～ {{ report.expiryDate }}（{{ report.month }}分・報告済み）</p></v-alert>
-      <p class="text-caption mt-3">前半・後半は保証開始日からの5年ごとの期間です。表示だけで保険が適用・更新されることはありません。報告・請求の対外訂正はHSが行います。</p>
+      <p class="text-caption mt-3">対象年月は報告する月ではなく「何月分か」を示します（例：9月分は10月月初に報告）。前半・後半は各保証の開始日からの5年ごとの保険対象期間です。表示だけで保険が適用・更新されることはありません。報告・請求の対外訂正はHSが行います。</p>
     </v-card-text>
     <v-card-actions v-if="$slots['insurance-actions']" class="pa-4"><slot name="insurance-actions" /></v-card-actions>
   </v-card>
 </template>
 <script setup lang="ts">
+import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { warrantyTransactions, activeInsuranceReports, japanDate } from '../../src/domain/property-warranty.mjs'
 import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
 const props=withDefaults(defineProps<{row:Record<string,any>;editable?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
 defineEmits<{billing:[action:string,period:Record<string,any>]}>()
-const transactions=computed(()=>warrantyTransactions(props.row))
+const transactions=computed(()=>warrantyTransactions(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
 const reports=computed(()=>activeInsuranceReports(props.row))
 const incomplete=computed(()=>!!props.row.insuranceHistoryIncomplete || (!props.row.insuranceEvents && (!!props.row.insuranceEverRenewed || (!!props.row.insuranceReported && !props.row.insuranceLastReport))))
 const insuranceGroups=computed(()=>transactions.value.map(period=>{
@@ -60,7 +61,7 @@ const insuranceGroups=computed(()=>transactions.value.map(period=>{
   })}
 }))
 const unmatchedReports=computed(()=>reports.value.filter(report=>!insuranceGroups.value.some(p=>p.halves.some(h=>h.report?.requestId===report.requestId))))
-const renewalLabel=computed(()=>props.row.expiryDate && props.row.insuranceExpiryDate>=props.row.expiryDate ? '保証満了' : props.row.insuranceRenewalMonth ? String(props.row.insuranceRenewalMonth).replace(/^(\d{4})-?(\d{2})$/,'$1年$2月') : '未設定')
+const renewalLabel=computed(()=>nextInsuranceReportLabel(props.row))
 const billingLabel=(state:string)=>({pending:'未請求',billed:'請求済み',unknown:'要確認'}[state] || '要確認')
 </script>
 <style scoped>
