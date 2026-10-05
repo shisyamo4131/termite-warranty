@@ -1,5 +1,12 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-06 物件／保証一覧は保証番号の完全一致のみ
+
+オーナー指示により、物件／保証一覧の検索は保証番号全体の完全一致だけとする。前後空白は除去するが、接頭辞・年度・通番の補完、部分一致、N-Gram検索は行わない。名前・住所・工務店・支店・グループ・年度・状態・日付等の検索欄と詳細条件ボタンを撤去する。検索条件なしは更新日時・文書ID降順のDB limit(20)、保証番号指定時はDB whereによる一致取得とする。認証と会社／支店の閲覧範囲は維持する。最新20件に含まれない未採番の下書きを探す方法を含め、その他の検索軸は業務内容に合わせて検討し、別途承認する。
+
+保険報告・請求・満了案内の業務別抽出はこの変更の対象外。2026-10-05の自由検索・折りたたみ式検索と、物件一覧への条件指定時全件取得の例外を置き換える。保証書CSVの項目確定待ちは維持。
+
+
 ## 2026-10-05 アカウント内部操作記録・参照取得
 
 同一UIDの三つの更新入口を`accountMutationLocks/{uid}`で直列化する。サーバー専用文書はoperationId、targetPath、actorUid、kind、desired、status、createdAt、previousAuth、previousEnabledを保持し、復旧時はrecoveryOwnerも保持する。statusはrunning/recovery_required/recovery_running。変更前のAuth値は私有記録に限定し、クライアントRulesは全アクセスを拒否する。成功時はstaffAccounts/constructionCompanyAccountsへlastAccountMutationIdとupdatedAtを記録し、ロックを同じtransactionで削除する。応答喪失の成功識別に用いる。時間切れ削除・一括移行なし。既存業務文書の保存形状は不変。

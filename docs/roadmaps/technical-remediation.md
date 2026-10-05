@@ -1,13 +1,61 @@
 # Technical Remediation Backlog
 
-## 2026-10-05 高優先度：物件／保証一覧の検索取得（HSC-023）
+## 2026-10-06 物件／保証一覧の完全一致検索（HSC-023）
 
-- 優先度：高。オーナーが同日、検索機能を優先度高めの要改修事項として記録するよう指示。
-- 現在地：`functions/property-warranty.js`のlistは、条件なしならupdatedAt降順・文書ID降順のFirestoreクエリにlimit(20)を指定済み。`MeetingPrototype.vue`の物件一覧の初期表示・条件クリアもこのlistへ空の検索条件を渡す。コード修正は不要。検索条件ありでは閲覧権限内の全件取得後に照合するため、表示20件でもReadは制限されない。
-- 改修対象：物件名・施主名・住所の文書tokenMapとDB側AND検索、その他の指定条件の絞込、索引・並び順・一覧取得／CSVの完全性。保存時のトークン整合と既存文書の補完も含めて設計する。[未決・根拠](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)。
-- 未採用案：N-Gram候補取得後に日付範囲を適用し並べ替える方式。提案を採用済みにせず、条件ごとのDB適用範囲を確定する。
-- 完了条件：条件なしのDB limit(20)を維持、検索語・他条件・複合条件の検索漏れなし、権限scope維持、検索用項目の更新・補完整合、Read削減の実測、索引とページング／CSVの欠落・重複検証、影響分類に応じたLocal・配備・受入ゲートの完了。
-- 今回の範囲：実装確認と文書3ファイルの更新のみ。検索改修・データ補完・外部配備なし、進捗加点なし。documentation-onlyの完了ゲートはgovernance。アプリコード・データ契約・設定に差分がないため、実装／配備向けの残り6ゲートは今回の文書更新では選択しない。
+- 承認範囲：保証番号完全一致だけに限定し、Dev反映まで承認。その他検索軸は業務内容の確認・仕様確定が先行する。
+- 実装：propertyList入口は保証番号だけを受け付け、DB whereで完全一致取得。無条件はupdatedAt／文書ID降順のlimit(20)。会社／支店scopeを維持し、3種類の複合索引を追加。画面の名前・住所・詳細条件を撤去。他業務一覧は維持。
+- 検証状況：Local全7ゲート成功。Dev Functions・索引・Hosting配備と開発側の読み取り受入を完了。単体の50件fixtureで番号一致時は物件1件だけ読取、部分一致・他社／他支店は0件。Emulatorで古い物件・番号一致／不一致・会社／支店scopeを検証。実利用24時間の削減率は未測定。
+- 完了条件：Local全7ゲート、Dev Functions／索引／Hosting一致と検索受入を完了。既存業務データの変更・補完・Prod操作なし。
+- 残件：未採番下書きの探索を含むその他検索軸、マスタ検索・本番規模の取得／CSV完全性は[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)で継続。旧tokenMap導入目標を今回の実装指示にしない。全体進捗率は変更しない。
+- 互換性・差戻し：保存スキーマは不変。旧list入口を他業務一覧と旧クライアント用に維持。画面はFunctions／索引の準備後に配備。差戻しは旧HostingとFunctionsを戻し、追加索引は残せる。仕様に反する旧自由検索の再公開はオーナー判断が必要。
+- 文書影響：仕様・検索要件・検索設計・試作契約・HSC該当行・本台帳・changelog・プロジェクト規則。新しい永続保存設計はなくADRと保存契約は変更不要。既存operations／READMEの他タスク差分は触れない。今回の運用証跡は本節へ記録する。
+
+### Local検証（2026-10-06）
+
+UI＋application logic＋索引/schema＋文書＋project rule＋deployの混合変更として全7ゲートを選択。対象アプリ・索引の最終差分で実行。試験の旧detailsOpen参照・自由検索の期待値を新仕様へ更新し、報告fixtureはタブ切替完了後に準備する。最初のnpm test失敗は修正後の成功で更新。Rules試験の初回はCLI設定読取EPERMでexit 1、demo環境限定の権限付き再実行で成功。
+
+| コマンド | 実測 | exit |
+| --- | --- | --- |
+| npm test | 188件、186成功・既存2スキップ・失敗0 | 0 |
+| npm run typecheck | 成功 | 0 |
+| npm run build | 成功。既存Nitroの警告あり | 0 |
+| npm run test:rules | demo-termite-warrantyのみ、90成功・スキップ0 | 0 |
+| node scripts/check-functions-syntax.mjs | 23ファイル成功 | 0 |
+| node --check scripts/seed-emulator.mjs | 成功 | 0 |
+| pwsh -NoProfile -File scripts/check-governance.ps1 | 成功。最終文書更新後にも再実行 | 0 |
+
+所有ファイル：`app/components/MeetingPrototype.vue`、`functions/property-warranty.js`、`firestore.indexes.json`、`test/catalog-efficiency.test.mjs`、`test/property-warranty.test.mjs`、`test/emulator/property-warranty.test.mjs`、`docs/specification.md`、`docs/requirements/search-and-list.md`、`docs/requirements/search-architecture.md`、`docs/design/meeting-prototype-2026-10-03.md`、`docs/requirements/house-solution-confirmations.md`のHSC-023行と該当詳細、`governance/project-rules.md`、`CHANGELOG.md`、本台帳。運用詳細は本節に集約し、他タスク所有の`docs/operations.md`と`docs/README.md`は保全する。保存文書形状・認証権限・共通管理対象・検証方針は不変。追加ADR・新規文書索引は不要。
+
+### Dev配備・受入（2026-10-06）
+
+配備先は本ターンで`docs/operations.md`、開発配備workflow、`functions/local-runtime.js`、`functions/index.js`、`firebase.json`の実値と照合。ユーザーの「Dev反映まで進めてしまってOK」に基づく。既存業務文書・Auth・採番の書込み、初期化、Prod・IAM操作なし。
+
+| コマンド | 実測 | exit |
+| --- | --- | --- |
+| node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only 'functions:propertyPrototype,firestore:indexes' --non-interactive | propertyPrototype更新・索引配備成功 | 0 |
+| node tmp/verify-property-search-indexes.mjs | 準備中はCREATINGで未完了。最終3索引READY | 0 |
+| node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only hosting --non-interactive | READY確認後に公開、991ファイル | 0 |
+| node tmp/verify-property-search-release.mjs | HTML HTTP200・Localと一致、24参照資産一致、Dev接続先一致、4 callableの未認証401、3索引READY | 0 |
+
+公開HTML SHA-256：`0ea568678b78a64d30e0aa37490bd4844e5536cff0788d01ba2d938ef1cb0d60`。
+
+Chromeの既存Devセッションで未保存入力なしを確認し再読込。物件一覧の入力欄は保証番号のみ、詳細条件なし。初期表示16件→実在番号完全一致1件→番号の一部分0件→前後空白とEnter検索1件→条件クリア16件・入力空欄・エラー0を確認。読取試験のみで、顧客名・住所・実番号は証跡に複写しない。試験初回の番号取得はセルのグループ補足表示も連結していたため0件となり、番号のテキストノードだけで再検証して上記結果を確認した。保険報告は対象年月のみ、請求は既存検索欄を維持していることも確認し、物件一覧へ戻した。会社／支店scopeはLocal自動試験で確認し、Devで別アカウントへのログインや合成ユーザー作成は行わない。
+
+画面証跡は個人情報を含まない検索formのみの`tmp/dev-property-exact-search.png`（ignored）。その他の検索軸と未採番下書きの探索は未決、HSC-023は未解決のまま。ユーザーの業務受入は開発側検証と区別する。公開画面で保証番号検索を確認できる。
+
+#### 検証対象の指紋
+
+下記ソース／テスト／索引はLocal検証後から配備・受入まで不変。後続は結果の文書記録のみでありアプリ検証を再実行しない。最終文書の`pwsh -NoProfile -File scripts/check-governance.ps1`と所有15ファイル指定の`git diff --check -- <owned paths>`は各exit 0。他6ゲートはソース・テスト・設定が不変のため上記有効証拠を再利用。
+
+| ファイル | SHA-256 |
+| --- | --- |
+| `app/components/MeetingPrototype.vue` | `2f1f2e707e3b4e34008a299f06d36fbed3acee7aec210ac3bbf23c29067ad195` |
+| `functions/property-warranty.js` | `932f4be3ec0cde652feb995c72846d3c72cde3d021bee2a2f340088a5b774590` |
+| `firestore.indexes.json` | `0108c885a30192aeb8a849a76ae1e61fc4cc4e412bd5f88ced88b9d4c86494c8` |
+| `test/catalog-efficiency.test.mjs` | `00b65f930eb920ee9572a5e6d223f52225093f5544d92f5514fac6b5e5a3f73d` |
+| `test/property-warranty.test.mjs` | `3848454c7832f496eda4ec11170c938ae31f9430fb400e522b86b4472af5398c` |
+| `test/emulator/property-warranty.test.mjs` | `207d14d150e1eedaed36b0bbc2454741227368c6b7e097e289599dcb78d51168` |
+| `governance/project-rules.md` | `8af40b94a1641c6ba404877358d52eaf0decbb824da8aeaf2f2916c9f66cdfcf` |
 
 ## 2026-10-05 アカウント競合・Read削減の承認
 

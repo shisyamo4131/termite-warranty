@@ -191,7 +191,7 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const inputRules=await import('../src/domain/input-rules.mjs')
   const notifications=[];const env={sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  return new Function(...Object.keys(env),code+';return {referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,detailsOpen,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
 }
 
 test('dialog company search preserves background catalog and selected company; branch fetch has local loading',async()=>{
@@ -224,7 +224,7 @@ test('reference cache integration reuses catalog, forces refresh, invalidates on
   assert.equal(calls.filter(action=>action==='catalog').length,1)
   assert.equal(calls.filter(action=>action==='alertSettings').length,1)
   await v.fetchRows();await v.fetchRows()
-  assert.equal(calls.filter(action=>action==='list').length,2)
+  assert.equal(calls.filter(action=>action==='propertyList').length,2)
   await v.referenceCache.get('other-condition',async()=>['stale'])
   await v.loadCatalog(true)
   assert.equal(v.referenceCache.size(),2)
@@ -417,18 +417,17 @@ test('successful registration closes both dialogs; active edit remains open',asy
  for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
 })
 
-test('property search folds after success, exposes applied conditions, and reopens on invalid input',async()=>{
- const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.detailsOpen.value=true;v.filter.fiscalYear='2026';await v.loadRows();assert.equal(v.detailsOpen.value,false);assert.ok(v.appliedPropertyFilters.value.some(c=>c.key==='fiscalYear'));await v.removePropertyFilter('fiscalYear');assert.equal(calls.at(-1).filter.fiscalYear,'');assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(v.detailsOpen.value,true);assert.equal(calls.length,before)
+test('property search submits only the exact number, clears the applied number, and blocks invalid input',async()=>{
+ const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001';v.filter.search='ignored';v.filter.fiscalYear='2026';await v.loadRows();assert.equal(calls.at(-1).action,'propertyList');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:'QA-26-001'});assert.deepEqual(v.appliedPropertyFilters.value,[{key:'warrantyNumber',label:'保証番号：QA-26-001'}]);await v.removePropertyFilter('warrantyNumber');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:''});assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(calls.length,before)
 })
-
 
 test('pending list results keep submitted filters and busy clear cannot erase them',async()=>{
  let resolve;const v=await prototypeViewForTest(()=>new Promise(r=>{resolve=r}))
- v.searchForm.value={validate:async()=>({valid:true})};v.filter.search='東京'
+ v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001'
  const pending=v.loadRows();await new Promise(r=>setImmediate(r))
- await v.clearFilter();assert.equal(v.filter.search,'東京')
- v.filter.search='大阪';resolve({rows:[{id:'tokyo'}],limited:false});await pending
- assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'検索語：東京');assert.equal(v.reportDirty.value,true)
+ await v.clearFilter();assert.equal(v.filter.warrantyNumber,'QA-26-001')
+ v.filter.warrantyNumber='QA-26-002';resolve({rows:[{id:'tokyo'}],limited:false});await pending
+ assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'保証番号：QA-26-001');assert.equal(v.reportDirty.value,true)
 })
 
 test('account creation sends setup mail despite list refresh failure and prevents duplicate creation',async()=>{
@@ -445,7 +444,7 @@ test('account mail and refresh failures remain truthful without creation success
 })
 
 const reportFixture=(id)=>({id,revision:1,reportKind:'new'})
-async function prepareReports(v){v.rows.value=[reportFixture('A'),reportFixture('B')];v.selectedKeys.value=['A:::','B:::'];v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))}
+async function prepareReports(v){v.tab.value='report';await new Promise(r=>setImmediate(r));v.rows.value=[reportFixture('A'),reportFixture('B')];v.selectedKeys.value=['A:::','B:::'];v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))}
 
 test('partial report failure retries only remaining selection with the original receipt',async()=>{
  const calls=[];let failed=true;const v=await prototypeViewForTest(async data=>{calls.push(data);if(data.action==='report'&&data.id==='B'&&failed)throw Error('B rejected');return data.action==='list'?{rows:failed?[reportFixture('B')]:[],limited:false}:{}})

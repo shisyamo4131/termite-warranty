@@ -31,6 +31,22 @@ before(async()=>{
 })
 after(()=>deleteApp(app))
 
+test('property list finds an older exact number, rejects partial numbers and keeps company/branch scope',async()=>{
+  const keys=Array.from({length:25},(_,i)=>`exact-search-${i}`)
+  try {
+    for(const [i,key] of keys.entries()) await db.doc(`propertyWarranties/${key}`).set({name:'架空検索物件',warrantyNumber:`QA-26-${i}`,constructionCompanyId:'meeting-co',branchId:'meeting-branch',updatedAt:new Date(2000,0,i+1),status:'active'})
+    assert.equal((await call('propertyList')).limited,true)
+    assert.ok((await call('propertyList')).rows.length<=20)
+    const result=await call('propertyList',{filter:{warrantyNumber:' QA-26-0 '}})
+    assert.deepEqual(result.rows.map(r=>r.id),[keys[0]])
+    assert.equal((await call('propertyList',{filter:{warrantyNumber:'26-0'}})).rows.length,0)
+    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-head')).rows.length,1)
+    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-branch-user')).rows.length,1)
+    for(const uid of ['meeting-otherbranch','meeting-otherco']) assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},uid)).rows.length,0)
+    await assert.rejects(call('propertyList',{filter:{search:'架空'}}),e=>e.code==='invalid-argument')
+  } finally { for(const key of keys) await db.doc(`propertyWarranties/${key}`).delete() }
+})
+
 test('historical initial report uses selected period, leaves unselected untouched and reverses exactly',async()=>{
   const key='initial-past-period',untouched='initial-past-unselected'
   const pastFields={...fields,applicationDate:'2016-10-01',handoverDate:'2016-10-06'}

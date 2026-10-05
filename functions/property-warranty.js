@@ -54,13 +54,18 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     return settings
   }
   if (action === 'catalog') return catalog(db, a, String(input.search ?? '').trim(), input.groupId || '', input.companyId || '', input.purpose || '')
-  if (action === 'list') {
+  if (action === 'list' || action === 'propertyList') {
     const f = input.filter ?? {}
+    if (action === 'propertyList') {
+      if (Object.keys(f).some(key => key !== 'warrantyNumber') || (f.warrantyNumber != null && typeof f.warrantyNumber !== 'string')) fail('invalid-argument', '物件・保証一覧は保証番号の完全一致検索のみ利用できます。')
+      f.warrantyNumber = (f.warrantyNumber ?? '').trim()
+    }
     if (f.alertKind && !['warranty','insurance'].includes(f.alertKind)) fail('invalid-argument', '案内の種類が不正です。')
     if (f.alertKind === 'insurance' && !a.staff) fail('permission-denied', '保険満了案内はHS担当者のみ閲覧できます。')
     let query = db.collection('propertyWarranties')
     if (!a.staff) query = query.where('constructionCompanyId', '==', a.constructionCompanyId)
     if (!a.staff && a.scope === 'branch') query = query.where('branchId', '==', a.branchId)
+    if (f.warrantyNumber?.trim()) query = query.where('warrantyNumber', '==', f.warrantyNumber.trim())
     query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
     if ((f.reportMonth || f.billingMonth) && !a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     const filtered = ['reportMonth','billingMonth','warrantyNumber','handoverMissing', 'alertKind', 'search', 'companyId', 'branchId', 'groupId', 'fiscalYear', 'status', 'expiryBefore', 'from', 'to','applicationFrom','applicationTo','handoverFrom','handoverTo'].some(k => typeof f[k] === 'string' && f[k].trim())
