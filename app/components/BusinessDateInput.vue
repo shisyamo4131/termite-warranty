@@ -1,14 +1,27 @@
 <script setup lang="ts">
+import { VDatePickerMonths, VDatePickerYears } from 'vuetify/components'
 import { normalizeDateEntry } from '../../src/domain/date-entry.mjs'
 defineOptions({ inheritAttrs: false })
 const props = withDefaults(defineProps<{modelValue?: string | null; type?: 'date' | 'month'; disabled?: boolean; label?: string}>(), {type:'date'})
 const emit = defineEmits<{'update:modelValue':[value:string]}>()
 const pickerOpen = ref(false)
+const pickerYear = ref(new Date().getFullYear())
+const choosingYear = ref(false)
 const pickerDate = computed(() => {
   const value=props.type==='month' ? `${props.modelValue}-01` : props.modelValue
   const date=new Date(`${value}T12:00:00`)
   return Number.isNaN(date.getTime()) ? undefined : date
 })
+watch(pickerOpen, open => {
+  if (!open) return
+  pickerYear.value = pickerDate.value?.getFullYear() ?? new Date().getFullYear()
+  choosingYear.value = false
+})
+function chooseMonth(month: number) {
+  update(`${String(pickerYear.value).padStart(4,'0')}-${String(month+1).padStart(2,'0')}`)
+  pickerOpen.value = false
+}
+function chooseYear(year: number) { pickerYear.value = year; choosingYear.value = false }
 function update(value: unknown) { emit('update:modelValue', normalizeDateEntry(String(value ?? ''), props.type)) }
 function choose(value: unknown) {
   if (!(value instanceof Date) || Number.isNaN(value.getTime())) return
@@ -27,7 +40,19 @@ function choose(value: unknown) {
       <template #append-inner>
         <v-menu v-model="pickerOpen" :close-on-content-click="false">
           <template #activator="{props: activator}"><v-btn v-bind="activator" icon="mdi-calendar" variant="text" size="small" :disabled="disabled" :aria-label="`${label || '日付'}のカレンダーを開く`" /></template>
-          <v-card><v-card-text v-if="type==='month'" class="pb-0">対象月のいずれかの日を選択してください。</v-card-text><v-date-picker :model-value="pickerDate" hide-header @update:model-value="choose" /><v-card-actions><v-spacer /><v-btn @click="pickerOpen=false">閉じる</v-btn></v-card-actions></v-card>
+          <v-card>
+            <template v-if="type==='month'">
+              <div class="d-flex align-center justify-space-between pa-2">
+                <v-btn icon="mdi-chevron-left" variant="text" aria-label="前年" :disabled="pickerYear<=1" @click="pickerYear--" />
+                <v-btn variant="text" :aria-label="`${pickerYear}年・年を選択`" @click="choosingYear=!choosingYear">{{ pickerYear }}年</v-btn>
+                <v-btn icon="mdi-chevron-right" variant="text" aria-label="翌年" :disabled="pickerYear>=9999" @click="pickerYear++" />
+              </div>
+              <VDatePickerYears v-if="choosingYear" :model-value="pickerYear" @update:model-value="chooseYear" />
+              <VDatePickerMonths v-else :year="pickerYear" :model-value="pickerDate?.getFullYear()===pickerYear ? pickerDate.getMonth() : -1" @update:model-value="chooseMonth" />
+            </template>
+            <v-date-picker v-else :model-value="pickerDate" hide-header @update:model-value="choose" />
+            <v-card-actions><v-spacer /><v-btn @click="pickerOpen=false">閉じる</v-btn></v-card-actions>
+          </v-card>
         </v-menu>
       </template>
     </v-text-field>

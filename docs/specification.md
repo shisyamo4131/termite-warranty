@@ -1,5 +1,9 @@
 # termite-warranty Specification
 
+## 2026-10-05 年月入力・物件一覧（0.1.105）
+
+オーナーのDev操作結果による変更。年月入力は年・月だけで確定し、日付選択を要求しない。物件／保証一覧は「申込日／引渡日」の順に表示し、「現在の保証期間」の下へ「現在の保険期間」を表示する。保険未報告の場合は期間を適用済みのように表示せず「未報告」とする。物件名は詳細ダイアログを開くリンクにする。他の一覧の期間の意味・保存形式・状態遷移は変更しない。
+
 ## 2026-10-05 0.1.104追加確認と実装
 
 報告対象月を基準に初回保険期間を判定する。オーナーの追加回答：2030年9月30日に保証終了する未報告物件は、10月に9月分を処理する場合も9月分として初回報告可能。対象月末（当月内で保証終了する場合は保証満了日）を含む5年期間を候補とする。月内終了物件もHSがチェックを外して除外でき、未選択分は保険未適用・未報告のまま。保証終了翌月以降は初回報告対象外。報告操作日によって過去対象月の期間を変えない。
@@ -61,7 +65,7 @@ UI改修・Dev反映・架空データ3件の準備と開発側表示確認を�
 UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
 
 - Last updated: 2026-10-04
-- Specification version: 0.1.104
+- Specification version: 0.1.105
 - Status: Confirmed initial-release requirements; implementation and acceptance incomplete
 - Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
 
