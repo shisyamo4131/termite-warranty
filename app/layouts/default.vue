@@ -45,11 +45,6 @@ const route = useRoute()
 const { profile, logout } = useSession()
 const primaryMenuItems = computed(() => [
   { title: 'ダッシュボード', to: '/', icon: 'mdi-view-dashboard-outline' },
-  { title: '案件一覧', to: '/cases', icon: 'mdi-clipboard-text-outline' },
-  { title: '工務店', to: '/masters/construction-companies', icon: 'mdi-office-building-outline' },
-  { title: '施主', to: '/masters/homeowners', icon: 'mdi-account-outline' },
-  { title: '保証サービス', to: '/masters/warranty-services', icon: 'mdi-shield-check-outline' },
-  { title: '物件', to: '/masters/properties', icon: 'mdi-home-city-outline' },
   ...(['developer_superuser', 'house_solution_administrator'].includes(profile.value?.role ?? '')
     ? [{ title: '担当者アカウント', to: '/staff-accounts', icon: 'mdi-account-key-outline' }]
     : []),

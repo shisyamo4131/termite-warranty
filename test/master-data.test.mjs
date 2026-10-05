@@ -242,74 +242,6 @@ test('master form mapper emits the exact write payload for every master type', (
   }
 })
 
-test('all three master entry points use the shared form and payload mapper', async () => {
-  const entryPoints = [
-    ['app/components/MasterManagement.vue', 'submitMasterCreate'],
-    ['app/components/QuickCreateMasterDialog.vue', 'submitMasterCreate'],
-    ['app/components/MasterEditDialog.vue', 'submitMasterUpdate'],
-  ]
-
-  for (const [path, submissionMethod] of entryPoints) {
-    const source = await readProjectFile(path)
-    assert.match(source, /<MasterFormFields/)
-    assert.match(source, new RegExp(`\\b${submissionMethod}\\(`))
-    assert.doesNotMatch(source, /Record<string,\s*any>/)
-    assert.doesNotMatch(source, /const\s+fields\s*=/)
-    assert.doesNotMatch(source, /emptyForm/)
-  }
-
-  const editSource = await readProjectFile('app/components/MasterEditDialog.vue')
-  assert.match(editSource, /createMasterFormDraft\(props\.masterType, row\)/)
-  assert.match(editSource, /loadPropertyReferences\(row\)/)
-  assert.match(editSource, /open\.value = false/)
-  assert.match(editSource, /emit\('saved'\)/)
-
-  const quickSource = await readProjectFile('app/components/QuickCreateMasterDialog.vue')
-  assert.match(quickSource, /emit\('created', payload\)/)
-  assert.match(quickSource, /dialogOpen\.value = false/)
-  assert.match(quickSource, /form\.value = createMasterFormDraft\(props\.masterType\)/)
-})
-
-test('all four master lists delegate presentation to bounded data tables', async () => {
-  const parentSource = await readProjectFile('app/components/MasterManagement.vue')
-  const addressTableSources = [
-    await readProjectFile('app/components/ConstructionCompanyTable.vue'),
-    await readProjectFile('app/components/HomeOwnerTable.vue'),
-    await readProjectFile('app/components/PropertyTable.vue'),
-  ]
-  const warrantyTableSource = await readProjectFile('app/components/WarrantyServiceTable.vue')
-  const tableSources = [...addressTableSources, warrantyTableSource]
-
-  assert.match(parentSource, /<ConstructionCompanyTable/)
-  assert.match(parentSource, /v-if="masterType === 'constructionCompany'"/)
-  assert.match(parentSource, /<HomeOwnerTable/)
-  assert.match(parentSource, /v-else-if="masterType === 'homeowner'"/)
-  assert.match(parentSource, /<PropertyTable/)
-  assert.match(parentSource, /v-else-if="masterType === 'property'"/)
-  assert.match(parentSource, /<WarrantyServiceTable/)
-  assert.equal(parentSource.match(/:items="visibleRows"/g)?.length, 4)
-  assert.equal(parentSource.match(/@show-detail="handleTableDetail"/g)?.length, 4)
-  assert.equal(parentSource.match(/@change-active="handleTableActiveChange"/g)?.length, 4)
-
-  for (const tableSource of tableSources) {
-    assert.match(tableSource, /items: ManagedMaster\[\]/)
-    assert.match(tableSource, /disable-sort/)
-    assert.match(tableSource, /hide-default-footer/)
-    assert.match(tableSource, /:items-per-page="-1"/)
-    assert.doesNotMatch(tableSource, /\.user-ui-workbench|firebase|navigateTo|useRouter/)
-  }
-
-  for (const tableSource of addressTableSources) assert.match(tableSource, /item\.address\?\./)
-
-  const propertyTableSource = tableSources[2]
-  assert.match(propertyTableSource, /建築面積 \(㎡\)/)
-  assert.match(propertyTableSource, /mdAndUp/)
-  assert.match(propertyTableSource, /lgAndUp/)
-  assert.match(warrantyTableSource, /種別/)
-  assert.match(warrantyTableSource, /略称/)
-  assert.match(warrantyTableSource, /標準保証期間/)
-})
-
 test('warranty short name accepts at most six displayed characters after trimming', () => {
   assert.equal(countDisplayCharacters('シロアリ10'), 6)
   assert.equal(countDisplayCharacters('か\u3099'), 1)
@@ -453,25 +385,6 @@ test('master entry submission adapters execute payload and success contracts', a
   assert.equal(saved, true)
 })
 
-test('shared master form declares each type-specific section once', async () => {
-  const source = await readProjectFile('app/components/MasterFormFields.vue')
-  for (const component of [
-    'MasterAddressFields',
-    'MasterPropertyReferenceFields',
-    'MasterConstructionCompanyContactFields',
-    'MasterHomeownerContactFields',
-  ]) {
-    assert.equal(source.match(new RegExp(`<${component}\\b`, 'g'))?.length, component === 'MasterAddressFields' ? 3 : 1)
-  }
-  assert.match(source, /step="1"/)
-  assert.match(source, /v-model="form\.shortName"[\s\S]*label="略称"[\s\S]*required/)
-  assert.equal((source.match(/label="備考（任意）"/g) ?? []).length, 2)
-  assert.match(
-    source,
-    /v-if="form\.masterType === 'property'"[\s\S]*<MasterAddressFields[\s\S]*<MasterPropertyReferenceFields[\s\S]*form\.buildingAreaSquareMeters[\s\S]*form\.notes/,
-  )
-})
-
 test('notification-management guidance cannot grow vertically beyond its content height', async () => {
   const [source, theme] = await Promise.all([
     readProjectFile('app/components/CompanyPortalNotificationManagement.vue'),
@@ -482,71 +395,23 @@ test('notification-management guidance cannot grow vertically beyond its content
   assert.doesNotMatch(source, /notification-guidance-alert|flex-grow-0|flex-shrink-0/)
 })
 
-test('list screens share the compact card-title action layout and simple list titles', async () => {
-  const dashboard = await readProjectFile('app/components/PrototypeDashboard.vue')
-  const masters = await readProjectFile('app/components/MasterManagement.vue')
-
-  for (const source of [dashboard, masters]) {
-    assert.match(source, /justify-space-between/)
-    assert.match(source, /新規登録/)
-  }
-  assert.match(dashboard, /list-page-row/)
-  assert.match(dashboard, /list-data-card/)
-  assert.match(dashboard, /flex-grow-0/)
-  assert.match(dashboard, /<v-dialog v-model="filterDialog"/)
-  assert.match(dashboard, /条件を初期化/)
-  assert.match(dashboard, /startCaseList\(Object\.values\(normalized\)\.some\(Boolean\)\)/)
-  assert.match(dashboard, /loadAllMasters\(\)/)
-  assert.match(dashboard, /該当\$\{filteredRows\.length\}件を20件ずつ表示しています/)
-  assert.match(dashboard, /<v-pagination/)
-  assert.match(dashboard, /filteredRows\.value\.slice/)
-  assert.doesNotMatch(dashboard, /20件の中を絞り込み/)
-  assert.match(masters, /restartSubscription\(complete\)/)
-  assert.match(masters, /該当\$\{filteredRows\.length\}件を20件ずつ表示しています/)
-  assert.match(masters, /<v-pagination/)
-  assert.match(masters, /filteredRows\.value\.slice/)
-  assert.doesNotMatch(masters, /20件の中を絞り込み/)
-
-  for (const path of [
-    'app/pages/masters/construction-companies/index.vue',
-    'app/pages/masters/homeowners/index.vue',
-    'app/pages/masters/properties/index.vue',
-    'app/pages/masters/warranty-services/index.vue',
-  ]) {
-    assert.doesNotMatch(await readProjectFile(path), /マスター/)
-  }
-})
-
-test('master details expose the confirmed linked-property labels and account-owned company email', async () => {
-  const detail = await readProjectFile('app/components/MasterDetail.vue')
-  const caseDetail = await readProjectFile('app/components/CaseDetail.vue')
+test('retained master queries preserve active references and account-owned company email', async () => {
   const repository = await readProjectFile('app/composables/useMasterManagement.ts')
   const layout = await readProjectFile('app/layouts/default.vue')
   const indexes = await readProjectFile('firestore.indexes.json')
-  const companyFields = await readProjectFile('app/components/MasterConstructionCompanyContactFields.vue')
 
-  for (const label of ['担当物件', '所有物件', '対象物件', 'アカウントのメールアドレス']) {
-    assert.match(detail, new RegExp(label))
-  }
-  assert.match(detail, /const PAGE_SIZE = 5/)
-  assert.match(detail, /v-for="property in visibleProperties"/)
-  assert.match(detail, /<v-pagination v-if="propertyPageCount > 1"/)
-  assert.match(caseDetail, /const PAGE_SIZE = 5/)
-  assert.match(caseDetail, /v-for="warranty in visibleWarranties"/)
-  assert.match(caseDetail, /<v-pagination v-if="warrantyPageCount > 1"/)
   assert.match(repository, /collectionGroup\(\$firebase\.firestore, 'appliedWarranties'\)/)
   assert.match(repository, /where\('status', '==', 'active'\)/)
   assert.match(repository, /data\?\.status === 'active'/)
   assert.match(repository, /data\?\.active === true/)
   assert.match(repository, /constructionCompanyAccounts/)
   assert.match(repository, /email: deleteField\(\)/)
-  assert.doesNotMatch(companyFields, /メールアドレス|v-model="email"/)
   assert.match(indexes, /"collectionGroup": "appliedWarranties"/)
   assert.match(indexes, /"fieldPath": "homeownerId"/)
   assert.match(layout, /<v-list nav slim>/)
   assert.match(layout, /const drawer = ref\(false\)/)
   assert.equal((layout.match(/prepend-icon/g) ?? []).length >= 3, true)
-  for (const title of ['ダッシュボード', '案件一覧', '工務店', '施主', '保証サービス', '物件', '通知管理', 'アカウント管理']) {
+  for (const title of ['ダッシュボード', '通知管理', 'アカウント管理']) {
     assert.match(layout, new RegExp(`title: '${title}'.*icon:`))
   }
 })
@@ -565,8 +430,6 @@ test('transient operation results use the shared application snackbar', async ()
   for (const path of [
     'app/components/CompanyPortalAccountManagement.vue',
     'app/components/CompanyPortalNotificationManagement.vue',
-    'app/components/MasterManagement.vue',
-    'app/components/PrototypeDashboard.vue',
     'app/components/ConstructionCompanyPortal.vue',
   ]) {
     const source = await readProjectFile(path)

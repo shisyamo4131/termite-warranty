@@ -441,19 +441,6 @@ test('case detail becomes ready after its exact case, warranty, and referenced-m
   stop()
 })
 
-test('case UI consumers use narrow boundaries and the aggregate composable is gone', async () => {
-  const expectations = [
-    ['app/components/PrototypeDashboard.vue', ['useCaseList', 'useCaseCommands', 'useMasterCatalog']],
-    ['app/components/DashboardOverview.vue', ['useCaseList']],
-    ['app/components/CaseDetail.vue', ['useCaseDetail', 'useMasterCatalog']],
-    ['app/components/CaseEditDialog.vue', ['useCaseCommands']],
-    ['app/components/AppliedWarrantyDialog.vue', ['useCaseCommands', 'useMasterCatalog']],
-    ['app/components/CaseFilterPanel.vue', ['canonicalLocalDate']],
-  ]
-  for (const [path, names] of expectations) {
-    const source = await readProjectFile(path)
-    assert.doesNotMatch(source, /usePrototypeData/)
-    for (const name of names) assert.match(source, new RegExp(name))
-  }
+test('the old aggregate composable remains removed', async () => {
   await assert.rejects(readProjectFile('app/composables/usePrototypeData.ts'), error => error?.code === 'ENOENT')
 })

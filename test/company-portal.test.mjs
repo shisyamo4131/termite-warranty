@@ -115,16 +115,14 @@ test('prototype email behavior is visibly queued rather than presented as delive
 })
 
 test('new-case portal derives email, captures building area, auto-fills dates, and supports retained withdrawal', async () => {
-  const [company, staffRegistration, functions, gateway] = await Promise.all([
+  const [company, functions, gateway] = await Promise.all([
     readProjectFile('app/components/ConstructionCompanyPortal.vue'),
-    readProjectFile('app/components/PrototypeDashboard.vue'),
     readProjectFile('functions/company-portal.js'),
     readProjectFile('app/gateways/companyPortalGateway.ts'),
   ])
   assert.doesNotMatch(company, /v-model="form\.contactEmail"/)
   assert.match(company, /v-model\.number="form\.buildingAreaSquareMeters"/)
   assert.match(company, /watch\(\(\) => form\.handoverDate/)
-  assert.match(staffRegistration, /watch\(\(\) => registrationForm\.handoverDate/)
   assert.match(functions, /contactEmail: email\(accountEmail/)
   assert.match(functions, /text\(value, message\)\.toLowerCase\(\)/)
   assert.match(functions, /\^\[\^\\s@\]\+@\[\^\\s@\]\+\\\.\[\^\\s@\]\+\$/)

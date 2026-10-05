@@ -1,5 +1,9 @@
 # Operations
 
+## 2026-10-05 現行実装点検とバックアップ／リストアのモック
+
+現行MeetingPrototypeを継続改修の基礎とし、通常経路外の旧案件・旧マスタ画面を撤去。今回の変更はローカルにまとめ、単体166件・Emulator88件成功（既存2skip）、型検査・build成功。Devは直前の検索ボタン修正版のまま。実データ・Firebase設定・実バックアップには変更なし。[点検記録とオフライン実行手順](design/evidence/current-implementation-audit-2026-10-05.md)参照。模擬結果を実バックアップ成功や復旧検証と扱わない。
+
 ## 2026-10-05 現在地・次の確認
 
 検索ボタン配置の推奨案をオーナー採用。入力欄本体に合わせた56pxのボタン領域内で中央揃えするローカル修正を実施。メッセージ領域は保持し、検索・開閉処理は不変。今回Dev Hosting反映済み（deploy exit 0）、公開HTML HTTP200・35参照資産一致・Dev設定一致（verify exit 0）。保存・終了後に再読込し実画面の配置を確認する。HSC-039は記録のみ、回答や項目統合はなし。変更ファイルはapp/components/MeetingPrototype.vue、docs/specification.md、docs/requirements/search-and-list.md、docs/design/clear-sky-theme.md、CHANGELOG.md、本書。分類はUI/layout＋文書、npm run typecheck・npm run buildは各exit 0。node tmp/check-search-button-alignment.cjsはexit 0、950px／320px幅とメッセージ高さ22px／42pxの4ケースでボタン領域中央一致・横はみ出しなし、950pxで入力欄本体中央一致とボタン位置不変を確認。独立fixtureでありDev実画面・モバイル実機確認ではない。最終文書でgovernance-checkとdiff checkを実行する。保存・データ契約・ADR・ロードマップ・governance/configuration・索引は影響なし。domain-test・Rules・Functions/seed構文は今回の選択クラス外、追加単体テストなし。差戻しは今回のラッパーとCSSを戻す。Hosting以外のデータ・Functions・Rules・Prod操作なし。以下の選択クラス外の記載はローカル修正時の結果で、配備時は全7ゲートを選択し既存の有効証拠も再利用。[検索要件](requirements/search-and-list.md#2026-10-05-検索ボタンの中央揃え)。

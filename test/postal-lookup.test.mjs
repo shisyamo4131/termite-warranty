@@ -252,50 +252,11 @@ test('cancel then reset and reopen cannot receive a delayed response from the pr
   assert.equal(address.municipality, '渋谷区')
 })
 
-test('UI contract wires property, homeowner, and construction company and retains the manual-entry path', async () => {
-  const formSource = await readFile(new URL('../app/components/MasterFormFields.vue', import.meta.url), 'utf8')
+test('shared address component retains manual entry and cancels stale lookups', async () => {
   const addressSource = await readFile(new URL('../app/components/MasterAddressFields.vue', import.meta.url), 'utf8')
-  const propertySection = formSource.match(/<template v-if="form\.masterType === 'property'">([\s\S]*?)<\/template>/)?.[1]
-  const companySection = formSource.match(/<template v-if="form\.masterType === 'constructionCompany'">([\s\S]*?)<\/template>/)?.[1]
-  const homeownerSection = formSource.match(/<template v-if="form\.masterType === 'homeowner'">([\s\S]*?)<\/template>/)?.[1]
-
-  assert.match(propertySection, /lookup-subject="property"/)
-  assert.match(homeownerSection, /lookup-subject="homeowner"/)
-  assert.match(companySection, /lookup-subject="constructionCompany"/)
-  assert.match(companySection, /postal-lookup-provider/)
-  assert.doesNotMatch(homeownerSection, /住所の自動入力は未接続です/)
-  assert.doesNotMatch(companySection, /住所の自動入力は未接続です/)
   assert.match(addressSource, /町域候補を選択/)
   assert.match(addressSource, /onBeforeUnmount\(cancelPostalLookup\)/)
   assert.match(addressSource, /defineExpose\(\{ cancelPostalLookup \}\)/)
   assert.match(addressSource, /watch\([\s\S]*props\.lookupSubject[\s\S]*props\.postalLookupProvider[\s\S]*cancelPostalLookup\(\)[\s\S]*flush: 'sync'/)
   assert.doesNotMatch(addressSource, /fetch\(|https?:|google|firebase|credential|secret/i)
-})
-
-test('all master form hosts cancel lookup before save submission, close, and reset paths', async () => {
-  for (const path of [
-    '../app/components/MasterManagement.vue',
-    '../app/components/QuickCreateMasterDialog.vue',
-    '../app/components/MasterEditDialog.vue',
-  ]) {
-    const source = await readFile(new URL(path, import.meta.url), 'utf8')
-    assert.match(source, /<MasterFormFields\s+ref="masterFormFields"/)
-    assert.match(source, /type MasterFormFieldsHandle = \{ cancelPostalLookup: \(\) => void \}/)
-    const saveBody = source.slice(source.indexOf('const save = async'), source.indexOf('const save = async') + 1200)
-    assert.ok(saveBody.indexOf('cancelPostalLookup()') < saveBody.indexOf('submitMaster'))
-    assert.match(source, /onBeforeUnmount\([^)]*cancelPostalLookup|onBeforeUnmount\(\(\) => \{[\s\S]*cancelPostalLookup\(\)/)
-  }
-
-  const management = await readFile(new URL('../app/components/MasterManagement.vue', import.meta.url), 'utf8')
-  assert.match(management, /const resetForm = \(\) => \{\s*cancelPostalLookup\(\)/)
-  assert.match(management, /const cancelDialog = \(\) => \{\s*cancelPostalLookup\(\)\s*dialogOpen\.value = false/)
-
-  const quick = await readFile(new URL('../app/components/QuickCreateMasterDialog.vue', import.meta.url), 'utf8')
-  assert.match(quick, /const open = async \(\) => \{\s*cancelPostalLookup\(\)/)
-  assert.match(quick, /const cancel = \(\) => \{\s*cancelPostalLookup\(\)\s*dialogOpen\.value = false/)
-
-  const edit = await readFile(new URL('../app/components/MasterEditDialog.vue', import.meta.url), 'utf8')
-  assert.match(edit, /@click="cancel"/)
-  assert.match(edit, /const cancel = \(\) => \{\s*cancelPostalLookup\(\)\s*open\.value = false/)
-  assert.match(edit, /watch\(open,[\s\S]*else cancelPostalLookup\(\)[\s\S]*flush: 'sync'/)
 })
