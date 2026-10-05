@@ -25,13 +25,13 @@
   <v-card v-if="showInsurance" class="my-4 lifecycle-card">
     <v-card-title>保険の適用・報告状況</v-card-title>
     <v-card-text>
-      <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption">次回報告の対象年月</div><div>{{ renewalLabel }}</div></v-col></v-row>
+      <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">次回報告の対象年月</div><v-chip size="small" class="report-status-chip">{{ renewalLabel }}</v-chip></v-col></v-row>
       <v-expansion-panels multiple variant="accordion" class="mt-5">
         <v-expansion-panel v-for="period in insuranceGroups" :key="period.id">
           <v-expansion-panel-title><div><strong>{{ period.label }}</strong><div class="text-body-2 mt-1">{{ period.startDate }} ～ {{ period.expiryDate }}</div><div class="text-caption mt-1">前半・後半の保険報告を確認</div></div></v-expansion-panel-title>
           <v-expansion-panel-text>
             <div v-for="half in period.halves" :key="half.startDate" class="insurance-row">
-              <div><div class="font-weight-bold mb-1">{{ half.label }}5年の保険</div><div>{{ half.startDate }} ～ {{ half.expiryDate }}</div><div v-if="half.startDate>japanDate()" class="text-caption mt-1">保険対象期間の開始前</div></div>
+              <div><div class="font-weight-bold mb-1">{{ half.label }}5年の保険</div><div>{{ half.startDate }} ～ {{ half.expiryDate }}</div><v-chip v-if="half.startDate>japanDate()" size="small" class="mt-1">保険対象期間の開始前</v-chip></div>
               <div><div class="text-caption mb-1">保険会社への報告</div><v-chip size="small" :color="half.report ? 'success' : 'default'">{{ half.state }}</v-chip><div v-if="half.report" class="text-caption mt-1">対象月：{{ half.report.month }}</div></div>
             </div>
           </v-expansion-panel-text>
@@ -65,6 +65,8 @@ const renewalLabel=computed(()=>nextInsuranceReportLabel(props.row))
 const billingLabel=(state:string)=>({pending:'未請求',billed:'請求済み',unknown:'要確認'}[state] || '要確認')
 </script>
 <style scoped>
+.report-status-chip { height: auto; min-height: 26px; max-width: 100%; white-space: normal; padding-block: 4px; }
+.report-status-chip :deep(.v-chip__content) { white-space: normal; }
 .period-row { display:grid; grid-template-columns:minmax(220px,2fr) minmax(90px,1fr) minmax(100px,1fr); gap:16px; padding:16px 0; border-bottom:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); }
 .period-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .insurance-row { display:grid; grid-template-columns:minmax(200px,2fr) minmax(120px,1fr); gap:16px; padding:16px 0; }
