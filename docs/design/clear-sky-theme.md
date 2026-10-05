@@ -35,6 +35,8 @@ Approved by the project owner on 2026-10-05 in PM（白蟻）-07 (task 01a10af9-
 
 Do not use `hide-details="auto"` or bound auto values on Vuetify inputs. Leave the message region reserved when empty (`hide-details=false` or the default). Selection-only checkboxes that always hide details remain supported. Allow long messages to wrap rather than clipping them.
 
+Search action buttons beside an input align within a separate region matching the input control height, not the combined control/message height. The property quick-search uses 56px for the default-density control; changing input density must also update the action region. At narrow widths the action group wraps together.
+
 ## Application Rules
 
 - Apply theme tokens to the header, navigation drawer, page background, cards, tables, dialogs, inputs, buttons, links, and selected navigation state.

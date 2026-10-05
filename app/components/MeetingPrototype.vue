@@ -15,7 +15,7 @@
       <v-alert v-if="tab==='report'" type="info" class="mb-4">新規は引渡年月、更新は保険満了年月で抽出。過去の未処理分を区別します。チェックした物件だけを出力し、実際に提出した分を別操作で報告済みにしてください。過去の初回未報告分は、指定月末を含む保険期間が対象です。記録不足で期間確認が必要な物件はここから報告できません。</v-alert>
       <v-alert v-if="tab==='alerts' || tab==='insuranceAlerts'" type="info" class="mb-4">満了{{ tab==='insuranceAlerts' ? alertSettings.insuranceMonths : alertSettings.warrantyMonths }}か月前から、期限を過ぎた物件も表示します。<span v-if="tab==='alerts'">未案内の物件だけを表示し、案内済みにすると一覧から外れます。</span>実際のメールは送りません。<span v-if="tab==='insuranceAlerts'">保存済みの保険満了日による予告です。報告対象は月次報告一覧で確認します。</span></v-alert>
       <v-card class="mb-4"><v-card-text><v-form ref="searchForm" @submit.prevent="loadRows"><v-row>
-        <v-col v-if="tab==='properties'" cols="12"><div class="d-flex flex-wrap align-center ga-3"><v-text-field v-model="filter.search" :rules="optionalRules" label="物件名・施主名・住所（2文字以上）" clearable :hide-details="false" class="property-quick-search" /><v-btn color="primary" variant="flat" :disabled="busy" @click="loadRows">検索</v-btn><v-btn variant="outlined" :aria-expanded="detailsOpen" aria-controls="property-search-details" @click="detailsOpen=!detailsOpen">詳細条件 {{ detailsOpen ? '▴' : '▾' }}</v-btn></div></v-col>
+        <v-col v-if="tab==='properties'" cols="12"><div class="d-flex flex-wrap align-start ga-3"><v-text-field v-model="filter.search" :rules="optionalRules" label="物件名・施主名・住所（2文字以上）" clearable :hide-details="false" class="property-quick-search" /><div class="property-search-actions d-flex align-center ga-3"><v-btn color="primary" variant="flat" :disabled="busy" @click="loadRows">検索</v-btn><v-btn variant="outlined" :aria-expanded="detailsOpen" aria-controls="property-search-details" @click="detailsOpen=!detailsOpen">詳細条件 {{ detailsOpen ? '▴' : '▾' }}</v-btn></div></div></v-col>
         <v-col v-if="!['report','alerts','insuranceAlerts'].includes(tab)" v-show="tab!=='properties' || detailsOpen" id="property-search-details" cols="12"><v-row><v-col cols="12" md="3"><v-text-field v-model="filter.warrantyNumber" :rules="optionalRules" label="保証番号（全体・完全一致）" clearable :hide-details="false" /></v-col><v-col v-if="tab!=='properties'" cols="12" md="4"><v-text-field v-model="filter.search" :rules="optionalRules" label="物件名・施主名・住所（2文字以上）" clearable :hide-details="false" /></v-col>
         <v-col v-if="staff || profile?.accountType==='construction_company' && profile.scope==='company'" cols="6" md="2"><v-select v-model="filter.branchId" :items="branches" item-title="name" item-value="id" label="支店" clearable :hide-details="false" /></v-col>
         <v-col v-if="staff" cols="6" md="2"><v-select v-model="filter.companyId" :items="companies" item-title="name" item-value="id" label="工務店" clearable :hide-details="false" /></v-col>
@@ -285,6 +285,8 @@ function exportCsv(){
 
 <style scoped>
 .property-quick-search { flex: 1 1 280px; min-width: 0; }
+/* Match the default-density input control; exclude its reserved message region. */
+.property-search-actions { height: 56px; flex: 0 0 auto; }
 .property-detail-link { color: rgb(var(--v-theme-primary)); text-decoration: underline; text-underline-offset: 3px; }
 .notice-details { display: grid; grid-template-columns: minmax(8rem, 1fr) 3fr; gap: 16px 24px; }
 .notice-details dt { color: rgb(var(--v-theme-on-surface)); font-weight: 600; }

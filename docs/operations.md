@@ -2,6 +2,8 @@
 
 ## 2026-10-05 現在地・次の確認
 
+検索ボタン配置の推奨案をオーナー採用。入力欄本体に合わせた56pxのボタン領域内で中央揃えするローカル修正を実施。メッセージ領域は保持し、検索・開閉処理は不変。今回Dev Hosting反映済み（deploy exit 0）、公開HTML HTTP200・35参照資産一致・Dev設定一致（verify exit 0）。保存・終了後に再読込し実画面の配置を確認する。HSC-039は記録のみ、回答や項目統合はなし。変更ファイルはapp/components/MeetingPrototype.vue、docs/specification.md、docs/requirements/search-and-list.md、docs/design/clear-sky-theme.md、CHANGELOG.md、本書。分類はUI/layout＋文書、npm run typecheck・npm run buildは各exit 0。node tmp/check-search-button-alignment.cjsはexit 0、950px／320px幅とメッセージ高さ22px／42pxの4ケースでボタン領域中央一致・横はみ出しなし、950pxで入力欄本体中央一致とボタン位置不変を確認。独立fixtureでありDev実画面・モバイル実機確認ではない。最終文書でgovernance-checkとdiff checkを実行する。保存・データ契約・ADR・ロードマップ・governance/configuration・索引は影響なし。domain-test・Rules・Functions/seed構文は今回の選択クラス外、追加単体テストなし。差戻しは今回のラッパーとCSSを戻す。Hosting以外のデータ・Functions・Rules・Prod操作なし。以下の選択クラス外の記載はローカル修正時の結果で、配備時は全7ゲートを選択し既存の有効証拠も再利用。[検索要件](requirements/search-and-list.md#2026-10-05-検索ボタンの中央揃え)。
+
 追加是正：前回の上下中央揃えではVuetifyの2段グリッドが残り、ユーザー画像でずれを確認。共通アラートを1段グリッドへ変更し、ブラウザfixtureの単行・複数行・見出し付き3ケースで中心差0pxを確認。Dev Hosting反映済み（deploy exit 0）。公開HTML HTTP200・35参照資産一致・Dev設定一致（verify exit 0）。保存・終了後のユーザー再読込による実画面受入が次。[最新記録](design/evidence/ux-106-2026-10-05.md#アラートの2段グリッドによるずれの是正)。
 
 追加修正：アラートのアイコンをメッセージ全体の上下中央へ変更し、オーナーの再試行指示でDev Hosting反映済み（deploy exit 0）。公開HTML HTTP200・35参照資産一致・Dev接続先一致（verify exit 0）。入力を保存・終了後に再読込して実画面を確認する。色・サイズ・処理は不変。[最新記録](design/evidence/ux-106-2026-10-05.md#アラートアイコンの上下中央揃え)。
