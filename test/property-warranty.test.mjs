@@ -368,3 +368,10 @@ test('keyboard date entry formats complete digits and rejects impossible dates w
  assert.equal(nextInsuranceReportLabel({}),'要確認')
  assert.deepEqual(row,before)
 })
+
+test('warranty alerts send only notice state even with hidden property filters',async()=>{
+ const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false,companies:[],branches:[],groups:[]}})
+ v.tab.value='alerts';await new Promise(r=>setImmediate(r));
+ Object.assign(v.filter,{search:'hidden',companyId:'hidden',fiscalYear:'2026',status:'cancelled',applicationFrom:'2026-01-01'});
+ for(const notification of ['pending','done','all']){v.filter.notification=notification;await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'warranty',notification})}
+})
