@@ -301,12 +301,12 @@ test('insurance report sends only month; renewal label ends with warranty but re
 })
 
 
-test('saving property keeps the dialog open and delivers completion via snackbar',async()=>{
+test('saving a draft closes the dialog and delivers completion via snackbar',async()=>{
  const v=await prototypeViewForTest(async data=>data.action==='detail' ? {id:'test',name:'架空',status:'draft'} : {rows:[],limited:false})
  v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})}
  await v.saveProperty('save')
  assert.deepEqual(v.notifications,[['保存しました。','success']])
- assert.equal(v.propertyDialog.value,true);assert.equal(v.errors.page,'');assert.equal(v.errors.property,'')
+ assert.equal(v.propertyDialog.value,false);assert.equal(v.errors.page,'');assert.equal(v.errors.property,'')
 })
 
 
@@ -380,4 +380,11 @@ test('insurance alerts ignore hidden filters and warranty notification state',as
  const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false,companies:[],branches:[],groups:[]}})
  v.tab.value='insuranceAlerts';await new Promise(r=>setImmediate(r));
  Object.assign(v.filter,{notification:'done',search:'hidden',fiscalYear:'2026',companyId:'hidden'});await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'insurance'})
+})
+
+test('failed draft save keeps the dialog and entered values',async()=>{
+ const v=await prototypeViewForTest(async()=>{throw new Error('save failed')});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.form.value.name='架空入力';await v.saveProperty('save');assert.equal(v.propertyDialog.value,true);assert.equal(v.form.value.name,'架空入力');assert.equal(v.notifications.length,0)
+})
+test('successful registration closes both dialogs; active edit remains open',async()=>{
+ for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
 })
