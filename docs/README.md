@@ -6,6 +6,8 @@
 
 ## Project and Governance Entry Points
 
+- [HS共有用・10月末本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：2026-10-05起点の目標日程案。遅延時の納期後ろ倒しを明記。
+
 - [Project governance index](../governance/README.md): project-specific governance, approval boundaries, and document routing.
 - [Current specification](specification.md): authoritative summary of confirmed requirements and open decisions.
 - [現在の運用・受入状況](operations.md#現在地と参照先): 最新のDev配備記録・受入手順への入口。過去の未配備記録と現在地を区別する。
