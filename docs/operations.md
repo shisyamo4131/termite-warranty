@@ -2,6 +2,8 @@
 
 ## 2026-10-05 アカウント排他制御・参照キャッシュの運用
 
+同日、Local全7ゲートと独立レビュー後に下記Dev配備を完了。索引READY・公開24参照ファイル一致・専用合成データの8群とcleanup成功、各検証コマンドexit 0。既存業務データは試験更新せず、合成データは残存なし。詳細は[実測記録](design/account-concurrency-read-efficiency-2026-10-05.md)。
+
 ACCOUNT-01の三入口を同じUIDロックへ統一する。Dev配備対象はupdateStaffAccount、setStaffAccountEnabled、setConstructionCompanyAccountEnabled、propertyPrototypeとRules/索引/Hosting。全入口の反映確認後に合成専用データで受入する。既存物件・管理者の更新、初期化、Prod/IAM操作なし。[設計と実測](design/account-concurrency-read-efficiency-2026-10-05.md)。
 
 参照候補とアラート設定は画面内で5分共有され、別管理者の更新は最大5分遅れる。最新の値が必要なら「最新の設定を取得」を使用。設定保存成功、認証scope変更、ログアウトで破棄。権限の即時停止と保存時検証は従来どおり最新を確認する。

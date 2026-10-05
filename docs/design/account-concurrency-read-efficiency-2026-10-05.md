@@ -1,6 +1,6 @@
 # アカウント更新の競合修正・取得効率改善
 
-- 状態：実装・独立レビュー・最終Localゲート完了。Dev反映・Dev受入は未完了。
+- 状態：実装・独立レビュー・最終Localゲート・Dev反映・開発側Dev受入完了。利用者自身の業務受入とは区別する。
 - 根拠：2026-10-05のオーナー指示。ACCOUNT-01、Read候補1/2/3/5の改修、Local検証後のDev配備と開発側受入を承認。候補4は後続回答「今回採用する」で下記の5分参照キャッシュを採用。候補6と郵便番号自動更新は説明・検討段階。
 - 基底：primary repository、main、d77ed3254676d0a609fe9231fe20f00c21bc1583、開始時clean。
 
@@ -39,6 +39,8 @@ Prod・IAM・パスワード・実メール・既存業務データの初期化�
 
 ## Local実測・レビュー
 
+配備対象ソースは`f90ef5b85a79a104bb1ac8348e68d4e007e5123c`。106ソースとHostingの[SHA-256記録](evidence/dev-release-account-read-2026-10-05.json)を保持する。
+
 2026-10-05、下記を主担当が最終ソースで独立実行。必要ゲートの省略なし。保存契約文書更新後にRulesを再実行し、最終89件成功を確認した。
 
 | コマンド | 結果 | exit |
@@ -54,3 +56,56 @@ Prod・IAM・パスワード・実メール・既存業務データの初期化�
 最初のRules起動はCLI設定のsandbox読取拒否でexit 1。既存CLI設定アクセスを許可した同じdemo試験で通過。外部実データの試験として扱わない。復旧CLI構文とDev受入スクリプトのplan（ネットワーク/書込なし）もexit 0。
 
 ACCOUNT-REVIEW-04の独立レビューで復旧同士の競合欠陥を修正後に承認。reviewerが`node --test test/account-mutation.test.mjs`を独立実行し11件成功、exit 0。通常/復旧の二重実行・入力拒否後の再試行・補償失敗・応答喪失・異なるUIDを確認。実復旧は未実行。参照層はTTL/条件/認証隔離/空結果/失敗再試行/破棄後応答/64キーとUI組込みの再利用・強制更新・保存/認証変更・一覧非キャッシュをLocal確認。
+
+## 24時間集計の再確認
+
+2026-10-05 21:26 JST前後にFirebaseコンソールの表示を再確認。Usageのグラフ表示期間は10/4 21時～10/5 20時、Read 7,352／Write 156／Delete 166。コンソール自身が「コンソールの使用量を含む、集計クエリ等を含まない、課金指標と一致しない場合がある」と表示する。
+
+Query Insightsはページ表示を100件へ変更し、次ページなしの全31構造を読み取った。グラフ期間は10/4 21時～10/5 21時、1,401実行・Read 5,056。個別データ・クエリの実IDは保存せず、コレクション別に集計した。
+
+| 対象 | 実行回数 | Read |
+| --- | ---: | ---: |
+| 保証グループ | 310 | 1,931 |
+| 物件・保証 | 214 | 1,593 |
+| 工務店 | 292 | 680 |
+| 支店 | 282 | 351 |
+| 操作receipt | 242 | 240 |
+| 横断コレクション取得 | 16 | 229 |
+| 担当者 | 18 | 14 |
+| 採番counter | 16 | 14 |
+| アラート設定 | 8 | 4 |
+| 工務店アカウント | 3 | 0 |
+| 合計 | 1,401 | 5,056 |
+
+工務店＋支店1,031は繰り返しqueryの累積で、一度に千件のデータを読んだ意味ではない。保証グループの全件queryは280回で1,931 Read、平均約6.90件。他2構造はRead 0。前回294回/2,015から窓が移動しており、減少を改修効果と扱わない。現時点では無効分も含む7件の反復取得が多い、という原因候補を実装と集計の双方から支持する。294回は全構造の総実行回数ではない。
+
+[公式Query Insights](https://docs.cloud.google.com/firestore/native/docs/query-insights)はリアルタイムlistenerを含まず、1～2時間遅延し、対象APIも限定される。Usageと期間・取得範囲が異なるため差を特定画面へ割り当てられない。初期化前のマスタ数や開発検証・コンソール閲覧も含み、利用者の入力操作だけへ帰属させる根拠は不足。変更後の24時間削減率はまだ測定できない。今回のDev合成受入も追加Read/Writeが発生するため比較期間から区別する。
+
+## Dev配備・開発側受入
+
+2026-10-05、対象termite-warranty-dev、asia-northeast1。`node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only 'functions:updateStaffAccount,functions:setStaffAccountEnabled,functions:setConstructionCompanyAccountEnabled,functions:propertyPrototype,firestore:rules,firestore:indexes,hosting' --non-interactive`はexit 0。対象4 Functions更新、Rules/索引反映、Hosting 991ファイル公開。Hostingには直前コミットの旧画面撤去・軽微UI修正・オフラインモックも含む。Prod・IAM・依存版変更・Git push・既存業務データ初期化なし。
+
+`node tmp/verify-account-release.mjs`は最初2回、索引CREATINGのためexit 1（受入未完了）。READY後の最終実行はexit 0。HTTP 200、HTML SHA-256は`0ca74271c17c8196d7fdd00ef45a4b2f38dc68eb4127930ce5ed62321f7a548f`、参照JS/CSS等24件はLocalとバイト一致。Firebase初期設定はDev。4 Callableすべて未認証401/UNAUTHENTICATED。新会社グループ索引READY。
+
+`node tmp/dev-account-catalog-acceptance.mjs --apply --confirm-project termite-warranty-dev`は21:29～21:30 JST前後にexit 0。新規ランダムな合成アカウント4件・所有印付き文書10件だけで実行し、次の8群が成功：
+
+1. 担当者profile・停止・再開、重複メール拒否後の整合と訂正再試行。
+2. 同一UIDの並行profile変更後、Auth/文書の整合。
+3. 異なるUIDの独立成功。
+4. 工務店有効化の旧・現行入口による並行変更の整合。
+5. 所有印付き不活性ロックで更新三入口の競合拒否。
+6. グループ・会社のDB絞込、会社名用途で支店なし、工務店所属scope。
+7. 合成マスタ保存と参照欠落/所属変更の拒否。
+8. 既存tokenでも合成actorの即時enabled=falseを拒否。
+
+合成4アカウント/10文書の所有印を再照合して正確なIDだけ除去し、Auth・文書の不存在を独立確認。cleanupPassed=true。ユーザー入力済み物件・既存アカウントは試験更新しない。遠隔の障害注入・実復旧は未実施で、Localの決定的試験に限定。
+
+Chromeの既存ログイン済みDev画面は未保存ダイアログがないことを確認して再読込。物件一覧16件、アラート設定、マスタ設定、明示「最新の設定を取得」の処理終了、新規物件画面の2回表示と保存なし終了を確認した。最終は元の物件一覧へ戻し、コンソールも使用状況へ戻した。画面の失敗表示なし。実ブラウザ内のnetwork回数/課金Readは計測していないため、キャッシュの削減回数はLocal UI組込み試験と一致成果物の公開照合が根拠。5分を待つ実ブラウザ試験は行わず、TTL境界はLocalの制御時計で確認した。
+
+## 変更範囲と残る事項
+
+実装・試験19ファイル：`app/components/MeetingPrototype.vue`、`src/domain/reference-fetch-cache.mjs`、`functions/account-mutation.js`、`functions/account-mutation-recovery.js`、`functions/staff-account-management.js`、`functions/company-portal.js`、`functions/property-warranty.js`、`functions/index.js`、`firestore.rules`、`firestore.indexes.json`、`package.json`、`scripts/account-mutation-recovery.mjs`、`scripts/reset-dev-business.mjs`、`scripts/reset-meeting-prototype.mjs`、`test/account-mutation.test.mjs`、`test/catalog-efficiency.test.mjs`、`test/reference-fetch-cache.test.mjs`、`test/property-warranty.test.mjs`、`test/firestore-rules.test.mjs`。
+
+影響文書は仕様、現行Meeting保存契約、security/access、ADR0036と決定索引、技術ロードマップ、operations、CHANGELOG、本記録・design索引、配備指紋、先行点検の後続修正リンク、TR009、HSC040と未決台帳の該当行。managed AGENTS・ガバナンス・検証ポリシー・依存版・業務schema・全体ロードマップの獲得進捗は変更しない。文書証跡だけの後続更新は既存ソース試験を無効化せず、governanceとdiff検査を再実行する。
+
+残る判断：候補6の無変更保存抑止は未採用。郵便番号自動更新はHSC040提案で、Firebase設定・定期jobは未実装。結果不明のアカウント操作は安全側で管理者復旧を必要とする。別管理者更新は最大5分の表示遅延。実運用での24時間削減効果は未測定。オーナーの次の操作は通常どおりDevを使用し、必要時に最新設定を取得すること。今回承認済みの改修・Dev検証について未完了や追加承認待ちはない。
