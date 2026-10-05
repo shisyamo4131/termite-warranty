@@ -1,6 +1,6 @@
 <template>
   <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" :rules="[...(!postalOptional && validateRequired!==false ? [requiredRule] : []), postalRule]" :required="!postalOptional" @blur="handlePostalBlur" />
-  <v-alert v-if="lookupMessage" :type="lookupMessage.type" variant="tonal" class="mb-3">
+  <v-alert v-if="lookupMessage" :type="lookupMessage.type" class="mb-4">
     {{ lookupMessage.text }}
   </v-alert>
   <v-select

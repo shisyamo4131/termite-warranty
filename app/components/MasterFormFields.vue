@@ -1,5 +1,5 @@
 <template>
-  <v-alert v-if="postalDataStale" type="warning" variant="tonal" class="mb-3">
+  <v-alert v-if="postalDataStale" type="warning" class="mb-4">
     郵便番号データの最終確認から60日以上経過しています。必要に応じて管理者へ確認してください。
   </v-alert>
   <v-text-field v-model="form.name" label="名称" required />

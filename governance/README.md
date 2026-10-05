@@ -29,6 +29,7 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Delivery approach and prototype technology | [delivery and technology](../docs/requirements/delivery-and-technology.md) |
 | Delivery milestones and verified progress | [2026 initial-delivery roadmap](../docs/roadmaps/2026-initial-delivery.md) |
 | Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |
+| Shared alert and input design, including future screens | [Clear Sky theme](../docs/design/clear-sky-theme.md) and [project rules](project-rules.md#shared-ui-design-rules) |
 | Verification policy | [verification-policy.json](verification-policy.json) and [operations](../docs/operations.md) |
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
 | User-authored UI component collaboration | [custom UI component runbook](../docs/runbooks/custom-ui-component-collaboration.md) and [decision 0021](../docs/decisions/0021-user-authored-ui-component-collaboration.md) |

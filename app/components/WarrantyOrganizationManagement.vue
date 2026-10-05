@@ -1,7 +1,7 @@
 <template>
   <h1 class="text-h5 mb-3">保証グループ・工務店・支店</h1>
   <p class="mb-4">保証グループ → 工務店 → 支店の順に選択して管理します。工務店の所属変更は新規保証に適用し、発行済みの保証番号・グループは維持します。</p>
-  <v-alert type="info" variant="tonal" class="mb-4">
+  <v-alert type="info" class="mb-4">
     接頭辞は保証グループ内で共通です。無効な工務店・支店では新規物件の登録を停止しますが、HSは既存保証への対応を継続できます。
   </v-alert>
   <div class="d-flex flex-wrap align-center ga-2 mb-4">
@@ -35,7 +35,7 @@
         <v-card-text>
           <p v-if="!selectedGroup" class="py-4">保証グループを選択してください。</p>
           <template v-else>
-            <v-alert v-if="selectedGroup.enabled === false" type="warning" density="compact" class="mb-3">保証グループが無効のため、所属工務店での新規本登録は停止しています。</v-alert>
+            <v-alert v-if="selectedGroup.enabled === false" type="warning" class="mb-4">保証グループが無効のため、所属工務店での新規本登録は停止しています。</v-alert>
             <v-text-field v-model="companySearch" label="所属工務店名で絞り込み" clearable density="compact" />
             <p class="text-caption">{{ companyRows.length }}件／{{ selectedGroup.name }}</p>
             <v-list>
@@ -55,7 +55,7 @@
         <v-card-text>
           <p v-if="!selectedCompany" class="py-4">工務店を選択してください。</p>
           <template v-else>
-            <v-alert v-if="selectedCompany.enabled === false" type="warning" density="compact" class="mb-3">工務店が無効のため、全支店で新規登録を停止しています。</v-alert>
+            <v-alert v-if="selectedCompany.enabled === false" type="warning" class="mb-4">工務店が無効のため、全支店で新規登録を停止しています。</v-alert>
             <v-text-field v-model="branchSearch" label="所属支店名で絞り込み" clearable density="compact" />
             <p class="text-caption">{{ branchRows.length }}件／{{ selectedCompany.name }}</p>
             <v-list>

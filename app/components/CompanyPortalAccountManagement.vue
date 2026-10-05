@@ -3,13 +3,13 @@
     <h1 class="text-h4 mb-2">アカウント管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">工務店ごとの共通アカウントを発行・無効化します。</p>
     <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <v-alert v-if="!canManageAccounts" type="warning" variant="tonal">
+    <v-alert v-if="!canManageAccounts" type="warning">
       アカウント管理はHouse Solution管理者のみ利用できます。
     </v-alert>
 
     <v-card v-else title="工務店アカウント">
       <v-card-text>
-        <v-alert type="info" variant="tonal" class="mb-4">
+        <v-alert type="info" class="mb-4">
           パスワードの設定・再設定は、工務店側が共通ログイン画面から行います。
         </v-alert>
         <div class="d-flex justify-end mb-4">
@@ -42,7 +42,7 @@
   <v-dialog v-model="accountDialog" max-width="560">
     <v-card title="工務店アカウントを発行">
       <v-card-text>
-        <v-alert type="info" variant="tonal" class="mb-4">
+        <v-alert type="info" class="mb-4">
           発行後、工務店側がログイン画面の「パスワードを設定・再設定」からパスワードを設定します。
         </v-alert>
         <v-select v-model="accountForm.constructionCompanyId" :items="availableCompanies" item-title="name" item-value="id" label="工務店" />

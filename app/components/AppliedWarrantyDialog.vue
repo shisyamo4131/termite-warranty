@@ -1,6 +1,6 @@
 <template>
   <v-dialog v-model="open" max-width="600" persistent><v-card :title="warranty ? '適用保証を編集' : '適用保証を追加'"><v-card-text>
-    <v-alert v-if="message" type="error" class="mb-3">{{ message }}</v-alert>
+    <v-alert v-if="message" type="error" class="mb-4">{{ message }}</v-alert>
     <v-select v-if="!warranty" v-model="form.warrantyServiceId" :items="services" item-title="name" item-value="id" label="保証サービス" required />
     <v-date-input v-model="startDate" label="保証開始日" prepend-icon="" required />
     <v-date-input v-if="warranty" v-model="expiryDate" label="満了日（手動補正可）" prepend-icon="" required />

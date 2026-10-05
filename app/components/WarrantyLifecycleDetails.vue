@@ -18,7 +18,7 @@
         </div>
       </div>
       <p class="text-caption mt-3">案内状態は現在の保証満了日についてのみ表示します。<span v-if="showBilling">請求済みは請求の実施記録であり、入金済みではありません。</span></p>
-      <v-alert v-if="showBilling && transactions.some(p=>p.billingState==='unknown')" type="info" variant="tonal" class="mt-3">旧データの請求状況は記録されていません。HSで実際の状況を確認して登録してください。</v-alert>
+      <v-alert v-if="showBilling && transactions.some(p=>p.billingState==='unknown')" type="info" class="mt-4">旧データの請求状況は記録されていません。HSで実際の状況を確認して登録してください。</v-alert>
     </v-card-text>
     <v-card-actions v-if="$slots['warranty-footer']" class="justify-end pa-4"><slot name="warranty-footer" /></v-card-actions>
   </v-card>
@@ -37,8 +37,8 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-      <v-alert v-if="incomplete" type="warning" variant="tonal" class="mt-4">旧データの報告記録には不足があります。記録のない期間を未報告とは断定できません。訂正は開発側に確認してください。</v-alert>
-      <v-alert v-if="unmatchedReports.length" type="warning" variant="tonal" class="mt-3"><p>現在の保証期間に対応づけられない報告があります。</p><p v-for="report in unmatchedReports" :key="report.requestId">{{ report.startDate }} ～ {{ report.expiryDate }}（{{ report.month }}分・報告済み）</p></v-alert>
+      <v-alert v-if="incomplete" type="warning" class="mt-4">旧データの報告記録には不足があります。記録のない期間を未報告とは断定できません。訂正は開発側に確認してください。</v-alert>
+      <v-alert v-if="unmatchedReports.length" type="warning" class="mt-4"><p>現在の保証期間に対応づけられない報告があります。</p><p v-for="report in unmatchedReports" :key="report.requestId">{{ report.startDate }} ～ {{ report.expiryDate }}（{{ report.month }}分・報告済み）</p></v-alert>
       <p class="text-caption mt-3">対象年月は報告する月ではなく「何月分か」を示します（例：9月分は10月月初に報告）。前半・後半は各保証の開始日からの5年ごとの保険対象期間です。表示だけで保険が適用・更新されることはありません。報告・請求の対外訂正はHSが行います。</p>
     </v-card-text>
     <v-card-actions v-if="$slots['insurance-actions']" class="pa-4"><slot name="insurance-actions" /></v-card-actions>

@@ -1,8 +1,28 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { test } from 'node:test'
 
 const readProjectFile = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8')
+
+test('existing and future alerts inherit shared design and inputs never use automatic message regions', async () => {
+  const config = await readProjectFile('nuxt.config.ts')
+  assert.match(config, /VAlert:\s*\{\s*density:\s*'compact',\s*variant:\s*'tonal',\s*iconSize:\s*20\s*\}/)
+  async function inspect(directory) {
+    for (const entry of await readdir(new URL(`../${directory}`, import.meta.url), { withFileTypes: true })) {
+      const path = `${directory}/${entry.name}`
+      if (entry.isDirectory()) await inspect(path)
+      else if (entry.name.endsWith('.vue')) {
+        const source = await readProjectFile(path)
+        assert.doesNotMatch(source, /hide-details\s*=\s*["']auto["']|:hide-details\s*=\s*"'auto'"|:hide-details\s*=\s*'"auto"'/, path)
+        for (const match of source.matchAll(/<v-alert\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)) {
+          assert.doesNotMatch(match[0], /\s:?(?:variant|density|icon-size|color|border|style)\s*=/, path)
+          assert.doesNotMatch(match[0], /\b(?:mb|mt)-(?:3|6)\b/, path)
+        }
+      }
+    }
+  }
+  await inspect('app')
+})
 
 test('company portal gateway uses the seven trusted callable commands', async () => {
   const source = await readProjectFile('app/gateways/companyPortalGateway.ts')
@@ -78,7 +98,7 @@ test('notification-management info alert uses the peer screen flex-growth guard'
   assert.match(theme, /\.list-page > \.v-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
   assert.match(source, /<section class="list-page">[\s\S]*?<v-alert v-if="loadError"/)
   assert.match(accounts, /<section class="list-page">[\s\S]*?<v-alert v-if="loadError"/)
-  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6">/)
+  assert.match(source, /<v-alert type="info" class="mb-4">/)
   assert.doesNotMatch(source, /notification-guidance-alert|flex-grow-0|flex-shrink-0/)
 })
 

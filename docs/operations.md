@@ -2,6 +2,16 @@
 
 ## 2026-10-05 現在地・次の確認
 
+オーナー採用のアラート共通デザインをDev Hostingへ反映済み。全67箇所は共通設定を継承し、tonal・compact・本文14px相当・アイコン20px。先行の入力欄auto廃止と案内文修正も配備。全7ゲートが各exit 0（npm test 157成功・2既存スキップ、Rules88成功）、公開HTML HTTP200・35参照資産一致・Dev接続先一致。今後の画面向けルールをproject-rulesとClear Sky themeへ記録し、共通設定の上書き・auto再導入を検出する試験を追加。[実行記録](design/evidence/ux-106-2026-10-05.md#アラート共通デザインの採用dev反映pm-07)と[配備指紋](design/evidence/dev-release-alert-design-2026-10-05.json)。次はユーザーが入力を保存・終了後に再読込して実画面を確認する。データ・Functions・Rules・Prod変更なし。以下の「ローカルのみ」「未コミット」等は今回の配備前の履歴。
+
+全67箇所のアラートをtonal・compact・アイコン20pxへ統一。本文と見出しは0.875rem、アイコン間隔12px、既存の上下余白指定16px。ローカルのみ、Dev未反映。サンプルは色と文字の比較用で、実アプリの画面検証を代替しない。
+
+対象：`app/components/AppliedWarrantyDialog.vue`, `app/components/CaseDetail.vue`, `app/components/CaseEditDialog.vue`, `app/components/CompanyPortalAccountManagement.vue`, `app/components/CompanyPortalNotificationManagement.vue`, `app/components/ConstructionCompanyPortal.vue`, `app/components/DashboardOverview.vue`, `app/components/LoginPanel.vue`, `app/components/MasterAddressFields.vue`, `app/components/MasterDetail.vue`, `app/components/MasterEditDialog.vue`, `app/components/MasterFormFields.vue`, `app/components/MasterManagement.vue`, `app/components/MeetingPrototype.vue`, `app/components/PrototypeDashboard.vue`, `app/components/QuickCreateMasterDialog.vue`, `app/components/StaffAccountManagement.vue`, `app/components/WarrantyLifecycleDetails.vue`, `app/components/WarrantyOrganizationManagement.vue`, `app/pages/auth/action.vue`, `app/assets/clear-sky-theme.css`、`docs/design/clear-sky-theme.md`、`docs/specification.md`、`CHANGELOG.md`、本書。UI/layout＋文書のゲートとして `npm run typecheck` と `npm run build`、`pwsh -NoProfile -File scripts/check-governance.ps1` が個別exit 0。Vue ASTで全67箇所のvariant/density/icon-size一致もexit 0。最終文書更新後にgovernanceと差分チェックを再確認する。domain-test・Rules・Functions/seed構文は表示属性とCSS・文書のみのため選択外、追加単体テストなし。nuxt設定・依存・governance・データ契約・ADR・進捗・索引は変更不要。旧デザインへ戻す場合は今回のアラート属性とCSSのみを戻す。先行の入力欄・文言差分を保持。未コミット、Dev配備・実画面確認・データ操作なし。
+
+追加指示により、入力欄のメッセージ領域を常に確保する修正をローカルで実施。Devは下記の配備版のまま。今回のDev配備・実画面確認は未実施。
+
+変更対象は `app/components/MeetingPrototype.vue`（auto指定12箇所をfalseへ変更）、`docs/specification.md`、`docs/requirements/search-and-list.md`、`CHANGELOG.md`、本書。分類はUI/layout＋文書。`npm run typecheck`、`npm run build` はそれぞれexit 0。`pwsh -NoProfile -File scripts/check-governance.ps1` は文書更新後exit 0。`git diff --check` もexit 0。コードのauto指定はappとnuxt.config.tsを検索して0件を確認。ビルドにはプラグイン処理時間・Nitro外部参照等の警告があるがexit 0。単純な表示属性変更のため追加単体テストは作成せず、domain-test・Rules・Functions/seed構文は今回の選択クラスに含まれず未実行。保存処理・データ契約・ADR・ロードマップ・governance/configuration・索引は影響なし。差戻しは当該属性と今回の文書差分を戻す。Gitコミット・配備・データ変更なし。メッセージが長い場合の折返し高さまで固定する変更ではない。
+
 物件・保証一覧のモック①（詳細条件の折りたたみ）を採用しDev Hostingへ反映済み。常設テキスト検索、適用済み条件Chip、検索成功後の収納、入力エラー時の展開、Chip削除で再検索。条件なし最新20件・ページネーション維持。156試験成功・2既存スキップ、型検査・ビルド・governance・35配信資産照合成功。[最新実装・検証](design/evidence/ux-106-2026-10-05.md)、[配備指紋](design/evidence/dev-release-search-fold-2026-10-05.json)。今回の配備はHostingのみ。
 
 次はユーザーによるDevでの検索UI確認（保存・終了後に再読み込み、詳細開閉、条件検索、Chip解除、条件クリア）。実画面・モバイル実機の見た目は未確認。既存の入力中ダイアログは無断で閉じない。Devにはユーザーが過去物件の確認用に入力したデータがあるため、初期化・削除・テスト用更新は禁止（別途明示承認が必要）。Prod作業・キャッシュ設定変更・更新通知実装は未実施。キャッシュ設定変更は未採用の相談段階。

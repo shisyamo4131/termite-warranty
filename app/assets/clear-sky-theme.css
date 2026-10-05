@@ -295,6 +295,12 @@ a:hover {
 }
 
 /* Keep dialog headings and actions fixed while the form area scrolls. */
+/* Shared alert typography; colour and compact padding remain Vuetify-owned. */
+.v-alert { font-size: 0.875rem; line-height: 1.5; }
+.v-alert .v-alert-title { font-size: inherit; line-height: inherit; font-weight: 500; }
+.v-alert .v-alert__prepend { margin-inline-end: 12px; align-self: start; min-height: 1.5em; }
+.v-alert .v-alert__content { min-width: 0; overflow-wrap: anywhere; }
+
 .v-dialog > .v-overlay__content > .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
 .v-dialog > .v-overlay__content > .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .v-dialog > .v-overlay__content > .v-card > .v-card-actions,

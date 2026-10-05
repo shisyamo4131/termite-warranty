@@ -8,12 +8,12 @@
             <p class="mt-4 mb-0">リンクを確認しています。</p>
           </div>
 
-          <v-alert v-else-if="state === 'error'" type="error" variant="tonal">
+          <v-alert v-else-if="state === 'error'" type="error">
             {{ errorMessage }}
           </v-alert>
 
           <template v-else-if="state === 'success'">
-            <v-alert type="success" variant="tonal">
+            <v-alert type="success">
               パスワードを設定しました。新しいパスワードでログインしてください。
             </v-alert>
             <v-btn class="mt-6" color="primary" block @click="goToLogin">ログイン画面へ</v-btn>
@@ -50,7 +50,7 @@
               autocomplete="new-password"
               required
             />
-            <v-alert v-if="formError" type="error" variant="tonal" class="mb-4">
+            <v-alert v-if="formError" type="error" class="mb-4">
               {{ formError }}
             </v-alert>
             <v-btn type="submit" color="primary" block :loading="submitting">パスワードを設定</v-btn>

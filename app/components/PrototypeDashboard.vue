@@ -14,7 +14,7 @@
       </v-card-title>
       <v-card-text>
         <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-        <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
+        <v-alert type="info" class="mb-4 flex-grow-0">
           {{ hasActiveFilters ? `全件から絞り込み、該当${filteredRows.length}件を20件ずつ表示しています。` : '更新日時が新しい20件を表示しています。' }}
         </v-alert>
       </v-card-text>
@@ -45,7 +45,7 @@
     <v-dialog v-model="filterDialog" max-width="960" persistent>
       <v-card title="案件を絞り込む">
         <v-card-text>
-          <v-alert v-if="filterLoadError" type="error" density="compact" variant="tonal" class="mb-4">
+          <v-alert v-if="filterLoadError" type="error" class="mb-4">
             {{ filterLoadError }}
           </v-alert>
           <v-progress-linear v-if="filterLoading" indeterminate color="primary" class="mb-4" />

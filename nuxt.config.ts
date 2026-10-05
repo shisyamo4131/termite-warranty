@@ -26,7 +26,7 @@ export default defineNuxtConfig({
     },
     vuetifyOptions: {
       defaults: {
-        VAlert: { density: 'compact' },
+        VAlert: { density: 'compact', variant: 'tonal', iconSize: 20 },
         VTextField: { autocomplete: 'off' },
         VTextarea: { autocomplete: 'off' },
         VSelect: { autocomplete: 'off' },

@@ -478,7 +478,7 @@ test('notification-management guidance cannot grow vertically beyond its content
     readProjectFile('app/assets/clear-sky-theme.css'),
   ])
   assert.match(theme, /\.list-page > \.v-alert\s*\{\s*flex: 0 0 auto;\s*\}/)
-  assert.match(source, /<v-alert type="info" density="compact" variant="tonal" class="mb-6">/)
+  assert.match(source, /<v-alert type="info" class="mb-4">/)
   assert.doesNotMatch(source, /notification-guidance-alert|flex-grow-0|flex-shrink-0/)
 })
 

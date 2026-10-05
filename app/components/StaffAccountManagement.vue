@@ -8,15 +8,15 @@
       <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
     </div>
 
-    <v-alert v-if="!canManage" type="warning" variant="tonal">
+    <v-alert v-if="!canManage" type="warning">
       担当者アカウント管理は管理者のみ利用できます。
     </v-alert>
     <v-card v-else>
       <v-card-text>
-        <v-alert type="info" density="compact" variant="tonal" class="mb-4">
+        <v-alert type="info" class="mb-4">
           {{ targetDescription }}。パスワードは本人が設定・再設定します。
         </v-alert>
-        <v-alert v-if="loadError" type="error" density="compact" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
+        <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
         <v-table>
           <thead><tr><th>表示名</th><th>メールアドレス</th><th>権限</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
@@ -51,7 +51,7 @@
   <v-dialog v-model="dialogOpen" max-width="560" persistent scrollable>
     <v-card :title="editingUid ? '担当者アカウントを編集' : '担当者アカウントを発行'">
       <v-card-text><v-form ref="editForm" @submit.prevent="save"><v-alert v-if="saveError" type="error" class="mb-4">{{ saveError }}</v-alert>
-        <v-alert v-if="!editingUid" type="info" density="compact" variant="tonal" class="mb-4">
+        <v-alert v-if="!editingUid" type="info" class="mb-4">
           発行後、入力したメールアドレスへパスワード設定メールを送信します。
         </v-alert>
         <v-text-field v-model="form.displayName" :rules="requiredRules" label="表示名" required />

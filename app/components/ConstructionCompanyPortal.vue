@@ -16,7 +16,7 @@
         <v-btn color="primary" @click="openNewRequest">新規案件を申請</v-btn>
       </div>
 
-      <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
+      <v-alert type="info" class="mb-4 flex-grow-0">
         このプロトタイプでは、メール通知は送信待ちキューの記録までを行います。実メールは送信しません。
       </v-alert>
       <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
@@ -38,7 +38,6 @@
               <v-alert
                 v-if="item.reviewComment"
                 :type="item.status === 'needs_correction' ? 'warning' : 'info'"
-                variant="tonal"
                 class="mt-4"
               >
                 {{ item.status === 'needs_correction' ? '要修正内容' : '確認コメント' }}：{{ item.reviewComment }}
