@@ -8,20 +8,20 @@
     <v-chip color="primary">{{ selectedGroup?.name || '保証グループを選択' }}</v-chip>
     <span>→</span>
     <v-chip>{{ selectedCompany?.name || '工務店を選択' }}</v-chip>
-    <v-btn variant="text" :disabled="busy" @click="$emit('selectGroup', '')">選択を解除</v-btn>
+    <v-btn variant="outlined" :disabled="busy" @click="$emit('selectGroup', '')">選択を解除</v-btn>
   </div>
   <v-checkbox v-model="includeInactive" label="無効を含む" hide-details class="mb-3" />
   <v-row>
     <v-col cols="12" md="4">
       <v-card height="100%">
-        <v-card-title class="d-flex justify-space-between align-center">保証グループ<v-btn size="small" color="primary" :disabled="busy" @click="$emit('edit', 'saveGroup', {})">追加</v-btn></v-card-title>
+        <v-card-title class="d-flex justify-space-between align-center">保証グループ<v-btn variant="flat" size="small" color="primary" :disabled="busy" @click="$emit('edit', 'saveGroup', {})">追加</v-btn></v-card-title>
         <v-card-text>
           <v-text-field v-model="groupSearch" label="保証グループ名で絞り込み" clearable density="compact" />
           <p class="text-caption">{{ groupRows.length }}件{{ groupSearch ? '' : '（更新が新しい20件まで）' }}</p>
           <v-list>
             <v-list-item v-for="group in paged(groupRows, groupPage)" :key="group.id" :active="group.id === groupId" :title="group.name" :disabled="busy" @click="$emit('selectGroup', group.id)">
               <template #subtitle>{{ group.enabled === false ? '無効／' : '' }}{{ group.prefix || '接頭辞なし' }}・{{ group.fiscalStartMonth }}月始まり</template>
-              <template #append><v-btn size="small" variant="text" :disabled="busy" @click.stop="$emit('edit', 'saveGroup', group)">編集</v-btn></template>
+              <template #append><v-btn size="small" variant="outlined" :disabled="busy" @click.stop="$emit('edit', 'saveGroup', group)">編集</v-btn></template>
             </v-list-item>
           </v-list>
           <p v-if="!groupRows.length" class="py-4">該当する保証グループはありません。</p>
@@ -31,7 +31,7 @@
     </v-col>
     <v-col cols="12" md="4">
       <v-card height="100%">
-        <v-card-title class="d-flex justify-space-between align-center">所属工務店<v-btn size="small" color="primary" :disabled="busy || !selectedGroup || selectedGroup.enabled === false" @click="$emit('edit', 'saveCompany', {})">追加</v-btn></v-card-title>
+        <v-card-title class="d-flex justify-space-between align-center">所属工務店<v-btn variant="flat" size="small" color="primary" :disabled="busy || !selectedGroup || selectedGroup.enabled === false" @click="$emit('edit', 'saveCompany', {})">追加</v-btn></v-card-title>
         <v-card-text>
           <p v-if="!selectedGroup" class="py-4">保証グループを選択してください。</p>
           <template v-else>
@@ -40,7 +40,7 @@
             <p class="text-caption">{{ companyRows.length }}件／{{ selectedGroup.name }}</p>
             <v-list>
               <v-list-item v-for="company in paged(companyRows, companyPage)" :key="company.id" :active="company.id === companyId" :title="company.name" :subtitle="company.enabled === false ? '無効（新規登録停止）' : '有効'" :disabled="busy" @click="$emit('selectCompany', company.id)">
-                <template #append><v-btn size="small" variant="text" :disabled="busy" @click.stop="$emit('edit', 'saveCompany', company)">編集</v-btn></template>
+                <template #append><v-btn size="small" variant="outlined" :disabled="busy" @click.stop="$emit('edit', 'saveCompany', company)">編集</v-btn></template>
               </v-list-item>
             </v-list>
             <p v-if="!companyRows.length" class="py-4">該当する工務店はありません。</p>
@@ -51,7 +51,7 @@
     </v-col>
     <v-col cols="12" md="4">
       <v-card height="100%">
-        <v-card-title class="d-flex justify-space-between align-center">所属支店<v-btn size="small" color="primary" :disabled="busy || !selectedCompany" @click="$emit('edit', 'saveBranch', {})">追加</v-btn></v-card-title>
+        <v-card-title class="d-flex justify-space-between align-center">所属支店<v-btn variant="flat" size="small" color="primary" :disabled="busy || !selectedCompany" @click="$emit('edit', 'saveBranch', {})">追加</v-btn></v-card-title>
         <v-card-text>
           <p v-if="!selectedCompany" class="py-4">工務店を選択してください。</p>
           <template v-else>
@@ -60,7 +60,7 @@
             <p class="text-caption">{{ branchRows.length }}件／{{ selectedCompany.name }}</p>
             <v-list>
               <v-list-item v-for="branch in paged(branchRows, branchPage)" :key="branch.id" :title="branch.name" :subtitle="branch.enabled === false ? '支店を無効化中' : selectedCompany.enabled === false ? '工務店の無効化により停止中' : '有効'">
-                <template #append><v-btn size="small" variant="text" :disabled="busy" @click="$emit('edit', 'saveBranch', branch)">編集</v-btn></template>
+                <template #append><v-btn size="small" variant="outlined" :disabled="busy" @click="$emit('edit', 'saveBranch', branch)">編集</v-btn></template>
               </v-list-item>
             </v-list>
             <p v-if="!branchRows.length" class="py-4">該当する支店はありません。本店の物件は支店指定なしで登録します。</p>

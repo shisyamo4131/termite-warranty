@@ -5,7 +5,7 @@
         <h1 class="text-h4 mb-2">担当者アカウント管理</h1>
         <p class="text-body-2 text-medium-emphasis mb-0">ハウスソリューション側の担当者アカウントを発行・編集・無効化します。</p>
       </div>
-      <v-btn v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
+      <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
     </div>
 
     <v-alert v-if="!canManage" type="warning" variant="tonal">
@@ -26,10 +26,10 @@
               <td>{{ roleLabel(account.role) }}</td>
               <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.enabled ? '有効' : '無効' }}</v-chip></td>
               <td>
-                <v-btn size="small" variant="text" @click="openEdit(account)">編集</v-btn>
+                <v-btn size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
                 <v-btn
                   size="small"
-                  variant="text"
+                  variant="outlined"
                   :color="account.enabled ? 'error' : 'success'"
                   :loading="busyId === account.uid"
                   @click="toggle(account)"
@@ -60,8 +60,8 @@
       </v-form></v-card-text>
       <v-card-actions class="flex-wrap">
         <v-spacer />
-        <v-btn :disabled="saving" @click="dialogOpen = false">キャンセル</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">{{ editingUid ? '更新' : '発行' }}</v-btn>
+        <v-btn variant="outlined" :disabled="saving" @click="dialogOpen = false">キャンセル</v-btn>
+        <v-btn variant="flat" color="primary" :loading="saving" @click="save">{{ editingUid ? '更新' : '発行' }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

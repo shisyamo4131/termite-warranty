@@ -10,9 +10,9 @@
         <div><div class="text-caption mb-1">保証満了案内</div><v-chip v-if="index===transactions.length-1" size="small" :color="row.warrantyNotified ? 'success' : 'default'">{{ row.warrantyNotified ? '案内済み' : '未案内' }}</v-chip><span v-else>—</span></div>
         <div class="period-actions">
           <template v-if="editable && showBilling">
-            <v-btn v-if="period.billingState!=='billed'" variant="text" :disabled="busy || !period.identifiable" @click="$emit('billing','bill',period)">請求済みにする</v-btn>
-            <v-btn v-else variant="text" :disabled="busy" @click="$emit('billing','undoBill',period)">請求済みを取り消す</v-btn>
-            <v-btn v-if="period.billingState==='unknown'" variant="text" :disabled="busy || !period.identifiable" @click="$emit('billing','confirmUnbilled',period)">未請求と確認する</v-btn>
+            <v-btn v-if="period.billingState!=='billed'" variant="outlined" :disabled="busy || !period.identifiable" @click="$emit('billing','bill',period)">請求済みにする</v-btn>
+            <v-btn color="error" v-else variant="outlined" :disabled="busy" @click="$emit('billing','undoBill',period)">請求済みを取り消す</v-btn>
+            <v-btn v-if="period.billingState==='unknown'" variant="outlined" :disabled="busy || !period.identifiable" @click="$emit('billing','confirmUnbilled',period)">未請求と確認する</v-btn>
           </template>
           <slot v-if="index===transactions.length-1" name="warranty-actions" />
         </div>
