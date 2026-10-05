@@ -1,4 +1,5 @@
-import { FieldValue, Timestamp } from 'firebase-admin/firestore'
+import { AccountMutationError, mutateAccount } from './account-mutation.js'
+import { Timestamp } from 'firebase-admin/firestore'
 
 export class StaffAccountError extends Error {
   constructor(code, message) {
@@ -29,16 +30,6 @@ const assertManager = async (firestore, actorUid) => {
   const account = snapshot.data()
   if (!snapshot.exists || account?.enabled !== true) fail('permission-denied', '利用可能な管理者アカウントを確認できません。')
   return { account, targetRole: targetRoleFor(account.role) }
-}
-
-const assertTarget = async (firestore, uid, targetRole) => {
-  const targetUid = requiredText(uid, '担当者アカウントを指定してください。')
-  const ref = firestore.doc(`staffAccounts/${targetUid}`)
-  const snapshot = await ref.get()
-  if (!snapshot.exists || snapshot.data()?.role !== targetRole) {
-    fail('not-found', '管理可能な担当者アカウントが見つかりません。')
-  }
-  return { uid: targetUid, ref, account: snapshot.data() }
 }
 
 const authFailure = error => {
@@ -88,54 +79,25 @@ export async function createStaffAccountOperation(auth, firestore, input, actorU
   }
 }
 
-export async function updateStaffAccountOperation(auth, firestore, input, actorUid) {
-  const { targetRole } = await assertManager(firestore, actorUid)
-  const { uid, ref } = await assertTarget(firestore, input?.uid, targetRole)
-  const accountEmail = email(input?.email)
-  const displayName = requiredText(input?.displayName, '表示名を入力してください。')
-  let previousUser
-  try {
-    previousUser = await auth.getUser(uid)
-    await auth.updateUser(uid, { email: accountEmail, displayName })
-    try {
-      await ref.update({ email: accountEmail, displayName, updatedAt: FieldValue.serverTimestamp() })
-    } catch (error) {
-      await auth.updateUser(uid, { email: previousUser.email, displayName: previousUser.displayName }).catch(() => {})
-      throw error
-    }
-    return { uid, email: accountEmail, displayName }
-  } catch (error) {
+const manageLockedTarget = (actor, target) => {
+  if (actor?.enabled !== true) fail('permission-denied', '利用可能な管理者アカウントを確認できません。')
+  if (!target || target.role !== targetRoleFor(actor.role)) fail('not-found', '管理可能な担当者アカウントが見つかりません。')
+}
+const staffMutation = async (auth, firestore, input, actorUid, kind, desired) => {
+  const uid = requiredText(input?.uid, '担当者アカウントを指定してください。')
+  if (uid.includes('/')) fail('invalid-argument', '担当者アカウントを指定してください。')
+  try { await mutateAccount(auth, firestore, { uid, targetPath: `staffAccounts/${uid}`, actorUid, authorize: manageLockedTarget, kind, desired }) }
+  catch (error) {
+    if (error instanceof AccountMutationError) fail(error.code, error.message)
     if (error instanceof StaffAccountError) throw error
     authFailure(error)
   }
+  return { uid, ...desired }
 }
-
+export async function updateStaffAccountOperation(auth, firestore, input, actorUid) {
+  return staffMutation(auth, firestore, input, actorUid, 'profile', { email: email(input?.email), displayName: requiredText(input?.displayName, '表示名を入力してください。') })
+}
 export async function setStaffAccountEnabledOperation(auth, firestore, input, actorUid) {
-  const { targetRole } = await assertManager(firestore, actorUid)
-  const { uid, ref } = await assertTarget(firestore, input?.uid, targetRole)
   if (typeof input?.enabled !== 'boolean') fail('invalid-argument', '有効状態が不正です。')
-
-  if (!input.enabled) {
-    await ref.update({ enabled: false, updatedAt: FieldValue.serverTimestamp() })
-    try {
-      await auth.updateUser(uid, { disabled: true })
-      await auth.revokeRefreshTokens(uid)
-    } catch (error) {
-      authFailure(error)
-    }
-  } else {
-    try {
-      await auth.updateUser(uid, { disabled: false })
-      try {
-        await ref.update({ enabled: true, updatedAt: FieldValue.serverTimestamp() })
-      } catch (error) {
-        await auth.updateUser(uid, { disabled: true }).catch(() => {})
-        throw error
-      }
-    } catch (error) {
-      if (error instanceof StaffAccountError) throw error
-      authFailure(error)
-    }
-  }
-  return { uid, enabled: input.enabled }
+  return staffMutation(auth, firestore, input, actorUid, 'enabled', { enabled: input.enabled })
 }

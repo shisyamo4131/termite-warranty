@@ -29,6 +29,18 @@ let testEnvironment
 
 const contextFor = (uid) => testEnvironment.authenticatedContext(uid).firestore()
 
+test('account mutation journals remain private to Admin even for enabled staff and account owners', async () => {
+  await seedStaff('lock-admin')
+  await seedDocument('constructionCompanyAccounts/lock-company', { enabled: true, constructionCompanyId: 'c' })
+  await seedDocument('accountMutationLocks/lock-company', { operationId: 'synthetic-operation', status: 'running' })
+  for (const db of [contextFor('lock-admin'), contextFor('lock-company'), testEnvironment.unauthenticatedContext().firestore()]) {
+    const ref = doc(db, 'accountMutationLocks/lock-company')
+    await assertFails(getDoc(ref))
+    await assertFails(setDoc(ref, { operationId: 'replacement' }))
+    await assertFails(deleteDoc(ref))
+  }
+})
+
 test('property warranty Rules enforce company and branch read scope, with trusted company writes', async () => {
   await seedDocument('constructionCompanyAccounts/prototype-head', {constructionCompanyId:'co-a',scope:'company',branchId:'',enabled:true})
   await seedDocument('constructionCompanyAccounts/prototype-branch', {constructionCompanyId:'co-a',scope:'branch',branchId:'branch-a',enabled:true})

@@ -47,6 +47,10 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /accountMutationLocks/{uid} {
+      allow read, write: if false;
+    }
+
     match /constructionCompanyAccountBindings/{companyId} {
       allow read, write: if false;
     }

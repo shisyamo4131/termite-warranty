@@ -189,9 +189,9 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const vue=await import('vue')
   const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
   const inputRules=await import('../src/domain/input-rules.mjs')
-  const notifications=[];const env={sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  return new Function(...Object.keys(env),code+';return {rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,detailsOpen,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,detailsOpen,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
 }
 
 test('dialog company search preserves background catalog and selected company; branch fetch has local loading',async()=>{
@@ -201,14 +201,42 @@ test('dialog company search preserves background catalog and selected company; b
   view.resetDialogCatalog();view.propertyDialog.value=true;view.form.value.constructionCompanyId='chosen';view.form.value.branchId='old'
   const search=view.fetchCompanyOptions('検索')
   assert.equal(view.catalogBusy.value,false);assert.equal(view.busy.value,false)
+  await Promise.resolve()
   resolve({groups:[{id:"g"}],companies:[{id:'found',name:'検索一致',defaultGroupId:'g'}],branches:[{id:'unrelated'}]});await search
   assert.deepEqual(view.companies.value.map(x=>x.id),['chosen'])
   assert.deepEqual(view.branches.value.map(x=>x.id),['background'])
   assert.deepEqual(view.dialogCompanies.value.map(x=>x.id),['chosen'])
   assert.equal(view.form.value.branchId,'old')
   view.choosePropertyCompany({id:'found',name:'検索一致'});assert.equal(view.catalogBusy.value,true);assert.equal(view.busy.value,false);assert.equal(view.form.value.branchId,'')
+  await Promise.resolve()
   resolve({branches:[{id:'found-branch'}]});await new Promise(r=>setImmediate(r))
   assert.deepEqual(view.dialogBranches.value.map(x=>x.id),['found-branch']);assert.equal(view.catalogBusy.value,false)
+})
+
+test('reference cache integration reuses catalog, forces refresh, invalidates on master save and identity change; lists remain fresh', async()=>{
+  const calls=[]
+  const v=await prototypeViewForTest(async data=>{
+    calls.push(data.action)
+    if(data.action==='saveCompany')return {id:'new-company'}
+    return {companies:[],branches:[],groups:[],rows:[],limited:true,warrantyMonths:2,insuranceMonths:2}
+  })
+  await v.loadCatalog();await v.loadCatalog()
+  assert.equal(calls.filter(action=>action==='catalog').length,1)
+  assert.equal(calls.filter(action=>action==='alertSettings').length,1)
+  await v.fetchRows();await v.fetchRows()
+  assert.equal(calls.filter(action=>action==='list').length,2)
+  await v.referenceCache.get('other-condition',async()=>['stale'])
+  await v.loadCatalog(true)
+  assert.equal(v.referenceCache.size(),2)
+  assert.equal(calls.filter(action=>action==='catalog').length,2)
+  v.settingForm.value={validate:async()=>({valid:true})}
+  await v.saveSetting()
+  assert.equal(calls.filter(action=>action==='catalog').length,3)
+  v.profile.value={accountType:'staff',uid:'another',role:'house_solution_administrator'}
+  await v.loadCatalog()
+  assert.equal(calls.filter(action=>action==='catalog').length,4)
+  v.profile.value=null
+  assert.equal(v.referenceCache.size(),0)
 })
 
 test('dialog lookup failure releases loading and registration confirmation never carries over',async()=>{

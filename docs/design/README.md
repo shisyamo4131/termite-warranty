@@ -1,5 +1,7 @@
 # Design Index
 
+- [アカウント競合と取得効率改善](account-concurrency-read-efficiency-2026-10-05.md)：承認された改修と5分参照キャッシュ、Local／Dev検証・復旧境界。
+
 - [現行実装の点検とバックアップ準備](evidence/current-implementation-audit-2026-10-05.md)：旧画面撤去、サブエージェントによる不具合・Read/Write調査、オフラインモックと未実装境界。
 
 - [0.1.106 保険報告カード](evidence/ux-106-2026-10-05.md)：報告対象月・初回／延長保証と保険期間の表示、キャッシュ相談。

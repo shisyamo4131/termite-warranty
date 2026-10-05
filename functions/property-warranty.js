@@ -1,3 +1,4 @@
+import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { warrantyTransactions, activeInsuranceReports, latestInsuranceReport, insuranceReportTarget, handoverChangeBlockers } from './domain/property-warranty.mjs'
@@ -20,13 +21,16 @@ function owner(a, value) {
 // Legacy trial rows remain readable, but are not silently promoted to reportable insurance data.
 const withInsurance = row => ({ ...row, insuranceStartDate: row.insuranceStartDate ?? row.handoverDate ?? '', insuranceExpiryDate: row.insuranceExpiryDate ?? insuranceExpiryDate(row.handoverDate || ''), insuranceNeedsReview: !row.insuranceRenewalMonth, warrantyNotified: row.warrantyNotified === true })
 const rows = snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
-async function catalog(db, a, search = '', groupId = '', companyId = '') {
+async function catalog(db, a, search = '', groupId = '', companyId = '', purpose = '') {
   if ((groupId || companyId) && !a.staff) fail('permission-denied', '階層の管理はHS担当者のみ利用できます。')
   if (groupId) id(groupId)
   if (companyId) id(companyId)
-  const companyQuery = db.collection('constructionCompanies').orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
+  let companyQuery = db.collection('constructionCompanies')
+  if (groupId) companyQuery = companyQuery.where('defaultGroupId', '==', groupId)
+  companyQuery = companyQuery.orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
   const companies = a.staff ? await (search || groupId ? companyQuery : companyQuery.limit(20)).get() : await db.collection('constructionCompanies').where(FieldPath.documentId(), '==', a.constructionCompanyId).get()
   let branches = db.collection('companyBranches')
+  if (companyId) branches = branches.where('constructionCompanyId', '==', companyId)
   if (!a.staff) branches = branches.where('constructionCompanyId', '==', a.constructionCompanyId)
   if (!a.staff && a.scope === 'branch') branches = branches.where(FieldPath.documentId(), '==', a.branchId)
   branches = branches.orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
@@ -34,7 +38,7 @@ async function catalog(db, a, search = '', groupId = '', companyId = '') {
   const matching = items => search ? items.filter(row => row.name.includes(search)) : items
   return {
     companies: matching(rows(companies)).filter(row => !groupId || row.defaultGroupId === groupId),
-    branches: matching(rows(await branches.get())).filter(row => !companyId || row.constructionCompanyId === companyId),
+    branches: matching(purpose === 'companyOptions' ? [] : rows(await branches.get())).filter(row => !companyId || row.constructionCompanyId === companyId),
     groups: rows(await db.collection('warrantyGroups').get()),
   }
 }
@@ -49,7 +53,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     await db.doc('prototypeSettings/alerts').set({ ...settings, updatedAt: Timestamp.now() })
     return settings
   }
-  if (action === 'catalog') return catalog(db, a, String(input.search ?? '').trim(), input.groupId || '', input.companyId || '')
+  if (action === 'catalog') return catalog(db, a, String(input.search ?? '').trim(), input.groupId || '', input.companyId || '', input.purpose || '')
   if (action === 'list') {
     const f = input.filter ?? {}
     if (f.alertKind && !['warranty','insurance'].includes(f.alertKind)) fail('invalid-argument', '案内の種類が不正です。')
@@ -94,12 +98,10 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (input.enabled !== undefined && typeof input.enabled !== 'boolean') fail('invalid-argument', '有効・無効の指定が不正です。')
     if (action === 'saveCompany') {
       value.defaultGroupId = id(input.defaultGroupId)
-      if (!(await db.doc(`warrantyGroups/${value.defaultGroupId}`).get()).exists) fail('not-found', '保証グループが見つかりません。')
       for (const k of ['prefecture', 'municipality', 'streetTownAndNumber']) text(input.address?.[k], '会社の住所')
       for (const k of ['telephone', 'fax', 'contactPerson', 'notes']) value[k] = String(input[k] ?? '').trim()
     } else if (action === 'saveBranch') {
       value.constructionCompanyId = id(input.constructionCompanyId)
-      if (!(await db.doc(`constructionCompanies/${value.constructionCompanyId}`).get()).exists) fail('not-found', '工務店が見つかりません。')
       if (input.groupId) fail('invalid-argument', '支店独自の保証グループは設定できません。所属工務店のグループを使用します。')
       for (const k of ['telephone','fax']) value[k] = String(input[k] ?? '').trim()
     } else {
@@ -129,7 +131,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
       if (action === 'saveCompany') {
         const group = (await tx.get(db.doc(`warrantyGroups/${value.defaultGroupId}`))).data()
-        if (!group || group.enabled === false && old?.defaultGroupId !== value.defaultGroupId) fail('failed-precondition', '無効な保証グループは新しく割り当てられません。')
+        if (!group) fail('not-found', '保証グループが見つかりません。')
+        if (group.enabled === false && old?.defaultGroupId !== value.defaultGroupId) fail('failed-precondition', '無効な保証グループは新しく割り当てられません。')
       }
       tx.set(ref, value, { merge: true })
     })
@@ -161,12 +164,14 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   }
   if (action === 'setAccountEnabled') {
     manager(a)
-    const ref = db.doc(`constructionCompanyAccounts/${id(input.uid)}`)
-    if (!(await ref.get()).exists || typeof input.enabled !== 'boolean') fail('invalid-argument', 'アカウントを確認してください。')
-    if (!input.enabled) await ref.update({ enabled: false, updatedAt: Timestamp.now() })
-    await auth.updateUser(input.uid, { disabled: !input.enabled })
-    if (!input.enabled) await auth.revokeRefreshTokens(input.uid)
-    else await ref.update({ enabled: true, updatedAt: Timestamp.now() })
+    const targetUid = id(input.uid)
+    if (typeof input.enabled !== 'boolean') fail('invalid-argument', 'アカウントを確認してください。')
+    try {
+      await mutateAccount(auth, db, { uid: targetUid, targetPath: `constructionCompanyAccounts/${targetUid}`, actorUid: uid, kind: 'enabled', desired: { enabled: input.enabled }, authorize: (currentActor, target) => {
+        manager({ ...currentActor, staff: currentActor?.enabled === true })
+        if (!target || target.role !== 'construction_company') fail('not-found', '工務店アカウントが見つかりません。')
+      } })
+    } catch (error) { if (error instanceof AccountMutationError) fail(error.code, error.message); throw error }
     return { ok: true }
   }
   if (!['save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled'].includes(action)) fail('invalid-argument', '操作を確認してください。')

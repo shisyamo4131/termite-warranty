@@ -35,9 +35,10 @@ try {
     const doc = await db.doc(`staffAccounts/${retained[i].uid}`).get()
     if (doc.data()?.role !== ['developer_superuser','house_solution_administrator'][i] || doc.data()?.enabled !== true || retained[i].disabled) throw new Error(`Retained account ${i+1} role/enabled state differs from the requested role.`)
   }
-  const allowed = new Set(['prototypeSettings','staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','constructionCompanyCaseWorkItems','notificationOutbox','branches','constructionCompanies','homeowners','properties','warrantyServices','cases','systemCounters','caseNumberReservations','propertyWarranties','companyBranches','warrantyGroups','warrantyCounters'])
+  const allowed = new Set(['accountMutationLocks', 'prototypeSettings','staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','constructionCompanyCaseWorkItems','notificationOutbox','branches','constructionCompanies','homeowners','properties','warrantyServices','cases','systemCounters','caseNumberReservations','propertyWarranties','companyBranches','warrantyGroups','warrantyCounters'])
   const collections = await db.listCollections()
   for (const col of collections) if (!allowed.has(col.id)) throw new Error(`Unclassified collection: ${col.id}. Reset stopped.`)
+  if (!(await db.collection('accountMutationLocks').limit(1).get()).empty) throw new Error('Pending account mutation; reset forbidden until explicit recovery.')
   const inventory = []
   for (const col of collections) inventory.push({ collection:col.id, documents:(await col.count().get()).data().count })
   const users=[];let page

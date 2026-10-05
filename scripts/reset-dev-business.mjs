@@ -15,7 +15,7 @@ if (process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HO
 if (apply && (option('--confirm-project') !== projectId || !/^[a-f0-9]{64}$/.test(option('--expected-plan') ?? ''))) throw Error('Explicit Dev project and inspected plan digest required.')
 
 const deleteNames = new Set(['propertyWarranties', 'propertyOperationReceipts', 'properties', 'cases', 'warrantyCounters', 'systemCounters', 'caseNumberReservations', 'constructionCompanies', 'companyBranches', 'branches'])
-const keepNames = new Set(['warrantyGroups', 'prototypeSettings', 'staffAccounts', 'constructionCompanyAccounts', 'constructionCompanyAccountBindings', 'constructionCompanyCaseWorkItems', 'notificationOutbox', 'homeowners', 'warrantyServices'])
+const keepNames = new Set(['accountMutationLocks', 'warrantyGroups', 'prototypeSettings', 'staffAccounts', 'constructionCompanyAccounts', 'constructionCompanyAccountBindings', 'constructionCompanyCaseWorkItems', 'notificationOutbox', 'homeowners', 'warrantyServices'])
 const require = createRequire(import.meta.url)
 const cliAuth = require('firebase-tools/lib/auth.js')
 const cliApi = require('firebase-tools/lib/api.js')

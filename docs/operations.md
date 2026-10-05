@@ -1,5 +1,17 @@
 # Operations
 
+## 2026-10-05 アカウント排他制御・参照キャッシュの運用
+
+ACCOUNT-01の三入口を同じUIDロックへ統一する。Dev配備対象はupdateStaffAccount、setStaffAccountEnabled、setConstructionCompanyAccountEnabled、propertyPrototypeとRules/索引/Hosting。全入口の反映確認後に合成専用データで受入する。既存物件・管理者の更新、初期化、Prod/IAM操作なし。[設計と実測](design/account-concurrency-read-efficiency-2026-10-05.md)。
+
+参照候補とアラート設定は画面内で5分共有され、別管理者の更新は最大5分遅れる。最新の値が必要なら「最新の設定を取得」を使用。設定保存成功、認証scope変更、ログアウトで破棄。権限の即時停止と保存時検証は従来どおり最新を確認する。
+
+アカウント更新が継続してaborted/failed-preconditionになる場合、管理者は旧Functions実行が停止済みか確認し、`node scripts/account-mutation-recovery.mjs --project termite-warranty-dev --uid <実環境で照合したUID>`で読取確認する。出力は操作ID・所有者・状態・整合判定に限り、メールや変更値を出さない。時間経過だけでロックを削除しない。
+
+実復旧は対象と停止証拠を確認して別途承認した後だけ実行する：`node scripts/account-mutation-recovery.mjs --project termite-warranty-dev --uid <照合済みUID> --apply --confirm account-mutation-recovery --expected-operation <確認したoperationId> --confirm-worker-stopped`。既にrecoveryOwnerがある場合は旧復旧プロセスも停止したことを確認し、`--expected-recovery-owner <確認したrecoveryOwner> --confirm-recovery-worker-stopped`を追加する。復旧自身の所有者はAuth操作前に取得する。中断した再開処理はFirestoreの現在値（無効）へAuthを揃え、勝手に再開しない。失敗・状態変化では記録を保持し、無条件削除や自動再試行をしない。実復旧・旧プロセスの強制停止は今回の配備承認に含めない。
+
+差戻しはアカウント更新を止めて記録を保全し、排他制御を理解する互換修正版で対応する。ロックを無視する旧版へ戻さない。参照取得だけの差戻しは旧catalog応答を維持しているが、HostingとFunctionsの対応を確認する。新しいサーバー専用コレクションは既存リセットツールでも保持分類に追加したが、リセット自体は実行していない。
+
 ## 2026-10-05 現行実装点検とバックアップ／リストアのモック
 
 現行MeetingPrototypeを継続改修の基礎とし、通常経路外の旧案件・旧マスタ画面を撤去。今回の変更はローカルにまとめ、単体166件・Emulator88件成功（既存2skip）、型検査・build成功。Devは直前の検索ボタン修正版のまま。実データ・Firebase設定・実バックアップには変更なし。[点検記録とオフライン実行手順](design/evidence/current-implementation-audit-2026-10-05.md)参照。模擬結果を実バックアップ成功や復旧検証と扱わない。

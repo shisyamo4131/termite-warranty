@@ -1,5 +1,9 @@
 # Security and Access Posture
 
+## 2026-10-05 アカウント変更の競合抑止
+
+既存のrole・所属・即時enabled判定を維持し、同一UIDのAuth/Firestore変更はサーバー専用accountMutationLocksで直列化する。私有操作記録はクライアントに公開しない。結果不明・補償失敗時は後続変更を止める。時間切れ解除なし。管理者による状態確認と旧処理停止確認、期待操作IDと復旧所有者の照合を伴う復旧を用意するが、実行には別承認が必要。新たな業務権限やIAMは付与しない。[運用](../operations.md)、[ADR 0036](../decisions/0036-account-mutation-serialization.md)。
+
 > 2026-10-03全体整理：現行の確定事項は[仕様書0.1.90](../specification.md)に業務別に統合しました。本書の日時付き節は判断の根拠を含み、後の決定で置き換えられた記述があります。旧試作説明・当時の未決欄を現行の実装指示にしないでください。未決管理は[台帳](house-solution-confirmations.md)、配布資料は[資料索引](../../deliverables/meeting-2026-10-03/README.md)を参照します。
 
 ## 2026-10-03 終了データ削除の権限（仕様書0.1.73）

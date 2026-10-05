@@ -7,6 +7,8 @@
 
 ## Purpose and Boundary
 
+2026-10-05追加検討：オーナーが月次の開発者作業を減らす自動更新を希望。[HSC-040](../requirements/house-solution-confirmations/HSC-040-postal-data-automatic-update.md)で方式・公開・失敗通知・差戻しを判断する。以下の手動更新方式を現時点で置き換えず、自動ジョブ・IAM・Hosting設定は未変更。
+
 Use Japan Post's official nationwide 「住所の郵便番号（1レコード1行、UTF-8形式）」 CSV as the source for postal-code address completion on property, homeowner, and construction-company forms. Transform the source into bounded search shards served from Firebase Hosting on the same origin. The local implementation downloads only during the explicit manual update command; raw source archives are temporary and are not published.
 
 The provider-neutral lookup foundation already in the prototype may be reused for matching, candidate selection, stale-response protection, and manual correction. The hosted provider is implemented; runtime lookup reads only same-origin generated data. No runtime external API, API key, billing, quota, App Check, or Google attribution is part of the adopted design.

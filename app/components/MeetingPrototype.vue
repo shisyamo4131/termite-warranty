@@ -38,7 +38,7 @@
     </template>
     <template v-else-if="tab==='settings' && staff">
       <WarrantyOrganizationManagement :groups="groups" :companies="companies" :branches="branches" :group-id="selectedGroupId" :company-id="selectedCompanyId" :busy="busy" @select-group="selectGroup" @select-company="selectCompany" @edit="openSetting" />
-      <v-btn class="mt-4" variant="outlined" :disabled="busy" @click="run(loadCatalog)">最新の設定を取得</v-btn>
+      <v-btn class="mt-4" variant="outlined" :disabled="busy" @click="run(()=>loadCatalog(true))">最新の設定を取得</v-btn>
     </template>
     <template v-else-if="tab==='accounts' && manager">
       <div class="d-flex justify-space-between mb-4"><h1 class="text-h5">工務店担当者アカウント</h1><v-btn variant="flat" color="primary" :disabled="busy" @click="openAccount">担当者を追加</v-btn></div><p class="mb-4">HSが担当者ごとに発行します。本店の全店担当は自社全店、支店担当は所属支店の物件を操作します。</p>
@@ -119,6 +119,7 @@
 </template>
 
 <script setup lang="ts">
+import { createReferenceFetchCache, referenceFetchKey } from '../../src/domain/reference-fetch-cache.mjs'
 import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { latestInsuranceReport, handoverChangeBlockers } from "../../src/domain/property-warranty.mjs"
 import { requiredRule, requiredRules, optionalRules, postalRule, phoneRule, emailRule, prefixRule, areaRule, dateRule, monthRule, yearRule } from '../../src/domain/input-rules.mjs'
@@ -129,7 +130,8 @@ import { coveragePeriods, csvCell, japanDate, normalizeWarrantyPrefix, extension
 // Callable records are validated by the trusted command; the view keeps flexible display records.
 type Row = Record<string, any>
 const { $firebase } = useNuxtApp()
-const { profile, logout } = useSession()
+const { profile, logout: sessionLogout } = useSession()
+async function logout(){referenceCache.clear();await sessionLogout()}
 const staff = computed(()=>profile.value?.accountType==='staff')
 const manager = computed(()=>staff.value && ['developer_superuser','house_solution_administrator'].includes(profile.value?.role ?? ''))
 const companyBranchOnly = computed(()=>profile.value?.accountType==='construction_company' && profile.value.scope==='branch')
@@ -152,7 +154,7 @@ const visibleRows=computed(()=>rows.value.slice((page.value-1)*20,page.value*20)
 const selectedGroupId=ref(''), selectedCompanyId=ref('')
 const alertSettings=reactive({warrantyMonths:2,insuranceMonths:2})
 const monthOptions=Array.from({length:12},(_,i)=>({title:`${i+1}か月前`,value:i+1}))
-const saveAlertSettings=async()=>{if(!await validate(alertsForm.value))return;await run(async()=>{Object.assign(alertSettings,await call('saveAlertSettings',{settings:{...alertSettings}}));showSnackbar('アラート設定を保存しました。','success')})}
+const saveAlertSettings=async()=>{if(!await validate(alertsForm.value))return;await run(async()=>{Object.assign(alertSettings,await call('saveAlertSettings',{settings:{...alertSettings}}));referenceCache.clear();showSnackbar('アラート設定を保存しました。','success')})}
 const emptyFilter = ()=>({month:japanDate().slice(0,7),notification:'pending',warrantyNumber:'',applicationFrom:'',applicationTo:'',handoverFrom:'',handoverTo:'',handoverMissing:'',search:'',companyId:'',branchId:'',groupId:'',fiscalYear:'',status:'',from:'',to:'',includeCancelled:false})
 const filter = reactive(emptyFilter()), reportKey = ref('')
 const detailsOpen=ref(false)
@@ -170,10 +172,16 @@ const companyName = (id:string)=>companies.value.find(c=>c.id===id)?.name ?? id
 const branchName = (id:string)=>branches.value.find(c=>c.id===id)?.name ?? (id || '本店')
 const call = async (action:string, data:Row={})=>(await httpsCallable<Row,Row>($firebase.functions,'propertyPrototype')({action,...data})).data
 async function run(fn:()=>Promise<void>) { if(busy.value) return; busy.value=true;const scope=errorScope();errors[scope]='';try{await fn()}catch(e){errors[scope]=e instanceof Error?e.message:'操作に失敗しました。'}finally{busy.value=false} }
-async function loadCatalog(){
-  Object.assign(alertSettings,await call('alertSettings'))
-  const selection=tab.value==='settings' ? {groupId:selectedGroupId.value,companyId:selectedCompanyId.value} : {}
-  const data=await call('catalog',selection)
+const referenceCache=createReferenceFetchCache()
+const referenceScope=computed(()=>({uid:profile.value?.uid ?? '',role:profile.value?.role ?? '',type:profile.value?.accountType ?? '',company:profile.value?.accountType==='construction_company' ? profile.value.constructionCompanyId : '',branch:profile.value?.accountType==='construction_company' ? profile.value.branchId : '',scope:profile.value?.accountType==='construction_company' ? profile.value.scope : ''}))
+watch(()=>JSON.stringify(referenceScope.value),()=>referenceCache.clear(),{flush:'sync'})
+onUnmounted(()=>referenceCache.clear())
+const fetchReference=(action:string,conditions:Row={},force=false):Promise<Row>=>referenceCache.get(referenceFetchKey(referenceScope.value,action,conditions),()=>call(action,conditions),{force})
+async function loadCatalog(force=false){
+  if(force)referenceCache.clear()
+  Object.assign(alertSettings,await fetchReference('alertSettings',{},force))
+  const selection=tab.value==='settings' ? {...(selectedGroupId.value ? {groupId:selectedGroupId.value} : {}),...(selectedCompanyId.value ? {companyId:selectedCompanyId.value} : {})} : {}
+  const data=await fetchReference('catalog',selection,force)
   companies.value=data.companies;branches.value=data.branches;groups.value=data.groups
   if(tab.value==='settings' && selectedCompanyId.value && !companies.value.some(c=>c.id===selectedCompanyId.value && c.defaultGroupId===selectedGroupId.value))selectedCompanyId.value=''
 }
@@ -236,6 +244,7 @@ function openSetting(action:string,item:Row={}){
 }
 async function saveSetting(){if(!await validate(settingForm.value))return;await run(async()=>{
   const result=await call(settingAction.value,setting.value)
+  referenceCache.clear()
   if(settingAction.value==='saveGroup'){selectedGroupId.value=result.id;selectedCompanyId.value=''}
   if(settingAction.value==='saveCompany'){selectedGroupId.value=setting.value.defaultGroupId;selectedCompanyId.value=result.id}
   await loadCatalog();settingDialog.value=false;showSnackbar('設定を保存しました。','success')
@@ -256,11 +265,11 @@ const catalogBusy=ref(false), catalogError=ref('')
 const dialogCompanies=ref<Row[]>([]),dialogBranches=ref<Row[]>([])
 function resetDialogCatalog(){catalogError.value='';dialogCompanies.value=[...companies.value];dialogBranches.value=[...branches.value]}
 async function runCatalog(fn:()=>Promise<void>){if(catalogBusy.value)return;catalogBusy.value=true;catalogError.value='';try{await fn()}catch(e){catalogError.value=e instanceof Error?e.message:'候補の取得に失敗しました。'}finally{catalogBusy.value=false}}
-async function fetchCompanyOptions(search:string){const data=await call('catalog',{search});return data.companies.filter((c:Row)=>c.enabled!==false && data.groups.some((g:Row)=>g.id===c.defaultGroupId && g.enabled!==false))}
+async function fetchCompanyOptions(search:string){const data=await fetchReference('catalog',{search,purpose:'companyOptions'});return data.companies.filter((c:Row)=>c.enabled!==false && data.groups.some((g:Row)=>g.id===c.defaultGroupId && g.enabled!==false))}
 function rememberCompany(row:Row|null){if(row && !dialogCompanies.value.some(c=>c.id===row.id))dialogCompanies.value.push(row)}
 function choosePropertyCompany(row:Row|null){rememberCompany(row);selectPropertyCompany(row?.id || '')}
 function chooseAccountCompany(row:Row|null){rememberCompany(row);selectAccountCompany(row?.id || '')}
-async function companyBranches(id:string){dialogBranches.value=[];if(!id)return;const data=await call('catalog',staff.value ? {companyId:id} : {});dialogBranches.value=data.branches}
+async function companyBranches(id:string){dialogBranches.value=[];if(!id)return;const data=await fetchReference('catalog',staff.value ? {companyId:id} : {});dialogBranches.value=data.branches}
 const selectPropertyCompany=(id:string)=>{form.value.branchId='';if(!id){dialogBranches.value=[];return}void runCatalog(()=>companyBranches(id))}
 const selectAccountCompany=(id:string)=>{account.value.branchId='';if(!id){dialogBranches.value=[];return}void runCatalog(()=>companyBranches(id))}
 const selectedKeys=ref<string[]>([]),reportConfirm=ref(false)

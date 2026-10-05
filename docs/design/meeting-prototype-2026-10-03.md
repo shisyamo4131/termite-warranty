@@ -1,5 +1,11 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-05 アカウント内部操作記録・参照取得
+
+同一UIDの三つの更新入口を`accountMutationLocks/{uid}`で直列化する。サーバー専用文書はoperationId、targetPath、actorUid、kind、desired、status、createdAt、previousAuth、previousEnabledを保持し、復旧時はrecoveryOwnerも保持する。statusはrunning/recovery_required/recovery_running。変更前のAuth値は私有記録に限定し、クライアントRulesは全アクセスを拒否する。成功時はstaffAccounts/constructionCompanyAccountsへlastAccountMutationIdとupdatedAtを記録し、ロックを同じtransactionで削除する。応答喪失の成功識別に用いる。時間切れ削除・一括移行なし。既存業務文書の保存形状は不変。
+
+catalogは会社・グループ指定をDBで絞り、purpose=companyOptionsは支店を返さない。既定応答・候補の意味・保存時の最新参照検証は保持。画面内参照キャッシュは5分・最大64条件、認証scope別、失敗は保存せず、保存成功・認証変化・logout・明示最新取得で破棄。物件／アカウント一覧と権限確認は対象外。constructionCompaniesのdefaultGroupId/updatedAt/__name__複合索引を追加。[詳細・実測](account-concurrency-read-efficiency-2026-10-05.md)。
+
 ## 2026-10-05 継続改修の基礎・旧画面撤去・点検
 
 オーナーの指示により現行MeetingPrototypeを継続改修の基礎とする。通常経路外の旧案件・旧マスタUIを撤去し、共通部品・認証・延期中ポータル・既存バックエンドは保持。検索の適用条件は送信時の値を表示し、取得中のクリアを抑止する。報告の部分失敗では完了済みを再選択せず、空選択で成功通知せず、一次エラーを再取得エラーで隠さない。アカウント作成後のメール送信と付随する一覧更新を分離する。既存の状態遷移・権限・採番・データ形状は変更しない。

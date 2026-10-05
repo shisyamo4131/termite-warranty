@@ -94,7 +94,7 @@ const staffAccountCallable = operation => onCall(async request => {
   try {
     return await operation(request)
   } catch (error) {
-    const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'failed-precondition'])
+    const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'aborted', 'failed-precondition'])
     const code = error instanceof StaffAccountError && allowed.has(error.code) ? error.code : 'internal'
     throw new HttpsError(code, error instanceof StaffAccountError ? error.message : '担当者アカウントを管理できませんでした。')
   }
