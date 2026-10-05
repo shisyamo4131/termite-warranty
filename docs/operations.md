@@ -1,12 +1,146 @@
 # Operations
 
-## Current Availability
+## 2026-10-05 HS本番利用確認フォーム
+
+オーナー指定の①の説明文へ差し替え、②〜⑥は承認された案で新規作成。タイトル「白蟻保証システム　本番利用に向けた確認」。[編集画面](https://docs.google.com/forms/d/1JRGBj3_0kHrjDqbx-O_RqZ80Z_qexL_icRLazXysEzs/edit)。既存の9月作成フォームは変更していない。
+
+①管理者名・メール（別の短文欄）、②最終保証満了の案内、③保険満了一覧の用途、④請求単位、⑤請求一覧の既定表示、⑥過去未請求分。②〜⑥は未定・相談したいを含む単一選択、最後に共通の任意補足欄。計8入力欄。①〜⑥の回答欄は必須、補足は任意。パスワードは収集しない。
+
+同日、オーナー指示で②③の説明末尾へ具体例を追記。②は最長20年の初回10年満了と最終20年満了（最長30年も同様）、③は5年目・10年目で延長なし・10年目で20年まで延長済みの比較。公開回答画面で追記を確認済み。選択肢・共有設定は変更なし。Drive内のファイル移動は未実施。
+
+同日の追加承認により、過去データの確認5問を⑦〜⑪として追加。⑦登録対象（番号のみの空欄行とテスト行を除外）、⑧HSC/SHS/UH別の不足情報・日付対応とUH全件の引渡日追記依頼、⑨等級と20/30年上限の対応案・断熱材、⑩過去請求状態、⑪UHの所属とコード相違の具体例。5年保証の有無は再質問していない。追加は必須の段落回答で、確認中・補完予定も記入可能。既存8入力欄を保持し計13入力欄。公開画面で⑦〜⑪の順序、説明、入力欄を照合済み。Google Formsの説明欄では表の内容をグループ別の見出しと段落に展開した。URL・公開範囲は不変。元シート・DB・アプリの変更、試験回答、HSへの送信なし。ここで提示した対応案はHS回答前であり、確定仕様へは昇格させない。
+
+ブラウザの編集画面・回答プレビューで文面と選択肢を照合済み。回答メール自動収集なし、1回限定のGoogleログイン要求なし、回答結果の概要共有なし。公開範囲についてオーナーの明示承認を得て、2026-10-05に「リンクを知っている全員が回答できる」設定で公開済み。[HS共有用の回答画面](https://docs.google.com/forms/d/e/1FAIpQLSdAGaTs20iD3zMPwrjviQ1Ct3GP6qzj9SsY4cLhDxwXNCehmg/viewform)。未ログインのブラウザで質問・入力欄・送信ボタンが表示されることを確認。試験回答・HSへの送信なし。回答内容は未受領・仕様として未採用。
+
+## 0.1.104 Dev反映・過去データ入力準備
+
+2026-10-05、延長請求開始月と過去初回保険の対象月基準をFunctions・Hostingへ同時反映済み。全7ゲート成功。オーナーの今回の明示指示で、Devの物件／保証31件、工務店6件、支店2件、採番7件、関連処理記録120件を初期化。保証グループ7件、Auth／staffAccounts各3件、設定1件は内容を保持し前後照合済み。[配備・初期化記録](design/evidence/dev-reset-104-2026-10-05.md)、[実装記録](design/evidence/implementation-104-2026-10-05.md)。Prodと原本データは変更していない。
+
+今回専用の `scripts/reset-dev-business.mjs` は既定で読取のみ。実行には `--apply --confirm-project termite-warranty-dev --expected-plan <直前照合のSHA-256>` が必要。未知コレクション、下位コレクション、工務店アカウント等の依存データ、照合後のデータ変化があれば停止する。保持データや認証秘密をファイルへ出力しない。削除は複数操作で原子的ではなく、失敗時は読取照合で残件を判断する。今回削除した試験データのバックアップは作成しておらず、コード差戻しで復元はできない。新しく入力を始めた後の再初期化には別途承認が必要。
+
+## 0.1.103 取消説明・アラート表示
+
+実装・全7ゲート・Dev Hosting反映・実画面確認完了。保証・保険カードを既定へ戻し、全v-alertをcompactにした。UX102-4はユーザー確認済み。Dev Hostingのみの変更で、確認データは保持。[検証記録](design/evidence/ux-103-2026-10-05.md)、[残り2件の確認手順](runbooks/local-acceptance-2026-10-03.md)。
+
+## 0.1.102 カード集約・確認データ
+
+保証期間に請求、保険カードに保証ごとの前半／後半を集約。Hosting配備・画面確認完了。全7ゲート成功、公開資産35件一致。[検証記録](design/evidence/ux-102-2026-10-04.md)、[準備不要の確認手順](runbooks/local-acceptance-2026-10-03.md)を参照。専用の架空グループ・工務店・物件3件をDevへ作成済み。将来の報告は表示確認用の模擬状態。既存データ・アカウントは変更していない。
+
+
+## 0.1.101 区間単位の請求・報告・取消
+
+Dev配備・開発側確認済み。propertyPrototype＋Hostingの配備exit 0、hint表示追修正のHosting配備もexit 0。公開資産35件一致、Dev設定・未認証拒否を確認。新規架空物件1件で請求・報告・延長の順次取消後に引渡日訂正できることを実画面確認。既存受入データ変更なし。機能部分は開発側確認完了、UI/UX差分はユーザー確認待ち。
+
+オーナーが実装とDev反映を承認。[保存契約](design/meeting-prototype-2026-10-03.md)、[検証・配備状況](design/evidence/lifecycle-101-2026-10-04.md)、[差分受入手順](runbooks/local-acceptance-2026-10-03.md)を参照。旧データの一括移行はせず、旧請求は要確認・不足する旧保険履歴は個別確認。FunctionsとHostingを揃えて反映する。下記の文書のみ／未実装表記はそれぞれの時点の履歴。
+
+## 2026-10-04 状態遷移の追加採用・設計確認中
+
+[仕様書](specification.md)に案内対象日の整合、報告区間の明示、新規／延長単位の請求状態、請求済み・延長依存の保険報告済みの延長取消禁止、全体取消の影響表示を実装待ちとして記録。引渡日訂正は初回分も含む有効な報告・請求・延長を逆順に戻せば可能とする。処理経験だけの恒久ロック案は撤回。外部訂正はHSが管理する。今回アプリ・データ・配備変更なし。下記0.1.100のDev動作へ新しい制御が入ったとは扱わない。
+
+## 2026-10-04 UX-R07受入と状態遷移レビュー
+
+UX-R07はユーザーOK。Devは0.1.100のまま。サブエージェント3名と[状態遷移・外部業務との境界](design/state-transition-review-2026-10-04.md)を読み取りレビューし、案内対象日・報告対象区間・請求単位・対外訂正の不足を未採用案として整理。アプリ変更・配備・Devデータ変更なし。C12保留、全体受入完了ではない。
+
+## 0.1.100 — 2026-10-04 案内取消の文言と整合性確認
+
+「未案内に戻す」、タイトル「保証満了案内を取り消す」、影響説明をv-alertへ変更。延長取消の既存復元動作の追加試験。全7ゲート成功、Dev Hosting反映・実画面確認済み。[記録](design/evidence/ux-100-2026-10-04.md)。業務仕様・未確定事項の変更なし。
+
+## 0.1.99 — 2026-10-04 案内状態・取消配置
+
+カレンダー、報告/請求カード、延長配置はオーナーOK。保証満了案内の状態と操作を直近保証行へ集約し、全体取消を右上の色付きボタンへ変更。Dev Hosting反映・実画面確認済み。全7ゲートexit 0。[記録](design/evidence/ux-099-2026-10-04.md)。保証上限到達時の保証/保険アラート除外はHSC-036で確認、抽出条件は不変。全体進捗の加点なし。
+
+## 2026-10-04 UX-R追加改修0.1.98
+
+Dev Hostingのみ配備済み。全7ゲートexit 0、公開HTML・35参照ファイルの一致、Dev接続先と未認証Callable401を確認。実画面で配色、報告/請求詳細input 0・閉じるのみ、延長操作配置を確認。データ更新・Functions/Rules変更なし。UX-R01/R06はオーナーOK。[記録](design/evidence/ux-098-2026-10-04.md)、[差分確認手順](runbooks/local-acceptance-2026-10-03.md)。請求年月・未請求管理と保険満了一覧用途は再確認待ち。
+
+## 2026-10-04 UI/UX改修0.1.97のDev反映
+
+`termite-warranty-dev` のHostingのみを配備し、公開HTMLと35参照ファイルの一致、Dev接続先、未認証Callable401、日付入力・選択・案内／取消画面を確認。7ゲート成功、既存データ維持、Prod・Functions・Rules配備なし。[検証・変更ファイル・配備記録](design/evidence/ux-097-2026-10-04.md)、[再確認手順](runbooks/local-acceptance-2026-10-03.md)参照。U07/U09はOK、UI/UX差分6項目はユーザー再確認待ち。C12保留、請求先単位はHSC-010で後発確認。
+
+## 2026-10-04 Dev単独機能受入の完了
+
+オーナー指示により、Codex単独で実施可能な残9区分を0.1.96のDevで確認し受入完了。[判定・実測・残る共同確認](design/evidence/extension-undo-dev-2026-10-04.md#2026-10-04-単独実施分のdev受入完了)、[最新の手順書](runbooks/local-acceptance-2026-10-03.md)を参照。新たな改修・再配備なし。メール／権限別ログイン、別タブ認証、通信遮断の共同確認とユーザーの業務・UI/UX受入は残る。Prod承認ではない。
+
+
+## 2026-10-04 Dev 0.1.96 延長取消と機能検証
+
+Hosting／propertyPrototypeをDev配備済み。必要7ゲートすべてexit 0、公開成果物・認証境界一致。HSの理由付き延長取消、保険保持、請求除外を実画面確認。[実測結果・残件・配備指紋](design/evidence/extension-undo-dev-2026-10-04.md)、[担当別の受入現在地](runbooks/local-acceptance-2026-10-03.md)を参照。Codex機能試験は部分完了、ユーザーは業務フロー・UI/UX担当。Devの専用QA1004データを追加し、既存受入データは保全。アラート設定は元の2か月へ復元。Emulatorは試験終了時に停止。Prod、実メール、初期化なし。
+
+取消履歴を理解しない旧版へ単純に差し戻すと請求行が復活するため、障害時は延長／請求操作を止め、互換性を保持する修正版で復旧する。
+
+
+## 2026-10-04 Dev機能受入の担当・承認
+
+Dev機能検証はCodex、想定業務一巡のUI/UX確認はオーナーが担当。機能不具合の改修→Dev配備→再検証は明示的に事前承認済み。Prod・新規業務仕様の独断決定・既存データ初期化は対象外。確認に専用の架空データを使用。A13-R・A15-RはユーザーOK。[受入手順](runbooks/local-acceptance-2026-10-03.md)に実施状況を集約する。
+
+## 2026-10-04 仕様書0.1.95のDev配備
+
+オーナー「Devに反映」により、`termite-warranty-dev` のHostingと`functions:propertyPrototype`を配備済み。コマンド `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only functions:propertyPrototype,hosting --non-interactive` はexit 0。データ／Auth／採番の変更・初期化、Firestore設定配備なし。全7ゲート成功、公開成果物一致・Firebase接続先Dev・未認証Callable401を確認。実画面のユーザー再確認は未実施。
+
+対象は入力Snackbar、工務店Autocomplete、同名同住所判定廃止、年月のみの保険報告、完了Snackbar、保証満了表示、上限選択制限、履歴ダイアログ。既存のアカウント・データは保持。A13の当初の保存原因は未確定のまま、上限20年選択不可とサーバー拒否を再確認する。[検証・配備記録](design/evidence/autocomplete-validation-2026-10-04.md)、[成果物指紋](design/evidence/dev-release-095-2026-10-04.json)、[受入手順](runbooks/local-acceptance-2026-10-03.md)参照。以下の未配備記述は配備前の履歴。
+
+## 2026-10-04 ローカル追加修正（Dev未配備）
+
+画面上部の入力エラーSnackbar、工務店Autocomplete、同名同住所判定廃止に加え、A05〜A10の年月のみ抽出・完了Snackbar統一・保証満了表示、A13の上限選択制限・A15の履歴ダイアログもローカルのみ。Devは直下の0.1.92配備状態を維持。次の配備ではHostingとFunctionsの双方が対象。データ初期化・スキーマ移行は不要。[検証記録](design/evidence/autocomplete-validation-2026-10-04.md)を参照。
+
+## 2026-10-04 A02-R入力検証修正版のDev配備
+
+ユーザーの「Dev反映して」により、入力検証・画面別エラー表示の修正版をHostingへ配備。`node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only hosting --non-interactive` はexit 0。公開HTML200と参照アセット36件が検証済み成果物に一致。Firebase設定Dev・未認証Callable401。データ／アカウント／採番・Functions・Firestore設定は変更しない。詳細は[A02-R証跡](design/evidence/a02-r-input-validation-2026-10-04.md#a02-r修正版のdev配備)。全7ゲート成功、ユーザーの再確認待ち。次の操作はブラウザ再読み込み後のA02-R（8桁エラーの表示箇所・7桁訂正後の保存）。
+
+## 2026-10-04 Dev接頭辞のデータ訂正
+
+オーナーの明示依頼により、保証グループ4件を読取確認し、末尾ハイフン付き2件のみを訂正した（HSC-→HSC、SHS-→SHS）。対象はtermite-warranty-devのwarrantyGroups。通常画面の接頭辞・年度開始月の変更禁止は維持する。発行済み番号、年度開始月、採番カウンター、他のグループ項目は変更せず、更新日時のみ通常の更新情報として更新した。
+
+実行：`node --check tmp/cleanup-dev-prefixes.mjs`、同スクリプトの読取計画、`node tmp/cleanup-dev-prefixes.mjs --apply --confirm-project=termite-warranty-dev` はそれぞれexit 0。重複なしと訂正前後の番号生成一致を確認し、トランザクションで読取計画と再照合して更新。更新後は全グループを再読取し、対象接頭辞・更新日時以外の同一性、発行済み番号とカウンターの不変を確認した。対象2件の原値は上記のとおり。復旧が必要なら対象の現在値を再確認し別承認で戻す（コードの旧版配備は不要）。
+
+アプリ・スキーマ・配備物は変更なし。直前の全7ゲートのアプリ検証証拠は不変のため再利用し、今回の限定データ訂正は構文確認・読取計画・生成値同一性・更新後比較で検証。文書更新はgovernance-checkを実行する。実データの内容はログ・文書へ転記せず、接頭辞の訂正結果のみ記録した。
+
+## 2026-10-04 Dev受入フィードバック配備
+
+追加指示「Devへの反映実施」「手順書に検証結果を追記」に基づき、検証済み作業ツリーのFunctionsとHostingをtermite-warranty-devへ配備。CLI終了コード0、Functions15件更新、Hosting1,024ファイル公開。Firestore Rules/索引、登録済み物件・アカウント・マスタ・採番の変更／初期化は行わない。Prod・Git pushなし。
+
+公開確認はHTTP200、HTMLと参照JS/CSS等33ファイルが手元成果物に一致、Firebase設定もDev。未認証propertyPrototypeは401。配備前の全7ゲートも個別exit 0。[実行証跡](design/evidence/dev-acceptance-a00-a04-2026-10-04.md#2026-10-04-dev配備の実行記録)と[配備指紋](design/evidence/dev-release-2026-10-04.json)を参照。
+
+[Dev受入手順](runbooks/local-acceptance-2026-10-03.md)は全34項目に結果列を追加し、A04までの操作報告と修正4項目の再確認を分離。ブラウザ再読み込み後に修正版を確認する。手動受入完了は未確認。旧版へ戻す場合は画面／Functionsを揃え、新しい支店住所と接頭辞書式への影響を調べる。データ削除・巻戻しは別承認。
+
+## 現在地と参照先
+
+最新の実行記録は[0.1.104 Dev反映・初期化](design/evidence/dev-reset-104-2026-10-05.md)。次の作業は過去データを使った下書き入力確認。[Dev受入手順](runbooks/local-acceptance-2026-10-03.md)先頭を参照する。以前のUX確認用物件は今回の承認で削除済み。初期化の再実行は承認されていない。
+
+以下の過去のチェックポイントにある「未配備」「Local受入」「任意の引渡日」等は、その時点の記録。現在の要件は[仕様書](specification.md)、現在の配備・受入状況は上記の実行記録を参照し、過去の操作承認を再利用しない。
+
+## 2026-10-03 Local Hierarchy Checkpoint — Historical, Before Deployment
+
+The hierarchy and company/branch disable changes are local only; see the [contract](design/meeting-prototype-2026-10-03.md) and [verification evidence](design/evidence/meeting-prototype-2026-10-01.md#2026-10-03-hierarchy-management-checkpoint). No hosted data/account changes or deployment were performed. Existing branch group overrides remain stored but the new command ignores them; company `defaultGroupId` remains the storage key. Do not deploy or migrate these changes as part of requirements Q&A. Finish Q&A first; rollback constraints are recorded in the contract.
+
+## 2026-10-01 Additional Alert / Optional Handover Changes — Historical
+
+The subsequent [meeting-contract additions](design/meeting-prototype-2026-10-03.md) were separately approved for Dev deployment by the owner and deployed successfully on 2026-10-01. This second deployment includes the configurable alerts and optional handover dates for every group. No reset or account change was performed. Settings are stored at `prototypeSettings/alerts`; absent settings default to two months. The reset script now recognizes this collection but was not executed. Existing accounts/data are preserved. Verification results follow in the meeting evidence. The existing 28-matter PDF and presentation guide precede these additions and are historical snapshots pending a requested regeneration.
+
+
+## 2026-10-01 Meeting Prototype — Historical Checkpoint
+
+The application now follows the [meeting prototype contract](design/meeting-prototype-2026-10-03.md), superseding the old case/shared-company-account UI described below. [Verification, reset and deployment evidence](design/evidence/meeting-prototype-2026-10-01.md) records exact commands and results. The owner separately approved Dev deployment on 2026-10-01; Hosting, Functions and Firestore deployment completed with exit 0. The public login screen and exact Hosting HTML artifact match were confirmed. Authenticated remote business-flow smoke remains unverified.
+
+The owner-requested Dev reset has executed successfully: two verified retained administrators, three initial warranty-group settings, zero companies, branches, company users and business records. Retained passwords were not changed. Do not rerun reset after the user begins preparing presentation data without checking the requested scope. The tool is `scripts/reset-meeting-prototype.mjs`; default mode is read-only inventory, `--apply --confirm-project termite-warranty-dev` is the destructive, authorized test-data path. Supply the two owner-confirmed emails through command arguments, not committed configuration. Unknown collections or mismatched administrator roles abort the reset. Deleted disposable test data is not recoverable by reverting code.
+
+For local verification only, start the approved Emulator Suite and Nuxt server, then use `node scripts/seed-meeting-emulator.mjs` to prepare two fictional administrators and three groups. The script does not create business fixtures. Its fictional credentials are local-only. Stop project servers after testing. Both the local development server and emulators were stopped and their ports verified free at this checkpoint.
+
+Deliverables: [unresolved matters and presentation flow](../deliverables/meeting-2026-10-03/README.md). These PDFs were not sent externally. The approved deployment used the verified Hosting artifact and current Functions/Rules/indexes against Dev only. Production remains separate and unapproved. Older seed scripts describe historical prototype fixtures and should not be used to prepare this presentation.
+
+## Earlier Availability Records (superseded in overlapping meeting-prototype scope)
+
+2026-10-01 target change: ADR 0034 adopts company new registration and warranty extension without HS per-submission approval. HS account issuance remains. The deployed review workflow described below is unchanged; direct registration/extension, pending-item migration, duplicate protection and revised company-scoped access are not implemented. Do not operate the prototype as if the new workflow were available.
+
+- On 2026-09-29 the permanent one-warranty-per-property model was approved in [ADR 0033](decisions/0033-permanent-property-warranty.md). It is not implemented or deployed. The current Firestore data contract describes the prior runtime; no warranty numbers are assigned or migrated by this specification checkpoint. Do not use the existing extension flow as evidence of compliance with the newly confirmed model.
+
+- Local postal UI retry on 2026-09-28 completed the previously interrupted property save/reload checks (autofill with correction, no-match/manual entry, and candidate selection), plus bounded desktop/narrow-screen and keyboard smoke. See [TR-009 verification and screenshots](design/tr-009-japan-post-postal-data.md#successful-ui-retry-2026-09-28). This local evidence does not update the deployed revision or claim formal accessibility acceptance.
 
 - Implemented locally: warranty calculations and N-Gram generation, a Nuxt/Vuetify SPA, Firebase Authentication emulator login, authentication-focused Firestore rules, synthetic seed data, callable Admin SDK atomic case/first-warranty registration and applied-warranty management, role-bounded staff-account management, required case application/handover dates with protected handover-to-warranty-start auto-fill, inclusive application/handover date-range case filters with reversed-bound rejection, button-triggered create/edit dialogs for four masters and cases, required property building area, required warranty-service type and case filtering by that type, dedicated master and case detail routes with list-return/not-found handling, construction-company/homeowner/warranty-service linked-property detail display, account-owned construction-company email display, construction-company and homeowner address/contact fields with digits-and-hyphens TEL/FAX validation, four-master quick creation that preserves the case draft, property-defaulted and independently editable case homeowner/company references, non-propagating property-party edits, transactional active-case editing, bounded freshest-20 unfiltered case/master lists, complete collection matching with 20-record client-side pages while a condition is active, dialog-based case filtering, six-character warranty-service short names, parent-case warranty list projections, current-master case-list joins, dashboard alert evaluation and icon-labelled Navigation Drawer, application-managed reversible CRUD for four masters, retained pre-approval construction-company new-case withdrawal, Clear Sky Vuetify theme styling, Vuetify date selection, and a zero-network provider-neutral postal-lookup seam with stale-response protection for future property/homeowner/construction-company integration.
 - Japan Post postal lookup is deployed to `termite-warranty-dev` through the official UTF-8 source transformation: 124,522 normalized records, 948 checksummed same-origin shards, manifest schema/count/integrity checks, candidate selection, manual fallback, and stale-response protection for property/homeowner/construction-company forms. Revision `1d113e5b3e719679ed8d7d82ac3c313b0e6daf71` passed push verification in [run 35303358082](https://github.com/shisyamo4131/termite-warranty/actions/runs/35303358082) and was deployed by workflow dispatch [run 35303604261](https://github.com/shisyamo4131/termite-warranty/actions/runs/35303604261), including Firestore, Functions, and Hosting. Public smoke verified `/` HTTP 200 and manifest plus representative shard `001`/`500`/`999` counts and hashes. On 2026-09-18, authenticated Dev UI smoke as `デモ管理者` verified `1000001` autofill (`東京都`/`千代田区`/`千代田`) in property, homeowner, and construction-company registration dialogs, homeowner manual correction to `テスト手修正`, and `0287302` candidate selection (`岩手県`/`八幡平市`/`松尾寄木`); all dialogs were canceled without a save action, homeowner/company lists were observed without test records, and property persistence was not independently rechecked. Responsive/layout and accessibility acceptance remain unverified.
 - Development environment provisioned and technically deployed: Firebase project `termite-warranty-dev`, web app `TermiteWarranty Dev Web`, Hosting site `termite-warranty-dev`, email/password Authentication, and default Firestore in `asia-northeast1` (Tokyo). Revision `503d062bb250e2cf0ea997d38fb0650c073f208c` was deployed by successful [GitHub Actions run 34821560953](https://github.com/shisyamo4131/termite-warranty/actions/runs/34821560953) on 2026-09-14 after all seven comprehensive gates passed. Authenticated read-only Dev smoke confirmed the responsive warranty-service table with separate type, short-name, and standard-period columns and successful detail navigation. Revision `98cdd7734f44a31bb8bdf74a2cd0fe29f7ed3824` was deployed by successful [GitHub Actions run 56](https://github.com/shisyamo4131/termite-warranty/actions/runs/34803205002) on 2026-09-14 after all seven comprehensive gates passed. Authenticated read-only Dev smoke confirmed the developer-superuser staff-account screen and its one-record Callable result, the freshest-20 case-list state, and the dialog-based case filters including condition initialization. Revision `6ba80c8046fc6e997026d872b6355f0860b6da1c` was deployed by successful [GitHub Actions run 51](https://github.com/shisyamo4131/termite-warranty/actions/runs/34797020809) on 2026-09-14 after all seven comprehensive gates passed. Authenticated Dev smoke confirmed compact one-line case-list guidance, the common list-card layout, right-aligned title actions, simple property/warranty-service list titles, all three migrated warranty short names, and the required short-name plus optional-notes warranty form fields. Revision `6243b368b0a8627e39a6b2e351367c04da45e9eb` was deployed by successful [GitHub Actions run 46](https://github.com/shisyamo4131/termite-warranty/actions/runs/34760321811) on 2026-09-13 after all seven comprehensive gates passed. It includes an initially closed compact Navigation Drawer and the same-site Japanese password setup/reset handler at `/auth/action`; a post-deploy request with a synthetic invalid code displayed the expected Japanese invalid-link guidance instead of the login screen. The Firebase Authentication configuration still reports the global action URL as `https://termite-warranty-dev.firebaseapp.com/__/auth/action`. On 2026-09-13, both Firebase Console and the official Identity Toolkit Admin API rejected an attempted change to `https://termite-warranty-dev.web.app/auth/action` with `EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED`, although `termite-warranty-dev.web.app` is an authorized domain. A Firebase Support case requesting investigation and application or enablement of the desired callback URI was submitted the same day; the confirmation page displayed no case identifier. By 2026-09-18, Firebase Support had notified the project that the backend Dev Action URL was updated to `https://termite-warranty-dev.web.app/auth/action`. On 2026-09-18, the user confirmed that a new email opened the Japanese page, used the expected URL, completed password reset, and allowed login successfully. Support also explained a temporary internal policy affecting this configuration; that note does not change the application requirements. Revision `3a59f1110f6eba54bae3de42fb32206ed3b5f0df` was successfully deployed to `termite-warranty-dev` by [GitHub Actions run 35297212067](https://github.com/shisyamo4131/termite-warranty/actions/runs/35297212067) on 2026-09-18 after all workflow verification steps succeeded. The deployed revision includes the username/password-manager form UX change. On 2026-09-18, Chrome associated and saved the generated reset password with the correct account email as intended. The preceding revision `348cfa55e13ec1da6b60b962679753d561572727` replaced transient page-width operation alerts with the shared bottom snackbar. The user confirmed in Dev that construction-company account issuance and disable state were displayed correctly and that a construction-company account could sign in; email-address verification is not required by the current specification. Authenticated, read-only Dev smoke for the preceding detail revision confirmed drawer icons for every main item and the portal group/submenus; `担当物件` with linked properties and account-derived email fallback on the construction-company detail; the absence of a company-email field from its edit form; `所有物件` with linked properties on the homeowner detail; and `対象物件` with the currently active linked property on the warranty-service detail. The first deployment of this detail expansion exposed a collection-group Rules mismatch; revision `35e2d53` added the required recursive `appliedWarranties` read match without broadening access beyond enabled staff, and the repeated smoke confirmed the error was resolved. The earlier portal split remains verified: `工務店管理ポータル` displays `通知管理` above `アカウント管理`, both links open separate screens, and `/company-portal` redirects to notification management. The portal response workflow was subsequently accepted as the initial scope; real email delivery and scheduled renewal generation remain incomplete. Earlier authenticated Dev smoke for revision `7843ebcf179ba0f69a59e82c449115cd84d257d7` confirmed the manual/unconnected homeowner entry, normal property address fields, and construction-company exclusion from postal lookup without writing data.
 - The construction-company portal response workflow is accepted and deployed to Dev. Its `notificationOutbox` records are demonstrators, not delivered email. Do not present a queued record as sent, and do not use actual construction-company or homeowner data in the developer-owned environment without the existing confidentiality approval.
-- Planned but unavailable: branch management, production Firebase provisioning, monitoring, and backup/recovery implementation. Monthly Japan Post source checks remain manual; save/persistence, responsive/layout, and accessibility acceptance for the generated lookup remain unverified, while Dev publication, public smoke, and authenticated lookup smoke are recorded above. FileMaker data migration and cross-service cutover are not in scope. HSC-020 records the adopted production ownership, environment separation, deployment, monitoring, backup, and recovery plan; project creation, settings, credentials, and implementation remain pending.
+- HS branch management is excluded by HSC-033; removal of existing prototype branch fields remains pending. Planned but unavailable: production Firebase provisioning, monitoring, and backup/recovery implementation. Monthly Japan Post source checks remain manual; save/persistence, responsive/layout, and accessibility acceptance for the generated lookup remain unverified, while Dev publication, public smoke, and authenticated lookup smoke are recorded above. FileMaker data migration and cross-service cutover are not in scope. HSC-020 records the adopted production ownership, environment separation, deployment, monitoring, backup, and recovery plan; project creation, settings, credentials, and implementation remain pending.
 - Production operations: House Solution owns and contractually controls the production Firebase/Google Cloud project and billing. Provisioning may use a temporary HS-supplied account, followed by HS password change, session revocation, and credential destruction. Ongoing maintenance uses individually assigned least-privilege Google accounts; routine maintenance has no project-deletion permission. If Firestore is selected under HSC-022, production Firestore and Functions use `asia-northeast1` and production uses Blaze. WIF is preferred for environment-fixed Dev/Prod workflows after Firebase CLI verification, with restricted key fallback if needed. HSC-020 targets 7-day Firestore PITR, 30-day daily managed backups, weekly/important-change Auth exports retained 30 days, 24-hour maximum data-loss window, 4-hour business-hours critical restoration, and email alerts at stated availability/error/deploy/backup/export/budget thresholds. These targets are not yet configured or verified.
 - Data responsibility: House Solution has operational authority and is the final decision-maker for business data, including approved access, correction, retention, and deletion. House Solution administrator approval is required for output. Developers and construction companies may not perform unilateral bulk export or deletion. Development/maintenance providers act only under House Solution instruction; House Solution production ownership and operations are resolved under HSC-020, while Google/Firebase provider contract terms, contracting details, region/subprocessors, and termination conditions remain unconfirmed under HSC-025. Contract termination requires House Solution to be able to receive necessary data and subsequent provider-copy deletion within the contractually specified period; no initial-release export feature is approved by this record.
 - On 2026-09-14 after run 56, `npx firebase functions:list --project termite-warranty-dev` exited 0 and reported 13 v2 callable functions in `asia-northeast1` on Node.js 22: `addAppliedWarranty`, `createConstructionCompanyAccount`, `createNewCaseWorkItem`, `createRenewalWorkItem`, `createStaffAccount`, `listManageableStaffAccounts`, `registerCase`, `reviewCompanyCaseWorkItem`, `setConstructionCompanyAccountEnabled`, `setStaffAccountEnabled`, `updateAppliedWarranty`, `updateCompanyCaseWorkItem`, and `updateStaffAccount`. The approved remote deletions of `createMaster`, `updateMaster`, `setMasterActive`, and `getOwnProfile` remain absent. Staff profile state is read through the Rules-governed live Firestore subscription. Source removal alone does not authorize remote deletion; inventory and deletion remain separate deployment approvals.
@@ -146,3 +280,77 @@ Route `容量チェック`, `タスク容量確認`, `セッション容量確�
 ## Sensitive Information
 
 [How secrets and private data are handled.]
+
+
+## 2026-10-01 デモ確認後のローカル改修
+
+申込日入力と本登録後固定、引渡日による保険報告抽出、保証グループの番号設定固定・無効化を実装。仕様書0.1.31／[試作契約](design/meeting-prototype-2026-10-03.md)が対象。現在のDev配備済み版とは異なる。外部データ変更、試験データ初期化、追加配備は行っていない。検証は[実測記録](design/evidence/meeting-prototype-2026-10-01.md)へ記載する。
+
+配備時は画面とFunctionsを揃える。既存保証の番号・申込日を書き換えず、既存グループのenabled欠落を有効と解釈する。コード差戻し時は旧版が無効グループを使用できる点と申込日・抽出基準の差を確認し、停止中の業務を勝手に再開しない。会社／支店停止・報告履歴・取込は未実装。既存PDFは作成時点の説明で、今回の変更は含まない。
+
+
+## 2026-10-02 Dev配備・マスタ保持の試験データ削除
+
+オーナーが現行改修の配備と選択的削除を承認。`scripts/reset-meeting-prototype.mjs --preserve-masters` は読取り専用で削除予定を照合し、同じオプションと `--apply --confirm-project termite-warranty-dev` で実行する。保持する2管理者のメールを引数で指定し、Authとスタッフ情報の権限・有効状態を照合する。旧モードは全マスタを初期化するので今回には使わない。
+
+保持：工務店、支店、保証グループ／商品マスタ、採番カウンター、アラート等の設定、全システム管理者・HS管理者。削除：物件／保証実データ、旧物件／案件と関連工務店申込データ、工務店アカウントとbinding、HS一般担当者。未知のコレクション・権限・所属不明Authアカウントは実行前に停止。マスタ・保持管理者の内容を実行前後にメモリ上で比較し、個人データそのものをログへ出さない。パスワード変更なし。試験データの削除はコード差戻しで復旧できない。処理は複数サービスにまたがるため一括原子的ではなく、失敗時は件数を再確認して未完了分を判断する。
+
+### 緊急操作用アプリ管理者台帳
+
+2026-10-02にDevのAuthとstaffAccountsを直接照合。オーナーの「プロジェクト内に記録」指示に基づき、秘密ではない識別情報だけを記録する。認証用のパスワード、回復コード、セッション、秘密鍵は記録しない。
+
+| 項目 | システム管理者 | HS管理者 |
+| --- | --- | --- |
+| 環境 | Dev / termite-warranty-dev | Dev / termite-warranty-dev |
+| ログインメール | dmaruyama.air@gmail.com | demo.admin@termite-warranty.com |
+| Firebase Auth UID | SiLgOj5A2vRLyTrKw9omDSHiXmP2 | 8bNGApg8NIhr05abFCL61Tfthsr1 |
+| アプリ内role | developer_superuser | house_solution_administrator |
+| Auth／スタッフ状態 | 有効／enabled=true | 有効／enabled=true |
+| 用途・管理主体 | 開発者であるプロジェクトオーナーの緊急・保守操作 | HS管理者としての試作操作 |
+| 秘密情報の保管先 | オーナー管理。具体的保管場所は未確認 | 具体的保管場所は未確認 |
+
+UIDは同一人物のアカウントでも再作成時に変わる。削除や復旧前にはこの台帳だけで実行せず、実環境のメール・UID・roleを再照合する。Devの識別情報を本番に流用しない。
+
+推奨運用（採用・実装は別途）：アプリ外の保管庫で秘密情報を管理し、この台帳には保管庫の項目名／参照先、責任者、最終確認日、復旧手順へのリンクを記録する。緊急アクセスは保管庫や同じ認証基盤の障害にも備えて回復手段を確保する。日常利用と緊急利用を区別し、利用時の理由・操作・事後確認を残す。MFA／利用通知／包括的監査は現行実装済みと扱わない。
+
+アプリ内システム管理者とFirebase／Google CloudのIAM管理者は別物。アプリ自体・Firebase Authが故障している場合、アプリ管理者のログインでは復旧できないため、別のクラウド管理アクセスと復旧手順が必要。この作業ではクラウドIAMを変更・新規設定しない。本番の具体的なアクセス保持・復旧は既存HSC-020/025で確認する。
+
+参考： [OWASP Secrets Management](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) の秘密情報分離、[Google Cloud continuous access](https://docs.cloud.google.com/docs/security/best-practices-continuous-access-to-google-cloud) の緊急アクセスと復旧手段。GoogleのCloud Identity/Workspace向け手順を、このアプリにそのまま実装済みと見なさない。
+
+
+### 2026-10-02 同作業中の追加指示：マスタも空にする
+
+オーナーは「採番した番号の再利用もOK」「マスタも削除でOK」と範囲を変更した。今回の実行は上のマスタ保持案を置き換え、`--empty-masters` を使う。`--preserve-masters` は今回実行しない。会社・支店・保証グループを含む業務マスタ、物件／保証、工務店／一般担当者、採番カウンターを削除。初期保証グループも再投入しない。保持するのは照合済み管理者2名とアラート設定だけ。採番カウンターがないため、新しく設定したグループは最初の番号から採番する。この番号再利用はDevのデモ初期化に限定し、本番運用へ適用しない。
+
+
+### 2026-10-02 実行結果
+
+配備・`--empty-masters`削除・独立した再照合はすべてexit 0。残存はAuth 2件とstaffAccounts 2件だけ。物件／保証、工務店・支店・保証グループとカウンターは0件。アラート設定は元々未作成なので既定値を使用する。保持パスワード変更なし。公開HTMLはHTTP 200で検証済み成果物と一致。全7ゲート成功、ログイン後の遠隔業務操作は未実施。詳細は[実測記録](design/evidence/meeting-prototype-2026-10-01.md)。準備再開後にこの削除コマンドを再実行しない。
+
+
+## 2026-10-03 確定仕様の独立先行改修（当時未配備・後続Dev配備前の記録）
+
+仕様書0.1.90のうち独立可能な入力・年度採番・案内・通常保険報告・請求CSV・ログイン再試行を改修。[Local受入手順](runbooks/local-acceptance-2026-10-03.md)と[検証記録](design/evidence/independent-implementation-2026-10-03.md)を参照。Dev／Prod配備、既存の実アカウント・業務データ・カウンター操作は行っていない。旧グループ単位カウンターがある場合は年度別へ移行するまで本登録を拒否する。旧保険フィールド未保存データは報告対象として自動確定しない。
+
+Local受入は通常のemulators:start→seed-meeting-emulator→devの順。自動テストのtest:rulesは終了時にEmulatorを停止する。今回のtest:rulesではプロジェクト配下tmp/firebase-configをXDG_CONFIG_HOMEに指定しCI=trueを使用。Firebaseのメタデータ検出が外部アクセス拒否の警告を出すが、架空demoプロジェクト内の試験のみを実行する。これを外部認証・実環境接続の検証とは扱わない。
+
+
+## 2026-10-03 Dev受入用配備と空データ初期化
+
+承認：本タスクで「Devへ反映しDevテストを受入」とする指示と、続く「管理者2名を残し、デモ用アカウント・物件・マスタ・採番を初期化する」の明示回答。対象は実アプリ一覧で照合したtermite-warranty-dev。保持アカウントは上の管理者台帳の2メールをAuthとstaffAccountsのrole/enabledで再照合した。Prod・IAM変更、パスワード変更、Git pushなし。
+
+配備前の読取結果：propertyWarranties、constructionCompanies、companyBranches、warrantyGroups、warrantyCounters、constructionCompanyAccountsが各1、staffAccountsが2、Authが3。旧採番と保険フィールド欠落を確認したため、既存業務データの勝手な移行はせず、ユーザー選択により空のDevから受入する。初期化でアラート設定が存在すれば保持し、初期グループは投入しない。削除済みのデモデータはコード差戻しでは復元できない。
+
+全7リリースゲートを現在の成果物で再実行。Node22・npm11.19.1・Java21。`npm test`は132成功・symlink環境制約による2スキップ（exit 0）、typecheck/build（各0）、test:rulesは80成功（0）、Functions構文（0）、seed構文（0）、governance（0）。初期化スクリプト構文と読取専用事前実行も各0。コードは前回先行改修から変更せず、[配備フィンガープリント](design/evidence/dev-release-2026-10-03.json)に基底コミットと未コミットソース／Hostingのハッシュを記録。前回ゲートを未確認で流用したのではない。
+
+配備・初期化・公開照合の結果は以下。受入手順は[Dev受入手順](runbooks/local-acceptance-2026-10-03.md)を使用。Devへの配備完了とユーザーの受入完了は区別する。
+
+
+### 配備・初期化の完了結果
+
+- `firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive`：exit 0。Functions 15件更新、Firestore設定反映、Hosting 1,024ファイルの新バージョン公開。ローカルの検証済み成果物を使用し、Git pushや依存関係更新は行っていない。
+- `node scripts/reset-meeting-prototype.mjs --empty-masters --apply --confirm-project termite-warranty-dev --system-email <台帳のシステム管理者> --hs-email <台帳のHS管理者>`：exit 0。Auth 2件・staffAccounts 2件を保持。他の業務データ、マスタ、採番、工務店アカウントは空。初期グループは再投入せず、パスワード変更なし。
+- 同じスクリプトのapplyなし読取再実行：exit 0。管理者2名の権限／有効状態を再確認。Auth 2件、コレクションはstaffAccountsの2件だけ（アラート設定は未作成で既定値）。
+- 公開検証：exit 0。https://termite-warranty-dev.web.app/ がHTTP 200、HTML SHA-256が検証済み成果物と一致（`c74da9b8cf54c0c225a0e3f5303ca5a4fd51f3fcce676caf42b53360269fcd09`）。HTML参照のJS/CSS等33ファイルもバイト一致。Firebase初期設定はDevを指し、未認証propertyPrototype呼出は401/UNAUTHENTICATED。
+- この配備作業ではアプリケーションソース、依存関係、Rules、検証ポリシーを変更していない。変更は受入先・運用／証跡・手順・ロードマップの記述と配備指紋。既存の未コミット差分は保持。
+- ユーザーによるログイン後の業務受入は未実施。既存Dev管理者でログインし、保証グループ作成（A00）から開始。Local seedや架空認証情報はDevで使わない。初期化を再実行しない。以後の受入データ削除には新たな承認が必要。

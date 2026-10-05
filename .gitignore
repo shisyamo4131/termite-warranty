@@ -13,3 +13,6 @@ ui-debug.log
 *.local
 .env
 /.user-ui-workbench/
+
+/tmp/
+/*.local.log

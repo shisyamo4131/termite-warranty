@@ -4,7 +4,8 @@
     v-model="open"
     :color="state.type"
     :timeout="state.timeout"
-    location="bottom center"
+    :location="state.location"
+    :z-index="3000"
     multi-line
   >
     {{ state.text }}

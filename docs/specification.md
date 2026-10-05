@@ -1,176 +1,258 @@
 # termite-warranty Specification
 
-- Last updated: 2026-09-17
-- Specification version: 0.1.22
-- Status: Prototype implementation
-- Current phase: Deploy and verify the confirmed initial-release prototype in the provisioned Firebase development environment while retaining local Emulator Suite verification
+## 2026-10-05 0.1.104追加確認と実装
 
-## Requirement Records
+報告対象月を基準に初回保険期間を判定する。オーナーの追加回答：2030年9月30日に保証終了する未報告物件は、10月に9月分を処理する場合も9月分として初回報告可能。対象月末（当月内で保証終了する場合は保証満了日）を含む5年期間を候補とする。月内終了物件もHSがチェックを外して除外でき、未選択分は保険未適用・未報告のまま。保証終了翌月以降は初回報告対象外。報告操作日によって過去対象月の期間を変えない。
 
-The following topic records support this specification. They distinguish confirmed facts from open decisions.
+延長請求の開始月基準と上記保険処理をローカル実装・機能検証済み。Devは0.1.104へ反映済み（2026-10-05）。明示された対象だけをreport時に保存し、未適用の過去5年間を報告済みにはしない。CSV出力だけでは状態更新しない。未請求フィルター・全体取消制約・アラート対象の未確定事項には変更なし。[検証記録](design/evidence/implementation-104-2026-10-05.md)。下の文書のみ・実装未反映は採用時点の記録。
 
-- [Business context](requirements/business-context.md)
-- [Workflow](requirements/workflow.md)
-- [Legacy system and objectives](requirements/legacy-and-objectives.md)
-- [Delivery and technology](requirements/delivery-and-technology.md)
-- [Environments and authentication email](requirements/environments-and-authentication-email.md)
-- [Search architecture](requirements/search-architecture.md)
-- [Unresolved-matter register](requirements/house-solution-confirmations.md)
-- [2026 initial-delivery roadmap](roadmaps/2026-initial-delivery.md)
+## 2026-10-05 請求対象月・過去保険・取消データの追加確定（0.1.104）
 
-## Purpose
+根拠：同日のオーナー回答①〜⑥と全体取消の追加確認。以下は確定要件。今回文書のみを更新し、Devの実装は0.1.103のまま。旧日付節にある操作月基準・未採用等の記述は本節で置換する。
 
-Provide House Solution Co., Ltd. with a management system for a new termite-warranty service. The new service is not a replacement or migration of the current FileMaker service.
+- 延長分の請求対象は延長後の保証開始月。新規の申込月基準は維持。未請求のみの既定抽出・過去未請求の扱い、請求先単位・合算は未確定。現行コードは延長操作月のため改修が必要。
+- 初回未報告の過去物件が引渡日起算5年の区切りを終えた場合、次の期間に初めて保険を適用する。10年経過かつ延長なしなら保険適用なしとし、終了した期間を報告済みにしない。HSが報告対象・時期を選ぶ。基準日と対象年月の関係など具体的判定・初期取込処理は実装準備で整理し、操作日や月末へ勝手に固定しない。
+- 保証満了＝保険終了のため満了による減少報告は不要。取消による減少報告はHSが外部で行う。全体取消は事前の保険報告取消を必須にせず、警告・確認と履歴保持の現行仕様を維持する。
+- 保証/保険の満了アラート対象・保険満了一覧の用途、請求先単位は確認待ち。
+- 取消済みデータはCSV出力しHSファイルサーバーへ保管後、Firestoreから削除可能とする後発要件。トリガー・期間・関連情報の範囲等は未確定。番号再利用禁止を維持し、CSVなし削除案は置換。
 
-## Users
+参照：HSC-010/036/035/001。実データ投入・削除・配備は今回実施しない。
 
-- House Solution Co., Ltd. staff who receive and review warranty enrolment information.
-- Participating construction companies (工務店), who are expected to submit enrolment information through a form in the target workflow.
-- Homeowners are personal-information subjects, not direct application users in the initial release; no homeowner account or self-service page is provided.
+## 2026-10-05 UI受入の文言・密度調整（0.1.103）
 
-Staff roles are `developer superuser`, `House Solution administrator`, and `general staff`. The initial construction-company workflow has one shared `construction company` account per construction company. Detailed permissions are described in the provisional [security and access posture](requirements/security-and-access.md).
+保証・保険の共通カードはoutlinedと独自の枠線・影指定を外し、Vuetify既定のカード表示を使用する。v-alertはシステム共通defaultsでdensity=compactとする。延長取消の制限は判定を維持し、該当する状態だけ「請求済みの状態を先に取り消す必要があります。」「保険報告済みの状態を先に取り消す必要があります。」「保証更新案内済みの状態を先に取り消す必要があります。」と表示する。
+
+全体取消の冒頭は「物件・保証全体を取消し状態にします。保険会社への報告、請求、保証更新案内の履歴は保持されますが、保険会社への取消し報告、請求の訂正は行われません。」とし、重複する「現在の保証：…」は削除。保存処理・履歴の保存範囲・取消制約は変更しない。「履歴」の表現によって未実装の全案内履歴管理を追加したとは扱わない。根拠は同日のオーナー指示。UX102-4は引渡日訂正と期間変更メッセージをユーザー確認済み。[検証記録](design/evidence/ux-103-2026-10-05.md)。
+
+## 2026-10-04 状態表示の集約（0.1.102）
+
+オーナーのUI確認指示を採用。「案内済みにする」に短縮し、HS向け画面で「保証区間」を用いず「保証期間」と表記する。保証期間カードに初回・延長ごとの請求状態と操作をまとめる。保険の適用・報告状況カードでは保証期間ごとに開閉でき、その前半5年・後半5年の期間と報告状態を表示する。報告・請求一覧の詳細でも共通の表示を使用し、物件情報は閲覧用カードを維持する。画面ごとの操作権限、年月抽出、保存形式・取消制約は変更しない。旧記録不足は要確認とし未報告と断定しない。
+
+UI改修・Dev反映・架空データ3件の準備と開発側表示確認を完了。[今回の検証記録](design/evidence/ux-102-2026-10-04.md)を参照。
+
+## 2026-10-04 状態遷移レビュー後の採用事項（0.1.101）
+
+根拠：本Codex会話でオーナーがレビュー1〜3を採用、4の請求状態管理を指示、5はHSによる外部対応と請求済み延長の取消禁止を選択。以下は確定した追加要件であり、配備済み0.1.100の動作とは区別する。詳細な操作間の依存関係は[レビューの採用記録](design/state-transition-review-2026-10-04.md)を参照。
+
+- 案内済みは対象満了日に対応させる。許可された引渡日訂正で満了日が変わる場合は未案内へ戻す。延長取消時に過去の案内状態を復元するのは、その記録の満了日と戻す満了日が一致する場合のみ。
+- 保険報告の確認画面に初回／更新・対象開始日・満了日を明示し、HSが提出内容と照合する。一操作は明示した1区間に限定し、同月の再抽出で別区間が対象になる場合も区間を改めて確認する。CSV出力だけで報告済みにしない。CSV提出単位の固定保存は今回の最小推奨案に含めない。
+- 新規加入と各延長を別の請求単位として、対象区間、未請求／請求済み、請求済みの取消を管理する。後の延長で過去の請求対象区間を上書きしない。請求済みの延長は延長取消不可。先に請求済みを取り消す。実際の請求書・保険会社への訂正と内部状態の整合はHSが管理する。外部訂正待ち／完了の管理機能、金額計算・請求書生成・入金管理は追加しない。対象年月・請求先単位はHSC-010の確認を継続する。
+- 個別状態の取消は、その処理に依存する後続状態を逆順に戻す。保証延長によって必要になった保険区間を報告済みなら、その報告の取消を延長取消に先行させる（同日オーナー回答）。対象延長の請求済みも先に取り消す。延長と無関係な初回保証内の保険報告まで延長取消の前提として無条件に戻さない。延長取消操作自体で保険報告や請求を自動取消しない。
+- 引渡日の変更可否は過去の処理経験ではなく、現在有効な状態で判定する（同日オーナー訂正）。初回分を含め保険報告済み・請求済みがなく、有効な保証延長もない状態まで逆順で戻れば、引渡日を訂正できる。取消履歴は保持するが、延長経験・保険更新経験だけを理由に永続的なロックを残さない。許可された訂正では保証・保険期間を再計算し、対象満了日が変われば未案内へ戻す。既存のinsuranceEverRenewedによる恒久制限は置換対象。
+- 上記の逆順取消を可能にする範囲で、対象操作・対象区間・直前状態・取消との対応を保持する必要がある。既存の保険報告は直近1回の取消情報だけのため、そのままでは複数区間を初回まで戻せない。保存方法・互換対応は実装前に設計し、不足する旧履歴を推測して遡及取消しない。汎用監査画面の新設や無関係な全編集履歴の追加までを自動的に範囲へ含めない。
+- 物件・保証全体の取消は、個別状態を先にすべて取り消すことを必須にせず、理由と確認を挟んで行える。確認画面に実施済みの保険報告の対象区間、保証延長、請求済みの対象と、取消により通常業務対象から外れる影響を具体的に表示する。履歴・番号・取消前状態を削除せず保持する。保険会社への提出や発行済み請求書が外部で自動無効になるという説明はしない。外部訂正はHSが行う。復元は従来どおり保存状態へ戻す前提で、実際の外部状態との照合が必要。
+
+オーナーの後続指示で区間紐付けを含む実装・Dev配備を承認。具体的な保存形式・互換性は[試作契約](design/meeting-prototype-2026-10-03.md)、検証・配備の実測は[記録](design/evidence/lifecycle-101-2026-10-04.md)。既存データの請求状態や不足する過去の報告履歴を推測して補完しない。現在満了日について案内済みの場合も、先に未案内に戻してからその保証延長を取り消す。
+
+## 2026-10-04 案内取消の表現調整（0.1.100）
+
+案内済みの操作ラベルは「未案内に戻す」、確認タイトルは「保証満了案内を取り消す」。保証期間・保険状態への影響がないことと対外連絡の非実行はinfo/tonalのv-alertで表示する。案内済みにする側のラベルは維持。延長取消は既存通り対象延長の直前の案内状態を復元する（記録がない場合は未案内）。本件で保存処理を変更しない。
+
+## 2026-10-04 保証満了案内の操作明確化（0.1.99）
+
+物件・保証編集の保証期間表に「状態（保証満了案内）」を追加し、直近期間の未案内／案内済みを表示。案内操作は同じ行の操作列へ移し、「保証満了案内を未案内に戻す／案内済みにする」と明記する。確認画面に対象の物件・保証番号・保証満了日、変更後状態、保証期間と保険報告を変更しない旨を表示する。過去期間の案内状態は管理していないため「—」とし、履歴を推測しない。
+
+物件・保証全体の取消は編集ダイアログ右上の赤色flatボタン・白抜き文字とし、理由付き確認を維持。案内専用・報告・請求の閲覧画面に全体取消を追加しない。最長20/30年到達時の保証・保険満了アラート除外は未確定（HSC-036）。抽出規則は変更しない。
+
+## 2026-10-04 UX-R追加指摘（0.1.98）
+
+報告・請求一覧から開く詳細は入力欄を使わない閲覧専用カードとし、閉じるのみ。保証延長は保証期間カード下部右、延長取消は直近の保証期間行の右に配置する。カレンダーはsurface-variantの背景／文字色をVuetify既定へ戻し、textボタンの独自強制色を撤去する。保存形式・期間計算・既存データは変更しない。
+
+UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
+
+- Last updated: 2026-10-04
+- Specification version: 0.1.104
+- Status: Confirmed initial-release requirements; implementation and acceptance incomplete
+- Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
+
+## この仕様書の位置付け
+
+2026-10-04までのオーナーの明示回答を業務別に統合した現行仕様。0.1.91ではDev受入A00〜A04の指示により接頭辞の区切り自動付与、支店住所、工務店・支店郵便番号任意化と確認画面を反映。「確定」は開発方針の承認であって、HSによる最終受入・実装済み・配備済みを意味しない。元資料は[受領資料台帳](requirements/source-materials.md)、各判断の根拠は[未決事項台帳の解決済み事項を含む各記録](requirements/house-solution-confirmations.md)にある。
+
+現在の試作動作・互換性・実行結果は[試作契約](design/meeting-prototype-2026-10-03.md)、[運用記録](operations.md)、[検証記録](design/evidence/meeting-prototype-2026-10-01.md)、[技術改修台帳](roadmaps/technical-remediation.md)を参照する。旧画面や旧試作の説明を初期納品要件として復活させない。本書に再掲しない変更対象外の認証・住所・入力・画面共通仕様は、下記の関連要件と承認済みADRを維持する。
+
+## 2026-10-04 UI/UX受入による変更（0.1.97）
+
+ユーザーのU01〜U10指摘と追加の「Vuetify既定」指示による。入力UIのautocompleteはoffを指定し、独自の入力欄フォーカス枠を外す。hintと次の入力欄の間に余白を確保。現行試作の日付・年月は入力途中に年／月／日のフォーカスを移動しない文字入力とカレンダー選択を併設する。保存形式・既存日付検証は維持。
+
+保険報告・請求一覧に検索結果全体の一括選択／解除と選択件数を表示する。個別確認が必要な保険行は対象外で、条件変更後は再検索するまで出力不可。請求一覧は新規が申込年月、延長が実際の延長手続き年月であることを説明する。請求先別の絞り込み単位は未確定・後発であり、今回実装しない。
+
+保証延長と延長取消は保証期間カード内、保険報告取消は保険状況カード内へ配置。取消確認は対象・変更前後・変わらない情報・HSの別途対応を分けて表示する。保証満了案内から開く画面は物件情報をカードで読み取り専用表示し、閉じる／案内済みにする（案内済みなら未案内に戻す）のみ。保険満了案内も読み取り専用とし、既存仕様にない保険案内済み状態は追加しない。報告操作は保険報告用一覧、物件訂正・延長は物件・保証から行う。
+
+## 2026-10-04 保証延長取消の確定仕様
+
+オーナーが本Codex会話で基本案および保険・請求の扱いを採用。HS担当者が直近の取り消されていない延長1回を理由付きで取り消せる。確認画面に対象、取消前後の保証期間・満了日、保険への影響を表示する。保証番号と元の延長・取消履歴を保持する。取消対象の延長は請求用一覧から除外する。保険期間・報告状態は自動変更せず、保険会社・施主等への訂正連絡、交付済み保証書、出力済みCSV・請求書の訂正はHSが別途行う。工務店ポータルへの取消権限追加はしない。
+
+実装・検証状況は[試作契約](design/meeting-prototype-2026-10-03.md)および[Dev受入手順](runbooks/local-acceptance-2026-10-03.md)を参照。
+
+## 画面共通：入力検証とエラー表示（2026-10-04確定）
+
+入力値の必須・形式・範囲の検証は原則Vuetifyコンポーネントのrulesで行い、保存前にv-form.validate()を実行する。エラーは対象入力欄に表示し、不正なら保存要求を送信しない。保存操作時は画面上部のSnackbarでも入力エラーを通知し、スクロールで隠れた入力欄への気付きを補助する。下書き・本登録の必須条件の違いは維持する。サーバー側の検証は削除せず、重複・権限・競合・通信失敗などは操作元の画面内だけで表示する。一覧と編集／確認ダイアログに同じエラーを重複表示しない。
+
+根拠：A02-Rで郵便番号空欄登録成功、8桁の保存エラーが一覧にも表示されたとのオーナー報告、および①rules使用②画面単位のエラー限定の指示。対象は工務店・支店に限らない。通常経路の実装範囲と旧画面の扱いは[改修記録](design/evidence/a02-r-input-validation-2026-10-04.md)参照。
+
+保存・登録・報告済みなど、一時的な処理完了の通知は全画面で共通Snackbarに統一する。ダイアログを開いたまま保存する場合も背後の一覧に完了メッセージを出さない。入力エラーは上部、処理完了は既存の下部表示を使用する。
+
+## 1. 初期運用の範囲と利用者
+
+- HSの新しい白蟻保証サービスを管理する。既存FileMakerの置換ではなく、そのサービスのデータ移行はしない。今回の新サービスで既に販売した保証の初期登録は別途行う。
+- 初期はすべての入力業務をHSが担当。工務店ポータルの機能は残すが利用開始を延期する。施主のアカウント・直接操作はない。HS側の支店管理もない。
+- HS管理者とHS担当者は全工務店の物件登録・編集・延長・取消・CSV出力を行える。利用者管理・システム設定は管理者限定。終了データの削除はHS管理者。開発者の緊急操作用システム管理者を維持する。
+- 初期は試作版を基礎に必要機能を整備する。ダッシュボード再設計は将来。WindowsのChrome・Edgeを初期動作確認対象とし、モバイルはポータル再開時に再検討する。
+- HSが保証を販売し、そのための保険を仕入れる。保険は基本契約に物件を加除し月次精算するとのユーザー報告。保険料管理はシステム対象外。独立した物件ごとの保険契約の購入画面を設ける決定ではない。
+
+## 2. 保証グループ・工務店・支店
+
+- 保証グループ → 工務店 → 支店の階層。保証グループはHSの商品・営業先の分類で、所属工務店を包括する。「工務店グループ」という別分類はない。HSC・SHS・UHに固定せず追加可能。
+- 工務店・支店に住所情報を保持する。支店は郵便番号・都道府県・市区町村・町域番地・建物名を任意入力で追加する。工務店の住所自体の必須条件は維持し、郵便番号だけ任意にする。保証書・将来請求書の送付先となる可能性への備えであり、書類別送付先の自動選択・発送管理は追加しない。
+- 工務店は1つの保証グループに従属し、支店は工務店の設定を継承する。支店独自の保証グループ・接頭辞は設けない。新規保証のグループは所属から決まる。
+- 工務店の所属グループ変更は新しく本登録する保証に適用する。発行済み保証のグループ・恒久番号は変更せず、その後の延長でも維持する。
+- 接頭辞・年度開始月は作成後通常編集不可。誤設定は初期にはHSから開発側へ依頼し、発行済み番号への影響を調べて個別訂正。後発でHS向け訂正機能を提供する要求は確定、条件・権限・時期は未定。
+- 保証グループ・工務店・支店を無効化しても既存保証を保持。新規利用は停止し、既存保証の対応は継続できる。ただし取消済み保証の操作制限は維持。
+- 工務店の無効化は全支店の新規利用を停止する。支店単独の無効化は他店へ波及しない。再有効化可能だが、親の再開で個別無効の支店を自動復活させない。
+- 管理一覧の既定は有効のみ。明示的に「無効を含む」を指定したときだけ無効データも対象。新規登録の選択候補は有効のみ。表示項目は試作を基本に階層・状態を整える。列の個人設定・自由並べ替え・一括編集等は初期追加しない。
+
+関連：[master management](requirements/master-management.md)、HSC-008/037/038。
+
+工務店の検索・選択はAutocompleteに統合する。AirGuardV3の取引先／現場の操作を参考に、2文字以上・300ms待機・日本語変換確定後に検索し、選択後は解除してから変更する。空検索の最新20件制限は維持。検索・支店取得で背景一覧を読み込み状態にしない。
+
+## 3. 物件登録・入力・所有者
+
+- 管理対象は物件とそこに付く1つの恒久的な保証。別々の案件・施主・商品マスタを使う旧画面を初期運用の必須構造にしない。所有者情報は物件に付随する。
+- 下書きでは採番しない。本登録に必要事項を揃えて保証番号を発行する。物件名・住所・正の建面積（平方メートル、小数2桁まで）等の既存必須条件を維持する。
+- 申込日は工務店の申込書に記載された日。入力初期値は当日、本登録前は訂正可、本登録後は固定。HSの受領日・入力日と混同しない。
+- 引渡日は全グループで本登録時必須。UH等で不明でもHSが運用ルールに従って設定する。初期データの空欄はHSが埋めて提供する。開発側の勝手な日付補完はしない。
+- 本登録は表示した登録内容・申込日・保証期間への確認チェックを毎回必須とする。日付の注意がある場合は、それを表示し追加確認する。任意項目の「任意」表記は付けず、必須項目に＊を付ける。
+- 申込日が引渡日より後／未来なら注意確認後に登録可能。存在しない日付・必須項目不足は許可しない。
+- 物件の郵便番号は任意。入力時の書式検証と住所検索、住所自体の必須条件は維持する。工務店・支店の郵便番号も任意（2026-10-04変更）。
+- 基礎断熱材の有無を入力し、有の場合は使用資材（自由入力）を必須とする。保証上限の自動判定には使わない。
+- 同名・同住所による同一物件判定・登録警告は行わない（2026-10-04オーナー指示で廃止）。保証番号の一意性と同一操作の二重処理防止は維持する。
+- 工務店／支店のTEL・FAXは任意、入力する場合は前後空白除去後の半角数字・ハイフンのみ。追加の桁数・区切り位置制限はない。住所分割・郵便検索等は[branches and addresses](requirements/branches-and-addresses.md)を維持。
+- 所有者が変わっても保証番号・期間を維持する。変更前所有者情報と変更日を履歴として保存する。手続き履歴は物件編集画面のボタンから別ダイアログで開き、操作日時・申込日・引渡日・保証開始日・保証満了日を項目名付きで表示する（2026-10-04 A15指示）。変更前の記録であることを明示する。
+- 本登録後の工務店・支店は固定で通常の移管運用なし。誤登録は取消→正しい所属で再登録。元の正しい申込日・引渡日を使い、新番号を採番する。旧番号は再利用しない。
+
+関連：HSC-003/019/029、[initial data model](requirements/initial-data-model.md)。物理的なデータ契約への実装反映は未完了。
+
+## 4. 保証番号
+
+- グループ・年度ごとに001から開始し、年度切替でリセット。3桁までは0詰め、1000以降も使用可能。途中の欠番は埋めない。
+- 年度は申込日基準、西暦下2桁。HSC/UHは1月始まり、SHSは4月始まりで開始年を表示する。
+- 見本に基づく書式はHSC-26-001、SHS-26-001、UHグループは26-001（接頭辞なし）。新グループは設定内容に従う。全グループ名を自動的に接頭辞にしない。
+- 接頭辞は末尾のハイフンを入力せず登録できる。番号生成時、非空の接頭辞と年度の間にハイフンを1つ付与し、空欄なら付与しない。旧末尾ハイフン付き設定も同じ番号形式で扱う。発行済み番号の書換えはしない。
+- 過去番号は維持。初期取込後はグループ／年度別の既使用最大値の次から採番する。取消・削除等で除外する物件の番号も照合して予約を保ち、再利用しない。
+- 延長・所有者変更で番号を変えない。番号全体の完全一致で検索し、通番のみから接頭辞・年度を推測補完しない。
+
+根拠：HSC-004。競合時の重複防止・取込・番号予約・同時採番の実装検証は後続。
+
+## 5. 保証期間・満了案内
+
+- 初回は一律10年、引渡日を開始日とし10年後の前日が満了日。期間は日付で管理する。既存の保証の周年前日計算・2月29日の扱いを維持するが、保険の例外境界は別途検証する。
+- 10年ずつ延長し通算最長20年または30年。登録時にHSが上限を選択（既定20年）、自動判定なし。登録後変更可能だが、既に30年まで延長したものを20年へ下げられない。上限変更だけで期間を延長しない。
+- 延長操作は満了前後とも時期制限なし。従来満了日の翌日から10年追加し、操作日から数え直さない。元の保証と延長期間の履歴を保持する。保険報告状態は自動変更しない。
+- 保証満了案内は既定2か月前、管理者が設定変更可能（試作の1〜12か月を維持）。HS向け一覧からHSが工務店へシステム外で連絡し、自動配信はしない。
+- 本登録時は未案内。設定した案内時期に入ってから一覧に表示。既定未案内、案内済み／すべてに切替可能。最終満了も対象で「最終満了・延長不可」を識別する。
+- 未案内なら満了後も「満了済み」として残す。延長したら未案内へ戻し、新満了日で再判定。取消中は除外、復元では保存した案内状態・満了日から再判定。
+- 初期は現在の未案内／案内済みのみ管理し、連絡日時・担当者・過去案内履歴は持たない。保険報告・保証書印刷の状態と混同しない。
+- 保険満了の予告一覧も既定2か月前・設定変更可能とする既決方針を維持。月次報告の新規／更新抽出とは目的を分け、表示方式は後続設計で整合する。
+
+関連：[case warranties](requirements/case-warranties.md)、[alerts](requirements/alerts-and-dashboard.md)、HSC-005/034。
+
+## 6. 保険会社への月次報告
+
+### 対象年月と期間
+
+- 保険報告一覧の絞り込みは対象年月のみとし、物件名・保証番号・工務店・支店・保証グループ・年度等の追加条件は設けない（2026-10-04 A05指示）。
+
+- 基本契約でも物件別の5年満了管理・継続報告を行う。通常新規の起算日は引渡日。新規本登録時に5年後の前日を保険満了日として保存し、その年月YYYYMMを保険必須更新年月とする。初回は未報告。
+- 新規増分は指定された引渡年月、更新は指定された保険満了年月で抽出する。満了月の翌月月初に報告（従来の月初5日の運用）。対象月と提出月を混同しない。
+- 月だけでは更新年を区別できない。2025-10-06引渡しは2030-10-05満了、更新年月203010。2025-10-01引渡しなら2030-09-30満了、203009。引渡年月＋5年という算出ではない。
+- 保証期間が残る・取消されていないものが更新対象。保証終了なら次の保険更新は不要。保証延長後は改めて対象判定する。詳細画面の「次回更新年月」は保険満了日が保証満了日以降なら「保証満了」と表示し、保証延長で保険更新が必要になれば年月表示へ戻す。内部の年月・期間データは保持する。
+- 指定月より前の初回未報告は「過去の未処理分（新規）」、過去満了の更新未処理は「過去の未処理分（更新）」として通常分と区別する。
+
+### 出力・報告済み・取消
+
+- HSがチェックした物件だけをCSV出力する。選ばなかったものは未報告のまま。出力しただけでは報告済みにならず、実際に報告した分をHSが別操作で報告済みにする。
+- 初回の報告済み操作は状態を変更し、保存済み満了日・更新年月は変えない。
+- 更新の報告済み操作は、前満了日の翌日から連続する次の5年へ進め、満了日・更新年月を更新する。2031-10-05満了なら次は2031-10-06〜2036-10-05。操作日から5年ではない。
+- HSの物件／保証編集画面に直近の報告済み操作の取消を設ける。判断材料をダイアログ表示し、確認を挟む。初回は未報告へ戻して日付維持、更新は操作直前の満了日・更新年月等へ戻す。単純な5年減算ではなく直前状態を復元する。
+- 取消に必要な直前状態の保存と、全報告履歴の蓄積・閲覧は別。後者と専用の保留状態・理由・解除機能は初期に含めず、要望時に将来検討する。
+- 報告済み取消は保険会社に送った内容を自動取消・訂正しない。対外対応はHSが行う。
+
+### 引渡日訂正・過去物件
+
+- 初回報告後の引渡日訂正は、報告済み取消→引渡日訂正・保証保険期間再計算→HSから保険会社へ訂正連絡→改めて報告済み。初回報告取消自体は日付を変えない。
+- 引渡日訂正の目標仕様は冒頭の追加要件に従い、初回分を含む有効な保険報告・請求・延長がすべて取り消されていれば可能。現在の実装には保険更新経験による恒久制限が残っており、逆順取消の保存設計と併せて置換する。
+- 過去物件は引渡日から5年区切りとし、初回適用時点を含む区間が対象。7年経過で保証が3年残る例では前の5年間は保険未適用、次の区間を初回報告する。適用時点から新たに5年を加える方式ではない。
+- 初期過去物件の報告時期・対象はHSが判断。満了が近い場合に今回は見送り、保証が残れば翌月に含めることは想定運用であり、一律の自動繰越ではない。初回未報告のまま区間境界をまたぐ場合の区間設定は初期資料とHS判断に照らして確認する。報告対象月末・操作日を判定基準に固定する案は未承認。
+- 満了による減少報告は不要。取消による減少報告はHSが外部で実施する（2026-10-05確定）。
+
+関連：[insurance reporting](requirements/insurance-reporting.md)、HSC-036/035。
+
+## 7. 検索・CSV・印刷
+
+| 用途 | 基準・対象 | 初期出力と運用 |
+| --- | --- | --- |
+| 通常検索 | 任意条件、年月を必須・既定にしない | 検索・画面表示 |
+| 保険報告の新規／更新 | 引渡年月／保険満了年月、未処理分を区別 | 選択CSV、必要なExcel整形はHS |
+| 請求用一覧 | 新規は申込年月、延長は延長後の保証開始年月（実装未反映） | CSV、HSがExcelで請求書作成 |
+| 保証書 | 検索しチェックした物件 | CSV、HSがWord差し込み印刷 |
+
+- 条件なし一覧は更新日時が新しい最大20件、古い21件目以降は検索で探す。ページ操作は0件・1ページでも表示し、無条件で古いページを追加取得しない。条件指定時の検索結果は20件ずつ表示。既定有効状態と取得方式の整合は実装時に検証する。
+- 試作の条件指定時全件購読は承認済み例外。検索方式・費用・件数増加時の本番判断はHSC-023。今回の文書整理で取得方式を新規採用しない。
+- 保証書用CSVの列はHSのWordひな型／差し込み項目一覧に合わせる。延長後も同じ保証番号・元の開始日・延長後満了日を出力し、再出力可能。正式保証書PDFの直接生成は初期要件から外す。
+- 保証書の印刷済み状態・印刷履歴は初期に持たずHSが管理。要望があれば後発対応する。
+- 保険一覧見本は受領済み。対象月・物件名・住所・工務店名・引渡日・建面積・保険申込の7列を元にする。保険申込列は空欄。CSVそのままの提出受理は確認済みとしない。
+- 請求金額計算・請求書出力・入金管理・保険料管理は初期対象外。書類送付・書類別宛先管理も対象外。宛名CSVは将来候補で未採用。
+
+関連：[search/list](requirements/search-and-list.md)、HSC-004/008/010/032/037/038。
+
+## 8. 取消・復元・終了データ
+
+- HSは理由付きで取消し、誤取消も理由付きで復元できる。取消と別の無効処理は設けない。データ・番号を保持し、復元で保証期間を数え直さない。
+- 取消中は検索・閲覧・復元のみ。編集・延長・保証書出力・通常報告・満了案内から除外する。保険状態・満了日・更新年月と案内状態を保持し、復元後に対象判定する。
+- 保証書交付後／保険報告後も取消可能。確認画面で書類回収・無効連絡・保険会社への訂正の要否をHSに確認させる。自動対外連絡は行わない。
+- 保証終了後は、HS管理者が対象を選択し、CSVをHSファイルサーバーに保存したことを確認して手動削除する。満了日による自動削除はせず、延長判断中は残せる。
+- 削除後に延長する場合は、HSが保存CSVを開発側へ渡し、元の番号・期間を復元して対応する。HS向け復元画面は初期対象外。復元可能なCSV項目・関連情報の設計検証は後続。
+- 取消データを一定期間後にCSVなしで物理削除する案はHS確認待ち。理由、期間・起算日、残す例外が未定。法定保存年数を推測しない。
+
+関連：HSC-001/029/035。
+
+## 9. 初期データ・受入・運用開始
+
+- 開発側が初期登録する。開始時に保証継続中の全物件が対象、終了・取消済みは取込対象外だが既使用番号を照合する。必要な保証グループを先行登録する。
+- HSが不足日付を補う。申込月だけの場合も日を指定し、引渡日空欄はHSが埋めて提供する。対象ファイル・件数・提供日・担当等は受領／調整待ち。
+- 初回保険報告は全件未報告（報告済み物件はないとの回答）。満了案内は原則未案内、HSが確認できる既案内分のみ案内済みを継承する。
+- 資料受領→不備・重複検査→HS確認→開発側登録→HS照合了承→通常登録開始。実データ投入の実行承認は別途。了承後はシステムを管理の正本とし、管理Excelの二重入力をやめる。請求Excel・Wordは継続。
+- HS実務担当者が合意フローと登録・検索・期間計算・CSVの正しさを確認し、HS社長が利用開始を最終了承。AriLaboが調整する。効果の数値目標は初期受入に課さない。
+- 10月末の納品・運用開始目標は維持し、実際の利用開始日は未定。初期検証は同時2名程度、年200件超程度とのユーザー報告を参考にする。累計件数は初期資料から確認。利用上限や性能保証ではない。
+- 問い合わせ経路はHS→AriLabo→開発者。対応時間、復旧目標、費用上限・増加時承認は未定。月数百円程度との説明済み概算は独立検証した見積り・料金保証ではない。
+- 通信エラーでは画面入力を保持し保存結果を確認して再試行する。二重登録・二重採番・二重延長を防ぐ。画面を閉じた後の復元やオフライン対応の採用ではない。
+
+関連：HSC-002/015/016/025/026/027/028。
+
+## 10. 認証・安全性・変更対象外の共通仕様
 
 Staff sign in with Firebase Authentication email/password using browser-session persistence. A closed browser window clears the authentication state, so the next access requires login again. The developer superuser creates, edits, and disables House Solution administrator accounts only; House Solution administrators create, edit, and disable general-staff accounts. For a general-staff account, an administrator can edit email address, display name, and enabled state; its role is currently fixed to `general staff`. If additional roles are introduced later, an administrator may select only roles other than `House Solution administrator` and `developer superuser`. Staff can reset their passwords. Account creation sends a password-setup email through Firebase's standard delivery, and its action opens a Japanese password page on the same application origin; email-address verification is not an initial-release requirement. Account email input is trimmed, lowercased, and checked by a minimal email regular expression before Firebase Authentication's own validation. Disabled accounts must become unusable immediately, including an existing signed-in session. Account removal means reversible disablement and re-enablement; no physical deletion is provided, and a disabled account retains and reserves its identity, role or company binding, and email. No disable reason, separate approval, or lifecycle notification is required initially. The initial developer-superuser account is bootstrapped manually in Firebase Console without custom claims, by creating matching Firebase Authentication and enabled staff-account records.
 
-For the initial construction-company workflow, a House Solution administrator issues and disables one shared account per construction company. The construction company sets and resets its own password through Firebase Authentication email. The account is server-bound to exactly one construction-company master and cannot access staff screens or another company's work items. Authentication identifies the company, not the individual operator; each response therefore requires the current contact person's name, while its email is derived from the authenticated shared account on the trusted server.
+一時的な操作結果は共通snackbar、入力エラー・持続的な読込エラーは該当画面内に表示する。日付入力は既存Vuetifyと正規化日付を維持する。マスタの通常更新はlast-write-wins、参照されていることだけで一律に理由・承認・履歴を追加しない。ただし本書の固定項目・所有者履歴・取消理由等の個別ルールを優先する。
 
-## Scope
+郵便検索は日本郵便の全国CSVを同一オリジンで配信する方式を採用。手入力・訂正・不一致時の扱いは既存要件を維持。更新手順・鮮度検証と実装状況は[郵便番号設計](design/tr-009-japan-post-postal-data.md)と運用記録を参照する。
 
-### In Scope
+HSが業務データの利用・訂正・保持・削除を決定する。施主は個人情報の本人であり直接利用者ではない。[セキュリティ要件](requirements/security-and-access.md)と[責任主体ADR](decisions/0029-data-responsibility-and-decision-authority.md)を維持する。秘密情報・実顧客情報をリポジトリや説明資料へ書かない。実データのDev使用、外部送信・配備・破壊操作は別途承認が必要。
 
-- Register warranty information.
-- Manage construction-company, homeowner, property, and warranty-service master information.
-- Manage House Solution branch master information.
-- Manage House Solution staff accounts.
-- Alert on warranty services that are approaching their expiry date.
-- Provide search and list views for registered information.
-- Start the new system without importing data from the current FileMaker system. Existing-system data migration is not a production-release requirement.
-- Provide the construction-company portal workflow described below for structured new-case and renewal responses.
-- Handle homeowner disclosure, correction, restriction-of-use, and similar requests through a House Solution contact channel rather than direct system access. The contact method and notification behavior remain open under HSC-005 and related matters.
+## 11. 技術・実装・残件の境界
 
-### Not Yet a Confirmed Production Requirement
+Nuxt SPA、Vuetify、Firebase認証・Hosting・Functions・Firestoreが試作の採用構成。実環境ID・版・配備状態は運用記録／実対象で確認し、この整理を配備承認にしない。ProdはHS所有の別環境。DB最終選定はHSC-022、検索・CSV取得の整合性はHSC-023。バックアップ、復旧、権限引渡し、監視、配備リハーサルは[Prod手順](runbooks/production-bootstrap-review.md)・運用記録に従い別途検証する。
 
-- File attachment is not included in the initial release.
-- Deterioration countermeasure grade, its change history, and any grade-based warranty limit are deferred under HSC-034 and are not implemented in the prototype.
+保険のうるう日・未報告区間境界、既定有効フィルタと最新20件、削除後復元CSV、旧データ互換性等の具体設計は未検証。未決を便宜上自動採用しない。ログイン停止・20件制限による候補欠落・一覧更新不足・登録ダイアログ再試行等の既知不具合は技術改修台帳を参照。文書整理では修正しない。
 
-### Construction-Company Portal Workflow
+未決事項は[唯一の台帳](requirements/house-solution-confirmations.md)の13大項目。HS確認／資料待ち等8、技術判断2、将来対応3。保険の保留・報告履歴、保証書印刷履歴、案内履歴、ポータル、宛名、ダッシュボード、独自メール差出人等を初期必須に混ぜない。HS向けグループ設定訂正は後発要求として別管理する。
 
-- A House Solution administrator issues, disables, and re-enables one shared Firebase Authentication account per construction company. Self-sign-up is not provided.
-- The construction company requests password setup or reset from the login screen and completes it on the Japanese `/auth/action` page under the same application origin. House Solution does not select or handle the password.
-- A company account is associated with one construction-company ID on the server. The client cannot select or override that identity.
-- Staff create a renewal work item for an existing case. The work-item document ID equals the case ID, so one portal record corresponds to one case in this prototype. If that record is already approved, the next renewal request reinitializes the same record with a higher revision; an unfinished record still blocks duplicate creation.
-- A construction company can submit a new-case request. Its generated work-item ID is reserved as the future case ID so approval preserves a one-to-one relationship.
-- A construction company can withdraw its own unapproved new-case request from `draft`, `submitted`, or `needs correction`. Withdrawal requires a reason, retains the work item as an audit record, and cannot be reopened. An approved request uses the registered case cancellation flow instead.
-- A company can view and update only its own work items. It may edit only while the state is `awaiting response`, `draft`, or `needs correction`; submission locks editing until staff returns the item.
-- Basic conflict protection consists of a revision check, one current item per case, approved-record-only reinitialization, valid state transitions, and submission locking. Collaborative editing is not included.
-- After submission, House Solution staff either approve and atomically reflect the response in registered data or return it with a reason.
-- Authentication records the company account. The response records the current contact person's self-declared name and the shared-account email derived by the trusted server; the company does not enter an email in the response form.
-- The prototype creates durable queued-email records for renewal creation, company submission, return, and approval. It does not connect to an email-delivery provider or claim delivery.
+## 12. 参照と変更管理
 
-## Environment and Boundaries
+- [要件索引](requirements/README.md)／[受領資料](requirements/source-materials.md)
+- [初期納品ロードマップ](roadmaps/2026-initial-delivery.md)／[技術改修](roadmaps/technical-remediation.md)
+- [第1回プレゼン後の資料索引](../deliverables/meeting-2026-10-03/README.md)
+- [ADR索引](decisions/README.md)／[検証方針](../governance/verification-policy.json)
 
-- The legacy system is FileMaker-based and is used concurrently by multiple locations and users.
-- Authentication, database, and Firebase Hosting are selected for the prototype. Local verification continues to use the fictional `demo-termite-warranty` identifier, whose `demo-*` prefix has no live Firebase resources. The verified developer-owned development project is `termite-warranty-dev`; its default Firestore database and deployed Functions use `asia-northeast1` (Tokyo), and its registered Hosting site is `termite-warranty-dev`. Production remains a separate Firebase project whose provisioning, project ID, accounts, IAM bindings, and settings must be recorded during provisioning. House Solution owns and contractually controls production; if Firestore is selected under HSC-022, production Firestore and Functions use `asia-northeast1`, and production uses the Blaze plan. See [HSC-020](requirements/house-solution-confirmations/HSC-020-production-firebase-operations.md) and [decision 0032](decisions/0032-production-firebase-operations.md).
-- House Solution has operational authority and is the final decision-maker for business data in this system: it determines purpose, approved access, correction, retention, and deletion. A homeowner is the personal-information subject rather than a database-record owner; construction-company portal submitters are responsible for the lawful acquisition context and submitted content. Development/maintenance providers act only under House Solution instruction, and Google/Firebase remain planned cloud processing providers; exact provider contract terms, subprocessors, and termination conditions remain under HSC-025. See [decision 0029](decisions/0029-data-responsibility-and-decision-authority.md).
-
-## Functional Requirements
-
-- A warranty-service type is required and is either `保証` or `保険`. Warranty services may have different warranty periods.
-- The system must show an on-screen alert when an applied warranty service is 30 days from expiry.
-- An alert remains visible through expiry even when notification status is `notified`. The case list visually marks an active case when any of its applied warranties is alert eligible, and the dashboard lists that case.
-- Staff perform the actual customer notification at this stage. For each applied warranty, staff select notification status from `not notified`, `notified`, and `not required` through a combobox. The values and transitions may be changed later if operations require it.
-- A newly added applied warranty starts with notification status `not notified`.
-- A case can contain multiple applied warranty services. Each applied warranty holds its warranty-service product and whole-year warranty period.
-- When warranty coverage is extended, add a new applied warranty to the existing case rather than overwriting an existing applied warranty. Set its warranty start date initially to the day after the existing warranty's expiry date; staff may change the date, and overlapping warranty periods are allowed. The product and period are therefore retained as warranty history within the case.
-- A case itself does not hold warranty-period or case-wide expiry-date information. Alert eligibility is determined from its applied warranties.
-- Each applied warranty holds a warranty start date. Calculate its initial expiry date as the day before the anniversary reached by adding its whole-year warranty period to that start date. Staff can manually correct the calculated expiry date.
-- If an initial enrolment date is needed, calculate it as the oldest warranty start date among active applied warranties; do not store it on the case.
-- The initial search/list view must filter by homeowner name, property address, construction-company name, warranty-service name, warranty-service type, expiry date, notification status, application-date range, and handover-date range. Each range has optional inclusive start and end boundaries; both ranges and all other conditions are combined with AND. A start later than its end cannot be applied. Warranty-service, type, expiry-date, and notification conditions must match the same applied warranty.
-- A property has a required property name and a required building area in square metres with at most two decimal places. The case list is narrowed by selecting construction-company, homeowner, and property master records; it does not directly free-text-search their names. Property address is narrowed by prefecture and municipality. Responsible branch and warranty service are also filtered by selecting master records.
-- The initial case list and dashboard use one row per case. They need not display warranty-period or expiry-date information; an alert-eligible case must be visually identifiable. Applied-warranty details are viewed on the case detail screen.
-- With no search or filter value, every business-record list subscribes to at most the 20 documents with the freshest server-maintained update timestamp, using document ID as a stable tie-breaker. When at least one search or filter condition is specified, the current prototype reads the complete corresponding collection in the same freshness order, filters all matching records, and presents them in 20-record pages with the total count. Changing an applied condition returns the list to page one. The unbounded path is permitted only while a condition is active; unfiltered full-collection and per-parent child-listener fallbacks remain prohibited. No mandatory or default year/month condition is used.
-- The case-list filter controls open in a dialog. Editing dialog values does not change the list until the user applies them; the dialog provides an initialization action that clears every draft condition.
-- The current local prototype case list links to `/cases/{id}`. That detail screen is readable for active, cancelled, and invalid cases, shows all applied-warranty details and terminal reasons in five-record pages, returns to the dashboard/list, and offers the existing edit dialog only for an active case. A missing ID is reported in the signed-in application with a return link rather than being treated as a case record.
-- Assign a case number automatically when registering a case using a fixed-width sequential number, initially represented as `000001`. Display it in the case list and dashboard. The production format remains unresolved under HSC-004.
-- Display responsible branch in the case list and dashboard.
-- The case list and dashboard display a marker when a case has at least one applied warranty with notification status `not notified`.
-- The fixed default ordering is case update date descending, then case registration date descending when update dates are equal.
-- Adding, editing, cancelling, invalidating, or changing notification status on an applied warranty updates its parent case's update date.
-- Staff can create required master records from a case-registration flow and can separately access list/management screens for each master. Master creation/editing and case creation/editing open as button-triggered dialogs rather than permanent inline forms.
-- The four current master lists link to `/masters/{master-type}/{id}` detail screens. These screens reuse the existing edit dialog, remain readable for inactive records, and provide a list-return link. A construction-company detail screen labels up to its 20 freshest linked properties, including inactive properties, as `担当物件`. A homeowner detail screen labels up to its 20 freshest linked properties, including inactive properties, as `所有物件`. A warranty-service detail screen lists up to 20 `対象物件` linked through active cases and active applied warranties and includes only active property masters. Every dependent-property list displays five records per page, and every listed property name links to its detail screen. A missing ID is reported in the signed-in application with a list-return link.
-- The application opens on the dashboard after login and uses a Navigation Drawer that is initially closed. Every business-menu title has an appropriate icon on its left, and the compact list spacing keeps the icon-to-title gap small enough for menu titles to remain readable. The current local prototype increment exposes separate drawer entries for construction-company, homeowner, warranty-service, and property management; branch management remains part of the broader initial-release scope but is not included in this increment.
-- Show transient operation results, such as successful registration, update, account issuance, enable/disable, submission, approval, return, and their operation errors, in one shared bottom-positioned snackbar across staff and construction-company screens. Keep contextual guidance, validation errors inside an open dialog, review comments, missing-record states, and persistent data-load failures inline where the user needs them.
-- Use a Vuetify date-selection component for warranty date entry instead of relying only on the browser-native date field, while preserving the canonical `YYYY-MM-DD` value sent to the registration service.
-- Master records referenced by a case are not physically deleted. They can be changed between active and inactive states.
-- Inactive masters are unavailable for new case selection while remaining displayed on existing cases.
-- An existing applied warranty displays its warranty-service name from the master and therefore follows a master-name change. It does not retain a product-name snapshot.
-- Each warranty-service master has a default warranty period expressed as a positive integer number of whole years. Change to that default affects only newly added applied warranties; it does not alter the period or expiry date of existing applied warranties.
-- An applied warranty's period is not editable after it is created. Its warranty start date is editable; changing it recalculates the expiry date, after which staff can manually correct the expiry date without entering a reason.
-- An `active` case is editable. Case statuses are `active`, `cancelled`, and `invalid`. A cancelled or invalid case is not physically deleted, requires a free-text reason, is excluded from alert eligibility, and is not editable.
-- A cancelled or invalid case cannot be restored to active.
-- An applied warranty can independently be set to `cancelled` or `invalid`, without physically deleting it. This requires a free-text reason, cannot be restored to active, and makes that applied warranty ineligible for alerts.
-- A case remains active even when it has no active applied warranties.
-- Case registration requires an application date, handover date, property, homeowner, construction company, responsible branch, and at least one applied warranty service. Application date and handover date are required case-level business dates. No ordering rule between them is currently specified. Each applied warranty separately requires a warranty start date and has an automatically calculated expiry date that staff may manually correct.
-- In both staff case registration and construction-company new-case submission, entering or changing the handover date fills the warranty start date when it is blank or still contains the previously auto-filled handover date. A manually changed warranty start date is not overwritten.
-- Each case carries its responsible House Solution branch. Construction companies, homeowners, and properties do not carry a responsible-branch reference.
-- A case holds homeowner, construction-company, and property IDs. Selecting a property during registration, or changing it while the case is active, initially applies that property's current homeowner and construction-company IDs. Staff can then change either case reference before saving. Construction-company and homeowner names, and the property name and address, are displayed from their masters and follow subsequent master changes; they are not stored as case snapshots.
-- A property's homeowner and construction-company references remain editable after the property has been used by a case. Changing either property reference changes only the property and does not rewrite any existing case, regardless of case status.
-- Master update, inactivation, and reactivation use last-write-wins. This rule does not change the separately implemented stale-baseline checks for case and applied-warranty multi-record workflows.
-- A master being referenced by an existing case does not by itself require an edit warning, reason, approval, or master edit history. Existing cases display current master values; ordinary input validation, reference integrity, and lifecycle rules continue to apply.
-- A property holds a construction-company ID. At case registration and when an active case's property is changed, the property supplies the initially selected construction company; the case construction company remains editable before saving and while the case is active.
-- When an active case's property is changed, initially select the newly selected property's homeowner and construction company, while allowing staff to change either value before saving. A later change to a property master's construction-company ID does not alter existing cases.
-- A construction-company name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, contact person, contact details, and notes are optional. Email does not belong to the construction-company master; when a company account exists, the construction-company detail screen displays that account's email address. Nonempty TEL and FAX values accept only ASCII digits and hyphens after trimming; no separator-position or digit-count rule applies.
-- A homeowner name, postal code, prefecture, municipality, and street/town and number are required. Building name, telephone, fax, and notes are optional. Its nonempty TEL and FAX values use the same digits-and-hyphens rule.
-- A property name, building area, postal code, prefecture, municipality, and street/town and number are required property fields. Building area is a positive square-metre value with at most two decimal places. Building name is optional.
-- Property, homeowner, and construction-company addresses are split into postal code, prefecture, municipality, street/town and number, and building name. Postal-code entry accepts seven digits with an optional hyphen and normalizes the stored value. Japan Post's official nationwide UTF-8 postal-code CSV is the adopted lookup source; transformed data is planned for same-origin Firebase Hosting delivery. The update command, transformation, shards, manifest, and freshness warning are not implemented yet.
-- For a postal-code match, complete prefecture and municipality and use the town-area as the initial value or leading portion of the existing `street/town and number` field; when multiple candidates exist, let staff select one. The user appends or corrects chome and lot number in that same field, while building name remains a separate manual field. All address fields remain editable after candidate selection. No new persisted address field is added. No runtime external API, API key, billing, quota, App Check, or Google attribution is required. The existing provider-neutral foundation may be reused; implementation and monthly update operations remain under TR-009.
-- The current FileMaker service receives new-enrolment and renewal information through a web form in a simply authenticated shared member page; the form sends email that staff manually process. This is context only: that member page does not meet the new service's requirements and is not reused.
-- The initial workflow uses a dedicated construction-company account, structured provisional data, company update, staff review, and promotion to registered data.
-- Monetary transfers, billing, payment status, payer identity, and a separate contracting party are outside the system. A homeowner is not inferred to be the contracting party.
-- Data from the current system will not be migrated into the new system. The new system begins with records entered for its own operation.
-- Legacy case numbers are not imported. Production case-number rules for newly registered cases remain subject to HSC-004.
-
-## Non-functional Requirements
-
-- The system must support concurrent use by multiple locations and users. Required scale and performance targets are not yet confirmed.
-- Actual registration volume is not measured. The proposal assumes that five- and ten-year warranty cycles and building-based cases make hundreds of daily procedures and simultaneous same-company updates to one case very unlikely. This assumption requires House Solution confirmation before production sizing.
-- Reducing manual-entry work and human error is a confirmed business objective.
-- Do not implement an operation-history or audit-log feature in the initial release. Registration and update timestamps required for list ordering remain in scope.
-- Staff-facing business-data Rules are limited to Firebase Authentication and the live enabled-account boundary. Document shape and business validation belong to the supported application flow; the prototype does not guarantee authenticated Create, Update, or Delete requests made outside that flow. Account, construction-company ownership, and server-owned state retain their explicit access boundaries.
-
-## Data and State
-
-- Legacy-system data is sought during September 2026 for analysis, but its provision and quality are not yet confirmed.
-- The initial provisional entities and fields are listed in [initial data model](requirements/initial-data-model.md). This is not an approved database schema or data contract.
-- A property is a separate entity from a homeowner and carries the address. The detailed relationship mapping remains provisional.
-- The initial search/list requirements are in [search and list](requirements/search-and-list.md).
-- Master-management requirements are in [master management](requirements/master-management.md).
-- Alert and dashboard requirements are in [alerts and dashboard](requirements/alerts-and-dashboard.md).
-- Case-warranty requirements are in [case warranties](requirements/case-warranties.md).
-- Branch and address requirements are in [branches and addresses](requirements/branches-and-addresses.md).
-- Homeowners and construction companies do not have a parent-child relationship. A case directly references its homeowner, construction company, and property. The property supplies both initial selections, after which the active case may store independently selected references. Later changes to the property's homeowner or construction-company reference do not alter any existing case reference. See [decision 0014](decisions/0014-preserve-case-party-references.md).
-- House Solution retains the FileMaker data outside the new-system datastore. No migration mapping, cleaning, reconciliation report, or migration acceptance test is required for release. Because the systems serve different services, there is no business-data cutover, parallel system-of-record operation, or rollback between them; deployment rollback and recovery for the new system follow the HSC-020 production-operation plan and remain pending implementation and rehearsal.
-
-## Error Handling
-
-Not yet confirmed.
-
-## Security and Sensitive Information
-
-Customer names and addresses are in scope. Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another approved purpose still requires a separate confidentiality agreement. The provisional access-control approach and its residual risks are documented in [security and access](requirements/security-and-access.md). Do not commit real records or credentials.
-
-## Current Phase Completion Criteria
-
-- Confirm the minimum usable scope, roles, data fields, and alert rules needed for initial operation.
-- Implement, rehearse, and verify the HSC-020 deployment rollback, backup/recovery, and incident procedures before production release.
-- Make explicit technology and deployment decisions before implementation begins.
-
-## Unresolved Matters
-
-The sole current list is the [unresolved-matter register](requirements/house-solution-confirmations.md). It separates House Solution confirmations from project technical decisions and links to one file per matter. Topic records may describe confirmed context but do not maintain separate open-decision lists.
-
-## Specification Change Rules
-
-After explicit user approval, Codex updates this file only when confirmed requirements or acceptance criteria change, and updates only affected roadmaps, relevant ADRs and index, `CHANGELOG.md`, implementation, tests, operations, data-contract, and user documentation in the same task. Specification and data-contract versions remain independent unless this project explicitly couples them. ADRs record durable decisions, not routine adjustments. A roadmap needs no `+0` history entry when scope, completion criteria, evidence, and progress are unchanged. If the roadmap denominator or earned credit changes, the next progress report states the previous percentage, new percentage, and reason.
-
-This file always represents the current specification. Previous specification text is retained through Git history, not copied into versioned files.
+仕様変更は明示承認された範囲だけを関連文書へ反映する。仕様確定、設計、実装、検証、配備、HS受入を区別し、文書整理で進捗を加算しない。物理データ契約・実装設計への反映完了を主張しない。旧仕様はGit・判断記録・旧試作契約を参照し、本書内で現行仕様と混在させない。

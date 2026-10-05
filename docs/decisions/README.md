@@ -12,6 +12,8 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
+| [0035](0035-warranty-interval-lifecycle.md) | 保証区間に紐づく請求・保険報告と逆順取消 | Accepted | 2026-10-04 |
+| [0034](0034-company-registration-without-hs-review.md) | 工務店による承認待ちなしの新規登録・延長 | Accepted; implementation pending | 2026-10-01 |
 | [0001](0001-provisional-access-control-posture.md) | Provisional access-control posture | Provisional | 2026-09-10 |
 | [0002](0002-prototype-stack-and-search.md) | Prototype stack and free-text search | Accepted | 2026-09-10 |
 | [0003](0003-firebase-authentication-and-account-lifecycle.md) | Firebase Authentication and account lifecycle | Accepted | 2026-09-10 |
@@ -20,7 +22,7 @@
 | [0006](0006-account-management-roles.md) | Account-management roles | Accepted | 2026-09-10 |
 | [0007](0007-development-and-production-isolation.md) | Development and production isolation | Accepted | 2026-09-10 |
 | [0008](0008-postal-code-address-api.md) | Postal-code address API | Superseded | 2026-09-10 |
-| [0009](0009-warranty-extension-history.md) | Warranty-extension history | Accepted | 2026-09-10 |
+| [0009](0009-warranty-extension-history.md) | Warranty-extension history | Superseded for warranty by 0033 | 2026-09-10 |
 | [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Superseded | 2026-09-10 |
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
 | [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Superseded | 2026-09-10 |
@@ -44,6 +46,8 @@
 | [0030](0030-no-initial-homeowner-access.md) | No initial homeowner access | Accepted | 2026-09-17 |
 | [0031](0031-japan-post-postal-data.md) | Japan Post postal data for postal-code lookup | Accepted | 2026-09-17 |
 | [0032](0032-production-firebase-operations.md) | Production Firebase environment and operations | Accepted | 2026-09-17 |
+
+| [0033](0033-permanent-property-warranty.md) | One permanent warranty per property with retained period history | Accepted; implementation pending | 2026-09-29 |
 
 ## Template
 

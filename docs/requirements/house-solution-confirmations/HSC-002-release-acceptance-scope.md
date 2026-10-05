@@ -1,6 +1,10 @@
 # HSC-002: Initial-Release Acceptance Scope
 
-- Status: Not yet asked
+## 2026-10-03 確定：受入担当／利用開始日は未定
+
+HSの実務担当者が一通り操作して業務確認し、HS社長が利用開始を最終了承する。AriLaboは確認日程の調整・連絡を取りまとめる。根拠：同日オーナー②YES。実際の利用開始日は①未定のため保留し、10月末納品から具体日を推定しない。仕様書0.1.76へ反映、未コミット。実際の受入・了承は未実施。古い初期範囲案のポータル・直接PDF等は後続仕様を優先する。
+
+- Status: Partially answered; owner wording review pending
 - Decision owner: House Solution
 
 ## Confirmed Context
@@ -40,3 +44,33 @@ Use synthetic data in development. Production smoke testing should use only the 
 ## Affected Documents
 
 `docs/specification.md`, the delivery roadmap, acceptance procedures, and release operations.
+
+## 2026-09-28 Clarification Checkpoint
+
+Source: [latest received materials](../source-materials.md). The project owner authorized promotion of unambiguous answers and requested clarification of the rest on 2026-09-28. The questionnaire is prepared locally and has not been sent. Existing proposals above remain unapproved; existing decisions are retained as history until explicitly superseded. Further implementation dependent on these answers is paused.
+
+### Outgoing question 1 — 10月末に必要なもの
+
+新しい資料で、保証書・請求書などの出力が重要な業務であることを確認しました。10月末に必要な範囲を、HS様・AriLabo・開発側で揃えたいと考えています。
+
+1. 下表の各行で『10月末に必須』『後日でよい』『不要』のいずれかを選んでください。
+2. 保証書・請求書は、完成した書類を出す必要がありますか。それとも、現在の書式に取り込めるExcelデータを出せば足りますか。
+3. 実際に使えるか確認する方と、最終的に利用開始を判断する方をご記入ください。
+
+Snapshot: [questionnaire package](../../../deliverables/hs-questions-2026-09-28/README.md). This file and the central register remain the authority for subsequent answers and status.
+
+## 2026-09-29 Current Checkpoint
+
+Source: [received materials and reported LINE answers](../source-materials.md#2026-09-29-追加回答). Older outgoing questions remain historical snapshots and are not the current send list. The next wording must be reviewed with the project owner before a new PDF or external message.
+
+### 回答・決定の整理
+
+第2回Q1は初回帳票の選択欄が空欄で、最優先事項なし・「おすすめ」で進めたいとの備考。第2回Q2の備考は最終形を保証書PDF、請求書・報告Excelとする。初回Excel優先の方向は読み取れるが、初回の出力対象・開始日・受入担当は確定していない。
+
+### 残る確認（文面はユーザー確認前）
+
+最初に使い始める日と、その日に必要な一覧・書類を一つずつ確認する。最終形のPDFと初回のExcelを分け、完成例を受領する。保証の1対1・恒久番号・履歴保存はADR 0033で決定済みなので再質問しない。
+
+### 2026-09-29 帳票検討の進め方の修正
+
+プロジェクトオーナーは、保証書PDF出力を実装する前提でテンプレート次第の技術的な問題を開発側が先に検討すべきと指示した。「初回はExcel、PDFは後日」とする質問案は未採用のまま撤回する。上記の「初回Excel優先」は回答の読み取りであり、承認済みの提供範囲・技術的容易さではない。まず帳票の原稿・完成見本でPDFとExcelそれぞれの実現性を検証する。初回提供日・必須業務・受入担当は引き続き未確定。検討項目と資料提供依頼文は[相談用メモ](../../requirements-review-2026-09-29.md)に記録。資料提供依頼文は同日の本Codex会話でプロジェクトオーナーが「採用します」と承認した。外部送付・見本受領・技術検証は未実施。

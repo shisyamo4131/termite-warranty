@@ -51,8 +51,8 @@ html {
   background: rgb(255 255 255 / 12%) !important;
 }
 
-.v-card,
-.v-dialog .v-card {
+.v-card:not(.lifecycle-card),
+.v-dialog > .v-overlay__content > .v-card {
   border: 1px solid var(--clear-sky-border);
   box-shadow: 0 3px 12px rgb(38 55 74 / 8%);
 }
@@ -174,22 +174,18 @@ html {
   background: var(--clear-sky-soft-surface);
 }
 
-.v-field__outline {
-  --v-field-border-opacity: 1;
-  color: var(--clear-sky-border);
-}
-
-.v-field--focused .v-field__outline {
-  color: var(--clear-sky-primary) !important;
-}
-
 .v-btn:focus-visible,
 .v-list-item:focus-visible,
-a:focus-visible,
-.v-field:focus-within {
+a:focus-visible {
   outline: 3px solid var(--clear-sky-focus);
   outline-offset: 2px;
 }
+
+/* Field borders and focus indicators use Vuetify defaults. */
+.v-form .v-text-field,
+.v-form .v-textarea { margin-bottom: 12px; }
+.v-input__details { padding-bottom: 6px; }
+.v-card-title { white-space: normal; overflow-wrap: anywhere; }
 
 .logout-button:focus-visible {
   outline-color: #fff;
@@ -229,7 +225,6 @@ a:hover {
   }
 }
 
-.v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }
 
 .detail-page-header {
   display: flex;
@@ -300,7 +295,7 @@ a:hover {
 }
 
 /* Keep dialog headings and actions fixed while the form area scrolls. */
-.v-dialog .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
-.v-dialog .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-.v-dialog .v-card > .v-card-actions,
-.v-dialog .v-card > .v-card-item { flex: 0 0 auto; }
+.v-dialog > .v-overlay__content > .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+.v-dialog > .v-overlay__content > .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.v-dialog > .v-overlay__content > .v-card > .v-card-actions,
+.v-dialog > .v-overlay__content > .v-card > .v-card-item { flex: 0 0 auto; }

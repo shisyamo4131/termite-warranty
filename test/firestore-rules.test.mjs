@@ -29,6 +29,21 @@ let testEnvironment
 
 const contextFor = (uid) => testEnvironment.authenticatedContext(uid).firestore()
 
+test('property warranty Rules enforce company and branch read scope, with trusted company writes', async () => {
+  await seedDocument('constructionCompanyAccounts/prototype-head', {constructionCompanyId:'co-a',scope:'company',branchId:'',enabled:true})
+  await seedDocument('constructionCompanyAccounts/prototype-branch', {constructionCompanyId:'co-a',scope:'branch',branchId:'branch-a',enabled:true})
+  await seedDocument('propertyWarranties/prototype-a', {constructionCompanyId:'co-a',branchId:'branch-a'})
+  await seedDocument('propertyWarranties/prototype-b', {constructionCompanyId:'co-a',branchId:'branch-b'})
+  await seedDocument('propertyWarranties/prototype-other', {constructionCompanyId:'co-b',branchId:'branch-a'})
+  const head=contextFor('prototype-head'), branch=contextFor('prototype-branch')
+  await assertSucceeds(getDoc(doc(head,'propertyWarranties/prototype-b')))
+  await assertFails(getDoc(doc(head,'propertyWarranties/prototype-other')))
+  await assertSucceeds(getDoc(doc(branch,'propertyWarranties/prototype-a')))
+  await assertFails(getDoc(doc(branch,'propertyWarranties/prototype-b')))
+  await assertFails(updateDoc(doc(branch,'propertyWarranties/prototype-a'),{branchId:'branch-b'}))
+  await assertFails(getDoc(doc(branch,'warrantyCounters/HSC')))
+})
+
 async function seedDocument(path, data) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), path), data)

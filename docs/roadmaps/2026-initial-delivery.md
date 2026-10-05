@@ -1,38 +1,69 @@
 # 2026 Initial-Delivery Roadmap
 
+## 0.1.99 — 2026-10-04 案内状態・取消配置
+
+カレンダー、報告/請求カード、延長配置はオーナーOK。保証満了案内の状態と操作を直近保証行へ集約し、全体取消を右上の色付きボタンへ変更。Dev Hosting反映・実画面確認済み。全7ゲートexit 0。[記録](../design/evidence/ux-099-2026-10-04.md)。保証上限到達時の保証/保険アラート除外はHSC-036で確認、抽出条件は不変。全体進捗の加点なし。
+
+## 2026-10-04 UX-R追加回答
+
+UX-R01/R06はオーナーOK、日付数値入力もOK。0.1.98でカレンダー配色・報告/請求のカード表示・延長ボタン位置を修正しDev反映・開発側確認済み。[差分受入手順](../runbooks/local-acceptance-2026-10-03.md)、[証跡](../design/evidence/ux-098-2026-10-04.md)。請求年月/未請求管理はHSC-010、保険満了一覧用途はHSC-036で確認。全体進捗の加点なし。
+
 - Status: Active
-- Scope: Mandatory production operation by the end of October 2026, starting without data migration from the current system.
-- Progress: 0% — no milestone completion evidence has been recorded.
-- Progress method: Milestone weights total 100%. Partial credit is not allowed; credit is earned only when the stated completion criteria are verified.
+- Last reconciled: 2026-10-03
+- Scope: HS-operated initial release for the new warranty service; target end of October 2026. Exact start date is undecided.
+- Progress: 0% — no complete milestone has earned credit. Verified partial work remains recorded below.
+- Progress method: Milestone weights total 100%. No partial credit. Documentation consolidation does not earn implementation, deployment, or acceptance credit.
+
+## 2026-10-04 Dev受入担当・延長取消
+
+追加：A01/B05/C11は共同準備後に完了、C12はユーザー指示で保留。U07/U09はユーザーOK。UI/UX指摘を仕様0.1.97としてDev Hostingへ配備し、[開発側確認](../design/evidence/ux-097-2026-10-04.md)完了。ユーザーの差分6項目は再確認待ち。未決請求先単位はHSC-010で後発確認。全体のマイルストーン完了率は変更しない。
+
+A13-R/A15-Rはオーナー合格。後続指示によりCodex単独で進められる残9区分をDevで検証・受入完了。共同操作が必要な4区分と業務・UI/UX受入は残る。CodexがDev機能試験、オーナーが業務一巡・UI/UXを担当する。承認済み保証延長取消と試験範囲は[検証証跡](../design/evidence/extension-undo-dev-2026-10-04.md)。未実行項目は完了にせず、全体マイルストーンの完了判定は据え置く。
+
+## Current Scope and Evidence
+
+The [specification 0.1.90](../specification.md) consolidates the already-approved Q&A; it does not adopt new product scope. The former portal-first, direct-certificate-PDF, optional-handover and multiple-applied-warranty acceptance wording is superseded for initial delivery. The latest instruction authorizes deployment of the independent changes to Dev and makes Dev testing the owner acceptance environment. Production deployment and HS start approval remain separate.
+
+- Initial operators are HS staff. Company portal capability is retained but rollout deferred. HS branches, separate legacy case/product/owner screens and per-submission HS approval are not initial workflow requirements.
+- Property/one permanent warranty, group→company→branch, application-date annual numbering, mandatory handover, 10-year extensions and manual 20/30-year cap, notifications, reasoned cancellation/restoration and reporting are confirmed in the specification.
+- Outputs are CSV: HS Word for certificates, HS Excel for invoices and insurance preparation. No initial direct certificate PDF, invoice calculation, premium management or dispatch workflow.
+- Initial new-service warranty data is registered by development, then reconciled and approved by HS. This is distinct from excluded legacy FileMaker migration. Used numbers remain reserved, including numbers from excluded ended/cancelled records.
+- Existing postal-code, authentication and prototype evidence is retained in [operations](../operations.md), [postal design/evidence](../design/tr-009-japan-post-postal-data.md), and the [prototype evidence](../design/evidence/meeting-prototype-2026-10-01.md). Evidence of partial features is not full initial-release acceptance.
+- The independent changes were deployed to Dev and its demo data reset to two retained administrators after explicit approval. Public artifact/auth-boundary verification passed; user acceptance remains pending. See [release/reset evidence](../operations.md#2026-10-03-dev受入用配備と空データ初期化).
+- Independent implementation and Dev acceptance are tracked in the [current acceptance runbook](../runbooks/local-acceptance-2026-10-03.md) and [implementation evidence](../design/evidence/independent-implementation-2026-10-03.md). Automated verification is separate from user acceptance; milestone credit remains unchanged.
+- The [hierarchy checkpoint](../design/evidence/meeting-prototype-2026-10-01.md#2026-10-03-hierarchy-management-checkpoint) is locally implemented/tested but not deployed or manually accepted as the final product. Subsequent Q&A changes are not covered by those earlier tests.
 
 ## Milestones
 
-| ID | Milestone | Target period | Weight | Completion criteria | Evidence |
+| ID | Milestone | Planning period | Weight | Completion criteria | Evidence/status |
 | --- | --- | --- | ---: | --- | --- |
-| M1 | Development-environment prototype | Mid-September 2026 | 25% | A prototype implementing the confirmed initial-release requirements in the [specification](../specification.md), using Nuxt, Vuetify, and Firestore with the selected N-Gram search approach, including editable case registration with required application/handover dates, master management with construction-company address/contact fields, branch and five-part-address support, a working same-origin Hosting shard lookup with candidate selection and manual fallback, search/list, continuing on-screen expiry alerts/dashboard, and the accepted construction-company portal workflow, is first verified locally with Firebase Emulator Suite and then provided in the development environment for user review. M1 cannot receive credit while the working shard lookup is absent. The initial-release manual update command, manifest integrity metadata, and 60-day administrator freshness warning remain explicit incomplete conditions for M1/production readiness and must be implemented and verified before release acceptance. Unresolved units for multiple applied warranties must remain explicitly identified. | Verified partial slice: login, dashboard Navigation Drawer, trusted reversible CRUD and create/edit dialogs for four masters, case-registration dialog with four-master quick creation, required application/handover dates, Vuetify date selection, construction-company address/contact fields, property-defaulted and independently editable case homeowner/company references, non-propagating property-party edits, atomic case/first-warranty registration, transactional active-case editing, case filters, and list/alert display. Revision `967bd1cc37fb025ee7356274c60a94a550fc8270` passed the comprehensive gates and was deployed to the development environment by [run 22](https://github.com/shisyamo4131/termite-warranty/actions/runs/34676802182); Hosting HTTP and authenticated construction-company-list technical smoke checks passed on 2026-09-12. Full criteria and House Solution development-environment review remain incomplete, so no milestone credit. |
-| M2 | Requests and defect corrections | Through late September 2026 | 15% | Agreed prototype feedback and identified defects within the agreed scope are addressed and their verification is recorded. | Planned; none yet |
-| M3 | Production-readiness development and release rehearsal | Through early October 2026 | 25% | Remaining agreed production-readiness functionality is implemented, the empty-start and initial master-data setup procedure is verified, and a release rehearsal records the agreed test results and outstanding items. | Planned; none yet |
-| M4 | Production preparation | Through mid-October 2026 | 15% | The production environment is built and release preparation is verified. | Planned; none yet |
-| M5 | Official production release | End of October 2026 | 20% | The new service's production system is officially released without importing existing-system data, after its deployment rollback, backup/recovery, incident, and operating procedures are approved. No FileMaker system-of-record transition is required. | Planned; none yet |
+| M1 | Development prototype aligned to confirmed scope | Prototype phase, revised after presentation | 25% | HS workflow, permanent warranty and numbering, hierarchy, required input, lists, postal lookup and account operations verified locally and available in Dev for review. Deferred portal rollout is not required for credit. Postal maintenance/freshness requirements must be verified, not assumed from lookup availability. | Partial prototype/Dev evidence in operations and linked records; current confirmed scope not fully implemented, no credit |
+| M2 | Feedback and defect corrections | After first presentation | 15% | Accepted changes and relevant known defects in the technical-remediation register corrected and verified; no false-empty lists or stale retry flows. | Pending full evidence |
+| M3 | Production readiness and release rehearsal | Before production preparation | 25% | Confirmed insurance reporting/undo, guarantee notifications/CSV, initial-import checks, retained-number handling, archive/recovery, role boundaries and selected regression gates verified; complete release rehearsal. | Design/implementation/evidence pending |
+| M4 | Production preparation | Before HS start approval | 15% | HS-owned environment and developer access, DB/search decision, backup/recovery and operations configuration verified; HS-provided initial data reconciled and approved; necessary Word/CSV compatibility checked. | Not completed |
+| M5 | Official production release | End of October 2026 target; exact date pending | 20% | HS operators verify agreed flows and data/results; HS president approves start; rollout/rollback/incident procedure verified; normal registration starts after initial-data acceptance. No legacy FileMaker cutover. | Not completed |
 
-## Confirmed Delivery Constraints
+Weights and progress remain 100% total and 0% earned; criteria have been reconciled to prior Q&A approvals, not relaxed to award partial credit. Earlier schedule labels are planning history, not claims of on-time completion.
 
-- The end-of-October 2026 target is mandatory because users' work cannot be stopped for an extended period.
-- The current FileMaker service and new service remain independent. No business-data cutover or parallel system-of-record operation connects them.
+## Next Work and Completion Boundary
 
-## Open Dependencies and Risks
+1. Use the [consolidated HS brief](../../deliverables/meeting-2026-10-03/README.md) to confirm remaining business issues, collect Word/data and coordinate dates. Do not re-ask approved items.
+2. Resolve technical decisions HSC-022/023 using measured volume, correctness, response and cost; finalize affected data contracts, compatibility, archive recovery and insurance boundary handling before implementation.
+3. Implement confirmed requirements and [technical remediation](technical-remediation.md), with scoped verification under the project policy. Select explicit file ownership and preserve existing worktree changes.
+4. Obtain required deployment/data authorizations, verify Dev behavior and then rehearse production preparation. Existing approvals for earlier Dev actions are not a blanket authorization for new destructive work.
+5. HS verifies, then the president approves start. Record exact release evidence and only then award applicable milestone credit.
 
-- Prototype scope is limited to staff registration, search/list views, and expiry alerts. Their acceptance criteria and detailed staff roles are not yet confirmed.
-- The shared-account construction-company portal workflow is accepted for the initial scope. It does not yet have real email delivery, scheduled renewal generation, repeat-cycle history, or production external-access controls.
-- Firebase Emulator Suite remains the local regression environment. The developer-owned `termite-warranty-dev` environment is provisioned and revision `503d062bb250e2cf0ea997d38fb0650c073f208c` is technically deployed with successful verification and authenticated smoke evidence. The next work is continued prototype polish and House Solution development-environment review; full development-environment acceptance remains incomplete.
-- House Solution retains the FileMaker data outside the new system. Initial master-data setup and the HSC-020 deployment rollback/recovery implementation and rehearsal remain unverified.
-- Nuxt SPA, Vuetify, Firebase Hosting, Firestore with its N-Gram approach, Firebase Authentication email/password with browser-session persistence, and Cloud Functions for Firebase account administration/enabled-account enforcement are selected. Local verification uses the fictional `demo-termite-warranty` Emulator Suite identifier; the provisioned development project is `termite-warranty-dev`. Production uses a separate Firebase project owned and contractually controlled by House Solution. The HSC-020 production operations policy is recorded, but provisioning, package promotion, monitoring, backup/Auth export, rollback implementation, and rehearsal remain pending. Authentication-email sending details and HSC-025 service/risk requirements remain open. Firestore remains subject to a production reassessment against PostgreSQL.
-- The provisional business-data access posture starts with the same CRUD access for all enabled authenticated users, defers browser-external attack mitigation, and requires a later enforcement decision if another business-data role-specific restriction is confirmed. Account management is already a server-enforced exception.
-- Actual registration volume, historic record count, and concurrent-user count are unknown. The current upper-bound planning assumption is 40 telephone contacts per day, or approximately 1,200 per 30-day month and 14,400 per year if every contact is a new case.
-- The approved [technical remediation backlog](technical-remediation.md) must be completed in the affected areas before production acceptance. In particular, verification/deploy wiring and bounded list-query work are production-readiness dependencies. Mandatory case-month filtering was rejected; production filtered-query scalability remains open under HSC-026.
+## Unresolved Dependencies
 
-## Evidence and Change Rules
+The [sole register](../requirements/house-solution-confirmations.md) now holds 13 matters: eight with HS confirmation/materials/operating preparation, two technical decisions, and three deferred areas. HSC-032 was answered and is now resolved; this count change is not implementation progress.
 
-- Link completed milestones to the relevant design, implementation, test, review, deployment, or acceptance evidence when it exists.
-- When scope, weights, completion criteria, or risks change, record the reason and update affected specification and requirement records in the same change.
-- Do not report progress based solely on calendar time or an unverified self-report.
+- HS: insurance removal reporting, cancelled-data retention/deletion, manual 30-year eligibility, initial files and counts/dates, Word merge material, acceptance/start timing, service hours/cost and saved-CSV operations.
+- Development: DB/search, result and export completeness, default-active versus latest-20 behavior, numbering concurrency, insurance cycle boundary/date edge cases, retained undo state, archived-CSV recovery and legacy prototype compatibility.
+- Future: portal reopening and its access implications, custom email sender and document recipients/dispatch. Requested later HS group-correction tooling remains a separate requirement; its timing and safe conditions are not fixed.
+- Operating cost estimates communicated to HS are not verified budgets or guarantees. Approximate annual 200+ and two concurrent users are owner-supplied planning inputs, not usage caps; cumulative data count must come from the actual initial source.
+
+## Sources and Reporting
+
+Specification, HSC register, decisions, operations and technical-remediation documents remain authoritative for their own scopes. This roadmap is not a second requirements register. Old prototype periods, stale production claims and repeated per-answer zero-progress notes have been removed from this current view; source decision files and Git retain the rationale and historical evidence.
+
+No app, deploy, data-contract, governance or approval boundary was changed by the 2026-10-03 documentation consolidation. The existing physical schema and runtime still need implementation alignment and cannot be inferred from the rewritten milestone text.

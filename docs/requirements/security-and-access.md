@@ -1,5 +1,17 @@
 # Security and Access Posture
 
+> 2026-10-03全体整理：現行の確定事項は[仕様書0.1.90](../specification.md)に業務別に統合しました。本書の日時付き節は判断の根拠を含み、後の決定で置き換えられた記述があります。旧試作説明・当時の未決欄を現行の実装指示にしないでください。未決管理は[台帳](house-solution-confirmations.md)、配布資料は[資料索引](../../deliverables/meeting-2026-10-03/README.md)を参照します。
+
+## 2026-10-03 終了データ削除の権限（仕様書0.1.73）
+
+保証終了物件のCSV保存確認後の手動削除はHS管理者に限定する。自動削除はしない。削除後の延長に伴うCSVからの復元は開発側の個別対応とし、HS向け復元機能は初期対象外。取消済みのCSVなし物理削除はHS未確認・保留。根拠：同日①②YES・③保留、HSC-001。以下の削除権限未確定という旧記録をこの範囲で置き換える。権限コード未変更。
+
+## 2026-10-03 初期HSの操作範囲（仕様書0.1.72）
+
+HS管理者・HS担当者とも全工務店の物件登録・編集・保証延長・取消・CSV出力を許可。利用者追加・停止およびシステム設定は管理者限定。閲覧専用等の追加役割は初期対象外。開発者用システム管理者は維持する。新規に方針が示された終了データ削除の操作権限は未確定でHSC-001に集約し、一般担当者へ自動的に許可しない。ポータル再開時の確認はHSC-013。根拠：同日①YES、HSC-024。仕様記録のみ、認証・Rules・Functions未変更。
+
+> 2026-10-01 試作改修：オーナーが27項目の実装を承認。今回の実演範囲は[試作仕様・データ契約](../design/meeting-prototype-2026-10-03.md)に集約し、この文書の重複する旧案件・共有アカウント・承認待ち・施主／商品マスタ・取消復元・期間計算の記述に優先する。本番未決事項はHSC台帳に残す。配備・検証結果は運用記録を参照。
+
 ## Status
 
 This is a provisional, explicitly risk-bearing posture for the initial delivery. It is not evidence that the production system has adequate authorization, data protection, or attack resistance.
@@ -27,6 +39,8 @@ This is a provisional, explicitly risk-bearing posture for the initial delivery.
 - Operation-history and audit-log records are not an initial-release requirement. This does not remove the existing registration and update timestamps or the account-disable controls.
 
 ## Construction-Company Proposal Prototype
+
+Target workflow amendment (2026-10-01, ADR 0034): HS continues issuing company-bound accounts with no public self-sign-up. Company users will register/extend their own warranties without HS per-submission approval. The prototype work-item-only read/write and approval transaction descriptions below are historical implementation facts pending redesign. They do not authorize broad access to registered data. Current deployed permissions are unchanged; the new company-scoped registered-data path requires implementation and validation.
 
 - Each construction company has at most one enabled shared Firebase Authentication account in the prototype. Self-sign-up is disabled.
 - A House Solution administrator issues, disables, and re-enables the account. The construction company sets and resets its own password through Firebase Authentication email; House Solution does not handle the password.

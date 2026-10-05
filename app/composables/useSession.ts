@@ -18,12 +18,14 @@ let initialized = false
 let profileSubscription: Unsubscribe | undefined
 let authGeneration = 0
 
+let retryProfile: (() => Promise<void>) | undefined
+
 export function useSession() {
   const { $firebase } = useNuxtApp()
 
   if (!initialized) {
     initialized = true
-    onAuthStateChanged($firebase.auth, async (user) => {
+    const loadProfile = async (user: User | null) => {
       const generation = ++authGeneration
       profileSubscription?.()
       profileSubscription = undefined
@@ -38,7 +40,12 @@ export function useSession() {
 
       const staffRef = doc($firebase.firestore, 'staffAccounts', user.uid)
       const companyRef = doc($firebase.firestore, 'constructionCompanyAccounts', user.uid)
-      const [staffSnapshot, companySnapshot] = await Promise.all([getDoc(staffRef), getDoc(companyRef)])
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+      const [staffSnapshot, companySnapshot] = await Promise.race([
+        Promise.all([getDoc(staffRef), getDoc(companyRef)]),
+        new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('account-timeout')), 15000) }),
+      ])
       if (generation !== authGeneration) return
       const accountRef = staffSnapshot.exists() ? staffRef : companySnapshot.exists() ? companyRef : null
       if (!accountRef) {
@@ -60,7 +67,7 @@ export function useSession() {
             profile.value = null
             errorMessage.value = '利用可能なアカウントを確認できません。'
             loading.value = false
-            void signOut($firebase.auth)
+            void signOut($firebase.auth).catch(() => {})
             return
           }
           profile.value = isStaff
@@ -71,7 +78,8 @@ export function useSession() {
             : {
                 accountType: 'construction_company', uid: user.uid,
                 constructionCompanyId: String(data.constructionCompanyId ?? ''),
-                companyName: String(data.companyName ?? ''), displayName: String(data.companyName ?? ''),
+                companyName: String(data.companyName ?? ''), displayName: String(data.displayName ?? data.companyName ?? ''),
+                scope: data.scope, branchId: String(data.branchId ?? ''),
                 email: String(data.email ?? user.email ?? ''), role: 'construction_company', enabled: true,
               }
           loading.value = false
@@ -81,10 +89,21 @@ export function useSession() {
           profile.value = null
           errorMessage.value = 'アカウントが無効化されたか、認証確認に失敗しました。'
           loading.value = false
-          void signOut($firebase.auth)
+          void signOut($firebase.auth).catch(() => {})
         },
       )
-    })
+      } catch {
+        if (generation === authGeneration) {
+          profile.value = null
+          errorMessage.value = 'アカウント情報を取得できませんでした。接続を確認して再試行してください。'
+        }
+      } finally {
+        if (timeout) clearTimeout(timeout)
+        if (generation === authGeneration) loading.value = false
+      }
+    }
+    retryProfile = () => loadProfile($firebase.auth.currentUser)
+    onAuthStateChanged($firebase.auth, loadProfile)
   }
 
   const login = async (email: string, password: string) => {
@@ -99,5 +118,5 @@ export function useSession() {
     await sendPasswordResetEmail($firebase.auth, email)
   }
 
-  return { currentUser, profile, loading, errorMessage, login, logout, resetPassword }
+  return { currentUser, profile, loading, errorMessage, login, logout, resetPassword, retryProfile: () => retryProfile?.() }
 }

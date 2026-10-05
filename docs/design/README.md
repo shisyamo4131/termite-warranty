@@ -1,5 +1,23 @@
 # Design Index
 
+- [0.1.104 Dev反映・入力準備の初期化](evidence/dev-reset-104-2026-10-05.md)：保証グループ・アカウントを保持した業務データ初期化、配備と検証結果。
+
+- [保証区間と逆順取消0.1.101](evidence/lifecycle-101-2026-10-04.md)：採用済み状態遷移の実装・検証・Dev配備記録。
+
+- [保証・保険・案内・請求の状態遷移レビュー](state-transition-review-2026-10-04.md)：サブエージェント3名との壁打ち、現行との差分と未採用の改善案。改修・配備なし。
+
+- [案内取消表現0.1.100](evidence/ux-100-2026-10-04.md)：文言調整と案内済み延長取消の整合性確認。
+
+- [案内状態・取消配置0.1.99](evidence/ux-099-2026-10-04.md)：現在の案内状態と対象満了日の明示、Dev検証。
+
+- [UX-R追加改修0.1.98](evidence/ux-098-2026-10-04.md)：配色・閲覧カード・延長操作配置とDev検証。
+
+- [UI/UX受入改修0.1.97](evidence/ux-097-2026-10-04.md): 入力・選択・確認・案内画面の変更、検証と配備状況。
+
+- [A02-R入力検証・エラー表示](evidence/a02-r-input-validation-2026-10-04.md): rules検証と画面内エラー分離。Dev配備済み・ユーザー再確認待ち。
+
+- [Dev受入A00〜A04の改修証跡](evidence/dev-acceptance-a00-a04-2026-10-04.md): 2026-10-04の指摘・変更・自動検証・Dev配備と再確認待ちの状態。
+
 - Status: Active
 - Authority: Design records describe implementation choices and assumptions; they do not override confirmed requirements in `docs/specification.md`.
 
@@ -15,3 +33,9 @@
 - [TR-009 Japan Post postal-data lookup](tr-009-japan-post-postal-data.md): pre-implementation design for Japan Post CSV transformation, same-origin Hosting shards, manifest metadata, freshness warnings, and manual-entry fallback.
 - [Construction-company portal workflow](construction-company-portal-prototype.md): accepted shared-company-account, case-linked work-item, review/promotion, and queued-notification design.
 - [UI component contracts](ui-component-contracts/README.md): one durable integration contract per user-authored JavaScript component.
+
+- [2026-10-03 meeting prototype](meeting-prototype-2026-10-03.md): approved demonstration implementation contract.
+
+- [入力通知・Autocomplete・重複判定廃止の検証](evidence/autocomplete-validation-2026-10-04.md): 2026-10-04の追加指示、ローカル実装、Dev未配備。
+
+- [延長取消とDev機能受入](evidence/extension-undo-dev-2026-10-04.md)：0.1.96の実装・自動検証とDev実画面結果。

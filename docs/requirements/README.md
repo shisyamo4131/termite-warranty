@@ -6,6 +6,7 @@ These records support the current [specification](../specification.md). They are
 | --- | --- | --- |
 | [Business context](business-context.md) | Organization, product, and domain terms | HSC-011–013, HSC-031 |
 | [Workflow](workflow.md) | Current email entry and desired provisional-registration flow | HSC-003, HSC-005, HSC-013, HSC-028 |
+| [Insurance reporting](insurance-reporting.md) | Monthly reporting frequency and basic fields; implementation on hold | HSC-002, HSC-036 |
 | [External submission options](external-submission-options.md) | Deferred form submission and its unapproved alternatives | HSC-013 |
 | [Initial data model](initial-data-model.md) | Provisional entities, fields, and notification-state requirement | HSC-001, HSC-003–004, HSC-009–010, HSC-014–015, HSC-019, HSC-029, HSC-034 |
 | [Search and list](search-and-list.md) | Initial-release filters | HSC-007, HSC-026 |
@@ -13,7 +14,7 @@ These records support the current [specification](../specification.md). They are
 | [Master management](master-management.md) | Separate master screens and case-registration creation flow | HSC-008–009, HSC-019 |
 | [User explanation items](user-explanation-items.md) | Confirmed behavior that must be explained during acceptance, training, or release preparation | Update when an underlying confirmed behavior changes |
 | [Alerts and dashboard](alerts-and-dashboard.md) | Continuing expiry alerts, list emphasis, and dashboard cases | HSC-005–006 |
-| [Case warranties](case-warranties.md) | Multiple applied warranty services and periods per case | HSC-005, HSC-007 |
+| [Case warranties](case-warranties.md) | One permanent warranty per property and retained period history; prior prototype behavior distinguished | HSC-005, HSC-007 |
 | [Branches and addresses](branches-and-addresses.md) | Branch master, five-part addresses, and Japan Post postal-data lookup direction | HSC-017–019 |
 | [Security and access](security-and-access.md) | Provisional role and authorization approach | HSC-011–012, HSC-020, HSC-024–025, HSC-030 |
 | [Legacy system and objectives](legacy-and-objectives.md) | FileMaker use, concurrent access, cost and data-quality concerns | HSC-014–016, HSC-027 |

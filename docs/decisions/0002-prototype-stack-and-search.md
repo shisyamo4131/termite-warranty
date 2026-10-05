@@ -2,6 +2,7 @@
 
 - Date: 2026-09-10
 - Status: Accepted
+- Partial supersession (2026-10-01): the responsible-HS-branch filter mentioned below is excluded by the owner decision in HSC-033 and specification 0.1.26. Stack and other search decisions remain unchanged; prototype removal is pending.
 - Related specification: [technology and search](../specification.md)
 - Supersedes: None
 

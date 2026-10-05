@@ -1,6 +1,8 @@
 # Construction-Company Portal Workflow
 
-- Status: Accepted initial workflow; implemented and technically deployed to Dev
+> Historical runtime contract: the [2026-10-03 meeting contract](meeting-prototype-2026-10-03.md) supersedes the overlapping prototype surfaces. Old modules remain for regression/reference but are not routed by the application root. Approved disposable test-data reset replaces migration; production Excel intake remains unresolved.
+
+- Status: Existing prototype implemented and technically deployed to Dev; per-submission HS review superseded in the target by ADR 0034 (2026-10-01), replacement implementation pending
 - Decision: [0023](../decisions/0023-construction-company-portal-prototype.md)
 - Resolved matter: [HSC-013](../requirements/house-solution-confirmations/HSC-013-construction-company-submission.md); notification delivery/reminders remain under HSC-005
 

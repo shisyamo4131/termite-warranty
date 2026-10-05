@@ -558,7 +558,7 @@ test('transient operation results use the shared application snackbar', async ()
 
   assert.match(app, /<AppSnackbar\s*\/>/)
   assert.match(component, /<v-snackbar/)
-  assert.match(component, /location="bottom center"/)
+  assert.match(component, /:location="state.location"/)
   assert.match(component, /メッセージを閉じる/)
   assert.match(composable, /ERROR_TIMEOUT = 8000/)
 

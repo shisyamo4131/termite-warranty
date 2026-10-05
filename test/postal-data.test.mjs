@@ -70,3 +70,15 @@ test('hosted provider validates shard integrity and returns resolved, missing, a
   const broken = createHostedPostalLookupProvider({ fetcher: async (url) => url.endsWith('manifest.json') ? { ok: true, json: async () => manifest } : { ok: true, text: async () => '[]\n' } })
   assert.deepEqual(await broken.lookup({ postalCode: '1000001' }), { status: 'unavailable' })
 })
+
+test('hosted provider retries a failed manifest without reloading the application', async () => {
+  let requests = 0
+  const provider = createHostedPostalLookupProvider({ fetcher: async () => {
+    requests += 1
+    if (requests === 1) throw new Error('temporary offline state')
+    return { ok: true, json: async () => ({ schemaVersion: 1, shards: [] }) }
+  } })
+  assert.deepEqual(await provider.lookup({ postalCode: '1000001' }), { status: 'unavailable' })
+  assert.deepEqual(await provider.lookup({ postalCode: '1000001' }), { status: 'not_found' })
+  assert.equal(requests, 2)
+})

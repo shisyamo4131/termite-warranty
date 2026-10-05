@@ -1,8 +1,16 @@
 # User Explanation Items
 
+> 2026-10-01 試作改修：オーナーが27項目の実装を承認。今回の実演範囲は[試作仕様・データ契約](../design/meeting-prototype-2026-10-03.md)に集約し、この文書の重複する旧案件・共有アカウント・承認待ち・施主／商品マスタ・取消復元・期間計算の記述に優先する。本番未決事項はHSC台帳に残す。配備・検証結果は運用記録を参照。
+
+2026-10-01 target amendment (ADR 0034): HS issues the account once; company operators register their own properties/warranties and extend warranties without HS approval for each submission. The prototype review/withdrawal instructions below describe the old implementation. Replacement correction/cancellation instructions require the new workflow design and validation before training. This does not enable public account registration or automatic insurance reporting.
+
 - Status: Active
 - Audience: House Solution staff who will operate or administer the system
 - Purpose: Record confirmed behavior that must be explained during acceptance, training, or release preparation. This checklist does not replace the authoritative specification or decisions linked below.
+
+## Confirmed Warranty Model — Explain After Implementation
+
+A property has one continuing warranty. Its number stays the same on renewal, and prior periods remain available as history. Product settings and warranty groups are separate from that individual warranty; groups identify the certificate form and support property extraction. Insurance rules are separate. This model is confirmed but **not implemented**; do not demonstrate the current independent-record extension flow as if it already complied. Authority: [ADR 0033](../decisions/0033-permanent-property-warranty.md).
 
 ## Update-conflict Behavior
 
@@ -42,3 +50,8 @@
 - Withdrawing a submitted or returned item creates a House Solution-side notification; withdrawing a draft does not send that notification.
 - An approved case is outside this withdrawal flow and follows the separate case-cancellation procedure.
 - Authority: [workflow requirements](workflow.md) and [construction-company portal design](../design/construction-company-portal-prototype.md).
+
+
+## 2026-10-01 デモ確認後（ローカル・未配備）
+
+本登録前に申込日を確認する。初期値は当日だが、前日に受け付けた申込みは日付を訂正する。本登録後は申込日・保証番号を変更できない。保険報告用一覧の期間は引渡日を指し、未設定物件は含まれない。CSV出力は報告完了ではない。保証グループを無効にしても既存保証は消えず、新規本登録を再開するには有効な割当が必要。既存の実演PDFには今回の変更は未反映。 詳細は[試作契約](../design/meeting-prototype-2026-10-03.md)を参照。

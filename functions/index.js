@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { assertApprovedPrototypeRuntime } from './local-runtime.js'
+import { propertyPrototypeOperation } from './property-warranty.js'
 import { registerCaseTransaction } from './register-case.js'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 import {
@@ -27,6 +28,17 @@ import {
 assertApprovedPrototypeRuntime()
 setGlobalOptions({ region: 'asia-northeast1' })
 initializeApp()
+
+export const propertyPrototype = onCall(async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')
+  try { return await propertyPrototypeOperation(getAuth(), getFirestore(), request.data, request.auth.uid) }
+  catch (error) {
+    if (error instanceof HttpsError) throw error
+    if (error instanceof TypeError || error instanceof RangeError || (error instanceof Error && !error.code)) throw new HttpsError('invalid-argument', error.message)
+    console.error('propertyPrototype failed', { code: error?.code })
+    throw new HttpsError('internal', '操作に失敗しました。再読込して確認してください。')
+  }
+})
 
 export const registerCase = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')

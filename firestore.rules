@@ -23,6 +23,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    function prototypeCompanyOwns(data) {
+      let account = get(/databases/$(database)/documents/constructionCompanyAccounts/$(request.auth.uid)).data;
+      return signedInCompanyEnabled() && data.constructionCompanyId == account.constructionCompanyId
+        && (account.scope == 'company' || (account.scope == 'branch' && data.branchId == account.branchId));
+    }
+    match /propertyWarranties/{propertyId} {
+      allow read: if signedInAndEnabled() || (request.auth != null && prototypeCompanyOwns(resource.data));
+      allow write: if signedInAndEnabled();
+    }
+    match /companyBranches/{branchId} {
+      allow read, write: if signedInAndEnabled();
+    }
+    match /warrantyGroups/{groupId} {
+      allow read, write: if signedInAndEnabled();
+    }
+    match /warrantyCounters/{groupId} {
+      allow read, write: if false;
+    }
+
     match /constructionCompanyAccounts/{uid} {
       allow read: if request.auth != null && (request.auth.uid == uid || signedInAndEnabled());
       allow write: if false;

@@ -25,6 +25,15 @@ export default defineNuxtConfig({
       importComposables: false,
     },
     vuetifyOptions: {
+      defaults: {
+        VAlert: { density: 'compact' },
+        VTextField: { autocomplete: 'off' },
+        VTextarea: { autocomplete: 'off' },
+        VSelect: { autocomplete: 'off' },
+        VAutocomplete: { autocomplete: 'off' },
+        VCombobox: { autocomplete: 'off' },
+        VForm: { autocomplete: 'off' },
+      },
       localeMessages: ['ja'],
       locale: {
         locale: 'ja',
@@ -41,7 +50,6 @@ export default defineNuxtConfig({
               accent: '#55B8D1',
               background: '#F5F9FD',
               surface: '#FFFFFF',
-              'surface-variant': '#E7F1FC',
               'on-background': '#26374A',
               'on-surface': '#26374A',
               'on-primary': '#FFFFFF',

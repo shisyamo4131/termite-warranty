@@ -7,6 +7,8 @@ export interface CompanyAccountProfile {
   uid: string
   constructionCompanyId: string
   companyName: string
+  scope?: 'company' | 'branch'
+  branchId?: string
   displayName: string
   email: string
   role: 'construction_company'

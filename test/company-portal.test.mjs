@@ -13,7 +13,7 @@ test('company portal gateway uses the seven trusted callable commands', async ()
   ]) assert.match(source, new RegExp(`'${callable}'`))
 })
 
-test('session and root rendering separate staff and construction-company surfaces', async () => {
+test('session preserves company identity and root renders the property-centred prototype', async () => {
   const [session, app, portal] = await Promise.all([
     readProjectFile('app/composables/useSession.ts'),
     readProjectFile('app/app.vue'),
@@ -21,7 +21,7 @@ test('session and root rendering separate staff and construction-company surface
   ])
   assert.match(session, /constructionCompanyAccounts/)
   assert.match(session, /sendPasswordResetEmail/)
-  assert.match(app, /profile\.accountType === 'construction_company'/)
+  assert.match(app, /<MeetingPrototype v-else/)
   assert.match(portal, /where\('constructionCompanyId', '==', companyProfile\.value\.constructionCompanyId\)/)
   assert.doesNotMatch(portal, /collection\(\$firebase\.firestore, 'cases'/)
 })

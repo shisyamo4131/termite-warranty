@@ -1,5 +1,50 @@
 # Technical Remediation Backlog
 
+## 2026-10-05 請求開始月・過去初回保険
+
+オーナー承認範囲：延長請求対象月を保証開始月に変更し、初回未報告の過去保険を対象月基準で選ぶ。月内保証終了も候補に残してHSが選択する。ローカル実装・機能検証済み。完了条件は期間境界・終了・未選択保持・取消復元・請求取消後の除外の検証。2026-10-05にDev反映と指定データ初期化を完了（[実行記録](../design/evidence/dev-reset-104-2026-10-05.md)）。[保存契約](../design/meeting-prototype-2026-10-03.md)、[検証記録](../design/evidence/implementation-104-2026-10-05.md)。全体進捗の加点なし。
+
+## 2026-10-04 状態遷移の設計レビュー（0.1.101実装・検証）
+
+後続の改修・Dev配備指示により実装・全7ゲート・Dev反映・実画面確認を完了。[区間契約と検証記録](../design/evidence/lifecycle-101-2026-10-04.md)を現在地とする。下記は採用時点の経緯。ユーザーUI受入はまだ加点しない。
+
+ユーザー依頼でサブエージェント3名と[状態遷移レビュー](../design/state-transition-review-2026-10-04.md)を実施後、オーナーが最小推奨案1〜3と取引単位の請求状態管理を採用。請求済み取消と延長依存の保険報告取消を延長取消の前提とし、外部訂正はHSに委ねる。全体取消の影響確認を追加。引渡日は初回分も含む有効な報告・請求・延長を戻せば訂正可能とし、処理経験だけの永久ロックは設けない。[仕様書](../specification.md)に実装待ちとして記録。連続取消に必要な記録と旧データの扱いは設計が必要。
+
+完了条件：依存関係・既存データの扱いを確定し、必要な契約／画面／サーバー制御を反映。案内後の訂正・延長取消、請求済み延長取消の拒否と逆順取消、同月別保険区間、全体取消・復元の組合せ試験を行う。今回の文書更新で実装完了・受入加点はしない。UX-R07は受入済み。
+
+## 0.1.100 — 2026-10-04 案内取消の文言と整合性確認
+
+「未案内に戻す」、タイトル「保証満了案内を取り消す」、影響説明をv-alertへ変更。延長取消の既存復元動作の追加試験。全7ゲート成功、Dev Hosting反映・実画面確認済み。[記録](../design/evidence/ux-100-2026-10-04.md)。業務仕様・未確定事項の変更なし。
+
+## 0.1.99 — 2026-10-04 案内状態・取消配置
+
+カレンダー、報告/請求カード、延長配置はオーナーOK。保証満了案内の状態と操作を直近保証行へ集約し、全体取消を右上の色付きボタンへ変更。Dev Hosting反映・実画面確認済み。全7ゲートexit 0。[記録](../design/evidence/ux-099-2026-10-04.md)。保証上限到達時の保証/保険アラート除外はHSC-036で確認、抽出条件は不変。全体進捗の加点なし。
+
+## 2026-10-04 UX-R追加回答
+
+UX-R01/R06はオーナーOK、日付数値入力もOK。0.1.98でカレンダー配色・報告/請求のカード表示・延長ボタン位置を修正しDev反映・開発側確認済み。[差分受入手順](../runbooks/local-acceptance-2026-10-03.md)、[証跡](../design/evidence/ux-098-2026-10-04.md)。請求年月/未請求管理はHSC-010、保険満了一覧用途はHSC-036で確認。全体進捗の加点なし。
+
+## 2026-10-04 UI/UX受入 U01〜U10
+
+入力候補・余白・Vuetify既定フォーカス、日付文字入力、一括選択、取消確認とカード内操作、満了案内の専用表示を0.1.97で改修。[検証と配備](../design/evidence/ux-097-2026-10-04.md)、[再確認6項目](../runbooks/local-acceptance-2026-10-03.md#0197の要再確認ux-r0106)参照。U07/U09はユーザーOK。請求先単位の絞り込みは[HSC-010](../requirements/house-solution-confirmations/HSC-010-payer-contracting-party.md)でHS確認後の後発改修。単位は推定しない。
+
+## 2026-10-04 パスワード設定メール・画面の後発改善
+
+- 状態：改善要望を受領、後発作業。未実装。A01の機能受入を妨げない。
+- 根拠：同日、ユーザーが設定メールの正常受信・パスワード設定・ログイン成功を報告し、初回設定／再設定時のメールと設定画面を整えることを希望。
+- 対象：初回パスワード設定・再設定のメール、およびリンク先の設定画面。
+- 検討案（未確定）：サービス名・送信者表示・日本語の案内文、初回設定と再設定の説明、画面の見た目、完了後のログイン導線、無効／期限切れリンクの案内を整理する。
+- 着手時：利用中の認証サービスで変更できる範囲を確認し、文案と画面案を提示して具体化する。今回は認証設定・メール送信設定・実装を変更しない。
+- 完了条件：採用した文案・画面を反映し、Devで初回設定／再設定のメール受信、設定、ログイン、無効リンク時の案内を確認する。
+
+## 2026-10-04 A02-R追加指摘
+
+郵便番号空欄登録は確認済み。入力エラーが背景一覧にも出る不具合とrules検証の不足を通常画面全体で改修する。[範囲・検証](../design/evidence/a02-r-input-validation-2026-10-04.md)を参照。2026-10-04にDev配備済み、ユーザー再確認待ち。
+
+## 2026-10-04 Dev受入フィードバック A00〜A04
+
+接頭辞区切り・住所拡張・工務店候補検索・本登録確認・期間表示を改修対象とする。コードの確認では背景ローディングは候補検索と一覧のbusy共有、本登録チェックの抜けは注意発生時だけ確認を要求する条件に起因。改修の自動検証とユーザー受入は[証跡](../design/evidence/dev-acceptance-a00-a04-2026-10-04.md)で区別する。旧画面残件と進捗率は変更しない。
+
 - Status: Active
 - Scope: Approved corrections and structural improvements identified during the 2026-09-11 implementation review, plus the TR-009 postal-lookup design added and independently reviewed on 2026-09-12
 - Progress rule: An item is complete only when its implementation, required tests, affected contracts, and measured evidence all satisfy its completion contract. No elapsed-time or partial percentage is reported.
@@ -103,7 +148,7 @@ This backlog records approved implementation work. It does not turn unresolved p
 
 ## TR-009: Add Japan Post Postal-Data Lookup
 
-- Status: Local implementation, Dev publication, and authenticated UI lookup smoke complete; save/persistence and visual accessibility checks remain unverified
+- Status: Local retry correction, all three master persistence paths, and bounded visual/keyboard smoke verified on 2026-09-28; formal accessibility acceptance and deployment remain pending
 - Decision: [ADR 0031](../decisions/0031-japan-post-postal-data.md)
 - Detailed design: [TR-009 Japan Post postal-data lookup](../design/tr-009-japan-post-postal-data.md)
 - Review evidence: the provider-neutral foundation was independently reviewed on 2026-09-12; its reusable concurrency protection and manual-entry boundary remain applicable, while the former Google-specific review gates are superseded by ADR-0031.
@@ -113,8 +158,51 @@ This backlog records approved implementation work. It does not turn unresolved p
 - Completion contract: the normalized CSV transformation and manifest are covered by synthetic fixtures; generated shards have verified counts/checksums; candidate selection and freshness warning work; late responses cannot overwrite newer field input; ambiguous results never silently choose a candidate; manual save always remains available; no runtime network request or credential is introduced; all policy-selected documentation, UI, application, syntax, and build gates pass independently.
 - Foundation evidence: the provider-neutral domain/types, all three master UI paths, per-field/generation concurrency protection, provider replacement/removal handling, and synchronous full/quick/edit form cancellation are implemented with registered tests. Revision `1d113e5b3e719679ed8d7d82ac3c313b0e6daf71` was deployed to `termite-warranty-dev` by successful push verification run `35303358082` and workflow dispatch deployment run `35303604261`, including Firestore, Functions, and Hosting. Public smoke verified `/` HTTP 200 and manifest/shard integrity for representative shards `001`, `500`, and `999`. Authenticated Dev UI smoke verified lookup, candidate selection, manual correction, and cancellation in all three master dialogs; homeowner and construction-company lists were observed without test records, while property persistence was not independently rechecked. Responsive/layout and accessibility acceptance were not performed.
 
+- 2026-09-28 checkpoint: a failed manifest load can now be retried in the same page session; regression and all selected local gates passed. All 948 shard checksums/counts were verified. Homeowner/company save and reload, property no-match/manual entry, and a temporary stale-metadata warning were observed. Browser-control timeouts blocked property save/reload and remaining visual checks. See the detailed design for commands, exit statuses, limitations and next work. No completion credit or deployment is claimed.
+
+- Retry checkpoint (2026-09-28): the interrupted property save/reload succeeded for postal autofill/manual correction, no-match/manual saving, and multiple-candidate selection. Desktop/narrow dialog display, keyboard selection, dialog focus and cancellation were checked; screenshots are linked from the detailed design. No application code changed. Formal accessibility acceptance and deployment are not claimed.
+
 ## Earlier Remediation Evidence Source (TR-001–TR-008)
 
 - Review: coordinator plus read-only architecture, frontend, data, and test reviewers on 2026-09-11.
 - Approval and decisions: user instruction in the current Codex task on 2026-09-12. A task/thread identifier was not available to the repository authoring context.
 - External documentation checked for TR-002: [Firebase Manage functions](https://firebase.google.com/docs/functions/manage-functions) documents that the CLI deploys Functions from the default/configured Functions source, and [Organize multiple functions](https://firebase.google.com/docs/functions/organize-functions) documents codebases and multiple source packages. These sources support the identified packaging purpose but do not by themselves validate a local workspace-package solution.
+
+
+## TR-010: Presentation-Day Defect Record (2026-10-03)
+
+- Status: Owner requested recording only; no implementation or deployment on presentation day. No completion credit.
+- Evidence: static review of local commit `b45382f6ef92e9ab897cee59b1164766375aaa70` and current uncommitted prototype. Runtime reproduction and current hosted-version matching are unverified. Source: owner's review/deferral instruction in this Codex task.
+- Scope boundary: current `app/app.vue` routes to `MeetingPrototype`; the legacy account/master/case screens below are not on the normal current route. Confirm future usage before repairing or retiring legacy code.
+
+| Priority / scope | Finding | Later completion condition |
+| --- | --- | --- |
+| 1 / current shared login | `useSession.ts` does not catch rejection of initial account reads; loading remains true and no retry/subscription is established. | Release loading on failure, provide safe recovery, retain enabled checks and generation/race protection. Test failed read, recovery and sign-out/account-switch races. |
+| 2 / legacy account UI and current selector review | Legacy `CompanyPortalAccountManagement.vue` limits companies and accounts to 20 with no search/paging. Current company/branch selectors also initially load 20 but settings search can reload candidates. | Make eligible companies/branches beyond 20 reachable; verify 21+ candidates, affiliation, existing accounts and account list access. Do not equate current UI with the unreachable legacy workflow. |
+| 3 / legacy warranty-service properties | `useMasterManagement.ts` limits active warranties to 20 before filtering inactive cases/properties, without replenishing from later matches. | No false empty result when a qualifying property follows 20 rejected candidates; test cancellation, inactive property and duplicate references. |
+| Follow-up / legacy detail | Only warranties are watched; parent cases/properties are read once. Parent-only changes do not refresh the result. | Adopt and test required refresh behaviour without prohibited per-row subscriptions. |
+| Follow-up / legacy case edit | `CaseEditDialog.vue` applies new property ID/defaults against the stale catalog; `CaseDetail.vue` reloads only when opening dialogs. | Refresh/merge created property before applying defaults; verify label, homeowner and company immediately after creation. |
+
+Presentation workaround: owner plans browser reload if login stalls. Code inspection supports reinitialization and retry on reload if communication has recovered, not a guaranteed cure; persistent connection/permission failures can recur. No runtime workaround verification was performed.
+
+Later priority for current prototype: login recovery, company/branch selection, then list completeness. Persistent pagination under HSC-008 is a separate proposal and does not itself correct missing candidates or filtering after a limit. Implementation gates must be selected from the actual UI/application/data impact plus the regressions above. This record is documentation-only; no code, deploy or app test changes.
+
+### 2026-10-03 プレゼン中にオーナーが観測した追加2件（後続対応）
+
+両件とも本Codex会話でのユーザー報告に基づく。開発側での再現、ログ・送信内容確認、原因特定、稼働版照合は未実施。後発作業として記録する指示であり、今は改修・配備しない。以前の静的レビュー結果とは証拠を分ける。
+
+| ID | 観測された手順と結果 | 後続の再現・改修完了条件 |
+| --- | --- | --- |
+| TR-010-06 | 物件／保証新規登録で物件名・住所等を入力し本登録。面積が未入力で「物件名、住所、建面積を入力してください」と表示。面積を追加入力して再度本登録しても同じエラー。ダイアログ終了・リロード・再登録で成功。 | 同じダイアログ内で不足項目を訂正後、最新入力値で本登録できること。フォーム値・保存済み下書き・送信内容・サーバー検証の各時点を比較し、エラー前後の部分保存の有無と再試行での重複登録・二重採番も確認。正常完了までリロード不要を実行検証する。 |
+| TR-010-07 | 保証グループが存在しない状態で工務店登録を開くと「HSC」が選択済み。登録で「指定された保証グループが存在しない」旨のエラー。HSCを作成後も工務店登録が同じエラーになり、リロード・再登録で成功。 | グループ0件で存在しない候補を既定選択しない。実在する有効なグループを作成後、リロードなしで候補と選択IDが更新され、工務店を登録できること。同名再作成時の旧ID残存、削除・無効化後の選択、空データ時の初期値とキャッシュ更新を確認する。 |
+
+原因候補（未確認）：入力値と保存・送信データのずれ、エラー後のフォーム再送状態、グループ候補・選択IDの更新不足。リロードによる解消だけで共通原因とは断定しない。実装時は変更範囲の検証ゲートに加え、上記の失敗→訂正／マスタ作成→再試行を同一画面で検証する。現在の記録変更は文書のみ。
+
+
+### 2026-10-03 独立先行実装への追加承認
+
+後続の「独立先行できる作業を開始」「Local受入はまとめて」により通常経路の改修を実施。前記の「記録のみ」は過去チェックポイント。共有ログインに読込失敗解除・15秒打切り・再試行、最新アカウント世代のみ採用する処理を追加。通常画面の会社選択に明示検索・選択会社の全支店取得を追加し、21件以降を到達可能にする。保証グループ作成後の再取得と実在ID選択を維持し、物件送信時は最新フォーム値を複製する。
+
+TR-010-06は面積未入力→訂正→同じ要求ID再送をサーバー／HTTP Callableで回帰検証。画面での当初現象の原因特定や手動再現完了とは扱わない。TR-010-07の実画面受入も残る。通常経路外の旧画面3件（関連一覧欠落・追従不足・新規物件選択）と旧アカウントUIは今回変更しない。現行から利用する必要性の判断を待ち、解決済みにしない。
+
+[実測](../design/evidence/independent-implementation-2026-10-03.md)／[Local受入](../runbooks/local-acceptance-2026-10-03.md)。配備・既存データ初期化は行わない。

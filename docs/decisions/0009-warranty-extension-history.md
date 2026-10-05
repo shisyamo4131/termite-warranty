@@ -1,7 +1,7 @@
 # 0009 Warranty-extension History
 
 - Date: 2026-09-10
-- Status: Accepted
+- Status: Superseded for warranty identity/renewal by [ADR 0033](0033-permanent-property-warranty.md); retained as historical prototype evidence. Insurance policy is not changed by that decision.
 - Related specification: [Functional Requirements](../specification.md#functional-requirements)
 - Supersedes: None
 
