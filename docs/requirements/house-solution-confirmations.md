@@ -20,6 +20,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
+| HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-05追加。物件名＝施主名か、別名称として管理するかをHS確認待ち。仕様・実装変更なし | House Solution |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 延長後の保証開始月を2026-10-05採用、ローカル実装・機能検証済み、Dev未反映。未請求抽出・請求先単位・合算は確認待ち | House Solution |
 | HSC-001 | [Case, applied-warranty, and referenced-master data retention](house-solution-confirmations/HSC-001-data-retention-policy.md) | 終了分のCSV保管後削除・開発側復元は確定。取消済みもCSVをHS保管後に削除可（2026-10-05）、後発実装。トリガー・詳細は未確定 | House Solution |
 | HSC-002 | [Initial-release acceptance scope](house-solution-confirmations/HSC-002-release-acceptance-scope.md) | HS operators verify, HS president approves launch, AriLabo coordinates confirmed; actual launch date undecided, final acceptance preparation remains | House Solution |
