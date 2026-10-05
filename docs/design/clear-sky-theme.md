@@ -29,7 +29,7 @@ text above a 4.5:1 contrast ratio on the surfaces used by the prototype.
 
 ## 2026-10-05 Alert presentation
 
-Approved by the project owner on 2026-10-05 in PM（白蟻）-07 (task 01a10af9-3ed6-78e0-9642-7c35fd362421), adopting the recommended sample and authorizing Dev Hosting deployment. Existing and future alert declarations inherit compact density, tonal backgrounds and 20px icons from `nuxt.config.ts`. Body and title use 0.875rem text, 1.5 line height, and a 12px icon gap. Existing top/bottom spacing classes use 16px; their direction remains contextual. Information, warning/attention, error and success retain shared theme colours. Icons are vertically centred against the complete message block, including multiline messages and titles. Message types and business behavior are unchanged.
+Approved by the project owner on 2026-10-05 in PM（白蟻）-07 (task 01a10af9-3ed6-78e0-9642-7c35fd362421), adopting the recommended sample and authorizing Dev Hosting deployment. Existing and future alert declarations inherit compact density, tonal backgrounds and 20px icons from `nuxt.config.ts`. Body and title use 0.875rem text, 1.5 line height, and a 12px icon gap. Existing top/bottom spacing classes use 16px; their direction remains contextual. Information, warning/attention, error and success retain shared theme colours. Use a single-row alert grid so icons and the complete message block share the same vertical centre, including multiline messages and titles. Message types and business behavior are unchanged.
 
 ## Input message regions
 

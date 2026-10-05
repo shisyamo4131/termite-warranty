@@ -297,6 +297,8 @@ a:hover {
 /* Keep dialog headings and actions fixed while the form area scrolls. */
 /* Shared alert typography; colour and compact padding remain Vuetify-owned. */
 .v-alert { font-size: 0.875rem; line-height: 1.5; }
+/* Vuetify's default content spans two grid rows; use one shared centre line. */
+.v-alert.v-alert { grid-template-areas: "prepend content append close"; align-items: center; }
 .v-alert .v-alert-title { font-size: inherit; line-height: inherit; font-weight: 500; }
 .v-alert .v-alert__prepend { margin-inline-end: 12px; align-self: center; min-height: 1.5em; }
 .v-alert .v-alert__content { min-width: 0; overflow-wrap: anywhere; }

@@ -2,6 +2,8 @@
 
 ## 2026-10-05 現在地・次の確認
 
+追加是正：前回の上下中央揃えではVuetifyの2段グリッドが残り、ユーザー画像でずれを確認。共通アラートを1段グリッドへ変更し、ブラウザfixtureの単行・複数行・見出し付き3ケースで中心差0pxを確認。Dev Hosting反映済み（deploy exit 0）。公開HTML HTTP200・35参照資産一致・Dev設定一致（verify exit 0）。保存・終了後のユーザー再読込による実画面受入が次。[最新記録](design/evidence/ux-106-2026-10-05.md#アラートの2段グリッドによるずれの是正)。
+
 追加修正：アラートのアイコンをメッセージ全体の上下中央へ変更し、オーナーの再試行指示でDev Hosting反映済み（deploy exit 0）。公開HTML HTTP200・35参照資産一致・Dev接続先一致（verify exit 0）。入力を保存・終了後に再読込して実画面を確認する。色・サイズ・処理は不変。[最新記録](design/evidence/ux-106-2026-10-05.md#アラートアイコンの上下中央揃え)。
 
 オーナー採用のアラート共通デザインをDev Hostingへ反映済み。全67箇所は共通設定を継承し、tonal・compact・本文14px相当・アイコン20px。先行の入力欄auto廃止と案内文修正も配備。全7ゲートが各exit 0（npm test 157成功・2既存スキップ、Rules88成功）、公開HTML HTTP200・35参照資産一致・Dev接続先一致。今後の画面向けルールをproject-rulesとClear Sky themeへ記録し、共通設定の上書き・auto再導入を検出する試験を追加。[実行記録](design/evidence/ux-106-2026-10-05.md#アラート共通デザインの採用dev反映pm-07)と[配備指紋](design/evidence/dev-release-alert-design-2026-10-05.json)。次はユーザーが入力を保存・終了後に再読込して実画面を確認する。データ・Functions・Rules・Prod変更なし。以下の「ローカルのみ」「未コミット」等は今回の配備前の履歴。
