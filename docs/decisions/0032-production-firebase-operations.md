@@ -1,5 +1,9 @@
 # 0032 Production Firebase Environment and Operations
 
+## 2026-10-06 Incident entry amendment
+
+The owner explicitly instructed that a real incident report in this Codex project should immediately start developer-operated maintenance/recovery. Persist that report as the maintenance-entry instruction for the currently configured Dev target, verify actual identities/state and proceed without reasking whether to stop. A preparedness discussion is not an incident. Preserve the adopted external recovery-point approval and separate HS reopening approval, fixed `(default)` restoration, independent Auth repair and separately authorized cleanup. This makes the existing developer recovery responsibility actionable across tasks; it does not provision or authorize the unconfigured Prod target. [Formal incident route](../runbooks/backup-recovery.md#障害通知からの開始2026-10-06採用). Local implementation and verification are distinct from new live recovery/deployment acceptance.
+
 - Date: 2026-09-17
 - Status: Accepted
 - Related specification: [Environment and Boundaries](../specification.md#environment-and-boundaries)

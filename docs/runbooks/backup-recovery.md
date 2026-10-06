@@ -1,5 +1,41 @@
 # バックアップ・全体復旧の操作手順
 
+## 障害通知からの開始（2026-10-06採用）
+
+オーナーからこのプロジェクトで実際の「障害が発生した」旨を受けたら、以下を開始し、Dev停止開始を再質問しない。今回の準備指示を、正常Devを停止する指示とは扱わない。現在の設定対象は `termite-warranty-dev`、業務 `(default)`、制御 `recovery-control`、Hosting `termite-warranty-dev`。Prodは未設定／コマンド非対応で、この対象へ読み替えない。
+
+1. AGENTS／project-rules／本節／固定DB設計を読み、実HEAD・対象設定・Firebase CLI認証を確認。下記 `observe` で実DB識別・公開停止状態・制御状態・未完了処理を読む。ビルドや全業務取得はせず、世代を過去の記録から推測しない。
+2. 公開markerと制御が一致してnormal、運用ロックなしなら、照合世代で `enter` を実行。配備の全照合や更新リース0を待ってから停止するのではない。HS管理者も業務アクセスを閉じ、再観測する。既にrecoveringなら再送しない。途中失敗・世代不一致はintent／owner／marker／private記録を照合し、旧worker終了を確認して対応する回復コマンドを使う。
+3. 更新リースとAuth退避の収束を確認し、現在権限・所属・採番のbaselineを保全。取得可能なバックアップ／PITR時点を調査。時間切れだけで未完了記録を削除せず、停止開始と停止完了を区別して報告する。
+4. 復旧候補時点と、その後に戻らない更新の範囲を提示し、従来どおりシステム外のHS了承を確認。既に明示された有効な了承は再質問しない。新しい一時DBへ復元し、非同期処理完了・隔離・原像hash・現在権限と採番の補正・参照と整合を検証する。
+5. 一時DB検証証拠を使い `plan → apply → publish`。期待像にない業務文書の削除も含む完全同期で(default)へ復旧。対象・復旧時点の了承を別環境・別時点・Auth/IAM変更・DB削除へ流用しない。配備破損時は対象と互換性を確認し、必要な修正／配備と新計画を用意する。再開まで版を固定する。
+6. 技術検証成功後だけHS管理者の読み取り／非更新CSVを開放し、オーナーへ確認手順を提示して待つ。別途得たHS再開了承を記録して `reopen`。Auth自体の復旧・一時DBや証拠削除は別手順と承認であり、自動実行しない。
+
+```powershell
+$recoveryRevision = (git rev-parse HEAD).Trim()
+node scripts/default-recovery.mjs observe --project termite-warranty-dev --control recovery-control --revision $recoveryRevision --dev-inspect
+# 実際に照合した世代、新しく発行した停止ID、非秘密の障害通知参照を使用する。
+node scripts/default-recovery.mjs enter --project termite-warranty-dev --control recovery-control --revision $recoveryRevision --source '(default)' --generation <照合世代> --site termite-warranty-dev --operation <新停止ID> --approval <障害通知参照> --dev-execute --apply --confirm fixed-recovery
+```
+
+`observe` は読み取り専用。業務本文／認証情報を出さず、ビルドなし、更新リースはlimit(1)で有無だけを読む。runtime/marker一致、phase/generation、未完了操作ID/owner/種別、収束待ちを表示する。marker閉鎖だけで収束完了としない。ローカル差分がある場合も状態調査はできるが、実行は確認済みcommit・ソース無変更ゲートを維持する。未確認コードの実行例外ではない。
+
+### 正式コマンドの組み合わせ
+
+固定方式Aは `default-recovery.mjs enter`。保全と一時復元のBは `recovery.mjs` の `baseline / backups / restore / restore-status / quarantine / scan / reconcile / verify`。C/Dは `default-recovery.mjs` の `plan / apply / publish / reopen`。旧 `recovery.mjs enter / cutover / reopen` はprotocol2で拒否される。Bには同じproject/control/revision、停止後の実generation、各操作の新IDと固有証拠を指定する。新一時DB名へレビュー済みRulesを先に配備し、新DB不存在を確認してrestoreする。
+
+復元要求は再送しない。応答消失時はprivate `recoveryTargets/<一時DB>` と同じoperationを照合する。完了証拠なしでquarantine/reconcile/verifyへ進まない。planには同じbaselineとverifyのID・一時DBを指定し、通常復旧で `--migration` は使わない。apply中断は同じ封印計画、停止済み旧worker、正確なownerを要する。公表失敗は完成checkpointとmarkerの実状態を読んで判定し、成功済み遷移を再送しない。
+
+### 配備確認の管理ファイル
+
+固定CLIの `preflight / publish / reopen` には必要に応じ `--hosting-provider-version sites/<照合site>/versions/<事前確認済み旧版>` を指定する。現在live版を期待hashの出所にして自己証明しない。旧同site FINALIZED版の管理2path/hash、認証済みproject/app設定、公開init設定、前後live版一致を確認し、アプリを含む全path/hash/configを通常verifierで照合する。2ファイルの除外ではない。
+
+2026-10-06に照合済みの旧版は `sites/termite-warranty-dev/versions/b053d7fc67931cde`。使用時には実対象で再確認。管理hashや設定の変更、未知path、旧版消失、配備混在では開放を拒否する。baseline変更は設定と実配備の独立確認が必要で、現在hashを自動採用しない。今回専用tmp wrapperを標準手順にしない。
+
+### 実行不能時
+
+認証／クラウドAPI不能、制御DB不明・破損、未知schema、未完了の応答不明操作、現在権限・採番の破損では「停止／復旧できた」と報告しない。確認できない点、実行済み範囲、更新がまだ許可される可能性と必要な人の操作を示す。制御異常時の緊急閉鎖はLocalのみで実Dev経路は未有効化。プラットフォーム自体の障害も停止操作の即時成功を保証しない。初回managed backup実復元・実Auth復旧・大量データ／全障害点は未検証として残す。
+
 ## 2026-10-06 方式変更後の運用対象
 
 通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。Local基盤は全7ゲート・独立レビュー済み。続行で明示的なDevガードと実配備照合を追加し、最終Local全7ゲート・独立レビュー済み。**以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
@@ -141,3 +177,21 @@ sourceは、`enter`では(default)、`plan`ではコピー元一時DB、後続�
 停止開始／閉鎖中断回復は、現行DB／世代／intentを束縛して先に閉じ、その後に残る更新リース・Auth退避の収束を待つ。先にリース0を要求して停止開始を拒否しない。plan/apply/resumeは閉鎖とRules本文を照合し、収束必須。Functions/Hostingが一部未配備でも、純粋な閉鎖・封印中断の整理・既公表receiptの後処理は可能。未公表のC/Dだけはfresh build／全配備照合を直前に要求する。公表済みnormalの後処理では正当な新更新を巻き戻さない。
 
 `status`はprivate Admin CLI内で最小runtime／default marker／中断ID・owner・種別・failedを表示する。未収束、未知の状態、版／世代／owner／source／了承参照の不一致では中止。markerの公表前後・中断intentとcompletion receiptを読取確認するまで同じ処理を無条件再送しない。実配備／Dev受入の未完了項目は[記録](../design/evidence/recovery-implementation-2026-10-06.md)を参照。
+
+
+## 2026-10-06 Dev最新実施状態（通常再開済み）
+
+具体的な対象・手順の提示後、オーナーの続行指示でDev停止・最新像保全・既存18 Functions／Hosting／default Rules／indexesの再配備・停止後0差分の場合のdefault移行・開発側検証・HS確認待ちまで承認された。通常再開、差分がある場合の業務上書き／削除、Auth／IAM変更、旧DB削除は対象外。以前の未承認／未実施の記述は準備時点の履歴であり、この最新状態を優先する。
+
+実HEAD `02bf34fa5bdb2112c58642f5c88a24b5b7031ccf`をA〜Dで固定。C公表前はDev停止中、control/defaultはprotocol 2 recovering generation 5だった。停止後のsource/default各54文書・型付きhash一致、業務set/delete 0、現在権限一致・採番上限16を確認。baseline／全前像と計画をprivate保全し、計画 `default-return-20261006-plan1` はapply後verified。既存18 FunctionsとHosting/default Rules/indexesの配備完了。C公表はverification generation 6で成功。HS確認OKと別再開了承後にD公表も成功し、現在default/controlはnormal generation 7、旧sourceは当時retired generation 7として保全し、その後の別cleanup承認により削除済み（下記最新記録参照）。2026-10-06、提示したHS確認手順に対するオーナーの「OKだ」を利用者確認OKとして受領。Dの通常再開は別質問への「YES」了承後に実施し、実runtime/default/control正常とデータ保全を照合済み。配備の公開呼出IAM digestは前後一致。失敗時は停止を維持し、完成checkpointを確認して再実行する。
+
+Hostingのアプリ991ファイルは全一致。Firebase管理の `/__/firebase/init.js` と `/__/firebase/init.json` はビルドに含まれないため、今回だけ旧確定同site版から2hashを取得し、認証済みproject/app設定と公開設定の一致も要求する限定operatorで補足照合する。全993 path/hash/config/live再照合は既存verifierを維持し、除外はしない。公開databaseURLは空文字で、他プロジェクトのURLは拒否。operator追加fixture4件は成功exit 0、実照合は全5項目成功exit 0、独立delta reviewにP1/P2残件なし。canonical CLI単独での管理2ファイル対応は残件。最新結果・SHA・未検証範囲は実測記録へ記載する。
+
+
+## 2026-10-06 旧復元DBのcleanup完了
+
+オーナーの「不要DBが削除可能なら削除」の独立指示に基づき、Devの `recovery-drill-20261006`（UID固定）だけを削除。全54業務文書がdefaultとprivate plan前像54件に完全一致、孤立/未知metadata/旧DB参照/Functions/Eventarc依存なし、C/D完了/HS確認/保護設定を検証。旧2metadata・DBmetadata/設定/予定・了承・operation・完了記録はprivate control `recoveryRetirements/retire-dev-drill-20261006` に保全し、別cleanup了承まで自動削除しない。旧DB固有PITR履歴と旧日次予定は削除で失われる。全履歴時点を退避したとは扱わない。
+
+実DB一覧は `(default)` と `recovery-control` の2件のみ。defaultは現在の業務用、controlは更新リース・復旧計画/全前像・Auth/backup監視/運用記録用であり削除対象外。旧DB復帰を必要とする場合は保全前像等から新たな一時DB/計画を用意し、既完了のsource DBを要求する旧コマンドを再実行しない。今回のcopy/cleanupの実行wrapperはignored tmpの限定operator、汎用DB削除機能を実装したとは扱わない。
+
+削除要求のLRO完了・source GET404・一覧不在・default/control normal7・journal deleted/lock解放を確認。16:38:28 JSTの最終読取でも業務54文書hash不変、private前像54/metadata2、リース0/lockなし。Auth/IAM/業務像変更なし。helper9試験/構文/独立レビュー/実確認の結果と途中停止/非同期完了は実測記録に記載。managedbackup初回/実復元などの既存未検証は変更しない。

@@ -3,8 +3,29 @@ import assert from 'node:assert/strict'
 import {options} from '../scripts/default-recovery.mjs'
 import {admitDev,sanitizeCommand,dispatchDev} from '../scripts/lib/default-recovery-admission.mjs'
 import {infrastructureChecks} from '../scripts/lib/default-recovery-preflight.mjs'
+import {observeFixedRecovery} from '../scripts/lib/default-recovery-observation.mjs'
 const revision='a'.repeat(40),project='termite-warranty-dev',control='recovery-control',source='fictional-copy'
 const args=['--project',project,'--control',control,'--source',source,'--generation','5','--revision',revision,'--operation','operation-123','--site','fictional-site','--dev-execute','--apply','--confirm','fixed-recovery','--approval','private:approval']
+test('incident discovery accepts no guessed generation and cannot be promoted to writes',()=>{
+ const base=['--project',project,'--control',control,'--revision',revision,'--dev-inspect']
+ assert.equal(options(['observe',...base]).source,'(default)')
+ for(const extra of [['--apply'],['--dev-execute'],['--generation','7'],['--source','(default)'],['--site','fictional-site']])assert.throws(()=>options(['observe',...base,...extra]))
+ assert.throws(()=>options(['preflight',...base,'--source','(default)','--generation','7','--site','fictional-site','--hosting-provider-version','sites/foreign/versions/one']))
+})
+test('incident discovery is bounded, sanitized and distinguishes closure from drain',async()=>{
+ const f=fixture(),input={project,control,request:async url=>({...await f.request(url),uid:'fictional-uid'}),readDocument:f.readDocument,listOperations:async()=>[]}
+ const normal={...f.state,phase:'normal',privateCanary:'must-not-appear'}
+ f.documents.set(`${control}/recovery/runtime`,normal);f.documents.set('(default)/_recovery/access',normal)
+ const report=await observeFixedRecovery(input)
+ assert.equal(report.nextAction,'enter-maintenance');assert.equal(report.cloudWrites,false);assert.equal(JSON.stringify(report).includes('must-not-appear'),false)
+ f.documents.set(`${control}/recovery/runtime`,f.state);f.documents.set('(default)/_recovery/access',f.state)
+ assert.equal((await observeFixedRecovery({...input,listOperations:async()=>[true]})).nextAction,'await-drain')
+ assert.equal((await observeFixedRecovery(input)).nextAction,'select-recovery-point')
+ f.documents.set(`${control}/recovery/operatorLock`,{operationId:'operation-123',owner:'owner-123',intent:{kind:'default-enter'},privateCanary:'must-not-appear'})
+ const held=await observeFixedRecovery(input);assert.equal(held.nextAction,'inspect-interruption');assert.equal(held.interruptedOperation.owner,'owner-123')
+ f.documents.set('(default)/_recovery/access',normal);assert.equal((await observeFixedRecovery(input)).aligned,false)
+ await assert.rejects(()=>observeFixedRecovery({...input,request:async()=>({name:'wrong'})}))
+})
 function fixture(command='apply'){
  const state={protocol:2,phase:'recovering',generation:5,databaseId:'(default)',controlDatabaseId:control}
  const plan={source,target:'(default)',controlId:control,revision,generation:5,status:'sealed',approval:'private:approval'}

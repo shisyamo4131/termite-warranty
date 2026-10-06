@@ -2,7 +2,9 @@
 
 ## 2026-10-06 バックアップ／復元の対象範囲
 
-方式変更（同日、オーナー確定）：通常業務の接続先は常にFirestore `(default)`。別DBは復元・開発側検証だけの一時領域とし、通常業務DBへ昇格しない。必要な再配備を許容する。Aは新規更新停止・収束とHS管理者も業務アクセス不可。Bは指定時点の一時DB復元・開発側検証。Cは余剰文書の扱いを含む全体復旧を(default)へ成立させ、復旧制御情報・現在権限・発行済み番号を保全し、反映後検証の成功時だけHS管理者の読み取り専用／非更新CSV確認へ移る。途中失敗では停止を維持し、安全な再実行・回復を可能にする。DはC検証とシステム外で別途得たHS再開了承を条件に解除する。Authは必要時だけ別復旧。一時／旧DBを無断削除しない。[新方式の設計とDev移行計画](design/default-database-recovery.md)を参照。現行Devはまだ別DBで通常稼働し、新方式の固定runtime・Local専用同期／回復コマンドを実装し全7Localゲート・独立レビュー済み。続行で実Dev用配備確認／明示実行ガードを追加し最終Local全7ゲート・独立レビュー済み。実配備・移行は未実施。今回の指示は現行Devの削除／上書き／追加停止の包括承認ではない。以下の旧「新DB切替」は実施履歴であり、今後の通常業務接続方針ではない。
+同日追加指示：このCodexプロジェクトで実障害通知を受けたら、開発側が対象を確認してメンテナンス開始から復旧を進める。停止開始の再承認は不要。復旧時点の事前了承とHS確認後の別再開了承は維持する。今回の準備を正常Devの停止指示とは扱わない。現設定Devに限定し、未設定Prod、Auth修復、IAM変更、一時DB／証拠削除への包括承認にしない。[障害開始手順](runbooks/backup-recovery.md#障害通知からの開始2026-10-06採用)を正式入口とし、今回専用補助処理への依存を解消する。未検証範囲を完了へ読み替えない。
+
+方式変更（同日、オーナー確定）：通常業務の接続先は常にFirestore `(default)`。別DBは復元・開発側検証だけの一時領域とし、通常業務DBへ昇格しない。必要な再配備を許容する。Aは新規更新停止・収束とHS管理者も業務アクセス不可。Bは指定時点の一時DB復元・開発側検証。Cは余剰文書の扱いを含む全体復旧を(default)へ成立させ、復旧制御情報・現在権限・発行済み番号を保全し、反映後検証の成功時だけHS管理者の読み取り専用／非更新CSV確認へ移る。途中失敗では停止を維持し、安全な再実行・回復を可能にする。DはC検証とシステム外で別途得たHS再開了承を条件に解除する。Authは必要時だけ別復旧。一時／旧DBを無断削除しない。[新方式の設計とDev移行計画](design/default-database-recovery.md)を参照。現行Devは(default)で通常稼働（generation 7）。旧別DBはprivate controlに全前像/メタデータを保全後、別のcleanup承認により削除済み。新方式の固定runtime・Local専用同期／回復コマンドを実装し全7Localゲート・独立レビュー済み。続行で実Dev用配備確認／明示実行ガードを追加し最終Local全7ゲート・独立レビュー済み。具体範囲の続行承認後に実配備・0業務writeの移行・開発側データ/配備検証を実施し、HS画面/CSV確認OKと別再開了承を受領し、Dの通常再開も実施済み。今回の指示は現行Devの削除／上書き／追加停止の包括承認ではない。以下の旧「新DB切替」は実施履歴であり、今後の通常業務接続方針ではない。
 
 追加採用（同日）：Auth復元は、消失したアカウントだけを同じUIDで戻す。既存アカウント・現在の権限・停止状態を維持し、全アカウント消失にも対応する。残存アカウントのパスワード破損修復は別範囲。通常DevのAuthは変更せず、まずLocalの架空データで実装・検証する。[追加実装の範囲](design/backup-recovery-implementation.md#2026-10-06-missing-identity-auth-repair-increment)を参照。
 
@@ -355,3 +357,21 @@ Nuxt SPA、Vuetify、Firebase認証・Hosting・Functions・Firestoreが試作�
 - [ADR索引](decisions/README.md)／[検証方針](../governance/verification-policy.json)
 
 仕様変更は明示承認された範囲だけを関連文書へ反映する。仕様確定、設計、実装、検証、配備、HS受入を区別し、文書整理で進捗を加算しない。物理データ契約・実装設計への反映完了を主張しない。旧仕様はGit・判断記録・旧試作契約を参照し、本書内で現行仕様と混在させない。
+
+
+## 2026-10-06 Dev最新実施状態（通常再開済み）
+
+具体的な対象・手順の提示後、オーナーの続行指示でDev停止・最新像保全・既存18 Functions／Hosting／default Rules／indexesの再配備・停止後0差分の場合のdefault移行・開発側検証・HS確認待ちまで承認された。通常再開、差分がある場合の業務上書き／削除、Auth／IAM変更、旧DB削除は対象外。以前の未承認／未実施の記述は準備時点の履歴であり、この最新状態を優先する。
+
+実HEAD `02bf34fa5bdb2112c58642f5c88a24b5b7031ccf`をA〜Dで固定。C公表前はDev停止中、control/defaultはprotocol 2 recovering generation 5だった。停止後のsource/default各54文書・型付きhash一致、業務set/delete 0、現在権限一致・採番上限16を確認。baseline／全前像と計画をprivate保全し、計画 `default-return-20261006-plan1` はapply後verified。既存18 FunctionsとHosting/default Rules/indexesの配備完了。C公表はverification generation 6で成功。HS確認OKと別再開了承後にD公表も成功し、現在default/controlはnormal generation 7、旧sourceは当時retired generation 7として保全し、その後の別cleanup承認により削除済み（下記最新記録参照）。2026-10-06、提示したHS確認手順に対するオーナーの「OKだ」を利用者確認OKとして受領。Dの通常再開は別質問への「YES」了承後に実施し、実runtime/default/control正常とデータ保全を照合済み。配備の公開呼出IAM digestは前後一致。失敗時は停止を維持し、完成checkpointを確認して再実行する。
+
+Hostingのアプリ991ファイルは全一致。Firebase管理の `/__/firebase/init.js` と `/__/firebase/init.json` はビルドに含まれないため、今回だけ旧確定同site版から2hashを取得し、認証済みproject/app設定と公開設定の一致も要求する限定operatorで補足照合する。全993 path/hash/config/live再照合は既存verifierを維持し、除外はしない。公開databaseURLは空文字で、他プロジェクトのURLは拒否。operator追加fixture4件は成功exit 0、実照合は全5項目成功exit 0、独立delta reviewにP1/P2残件なし。canonical CLI単独での管理2ファイル対応は残件。最新結果・SHA・未検証範囲は実測記録へ記載する。
+
+
+## 2026-10-06 旧復元DBのcleanup完了
+
+オーナーの「不要DBが削除可能なら削除」の独立指示に基づき、Devの `recovery-drill-20261006`（UID固定）だけを削除。全54業務文書がdefaultとprivate plan前像54件に完全一致、孤立/未知metadata/旧DB参照/Functions/Eventarc依存なし、C/D完了/HS確認/保護設定を検証。旧2metadata・DBmetadata/設定/予定・了承・operation・完了記録はprivate control `recoveryRetirements/retire-dev-drill-20261006` に保全し、別cleanup了承まで自動削除しない。旧DB固有PITR履歴と旧日次予定は削除で失われる。全履歴時点を退避したとは扱わない。
+
+実DB一覧は `(default)` と `recovery-control` の2件のみ。defaultは現在の業務用、controlは更新リース・復旧計画/全前像・Auth/backup監視/運用記録用であり削除対象外。旧DB復帰を必要とする場合は保全前像等から新たな一時DB/計画を用意し、既完了のsource DBを要求する旧コマンドを再実行しない。今回のcopy/cleanupの実行wrapperはignored tmpの限定operator、汎用DB削除機能を実装したとは扱わない。
+
+削除要求のLRO完了・source GET404・一覧不在・default/control normal7・journal deleted/lock解放を確認。16:38:28 JSTの最終読取でも業務54文書hash不変、private前像54/metadata2、リース0/lockなし。Auth/IAM/業務像変更なし。helper9試験/構文/独立レビュー/実確認の結果と途中停止/非同期完了は実測記録に記載。managedbackup初回/実復元などの既存未検証は変更しない。

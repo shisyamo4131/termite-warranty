@@ -5,6 +5,7 @@ import {readFile,readdir,lstat} from 'node:fs/promises'
 import {join} from 'node:path'
 import {assertFunctionsDomainSynchronized} from '../functions-domain.mjs'
 import {assertFreshBuild} from './default-recovery-build.mjs'
+import {bindProviderInitialization} from './default-recovery-provider-init.mjs'
 
 export const ARCHIVE_LIMIT=64*1024*1024
 const fail=()=>{throw Error('Release proof unavailable or inconsistent.')}
@@ -124,6 +125,7 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
   if(![`projects/${project}/sites/${site}`,`projects/${projectNumber}/sites/${site}`].includes(description.name))fail()
   const channelURL=`https://firebasehosting.googleapis.com/v1beta1/sites/${site}/channels/live`,channel=await request(channelURL),name=channel.release?.version?.name
   if(channel.name!==`sites/${site}/channels/live`||channel.release?.type!=='DEPLOY'||typeof name!=='string'||!new RegExp(`^sites/${site}/versions/[-a-zA-Z0-9]+$`).test(name))fail()
+  if(inputs.providerLiveVersion!==undefined&&inputs.providerLiveVersion!==name)fail()
   const version=await request(`https://firebasehosting.googleapis.com/v1beta1/${name}`)
   if(version.name!==name||version.status!=='FINALIZED'||canonical(normalizedConfig(version.config))!==canonical(inputs.servingConfig))fail()
   const files=await paged(request,`https://firebasehosting.googleapis.com/v1beta1/${name}/files`,'files'),seen=new Set()
@@ -133,11 +135,15 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
   if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail()
   return {files:seen.size}
 }
-export async function releaseProof({project,control,site,request,readArchive,inputs}) {
+export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic}) {
   const checks=[]
   let projectNumber
   try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch{return ['functions-release-proof','hosting-release-proof'].map(id=>({id,status:'blocked'}))}
-  for(const [id,run] of [['functions-release-proof',()=>functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs})],['hosting-release-proof',()=>hostingReleaseProof({project,projectNumber,site,request,inputs})]]) {
+  const hosting=async()=>{
+    const expected=providerVersion?await bindProviderInitialization({project,projectNumber,site,priorVersion:providerVersion,request,readPublic,inputs}):inputs
+    return hostingReleaseProof({project,projectNumber,site,request,inputs:expected})
+  }
+  for(const [id,run] of [['functions-release-proof',()=>functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs})],['hosting-release-proof',hosting]]) {
     try{checks.push({id,status:'pass',summary:await run()})}catch{checks.push({id,status:'blocked'})}
   }
   return checks

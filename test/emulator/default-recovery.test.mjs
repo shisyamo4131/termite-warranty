@@ -19,6 +19,66 @@ async function evidence(gen,id){
  await control.doc(`recoveryVerifications/${id}`).set({generation:gen,revision,target:source.databaseId,baselineId:id,authorizationHash:authority,approval:'external/recovery',typedHash:imageHash(await documentImage(source)),snapshot:await scanDatabase(source)})
  return {source:source.databaseId,baselineId:id,verificationId:id,approval:'external/recovery'}
 }
+test('incident chain uses real fixed entry and B controller receipts through complete C/D',async()=>{
+ await clean();await auth.createUser({uid:'incident-admin',email:'incident@example.invalid',password:'Fictional-only-123'})
+ const profile={email:'incident@example.invalid',role:'house_solution_administrator',enabled:true}
+ await auth.createUser({uid:'incident-company-current',email:'current-company@example.invalid',password:'Fictional-only-123'})
+ const companyProfile={email:'current-company@example.invalid',role:'construction_company',enabled:true,constructionCompanyId:'incident-company'}
+ await target.doc('constructionCompanies/incident-company').set({name:'fictional company'})
+ await target.doc('constructionCompanyAccounts/incident-company-current').set(companyProfile)
+ await target.doc('constructionCompanyAccountBindings/incident-company').set({uid:'incident-company-current'})
+ await target.doc('staffAccounts/incident-admin').set(profile)
+ await target.doc('warrantyCounters/year').set({lastValue:9})
+ await target.doc('properties/after-point').set({label:'fictional lost update'})
+ await api.initialize()
+ // Fixture initialization is closed; put the fictional app in normal state before the incident.
+ const normal={protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:'test-sync-control'}
+ await control.doc('recovery/runtime').set(normal);await target.doc('_recovery/access').set(normal)
+ const b=recoveryController({database,auth,controlId:'test-sync-control',revision})
+ await assert.rejects(b.enter(1,'legacy-entry-refused'))
+ assert.equal((await api.enter(1,'incident-enter')).phase,'recovering')
+ await control.doc('recoveryOperations/fictional-running').set({generation:1})
+ await assert.rejects(b.baseline(2,'incident-baseline'))
+ await control.doc('recoveryOperations/fictional-running').delete()
+ await b.baseline(2,'incident-baseline')
+ // Managed restore APIs do not exist in emulator: only the completed restore journal
+ // and restored historical data are fictional. Baseline/quarantine/reconcile/verify are real.
+ await source.doc('staffAccounts/incident-admin').set({...profile,role:'general_staff'})
+ await source.doc('constructionCompanyAccounts/incident-company-old').set({...companyProfile,email:'old-company@example.invalid'})
+ await source.doc('constructionCompanyAccountBindings/incident-company').set({uid:'incident-company-old'})
+ await source.doc('warrantyCounters/year').set({lastValue:3})
+ await source.doc('properties/restored').set({label:'fictional historical property'})
+ const restoreOperation='fictional-restore-operation',recoveryPoint='2026-10-06T00:00:00Z',approval='external/incident-point'
+ await control.doc(`recoveryTargets/${source.databaseId}`).set({restoreDone:true,restoreOperation,recoveryPoint,approval,generation:2,revision})
+ await b.quarantine(2,'incident-quarantine',source.databaseId)
+ const snapshotHash=(await scanDatabase(source)).hash
+ await b.reconcile(2,'incident-reconcile',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash})
+ assert.equal((await source.doc('constructionCompanyAccountBindings/incident-company').get()).data().uid,'incident-company-current')
+ // Do not recreate a missing company from current authority or widen permissions.
+ await assert.rejects(b.verify(2,'incident-verify',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash,restoreOperation,recoveryPoint,approval}))
+ assert.equal((await control.doc('recovery/runtime').get()).data().phase,'recovering')
+ assert.equal((await target.doc('properties/after-point').get()).exists,true)
+ // Fixture contains the restored company after the negative check; rebuild B evidence.
+ await source.doc('constructionCompanies/incident-company').set({name:'fictional company'})
+ await control.doc(`recoveryTargets/${source.databaseId}`).update({reconciliationId:'incident-reconcile-with-company'})
+ const nextHash=(await scanDatabase(source)).hash
+ await b.reconcile(2,'incident-reconcile-with-company',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash:nextHash})
+ await b.verify(2,'incident-verify',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash:nextHash,restoreOperation,recoveryPoint,approval})
+ const proof=(await control.doc('recoveryVerifications/incident-verify').get()).data()
+ assert.equal(proof.typedHash,imageHash(await documentImage(source)))
+ const plan=await api.plan(2,'incident-plan',{source:source.databaseId,baselineId:'incident-baseline',verificationId:'incident-verify',approval})
+ assert.equal(plan.deletes,1)
+ await assert.rejects(api.publish('incident-plan','external/reopen',{reopen:true}))
+ await api.apply('incident-plan')
+ assert.equal((await target.doc('properties/after-point').get()).exists,false)
+ assert.equal((await target.doc('properties/restored').get()).exists,true)
+ assert.deepEqual((await target.doc('staffAccounts/incident-admin').get()).data(),profile)
+ assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
+ assert.equal((await api.publish('incident-plan',approval)).phase,'verification')
+ await assert.rejects(api.publish('incident-plan',approval,{reopen:true}))
+ assert.equal((await api.publish('incident-plan','external/hs-separate-reopen',{reopen:true})).phase,'normal')
+ assert.equal((await target.doc('_recovery/access').get()).data().databaseId,'(default)')
+})
 test('full default synchronization preserves current roles, counters and typed references; resumes response loss and permits two recoveries',async()=>{
  await clean();await auth.createUser({uid:'sync-admin',email:'sync@example.invalid',password:'Fictional-only-123'})
  const profile={email:'sync@example.invalid',role:'house_solution_administrator',enabled:true}

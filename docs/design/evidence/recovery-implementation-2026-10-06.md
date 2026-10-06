@@ -1,5 +1,11 @@
 # バックアップ・復旧のLocal実装・検証
 
+## Dev切り戻し実行（2026-10-06、進行中）
+
+オーナーは具体的な実行範囲の提示後、「どんどん進めてくださいと指示したはずです。私の作業が必要な場面で手順を示してください」と続行を指示。この回答を、直前に提示したDev一時停止・最新像保全・18 Functions／Hosting／Rules／indexes再配備・停止後0差分の場合だけ(default)へ移行・開発側検証・HS確認待ちで停止する範囲の実行承認として扱う。通常再開は別了承後。差分発生時の業務反映、Auth変更、IAM変更、旧DB削除は追加しない。
+
+実行版HEADは`02bf34fa5bdb2112c58642f5c88a24b5b7031ccf`。A〜Dの間はHEADを固定し、記録だけを更新して再開までコミットしない。実Devの対象・世代・停止状態は実行直前に再照合する。進行中の段階は成功と記録しない。
+
 ## 続行：固定(default)の実配備照合・実行準備
 
 状態：2026-10-06オーナーの続行指示に基づくLocal実装・最終全7ゲート・独立レビューを完了。Devの停止・配備・データ反映は未実施。実行承認と、C後の利用者確認／別再開了承は未取得。Authの実取込・実ログイン検証は従来の未完了範囲を維持する。
@@ -449,3 +455,122 @@ Mixed app／schema／operational migration／policy変更で全7を選択、省�
 - `test/helpers/fixed-runtime.mjs`
 - `test/helpers/legacy-recovery-runtime.mjs`
 - `test/recovery.test.mjs`
+
+### Dev実行・C公表の直前証拠
+
+A legacy enter／baseline、専用clean HEAD build、Firebase deploy（firestore,functions,hosting）、canonical plan／apply、呼出IAM前後比較は各exit 0。15:41:26 JST停止後source/default各54、hash `85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400`、set/delete 0、権限一致、採番上限16、更新リース0。plan `default-return-20261006-plan1` verified。旧sourceは保全。
+
+canonical preflightはRules/index/全18 Functions一致、Hostingのみ管理2ファイル追加でblocked（読取コマンドexit 0はreadyを意味しない）。限定operator inspectは初回exit 1（公開databaseURLが空で厳格照合が拒否）、空文字だけを許す修正後exit 0。全5項目成功：default/control Rules、READY index、18 Functions／18 pinned archives、Hosting993ファイル完全一致。予約2ファイルは旧FINALIZED `sites/termite-warranty-dev/versions/b053d7fc67931cde` と新FINALIZED `sites/termite-warranty-dev/versions/cb5d99639a58bd25` のhash一致で結合。公開応答の生bytes/gzip hashをAPI保存hashと同一とは主張しない。
+
+`node --test tmp/default-return-provider-init.test.mjs` 4成功、exit 0。`node --check tmp/verified-default-publication.mjs` exit 0（以後診断出力だけ追加）。独立DEV-PROVIDER-PROOF-01にP1/P2なし、空URL追加のdelta review進行中。追加operatorは配備ソースを変更せず、既存7ゲートの基点コードmanifestは不変のため再利用し、新しいoperatorは追加fixture／syntax／実inspectを別証拠として扱う。文書はgovernanceゲート再検証。
+
+限定operatorのSHA256：
+- `tmp/default-return-provider-init.mjs`: `d50af8f94ae9a92d9acdeae32f8d3d895e035804d54212719e4068ef5a10cd63`
+- `tmp/verified-default-publication.mjs`: `13296070eb9fe767a73da8fb3f18048c76ad4839bc2f19cbb7e62bafe87cdb33`
+- `tmp/default-return-provider-init.test.mjs`: `f35ce2c57531aaa8d5de344b0c746e060454e51266f67205f8246d43cdad77df`
+
+Firebase公式 reserved URLs／full-config により `/__` 管理範囲を確認（https://firebase.google.com/docs/hosting/reserved-urls?hl=en 、https://firebase.google.com/docs/hosting/full-config）。どのファイルも除外せず、旧版由来の期待値で既存verifierへ追加する。通常Readへの追加はなく運用時管理APIのみ。C公表はまだ未実施、D／Auth取込／初回managed backup実復元／大容量実課金／全fault境界は未検証。
+DEV-PROVIDER-PROOF-02独立delta reviewはP1/P2残件なしで完了。変更後fixture4件・実inspect・syntaxは各exit 0。governance検査もexit 0。上記SHAはこの最終deltaソースへ束縛。公表失敗時のstage表示だけで成否を判断せず、marker/checkpoint/lockを読取確認する。
+
+
+### C公表成功・HS確認待ち
+
+限定operator publishはexit 0、phase verification generation 6。公表の直前にもRules／index／全18 source/Run／Hosting993を全照合し成功。`node tmp/inspect-default-verification.mjs` exit 0、16:04:08 JSTにdefault/control verification6、旧source retired6、plan verified/published verification6、54文書全hash一致・set/delete 0・現在権限一致・上限16・更新リース0・lockなしを確認。`node tmp/inspect-release-targets.mjs` exit 0、default PITR有効／日次30日予定・18 Functions ACTIVE／Run100%・HostingFINALIZEDを確認、managed backupsはまだ0件。business DB削除保護は無効、control有効／PITRなし（今回変更なし）。
+
+`node tmp/check-dev-fixed-runtime.mjs` exit 0、実runtime endpointはprotocol2/default/verification6。未認証registerCaseとlistManageableStaffAccountsは各401 UNAUTHENTICATED。これをHS認証済み閲覧/CSV/旧要求拒否の実受入成功に読み替えない。HSログイン・画面・非更新CSV確認は利用者へ依頼する区切りで停止。検査用呼出後の16:05:33 JSTにも全54文書hash・権限・採番・marker/plan一致を再照合しexit 0。最終文書governance/diff検査も各exit 0（改行正規化の既存警告のみ）。
+
+未完了：Dの別再開了承と公表、canonical CLI管理予約2file対応の恒久化、実Auth取込/復元後ログイン、初回managedbackup生成/実復元、全fault境界/大容量/実課金。旧DB・private前像・計画・Auth・旧配備参照は保全、削除なし。記録更新は未commit（運用HEAD維持）、docs/READMEとoperations生成block外の所有外差分は保持。データ契約・確定要求・ADR・version・全体進捗加点は変更なし。
+
+
+### 利用者確認OK受領・D了承待ち
+
+2026-10-06、DevのHS管理者ログイン・保証番号検索/内容・非更新CSV・業務更新不可の確認手順を提示後、オーナーから「OKだ」を受領。提示手順全体の利用者確認OKとして記録し、各操作の独立した実測結果は提供されていないことを区別する。直前に通常再開には別了承が必要と明示していたため、この回答をDの再開了承へ読み替えず、verification generation 6を維持する。Dは(default)の更新受付を再開する操作で、業務像・Auth・IAM・旧DBを変更/削除するものではない。次は別再開了承を取得後に配備/世代/計画を再照合して公表する。HEAD固定・未commit継続、所有外差分は保持。
+
+### D通常再開の明示了承
+
+2026-10-06、通常Devのメンテナンス解除・defaultでの業務更新再開を別質問で提示し、オーナーが「YES」と回答。Dの実行了承を受領、参照 `owner-dev-reopen-20261006-yes`。C計画/default verification世代6/同じHEAD/全配備を再照合してcanonical reopenを実行する。Auth・IAM・業務像・旧DB削除は対象外。限定operatorはCでreview済みのwrapperからcommand/reopen確認token/了承参照と世代6のみ変更し、全配備照合を維持。実行前の段階で成功とは記録しない。
+D直前の証拠：限定reopen wrapper SHA256 693a31bfcf48f58403b14aba385f1366dc87fd2a101398bee8de73c1d90ddad6、node --check exit 0、実inspect全5項目（18 Functions/source archives、Hosting993、Rules/index）成功exit 0、補足fixture4成功exit 0、admission回帰9成功exit 0、governance検査exit 0。16:13:21 JSTの直前データ再照合もexit 0、verification6/54文書hash・権限・番号上限16不変・リース0/lockなし。独立wrapper delta reviewは進行中。配備ソース/依存/基点コードは不変で、既存7ゲートの証拠を再利用する。
+DEV-REOPEN-01独立レビュー完了、限定3行差分にP1/P2残件なし。wrapper最終SHA一致・固定DB/HEAD/全配備proof・C receipt/別了承を維持。実reopenの成功証拠は次のコマンド結果とpaired marker/checkpoint照合によって確認する。
+
+
+### D通常再開成功（2026-10-06）
+
+`node tmp/verified-default-reopen.mjs --reopen --confirm owner-dev-reopen-20261006-yes` はexit 0、normal generation 7。公表直前の全5配備照合は成功（default/control Rules・READY index・18 Functions/source archives・Hosting993）。`node tmp/inspect-default-normal.mjs` exit 0、16:16:13 JSTにdefault/control normal7、旧source retired7、plan verified/published normal7、業務54文書hash一致、set/delete 0、現在権限一致、発行上限16、リース0、lockなしを確認。`node tmp/check-dev-normal-runtime.mjs` exit 0、実endpointがprotocol2/default/normal7を返し、未認証registerCase/listManageableStaffAccountsは各401 UNAUTHENTICATED。HS認証済みの登録/更新を検査目的で追加せず、その実操作の再開後受入は未検証と区別する。
+
+利用者確認OKと別再開了承を受領し、今回の最新像default切り戻しA〜Dは上記範囲で実施済み。業務像を上書き/削除せず、Auth/IAM変更なし、旧DB/private前像/計画/配備参照を保全。未実装/未検証の既存残件（恒久CLI provider対応、Auth実取込/ログイン、managedbackup初回/実復元、全fault/volume/cost）は完了へ変更しない。
+
+今回の変更は限定reopen wrapper（ignored tmp）と影響する仕様/設計/runbook/技術台帳/changelog/本記録の実施状態のみ。業務data contract/ADR/要求version/ガバナンス設定は変更なし、既存indexリンク維持、全体進捗への加点なし。配備コード不変で全7ゲートの既存証拠は再利用、追加syntax/fixture4/admission9/実inspect/独立reviewを記録した。tracked記録は未commit、HEAD02bf維持、docs/READMEとoperationsの所有外差分を保持。最終文書governance/diff検査は次に実行する。
+D完了記録のgovernance検査・git diff --checkはいずれも完了exit 0。改行正規化警告のみ。記録追記後も同じ2ゲートを確認する。
+
+
+### 旧復元DBの削除判断・実行承認（進行中）
+
+2026-10-06オーナーは「Firestoreに不要と思われるDBが存在。削除可能なら削除、不可なら理由提示」と指示。これを独立したcleanup承認として記録。対象は実APIで確認したDev `termite-warranty-dev` の `recovery-drill-20261006`（UID `d7768bc4-2701-4b04-b4d7-a8859b28c6de`）1件のみ。defaultは業務利用中、recovery-controlは制御/復旧証拠/backup監視/Auth保全の参照があり削除不可。
+
+旧DBはPITR復元予行・default最新像移行・HS確認・D再開を終了した隔離retired7。システム障害の原因調査対象ではなく、予行の差分/配備問題は既存証拠に記録済み。16:18:58 JSTに全54業務文書のtypedhashがdefaultおよびprivate controlのplan1/preimage54件と完全一致、現在権限一致・番号上限16・未完了lock/leaseなしを確認。旧privateメタデータはaccess/activationの2件だけ。最終operator inspectはorphan/余分なsource参照・18 Functions/同region Eventarc依存なし・UID/etag/削除保護disabled/default PITR+日次30日を確認してexit 0。
+
+削除で失うものは旧DB本体・旧DB固有PITR時点履歴・旧DBの日次予定。取得済みmanagedbackupは0件で、取得済みbackupによる保全完了とは扱わない。業務54件は既存 `recovery-control/defaultRecoveryPlans/default-return-20261006-plan1/preimage` に封印済み。旧2metadata・DBmetadata/設定/予定・全像hash・今回了承・delete operation/receiptをprivate `recovery-control/recoveryRetirements/retire-dev-drill-20261006` へ保存/読戻しし、無期限（別のオーナーcleanup了承まで、自動削除なし）で保持する。保存失敗・不一致ならDELETEしない。生データはrepo/logへ載せない。
+
+既存operatorLockをnormal7にCAS取得、直前epoch/marker/receipt/source像/metadata/UID/etagを再照合。旧DBのみetag付きDELETE、operation名を先に保全し同じLROを追跡、404とDB一覧/default normal7を確認してからdeleted記録/lock解放。応答不明なら自動DELETE再送/lock削除をせず、journalの同operationと実DBを読み取り調査。既存generic recover-operatorはdatabase-retirement intent未対応なので自動流用しない。default業務writeはlockで停止しない。Auth/IAM変更・default停止/上書きは行わない。
+
+`node --test tmp/dev-retirement-guards.test.mjs` 6成功exit 0（orphan/未知metadata、非同期LRO、応答消失/timeout/error/non404、journal保存拒否、operator競合/世代変化、UID/etag/削除保護拒否）。`node --check tmp/retire-dev-drill-db.mjs` exit 0、最終実inspect exit 0。canonical/app/Rules/依存不変のため旧全7ゲートの証拠を再利用し、今回operatorの追加試験/実検査/独立reviewで補足する。
+- `tmp/retire-dev-drill-db.mjs` SHA256 `e3dffa8b77cae12e03cb764b88f3ce01513d9c1fe78fef9d0b7d108f177f8a75`
+- `tmp/dev-retirement-guards.mjs` SHA256 `ff1757f15a2f9dd7c45b6513e22392b4e5e08defb4e907a808e6d38507775087`
+- `tmp/dev-retirement-guards.test.mjs` SHA256 `2aeb6f9f798e1a33d8eb6313520a97c586494a56197e5aa750c9ca9702c77436`
+
+archive readbackはmap key順序に依存しないtyped canonical比較へ修正し、最終syntax/実inspect各exit 0。上記operator SHAはこの修正後の凍結像。
+DB-RETIRE-02独立レビュー完了、最終operator/helper/testsの限定変更にP1/P2残件なし。最終operator SHA e3dffa8b77cae12e03cb764b88f3ce01513d9c1fe78fef9d0b7d108f177f8a75を照合。クロスDB状態確認とDELETEは単一atomicではないため、今回の開発側単独操作区間でのみ実行。実削除は次のコマンド結果で確認する。
+
+### 削除直前etag変化による停止と安全な再開
+
+初回実deleteはDBmetadata再照合でexit 1、実stackはDELETE呼出より前。private journal/metadata保全とlock取得は済み、status preparedでoperation未記録。読取診断exit 0ではsourceUID不変、description変更キーはetagだけ。これだけでサーバー内部の原因は断定しない。初回worker終了を確認し、同じprepared保全像/UID/owner/sourcehashへ束縛した明示resumeを追加。etag以外の全descriptorをtyped比較し、直前の新GETで得たetagをDELETEに送る。etagを省略しない。要求前にdelete-submittingを保存し、不明結果からのblind resumeは拒否。
+
+修正後helper8成功exit 0、operator syntax exit 0。canonical/app/Rules/依存変更なし。変更後SHA：
+- `tmp/retire-dev-drill-db.mjs` `e0cd336ef0d130700f83215b78852e0777b1233fa9840effed9d7a0e13f6ed16`
+- `tmp/dev-retirement-guards.mjs` `b3afda15f8f2153b571449b098de16dc81eb2c312700dd43c598f70184cc5e9d`
+- `tmp/dev-retirement-guards.test.mjs` `4cab90fc86e81fdc49d2ffe9bd987a78c01b7d975436a79b1906d14230da3e0a`
+
+prepared→delete-submittingを同control transactionにして状態/operation未記録/owner/op/generation/UID/sourcehashを再照合し、同じresumeの並列二重実行を拒否するCASへ修正。helper9件（並列submit片側拒否追加）成功exit 0、syntax exit 0。旧8件の証拠はこの最終試験へ置換。最終凍結SHA：
+- `tmp/retire-dev-drill-db.mjs` `c848d19813bd5fdcac2e1edee44cea0f6aab037d669b7c66c14599082f7cfa3a`
+- `tmp/dev-retirement-guards.mjs` `2a1dc0f14555412c762207272d6a5f50c8e3375a937f8abbec08bf170385eb2f`
+- `tmp/dev-retirement-guards.test.mjs` `dad5f5e318c8544eb454f130d917ce1916bba6bffae743cf0ebfa8ef5904e43f`
+DB-RETIRE-04独立レビューで二重resume P1解消を確認し、最終差分にP1/P2残件なし。上記末尾の9件成功・最終SHAを現在の証拠とする（前の8件/旧SHAは履歴）。実Firestore競合注入は未実施で、transaction直列化stub回帰と実prepared読取による検証を区別する。初回worker終了・DELETE前停止・prepared維持を再確認exit 0、次は明示resumeで同じ保全記録を使う。
+
+実resumeは旧DB DELETEを受付済みだがLROが期限内にdoneとならずexit 1。journalはdelete-accepted、operation名を保存、lock保持。読取追跡exit 0ではoperationDone false/errorなし、旧DB GET404、default normal7。DELETEは再送せず同じoperationを読み取りで完了待ちする。404だけで既存のdeleted receipt完成条件を満たしたとは扱わない。
+
+16:35:10 JSTの実DB一覧はdefault/control2件のみ、source不在、default PITR/日次30日維持・control削除保護有効（exit 0）。LROはエラー無し未完了のためlock/journalを保持。completion専用tmp/complete-dev-db-retirement.mjsは同operation done true/404/inventory/default/runtime/owner/CASだけを確認し、DELETE再送経路を持たない。syntax exit 0、独立DB-RETIRE-FINAL-01 P1/P2無し、SHA49d41406b625d01bcf4a565c600d1fcb7fdc26124f981d26ef11ff6904ebfdac。実完了は待機中。
+
+### 旧DB削除完了・最終確認
+
+同じ削除operationがdone true/errorなしとなるまで読み取り追跡し、DELETEを再送していない。`node tmp/complete-dev-db-retirement.mjs` exit 0、同operation完了/source404/inventory/default/control normal7を確認後、journal deletedと正確ownerのlock解除を実施。`node tmp/inspect-dev-after-db-cleanup.mjs` exit 0、16:38:28 JSTに54文書typedhash `85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400` 不変、private前像54/metadata2、journaldeleted、リース0/lockなしを確認。`node tmp/check-dev-normal-runtime.mjs` exit 0、実runtime default normal7・未認証呼出401を再確認。DB一覧2件/default PITR/日次30日維持は16:35:10実読取exit 0。
+
+今回はDev旧復元DB1件だけを削除。default/control/Auth/IAM/業務像/既存復旧計画・全前像を削除せず維持。canonical/app/Rules/依存を変更せず、全7の既存証拠と追加helper9/構文/独立review/実確認を区別。無変更のdata contract/ADR/要件version/ガバナンス設定/全体進捗を更新しない。影響する仕様・固定DB設計・runbook・技術台帳・changelog・本記録を更新、既存indexリンク維持。記録は未commit、所有外docs/README/operations差分を保持。今回の追加Readは運用検証であり通常画面に追加していない。残件の恒久CLI provider対応/実Auth/managedbackup初回と復元/全fault/volume/costは完了扱いにしない。
+cleanup完了文書のgovernance検査とgit diff --checkは各exit 0、改行正規化警告のみ。最終追記後も同2ゲートを再確認する。利用者の追加操作は不要。
+
+## 2026-10-06 障害通知からの正式運用準備（INCIDENT-02）
+
+オーナーは、今回専用処理で終えず、このCodexプロジェクトで実障害通知を受けたらメンテナンス・復元を進められる状態を要求。設定済みDevの実障害通知を停止開始の指示としてproject-rules／仕様／ADR0032／runbookへ保存した。復旧時点のHS事前了承、技術検証後のHS読取/非更新CSV確認、別再開了承を維持。今回の準備を正常Devの停止と扱わず、Prod/Auth修復/IAM/DBや証拠削除へ拡大しない。
+
+正式CLIにビルド不要のobserve、明示した過去の公開Hosting版に基づくprovider2ファイル照合を組み込み。認証済みlive release履歴のDEPLOY/過去時刻、非current、同site FINALIZED、project/app/public config、前後live版、全アプリpath/hash/configを検証。未公開/future/foreign/rollback/current基点は拒否。未確認のcurrent hashを期待値に自動採用せず、tmp wrapperから正式helperへ移した。
+
+独立レビューで過去legacy account bindingと現在UIDの違いがB検証を止める条件を確認。現在bindingsをprivate baselineへ保存し、profiles/counterと一緒に完全補正、補正以外の像を不変hashで確認する。過去像に現在UID profileがない場合、既存reconcileがundefinedをhashして失敗する不具合も実統合試験で再現し、exists確認で修正。現在所属の会社が復元像にない場合は補正範囲を広げず閉鎖維持。旧binding→現在UID、欠損profile、会社欠落安全停止、余剰業務削除、現在権限/上限保持、別D了承を含むfixed A→B→C→DをLocalで検証。クラウド復元receiptと原像の準備だけはfictionalであり、managed restoreの実成功ではない。
+
+最終コード後の選択全7ゲート：
+
+| Command | Result | Independently observed exit |
+| --- | --- | --- |
+| `npm test` | 242 total / 240 pass / 2 existing Windows symlink skips | 0 |
+| `npm run typecheck` | success | 0 |
+| `npm run build` | success, existing build warnings | 0 |
+| `npm run test:rules` | 108 pass / 0 skip, including real fixed controller chain | 0 |
+| `node scripts/check-functions-syntax.mjs` | all 28 files | 0 |
+| `node --check scripts/seed-emulator.mjs` | success | 0 |
+| `./scripts/check-governance.ps1` | current v3 managed/policy alignment | 0 |
+
+最初のRules起動はsandboxのFirebase CLI設定読取EPERMでexit1、承認済みLocal実行をescalationで再実行。実装途中の全体Rules108成功は後の変更で失効。最終chain追加後のRulesは107pass/1fail、原因を絞る単独再現もexit1。exists修正後の単独chainはexit0、以降の最終全体Rules108成功exit0を採用。domain/runtime変更後の古い証拠を流用しない。各wrapperはcommand直後のLASTEXITCODEを保存してその値で終了し、後続表示の成功でstatusを上書きしない。単独provider/admission23fixtureもexit0。独立INCIDENT-02の最終コード/設計reviewにP1/P2残件なし、reviewerはread-onlyで試験や配備の代行なし。
+
+Dev正式observeはexit0、protocol2/default/normal7、control/marker一致、更新リース/運用lock/Auth退避lockなしを確認。未commit runtime source cleanゲートblockedを正しく表示し、observeが実行許可を与えないことを確認。正式provider helperをAPI read-onlyで検証してexit0、旧公開版b053d7fc67931cdeの出自/設定2ファイルを確認、現在liveは `sites/termite-warranty-dev/versions/cb5d99639a58bd25`。これだけで全配備証明や新C/D成功とは扱わない。
+
+影響ファイル：scripts/default-recovery.mjs、lib/default-recovery-provider-init.mjs/default-recovery-observation.mjs/default-recovery-release-proof.mjs/recovery-controller.mjs、admission/release-proof/emulator-defaultの試験、project-rules、仕様、両復旧設計、ADR0032、runbook、技術台帳、changelog、本記録。business data contract/アプリ/Functions/Rules/index/schema/通常ReadWriteは不変。private baselineのbindings追加は実装設計に反映。既存indexから到達可能、新規文書なし。docs/READMEとoperationsの所有外差分は保持。共通managed/governance policy/version変更なし、全体進捗加点なし。
+
+未完了：新commitの専用profile成果物をDev Hostingへ反映して正式CLIの全配備確認を通すこと。tool-only commitでもbuildIdが変わるため、旧配信artifactを新HEAD一致と扱わない。現normal7を停止/復元せず、Hosting-onlyの対象・成果物・差戻し先を提示し実行承認後に確認する。実Auth取込/復元後login、managedbackup初回/実復元、全fault/volume/cost、実Dev緊急閉鎖は従来の別残件。プラットフォーム/認証/control不能時の即時成功は保証しない。

@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-06 障害通知からの復旧準備
+
+- 実障害通知からDev停止を開始する正式入口と、復旧時点／HS確認後の別再開了承の区切りをプロジェクト指示・復旧手順へ反映。
+- 固定復旧CLIにビルド不要の状態観測と、事前確認した旧Hosting版を使う管理ファイルの完全照合を追加。今回専用tmp処理への依存を削減。新しい実停止／復旧は未実行。
+
+## 2026-10-06 Dev旧復元DBの削除
+
+- 利用済みの旧復元DBだけを、全業務像・メタデータの保全と依存不在確認後に削除。defaultと復旧制御DBを維持。
+- 非同期削除の完了・現行54文書の不変・通常runtimeを確認。証拠は既存の復旧実測記録へ保存。
+
 ## 2026-10-06 固定(default)復旧のDev実行準備
 
 - Dev読取／実行の明示ガード、Rules・index READY・Functions実source／Run・Hosting全公開ファイルの照合を追加。
@@ -666,3 +676,12 @@ HostingとpropertyPrototypeを更新。全7ゲートと公開成果物照合成�
 
 - オーナーは独立先行改修のDev反映と、Devテストによる今回改修の受入を承認。受入手順へDevの開始方法と保証グループ作成を追加。
 - 管理者2名を保持し、デモ用アカウント・物件・マスタ・採番の初期化を明示承認。実行結果は[運用記録](docs/operations.md#2026-10-03-dev受入用配備と空データ初期化)で管理する。Prodは対象外。
+
+
+## 2026-10-06 Dev最新実施状態（通常再開済み）
+
+具体的な対象・手順の提示後、オーナーの続行指示でDev停止・最新像保全・既存18 Functions／Hosting／default Rules／indexesの再配備・停止後0差分の場合のdefault移行・開発側検証・HS確認待ちまで承認された。通常再開、差分がある場合の業務上書き／削除、Auth／IAM変更、旧DB削除は対象外。以前の未承認／未実施の記述は準備時点の履歴であり、この最新状態を優先する。
+
+実HEAD `02bf34fa5bdb2112c58642f5c88a24b5b7031ccf`をA〜Dで固定。C公表前はDev停止中、control/defaultはprotocol 2 recovering generation 5だった。停止後のsource/default各54文書・型付きhash一致、業務set/delete 0、現在権限一致・採番上限16を確認。baseline／全前像と計画をprivate保全し、計画 `default-return-20261006-plan1` はapply後verified。既存18 FunctionsとHosting/default Rules/indexesの配備完了。C公表はverification generation 6で成功。HS確認OKと別再開了承後にD公表も成功し、現在default/controlはnormal generation 7、旧sourceはretired generation 7で保全。2026-10-06、提示したHS確認手順に対するオーナーの「OKだ」を利用者確認OKとして受領。Dの通常再開は別質問への「YES」了承後に実施し、実runtime/default/control正常とデータ保全を照合済み。配備の公開呼出IAM digestは前後一致。失敗時は停止を維持し、完成checkpointを確認して再実行する。
+
+Hostingのアプリ991ファイルは全一致。Firebase管理の `/__/firebase/init.js` と `/__/firebase/init.json` はビルドに含まれないため、今回だけ旧確定同site版から2hashを取得し、認証済みproject/app設定と公開設定の一致も要求する限定operatorで補足照合する。全993 path/hash/config/live再照合は既存verifierを維持し、除外はしない。公開databaseURLは空文字で、他プロジェクトのURLは拒否。operator追加fixture4件は成功exit 0、実照合は全5項目成功exit 0、独立delta reviewにP1/P2残件なし。canonical CLI単独での管理2ファイル対応は残件。最新結果・SHA・未検証範囲は実測記録へ記載する。
