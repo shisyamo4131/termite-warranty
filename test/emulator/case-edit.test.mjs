@@ -1,3 +1,6 @@
+import { initializeRecovery, directRecoveryMetadata } from '../../app/utils/recoveryClient.ts'
+import { fixtureRuntime } from '../helpers/fixed-runtime.mjs'
+import { seedFixedRules } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { after, before, beforeEach, test } from 'node:test'
@@ -35,9 +38,11 @@ before(async () => {
   testEnvironment = await initializeTestEnvironment({ projectId, firestore: { rules } })
 })
 beforeEach(async () => {
+  initializeRecovery(fixtureRuntime)
   await testEnvironment.clearFirestore()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.set(doc(db, 'staffAccounts', 'staff-1'), {
       email: 'staff-1@example.invalid', displayName: 'Synthetic Staff', role: 'general_staff', enabled: true,
@@ -138,8 +143,9 @@ test('missing property-default intent rejects the edit unchanged', async () => {
 test('Rules do not guarantee applied-warranty workflow integrity for an enabled staff client', async () => {
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
   const batch = writeBatch(db)
-  batch.update(doc(db, 'cases', 'case-1'), { updatedAt: serverTimestamp() })
+  batch.update(doc(db, 'cases', 'case-1'), { updatedAt: serverTimestamp(), ...directRecoveryMetadata() })
   batch.update(doc(db, 'cases', 'case-1', 'appliedWarranties', 'warranty-1'), {
+    ...directRecoveryMetadata(),
     notificationStatus: 'notified', updatedAt: serverTimestamp(),
   })
   await assert.doesNotReject(batch.commit())
@@ -153,6 +159,7 @@ test('Rules do not protect the trusted case-list projection from an out-of-flow 
   const db = testEnvironment.authenticatedContext('staff-1').firestore()
   const reference = doc(db, 'cases', 'case-1')
   await assert.doesNotReject(updateDoc(reference, {
+    ...directRecoveryMetadata(),
     listProjection: { appliedWarranties: [] },
     updatedAt: serverTimestamp(),
   }))
@@ -248,6 +255,7 @@ test('changing property permits independently selected active homeowner and comp
 test('reselecting the final original property resolves its current defaults instead of stale submitted values', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     await updateDoc(doc(db, 'properties', 'property-1'), {
       homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
     })
@@ -267,6 +275,7 @@ test('reselecting the final original property resolves its current defaults inst
 test('reselecting the final original property keeps an explicit override and refreshes the other default', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     await updateDoc(doc(db, 'properties', 'property-1'), {
       homeownerId: 'homeowner-2', constructionCompanyId: 'company-2',
     })
@@ -309,6 +318,7 @@ test('editing only the company persists the selected active company', async () =
 test('unchanged inactive homeowner and company references do not block an unrelated edit', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.update(doc(db, 'homeowners', 'homeowner-1'), { active: false })
     batch.update(doc(db, 'constructionCompanies', 'company-1'), { active: false })
@@ -378,6 +388,7 @@ for (const scenario of [
 test('normal edit backfills required dates on a readable legacy case', async () => {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const legacy = await readCase(db)
     delete legacy.applicationDate
     delete legacy.handoverDate

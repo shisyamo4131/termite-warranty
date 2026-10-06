@@ -1,5 +1,6 @@
 import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
+import { directRecoveryMetadata } from '../utils/recoveryClient.ts'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
 import { matchesSearchTokenMap, normalizeSearchText } from '../../src/domain/search-tokens.mjs'
 import { createBoundedListQuery, createOrderedListQuery } from '../repositories/boundedListQuery.ts'
@@ -154,6 +155,7 @@ export function useMasterManagement(masterType: MasterType) {
   const createMaster = async (fields: MasterWriteFields) => {
     const reference = doc(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
     await setDoc(reference, {
+      ...directRecoveryMetadata(),
       ...normalizeMasterFields(masterType, fields),
       active: true,
       revision: 1,
@@ -164,6 +166,7 @@ export function useMasterManagement(masterType: MasterType) {
   }
   const updateMaster = async (id: string, fields: MasterWriteFields) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      ...directRecoveryMetadata(),
       ...normalizeMasterFields(masterType, fields),
       ...(masterType === 'constructionCompany' ? { email: deleteField() } : {}),
       revision: increment(1),
@@ -173,6 +176,7 @@ export function useMasterManagement(masterType: MasterType) {
   }
   const setMasterActive = async (id: string, active: boolean) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      ...directRecoveryMetadata(),
       active,
       revision: increment(1),
       updatedAt: serverTimestamp(),

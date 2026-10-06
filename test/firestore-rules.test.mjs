@@ -19,6 +19,7 @@ import {
   where,
 } from 'firebase/firestore'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
+import { fixtureRuntime } from './helpers/fixed-runtime.mjs'
 
 const projectId = 'demo-termite-warranty'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
@@ -29,13 +30,33 @@ let testEnvironment
 
 const contextFor = (uid) => testEnvironment.authenticatedContext(uid).firestore()
 
+test('fixed marker fails closed and stale partial updates cannot inherit a current epoch or nonce', async () => {
+  await seedStaff('epoch-user')
+  const db=contextFor('epoch-user'),ref=doc(db,'properties/epoch-row')
+  const metadata={runtimeProtocol:2,runtimeGeneration:1,runtimeNonce:crypto.randomUUID()}
+  await assertSucceeds(setDoc(ref,{name:'fictional',...metadata}))
+  await assertFails(updateDoc(ref,{name:'old writer omitted metadata'}))
+  await assertFails(updateDoc(ref,{name:'replayed nonce',...metadata}))
+  await seedDocument('_recovery/access',{...fixtureRuntime,generation:2})
+  await assertFails(updateDoc(ref,{name:'old epoch',...metadata,runtimeNonce:crypto.randomUUID()}))
+  await assertSucceeds(updateDoc(ref,{name:'current',...metadata,runtimeGeneration:2,runtimeNonce:crypto.randomUUID()}))
+  await testEnvironment.withSecurityRulesDisabled(context=>deleteDoc(doc(context.firestore(),'_recovery/access')))
+  await assertFails(getDoc(ref))
+  await assertFails(updateDoc(ref,{...metadata,runtimeGeneration:2,runtimeNonce:crypto.randomUUID()}))
+  await seedDocument('_recovery/access',{...fixtureRuntime,protocol:1})
+  await assertFails(getDoc(ref))
+  await assertSucceeds(getDoc(doc(testEnvironment.unauthenticatedContext().firestore(),'_recovery/access')))
+  await seedDocument('_recovery/privateCheckpoint',{secret:'fictional'})
+  await assertFails(getDoc(doc(db,'_recovery/privateCheckpoint')))
+})
+
 test('recovery phases fence business writes, retired targets and administrator verification reads', async () => {
   await seedDocument('staffAccounts/recovery-admin',{enabled:true,role:'house_solution_administrator'})
   await seedStaff('recovery-staff')
   await seedDocument('propertyWarranties/recovery-row',{name:'架空復旧物件'})
   const admin=contextFor('recovery-admin'), staff=contextFor('recovery-staff')
   for(const phase of ['recovering','verification','retired']) {
-    await seedDocument('_recovery/access',{databaseId:'(default)',phase,generation:2})
+    await seedDocument('_recovery/access',{...fixtureRuntime,phase,generation:2})
     await assertFails(updateDoc(doc(admin,'propertyWarranties/recovery-row'),{name:'禁止された修正'}))
     await assertFails(getDoc(doc(staff,'propertyWarranties/recovery-row')))
     if(phase==='verification') await assertSucceeds(getDoc(doc(admin,'propertyWarranties/recovery-row')))
@@ -45,8 +66,8 @@ test('recovery phases fence business writes, retired targets and administrator v
   await assertFails(getDoc(doc(admin,'propertyWarranties/recovery-row')))
   await assertFails(getDoc(doc(admin,'staffAccounts/recovery-admin')))
   await assertFails(setDoc(doc(admin,'_recovery/access'),{databaseId:'(default)',phase:'normal',generation:3}))
-  await seedDocument('_recovery/access',{databaseId:'(default)',phase:'normal',generation:3})
-  await assertSucceeds(updateDoc(doc(staff,'propertyWarranties/recovery-row'),{name:'架空修正'}))
+  await seedDocument('_recovery/access',{...fixtureRuntime,generation:3})
+  await assertSucceeds(updateDoc(doc(staff,'propertyWarranties/recovery-row'),{name:'架空修正',runtimeProtocol:2,runtimeGeneration:3,runtimeNonce:crypto.randomUUID()}))
 })
 
 test('account mutation journals remain private to Admin even for enabled staff and account owners', async () => {
@@ -117,6 +138,7 @@ before(async () => {
 
 beforeEach(async () => {
   await testEnvironment.clearFirestore()
+  await seedDocument('_recovery/access',fixtureRuntime)
 })
 
 after(async () => {
@@ -138,7 +160,7 @@ describe('staff authentication and enabled-account boundary', () => {
     }
   })
 
-  test('enabled staff can create, read, update, and delete declared business data without schema enforcement', async () => {
+  test('enabled staff can create, read and update declared business data with fresh epoch metadata; direct deletes denied', async () => {
     await seedStaff('enabled-user')
     const db = contextFor('enabled-user')
     const paths = [
@@ -153,10 +175,10 @@ describe('staff authentication and enabled-account boundary', () => {
 
     for (const path of paths) {
       const reference = doc(db, path)
-      await assertSucceeds(setDoc(reference, { deliberatelyUnsupportedShape: true }))
+      await assertSucceeds(setDoc(reference, { deliberatelyUnsupportedShape: true, runtimeProtocol:2,runtimeGeneration:1,runtimeNonce:crypto.randomUUID() }))
       await assertSucceeds(getDoc(reference))
-      await assertSucceeds(updateDoc(reference, { changedOutsideApplicationFlow: true }))
-      await assertSucceeds(deleteDoc(reference))
+      await assertSucceeds(updateDoc(reference, { changedOutsideApplicationFlow: true, runtimeProtocol:2,runtimeGeneration:1,runtimeNonce:crypto.randomUUID() }))
+      await assertFails(deleteDoc(reference))
     }
   })
 

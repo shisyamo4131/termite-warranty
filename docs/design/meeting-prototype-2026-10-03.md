@@ -193,3 +193,14 @@ MeetingPrototypeの閲覧専用モードを報告・請求にも適用し、保�
 保険報告済み情報・保険延長期限・次期保険の自動追加はオーナー指示で保留（HSC-036）。既存の引渡日期間CSVを維持してDev配備する。今回の試験データ削除では会社・支店・保証グループ・カウンター・設定と管理者を保持し、過去の全件初期化指示と区別する。実行と検証結果は運用／実測記録を参照。
 
 同作業中の最新指示で、会社・支店・保証グループを含むマスタと採番カウンターも削除し、番号再利用を許可する。保持は管理者2名とアラート設定。`--empty-masters` を使用し初期グループは再投入しない。直前のマスタ保持案を置き換えるDev限定の初期化である。
+
+
+## 2026-10-06 固定(default)復旧の認可・運用データ契約
+
+Local新実装、Dev未配備。公開`_recovery/access`はprotocol:2／phase:normal-recovering-verification／generation:正整数／databaseId:(default)／controlDatabaseId:別DB。marker欠損・旧protocolを拒否。自己プロフィールのログイン判定は業務開放とは別。
+
+SDK直接set/updateはruntimeGeneration:正整数／runtimeProtocol:2／runtimeNonce:要求ごとの非空文字列を併記。updateは既存nonce継承を拒否、直接deleteも拒否する。metadata3項目は10業務collection groupで索引対象外。Trusted server書込に同じSDKメタデータを要求するものではない。nonceは全履歴の再送防止台帳ではない。
+
+Private controlの`defaultRecoveryPlans/{id}`はsource／target／controlId／generation／revision／approval／authorizationHash／sourceHash／beforeHash／expectedHash／manifestHash／status／件数。itemsはpath／set-delete／before-after hash／updateTime／型付きJSON文字列、preimageは全対象前像。Auth hash／署名秘密は含めない。BのrecoveryVerificationsはtypedHashを追加し、旧hashだけの証拠は新Cへ無効。
+
+Default private `_recovery/apply`にplanId／generation／owner、`_recovery/apply/plans/{id}/batches/{item}`にplanId／after／completedAt、`_recovery/publication`にplanId／approval／phase／generation／revision／expectedHash。ブラウザ読書は拒否。業務同期から_recovery/controlを除外し、現在のプロフィール／bindings／番号予約とカウンター上限を保全する。[型・保持・実行境界](default-database-recovery.md#2026-10-06-固定default方式のlocal実装状況)参照。

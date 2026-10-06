@@ -1,3 +1,4 @@
+import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
@@ -10,7 +11,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -53,6 +54,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  await seedFixedRuntime(adminDb)
   await signIn()
   for (const collection of ['cases', 'caseNumberReservations', 'branches', 'constructionCompanies', 'homeowners', 'properties', 'warrantyServices']) {
     await adminDb.recursiveDelete(adminDb.collection(collection))

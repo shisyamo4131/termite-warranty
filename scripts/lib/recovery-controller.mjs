@@ -144,7 +144,8 @@ export function recoveryController({ database, auth, controlId, revision, now = 
   const getState = async () => runtimeState((await runtime.get()).data())
   const stateAt = async generation => { const value = await getState(); if (value.generation !== generation || value.controlDatabaseId !== controlId) throw new RecoveryError('Stale or mismatched recovery state.'); return value }
   const operations = async () => (await control.collection('recoveryOperations').limit(1).get()).size
-  const marker = (id, state) => database(id).doc(ACCESS_PATH).set({ databaseId: id, phase: state.phase, generation: state.generation })
+  const marker = async (id, state) => {const raw=(await runtime.get()).data();return database(id).doc(ACCESS_PATH).set({ databaseId:id,phase:state.phase,generation:state.generation,...(id==='(default)'&&raw?.protocol===2?{protocol:2,controlDatabaseId:controlId}:{})})}
+  const rejectFixedTransition=async()=>{if((await runtime.get()).data()?.protocol===2)throw new RecoveryError('Fixed default recovery requires its dedicated transition operator.')}
   async function exclusive(generation, id, task) {
     if (!/^[a-zA-Z0-9-]{8,80}$/.test(id)) throw new RecoveryError('An operation ID is required.')
     const lock = control.doc('recovery/operatorLock')
@@ -170,7 +171,7 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       await runtime.create(state)
       return state
     },
-    async enter(generation, id) { return exclusive(generation, id, async effect => {
+    async enter(generation, id) { await rejectFixedTransition(); return exclusive(generation, id, async effect => {
       const state = await stateAt(generation)
       assertTransition(state, 'recovering')
       const next = { ...state, phase: 'recovering', generation: generation + 1 }
@@ -253,11 +254,14 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       const snapshot = await scanDatabase(database(target))
       await inspectBusinessIntegrity(database(target), baseline.highWater)
       if (snapshot.hash !== reconciliation.snapshot.hash || (snapshot.counts.accountMutationLocks ?? 0) > 0) throw new RecoveryError('Reconciled snapshot mismatch or account operations require manual investigation.')
+      const fixed=(await runtime.get()).data()?.protocol===2
+      const {documentImage,imageHash}=fixed?await import('./default-recovery.mjs'):{}
+      const typedHash=fixed?imageHash(await documentImage(database(target))):null
       await effect({kind:'verify',target})
-      await control.doc(`recoveryVerifications/${id}`).create({ target, generation, baselineId, authorizationHash, revision, restoreOperation, recoveryPoint, approval, snapshot, verifiedAt: now() })
+      await control.doc(`recoveryVerifications/${id}`).create({ ...(fixed?{typedHash}:{}),target, generation, baselineId, authorizationHash, revision, restoreOperation, recoveryPoint, approval, snapshot, verifiedAt: now() })
       return { verificationId: id, count: snapshot.count }
     }) },
-    async cutover(generation, id, verificationId) { return exclusive(generation, id, async effect => {
+    async cutover(generation, id, verificationId) { await rejectFixedTransition(); return exclusive(generation, id, async effect => {
       const state = await stateAt(generation), receipt = (await control.doc(`recoveryVerifications/${verificationId}`).get()).data()
       if (!receipt || receipt.generation !== generation || receipt.revision !== revision) throw new RecoveryError('Fresh verification is required.')
       assertTransition(state, 'verification', { activeOperations: await operations(), approval: receipt.approval, verified: true })
@@ -270,7 +274,7 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       await control.doc('recovery/currentVerification').set({ verificationId, generation: next.generation })
       return next
     }) },
-    async reopen(generation, id, approval) { return exclusive(generation, id, async effect => {
+    async reopen(generation, id, approval) { await rejectFixedTransition(); return exclusive(generation, id, async effect => {
       const state = await stateAt(generation), binding = (await control.doc('recovery/currentVerification').get()).data()
       const receipt = binding ? (await control.doc(`recoveryVerifications/${binding.verificationId}`).get()).data() : null
       if (!receipt || binding.generation !== generation || receipt.target !== state.databaseId || receipt.revision !== revision || !approval || approval === receipt.approval) throw new RecoveryError('Separate HS reopening approval and current verification are required.')
@@ -291,6 +295,7 @@ export function recoveryController({ database, auth, controlId, revision, now = 
         const [snapshot,current]=await Promise.all([tx.get(lock),tx.get(runtime)]),value=snapshot.data()
         if(current.data()?.generation!==generation||!value||value.operationId!==expectedOperation
           || value.recoveryOwner&&(value.recoveryOwner!==expectedRecoveryOwner||recoveryWorkerStopped!==true))throw new RecoveryError('Inspected ownership, stopped operator and stopped recovery owner are required.')
+        if(value.intent?.kind?.startsWith('default-'))throw new RecoveryError('Default recovery requires its dedicated operator resume.');
         if(value.intent?.kind==='auth-repair')throw new RecoveryError('Auth repair requires private manual reconciliation; generic operator resume cannot release its lock.')
         tx.update(lock,{recoveryOwner})
         return value

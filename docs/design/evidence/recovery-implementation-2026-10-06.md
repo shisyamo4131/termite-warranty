@@ -325,3 +325,75 @@ SDK観測は2026-10-06 13:27 JSTまでに実施。hashは両DBとも`e8120d2ff12
 DEFAULT-DESIGN-02ではcontrol欠損の検知範囲の曖昧さを指摘。private control欠損時はFunctionsの更新受付／復旧操作を拒否するが、読取と直接SDKはdefault markerで判断するため即時検知できないこと、開発側の緊急marker閉鎖後に両経路を停止確認しcontrol回復／収束までB/C/Dへ進まないことを明記。DEFAULT-DESIGN-03の再レビューで修正範囲のP1/P2残件なし。レビューはread-onlyで、実装／Dev受入成功は主張していない。
 
 今回の変更は文書のみでdocumentation-onlyのgovernance-check／diff checkを選択。`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は文書更新後に各exit 0を確認。最終所有文書を対象に両コマンドを再確認してから保存する。他6ゲートはアプリ／実装／設定／依存／データ契約の変更がないため今回非選択。Authの以前の7ゲートを新Cの検証へ流用しない。新Cの全7ゲート・Dev実行・配備・切り戻し・HS再確認は未実施。実Devは読み取りだけで状態・データ・Auth・設定の書込はなし。
+
+
+### 固定(default) Local実装チェックポイント
+
+基準primary main `8a8becd96f8445283cc1a3da54b23d7a56f08324`。オーナーの「進めてください」に基づきLocalのみ実装。fixed runtime/client、protocol2公開marker、直接writerの世代／nonce、型付きprivate同期計画／全前像、余剰削除・完全set・checkpoint再実行、公表応答消失回復、緊急閉鎖とcontrol再照合を追加した。新CLIは架空demo専用で実Devを資格情報読取前に拒否する。
+
+独立FIXED-IMPLEMENTATION-01～05でprivate scanの孤立checkpoint誤検知、古い計画／了承の世代流用、unsafe数値、次回guard継承、重複Read、Bの精密型証拠・その後の再取得競合、ID検証、試験証拠失効条件を指摘・修正。最後の限定再レビューはP1/P2残件なし。レビュー担当はread-onlyでテストを実行しておらず、以下の実行証拠はcoordinatorの直接観測。
+
+| gate／command | 最終結果 | Exit |
+| --- | --- | --- |
+| domain-test `npm test` | 200成功、0失敗、2skip（hostのsymlink fixture制約）、202件 | 0 |
+| app-typecheck `npm run typecheck` | 成功 | 0 |
+| app-build `npm run build` | SPA generate成功、既存Nitro外部参照等の警告あり | 0 |
+| firestore-rules-test `npm run test:rules` | 最終102成功、0失敗、0skip。エミュレータ終了確認 | 0 |
+| functions-syntax `node scripts/check-functions-syntax.mjs` | 28modules成功 | 0 |
+| seed-syntax `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| governance-check `pwsh -NoProfile -File scripts/check-governance.ps1` | 全7policy／generated summary／managed hash一致 | 0 |
+
+Mixed app／schema／operational migration／policy変更で全7を選択、省略なし。operator・B証拠・試験・policyの後続修正でdomain/Rules証拠を失効させ再実行した。app／Functions／seed実装はその前に固定済みで、typecheck/build/syntaxの失効条件に該当する後続変更はなく、有効証拠を再利用。CLI／operator／旧controller／meeting seedの追加node --check各4コマンドもexit 0。最後の記録だけの追記は他6gateを失効させず、governance/diff checkを保存前に再確認する。
+
+ガバナンスは新operatorソース／試験をdomain/Rules成功証拠の失効条件に明記。installed sourceはv4へ変わっていたため更新には使わず、別repoのGitで実照合したsource commit `34295d3e4975c5663fc874057b03c95266acb97c`からv3 syncツールと必要テンプレートだけをignored tmpへ取得した。common／renderer／validator／turnoverのhashが現lockと全て一致し、変更前Planは0write／0差分。policy変更後Planはoperations生成blockだけ、Applyは1write／exit 0。ブロック外の既存operations本文を比較して完全保持した。AGENTS/common/renderer/validator/lockの変更なし。operationsは生成blockのみ保存し、他タスクの差分とdocs READMEを保全する。
+
+実Devは14:08:45 JSTに読取だけで再確認。project `termite-warranty-dev`、control `recovery-control`、normal generation4、source `recovery-drill-20261006`、両DB54業務文書。両typed hash `85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400`、default向け正規化の追加／変更0、削除0、現在権限一致、更新リース0／lockなし。記録済み再開時刻03:54:00Z以降のupdateTime0件。本文・UID・メール等を保存／出力していない。statusとメモリ内SDK比較はそれぞれexit0、writesPerformed=false、比較は非atomic。
+
+確認済みLocal：型／qualified Reference・現在role／counter保持、子先行余剰削除・旧field除去、同一0write、batch commit応答消失のcheckpoint再実行、2回連続復旧、未知root／孤立親／target競合拒否、封印中断の未反映abort、公表後応答消失の完成証拠、normal公表後の正当更新保持、緊急閉鎖／control照合、B証拠のsub-ms変更と取得間競合の拒否。nonceは旧writer省略／継承・旧世代拒否用で全履歴の一意台帳ではない。
+
+未実装：実Dev用配備確認／実行ラッパー（新CLI live無効）、自動前像rollback。追加Local試験では旧named normal世代4→停止世代5→最新像をdefaultへ反映→batch応答消失再実行→C/D→旧source保持も成功。未検証：実旧protocol→固定default移行、切替前の全境界、全batch境界の網羅的fault injection、large volume／実課金削減、実managed backup復元、Auth実復元後ログイン。未実施：Dev再停止・新配備・default移行・HS再確認／別再開了承。DB／前像削除は未承認。Authの承認済み区切りは維持し、通常DevのAuthを変更していない。復旧全体／Dev移行を完了扱いにしない。
+
+仕様はconfirmed方針を変えず実装状態だけ更新（version0.1.121維持）。現在meeting data contractへ認可metadata／private計画／checkpoint／B typedHashを追加。設計・runbook・technical roadmap・changelogにLocal範囲と残件を反映。ADR0032／環境・権限要件は確定設計の変更がないため維持。既存索引／仕様から到達可能、新規文書なし。全体進捗の加点なし。Git push・配備・Dev書込・Auth更新・メール送信・Prod操作なし。
+
+所有ファイル一覧（operationsはgenerated summaryの2行だけ）：
+
+- `CHANGELOG.md`
+- `app/composables/useMasterManagement.ts`
+- `app/gateways/caseCommandGateway.ts`
+- `app/plugins/firebase.client.ts`
+- `app/utils/recoveryClient.ts`
+- `docs/design/backup-recovery-implementation.md`
+- `docs/design/default-database-recovery.md`
+- `docs/design/evidence/recovery-implementation-2026-10-06.md`
+- `docs/design/meeting-prototype-2026-10-03.md`
+- `docs/operations.md`
+- `docs/roadmaps/technical-remediation.md`
+- `docs/runbooks/backup-recovery.md`
+- `docs/specification.md`
+- `firestore.indexes.json`
+- `firestore.rules`
+- `functions/recovery-runtime.js`
+- `governance/verification-policy.json`
+- `package.json`
+- `scripts/default-recovery.mjs`
+- `scripts/lib/default-recovery.mjs`
+- `scripts/lib/recovery-controller.mjs`
+- `scripts/seed-emulator.mjs`
+- `scripts/seed-meeting-emulator.mjs`
+- `src/domain/fixed-recovery.mjs`
+- `test/default-recovery.test.mjs`
+- `test/emulator/bounded-list.test.mjs`
+- `test/emulator/callable-applied-warranty.test.mjs`
+- `test/emulator/callable-profile-registration.test.mjs`
+- `test/emulator/case-edit.test.mjs`
+- `test/emulator/company-portal.test.mjs`
+- `test/emulator/default-recovery.test.mjs`
+- `test/emulator/fixed-runtime.test.mjs`
+- `test/emulator/property-warranty.test.mjs`
+- `test/emulator/recovery.test.mjs`
+- `test/emulator/registration.test.mjs`
+- `test/emulator/staff-account-management.test.mjs`
+- `test/firestore-rules.test.mjs`
+- `test/helpers/fixed-runtime.mjs`
+- `test/helpers/legacy-recovery-runtime.mjs`
+- `test/recovery.test.mjs`

@@ -2,10 +2,24 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { spawnSync } from 'node:child_process'
 import { runtimeState, assertRequest, assertTransition, PROPERTY_READ_ACTIONS } from '../src/domain/recovery.mjs'
+import { fixedRuntimeState, assertFixedRequest, sameFixedEpoch } from '../src/domain/fixed-recovery.mjs'
 import { recoveryOptions } from '../scripts/lib/recovery-options.mjs'
 import { firestoreRecoveryProvider } from '../scripts/lib/firestore-recovery-provider.mjs'
 import { backupHealth, assertPrivateAuthBucket } from '../src/domain/backup-health.mjs'
 import { missingAuthPlan, authImportOptions, readPrivateAuthObject } from '../scripts/lib/auth-recovery.mjs'
+
+test('fixed protocol requires explicit default marker and rejects historical runtime requests',()=>{
+  const state={protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:'test-fixed-control'}
+  assert.deepEqual(fixedRuntimeState(state),state)
+  for(const change of [{protocol:undefined},{protocol:1},{databaseId:'test-restored'},{controlDatabaseId:'(default)'},{generation:0},{phase:'retired'}])assert.throws(()=>fixedRuntimeState({...state,...change}))
+  assert.throws(()=>assertFixedRequest(state,1,undefined,true,true))
+  assert.throws(()=>assertFixedRequest(state,0,2,false,true))
+  assertFixedRequest(state,1,2,true,false)
+  assert.equal(sameFixedEpoch(state,{...state,generation:2}),false)
+  assert.throws(()=>assertFixedRequest({...state,phase:'recovering'},1,2,false,true))
+  assertFixedRequest({...state,phase:'verification'},1,2,false,true)
+  assert.throws(()=>assertFixedRequest({...state,phase:'verification'},1,2,true,true))
+})
 const state = { phase: 'normal', generation: 5, databaseId: '(default)', controlDatabaseId: 'test-control' }
 const privateSnapshot={schemaVersion:1,hashConfigurationEvidence:'fictional/hash',users:[
   {uid:'existing',email:'existing@example.invalid',disabled:false,passwordHash:'ZmFrZQ==',passwordSalt:'c2FsdA==',providerData:[{providerId:'password'}]},

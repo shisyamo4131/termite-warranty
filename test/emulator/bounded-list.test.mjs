@@ -1,3 +1,4 @@
+import { seedFixedRules } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { readFile } from 'node:fs/promises'
@@ -37,6 +38,7 @@ beforeEach(async () => {
   await testEnvironment.clearFirestore()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.set(doc(db, 'staffAccounts', 'staff-1'), {
       email: 'staff-1@example.invalid', displayName: 'staff-1', role: 'general_staff', enabled: true,

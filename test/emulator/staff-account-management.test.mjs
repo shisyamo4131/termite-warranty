@@ -1,3 +1,4 @@
+import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
@@ -5,7 +6,7 @@ import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { deleteApp, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -41,6 +42,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  await seedFixedRuntime(adminDb)
   await adminDb.recursiveDelete(adminDb.collection('staffAccounts'))
   await Promise.all([
     adminDb.doc(`staffAccounts/${identities.developer}`).set({ email: 'staff-developer@example.invalid', displayName: '開発者', role: 'developer_superuser', enabled: true }),

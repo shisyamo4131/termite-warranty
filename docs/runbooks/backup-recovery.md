@@ -2,7 +2,7 @@
 
 ## 2026-10-06 方式変更後の運用対象
 
-通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。**新コマンドは未実装。以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
+通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。**新コマンドは架空Local専用で全7ゲート・独立レビュー済み。実Dev実行ラッパーは未実装。以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
 
 Authは退避・private readbackとLocal欠損UID復元の承認済み範囲で区切る。実Auth取込と実ログイン・部分失敗の手動回復は未対応。Devの再停止・具体データ反映・配備は対象と手順を提示して別承認後。HS確認とDの再開了承も別。旧DB／一時DB／保全像の削除は別承認が必要。
 
@@ -95,3 +95,23 @@ Localは`--project demo-termite-warranty --emulator`と、秘密を含まない�
 現行のアカウント文書が信用できる場合だけ、欠損AuthをそのUID／email／停止状態で補修し、その後に通常の`baseline`／整合検証へ戻る。現在の権限・停止状態も失われた場合は自動復元しない。既存UIDは取込対象にしない。別UIDへの同じメール、部分失敗、応答消失、未知方式等では停止し、記録を保持。部分失敗のロックを一般的な`resume-operator`で解除しない。
 
 Localは全7ゲート成功。全消失・既存UID保持・現在の停止状態保持・部分成功／応答消失時のロック保持を架空データで検査した。実パスワードの復元後ログインや、実Auth消失のDev予行はまだ確認していない。生きたDevのアカウントを削除して試験することは今回の承認に含まれない。実取込の有効化前に、退避ファイルの保存世代を固定する証拠、隔離した実資格情報の予行、部分失敗の手動照合手順を整える。
+
+
+## 固定(default) Local予行
+
+専用Firestore/Authエミュレータ、明示した架空project `demo-termite-warranty`、独立control、確認した40桁revisionが必須。`node scripts/default-recovery.mjs <command> --project demo-termite-warranty --control <fictional-control> --revision <inspected-HEAD> ...`。status以外は`--apply`なしなら計画表示だけ。Dev IDは--apply指定でも拒否する。この手順をDevへ読み替えない。
+
+| 段階 | commandと追加引数 | 完成／失敗時 |
+| --- | --- | --- |
+| A | enter --generation <current> --operation <id> --apply | control→marker閉鎖。statusのactiveOperations 0まで待つ。HS管理者も業務閲覧拒否 |
+| B | 旧recovery.mjsのbaseline／quarantine／reconcile／verifyを一時DB限定で使用 | protocol 2 verifyはtypedHashも保存。旧cutover/reopenは固定runtimeに拒否 |
+| C計画 | plan --generation <stopped> --operation <plan-id> --source <temporary> --baseline <id> --verification <id> --approval <external-record> --apply | current権限・採番と全前像をprivate保全。余剰削除を含む差分を封印 |
+| C反映 | apply --operation <same-plan> --apply | 全反映・再検証後のみverified。失敗は停止／lock保持 |
+| C確認待ち | publish --operation <verified-plan> --approval <recovery-record> --apply | Localの完成検査後のみverification。実環境では配備確認ゲートも別途必要 |
+| D | reopen --operation <same-plan> --approval <separate-HS-reopen-record> --apply | C公表世代／checkpointと別了承を照合してnormal |
+| 反映中断 | resume --operation <same-plan> --expected-owner <observed-owner> --worker-stopped --apply | 同じ封印計画／実checkpointを照合して再実行 |
+| 閉鎖／封印／公表中断 | recover-operator --operation <same-id> --expected-owner <observed-owner> --worker-stopped --apply | 封印未完成は未反映と前像一致を確認してaborted保全、新IDで再計画。公表完了はmarker/checkpointで照合 |
+| control異常 | emergency-close --generation <marker-current> --operation <id> --apply | default markerを閉じる。control復旧をこのコマンドで行うわけではない |
+| control回復後 | reconcile-emergency --generation <closed-marker> --operation <id> --worker-stopped --apply | 全writer停止／リース収束を確認後、controlを停止状態へ照合 |
+
+止まっていない旧workerのownerを交換しない。Source／権限／版／世代の変化では停止して調査。前像への差戻しは自動実行せず、private前像から別承認した復旧像を用意して完全同期・再検証する。無条件ロック削除・Auth巻戻し・旧DB削除はしない。[型／予算／未検証](../design/default-database-recovery.md#2026-10-06-固定default方式のlocal実装状況)参照。

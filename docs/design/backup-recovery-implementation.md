@@ -1,6 +1,6 @@
 # Backup and Recovery Implementation
 
-> 2026-10-06の方式変更：通常業務は(default)固定へ変更する。[新方式の設計](default-database-recovery.md)が今後の目標仕様。以下の動的切替・anchor・別DB通常稼働は現行／旧方式の実装履歴であり、新方式の完成を示さない。Authの承認済み区切りは非公開退避・readbackとLocal消失復元検証まで。実Auth取込／復元後ログイン／部分失敗の手動回復は未完了。
+> 2026-10-06の方式変更：通常業務は(default)固定へ変更する。[新方式の設計](default-database-recovery.md)が今後の目標仕様。以下の動的切替・anchor・別DB通常稼働は現行／旧方式の実装履歴であり、新方式の完成を示さない。新固定runtimeとLocal専用同期／回復処理は全7Localゲート・独立レビュー済みで、実Dev用実行ゲート・配備・移行は未実施。Authの承認済み区切りは非公開退避・readbackとLocal消失復元検証まで。実Auth取込／復元後ログイン／部分失敗の手動回復は未完了。
 
 - Status: Initial Local implementation verified; Dev configuration, deployment, notification delivery and PITR restoration/cutover verified. The owner confirmed HS-administrator acceptance and separately approved reopening on 2026-10-06; Dev is normal, generation 4. Live private Auth export/readback succeeded for 3 accounts. First managed backup remains unverified; missing-identity import is Local-verified only and live Auth import is unavailable. The monitor status correction was locally verified, deployed to Dev, and confirmed by a live trial. Current evidence is in [the verification record](evidence/recovery-implementation-2026-10-06.md).
 - Authority: Implements the owner-approved recovery scope in the [specification](../specification.md#2026-10-06-バックアップ復元の対象範囲) and [ADR0032](../decisions/0032-production-firebase-operations.md#2026-10-06-recovery-operation-amendment).

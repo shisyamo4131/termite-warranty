@@ -6,6 +6,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { propertyPrototypeOperation } from '../../functions/property-warranty.js'
 import { initialGroups, insuranceReportTarget, latestInsuranceReport } from '../../src/domain/property-warranty.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { seedFixedRuntime, httpsCallable as fixedCallable } from '../helpers/fixed-runtime.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'property-test'),db=getFirestore(app),auth=getAuth(app)
 const call=async(action,data={},uid='meeting-hs')=>{
@@ -21,6 +22,7 @@ const companyAddress={postalCode:'1000001',prefecture:'東京都',municipality:'
 const saveCompany=(id,defaultGroupId,enabled=true)=>call('saveCompany',{id,name:'架空工務店',defaultGroupId,enabled,address:companyAddress})
 const command=(id,revision,extra={})=>({id,revision,requestId:crypto.randomUUID(),fields,confirmRegistration:true,confirmWarnings:true,confirmCancellation:true,...extra})
 before(async()=>{
+  await seedFixedRuntime(db)
   for(const name of ['propertyWarranties','warrantyGroups','warrantyCounters','companyBranches'])await db.recursiveDelete(db.collection(name))
   await db.doc('staffAccounts/meeting-hs').set({role:'house_solution_administrator',enabled:true,displayName:'架空HS'})
   await auth.createUser({uid:'meeting-hs',email:'meeting-callable@example.invalid',password:'Demo-only-password-123'})
@@ -406,7 +408,7 @@ test('HTTP Callable preserves account authentication and latest registration pay
   try {
     const login=webAuth(web);connectAuthEmulator(login,`http://${localRuntimeHost(LOCAL_RUNTIME.authPort)}`,{disableWarnings:true})
     const functions=getFunctions(web,'asia-northeast1');connectFunctionsEmulator(functions,LOCAL_RUNTIME.host,LOCAL_RUNTIME.functionsPort)
-    const invoke=httpsCallable(functions,'propertyPrototype')
+    const invoke=fixedCallable(functions,'propertyPrototype')
     await assert.rejects(invoke({action:'catalog'}),e=>e.code==='functions/unauthenticated')
     await signInWithEmailAndPassword(login,'meeting-callable@example.invalid','Demo-only-password-123')
     const payload={action:'register',...command('http-retry',0,{fields:{...fields,buildingArea:''}})}

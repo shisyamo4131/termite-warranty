@@ -27,6 +27,9 @@ if (!projectId.startsWith('demo-')) {
 const app = initializeApp({ projectId })
 const auth = getAuth(app)
 const firestore = getFirestore(app)
+const fixedRuntime = { protocol: 2, generation: 1, phase: 'normal', databaseId: '(default)', controlDatabaseId: 'test-fixed-control' }
+await getFirestore(app, 'test-fixed-control').doc('recovery/runtime').set(fixedRuntime)
+await firestore.doc('_recovery/access').set(fixedRuntime)
 
 let user
 try {

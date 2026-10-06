@@ -1,6 +1,6 @@
 # (default)固定の全体復旧設計
 
-- 状態：2026-10-06オーナー確定方針に基づく設計。実装・Local検証・Dev移行は未実施。
+- 状態：2026-10-06オーナー確定方針に基づく設計。固定runtimeとLocal専用同期／回復コマンドを実装し全7Localゲート・独立レビュー済み。Dev配備・移行は未実施。
 - 確定：通常業務は常にFirestore `(default)`。別DBは復元・開発側検証の一時領域。必要な再配備を許容。A→B→C→D、Authは必要時だけ別復旧、HS連絡・了承はシステム外。
 - 実行境界：今回の指示はDev停止・現行データ削除／上書き・DB削除・IAM変更・配備の実行承認ではない。以下の内部方式は技術設計であり、稼働への反映を完了とは扱わない。
 - 関連：[仕様](../specification.md)、[既存設計](backup-recovery-implementation.md)、[手順](../runbooks/backup-recovery.md)、[実測](evidence/recovery-implementation-2026-10-06.md)。この設計は従来の別DBを通常利用する方針を置き換える。旧実装は移行まで残る。
@@ -107,3 +107,35 @@ Devは読み取り事前確認→対象・停止・具体反映計画の承認�
 - [export/import](https://firebase.google.com/docs/firestore/manage-data/export-import)：import対象外の既存文書は残る。
 - [in-place restore](https://firebase.google.com/docs/firestore/restore-in-place)：同名復元は元DB削除と新DB作成で実現する別の手順。
 - [文書削除](https://firebase.google.com/docs/firestore/manage-data/delete-data)：親文書の削除だけではsubcollectionが消えない。
+
+
+## 2026-10-06 固定(default)方式のLocal実装状況
+
+固定runtime／ブラウザはprotocol 2・(default)固定。公開authorityはdefaultの`_recovery/access`、controlはprivate運用状態／リース／保全証拠。新runtimeではanchorを読まない。旧anchorとcontrol Rulesの旧public getはDev移行互換として残し、新clientは利用しない。
+
+`scripts/default-recovery.mjs`は架空demo専用。Dev IDは資格情報読取前に拒否する。Localで実SDKを使う同期／回復基盤は全7Localゲート・独立レビュー済みだが、実Devの配備・index READY・Functions／Hosting一致を確認する実行ラッパーは未実装。配備・切り戻しは未実施。通常Devを再停止する承認も未取得。
+
+計画はprivate controlの`defaultRecoveryPlans/{id}`、items／preimageに封印。全対象前像を保存し、型付きJSONを文字列で保持してFirestoreにReferenceを再解釈させない。SDKのReferenceデコードはDB識別を失うため、snapshotのraw `_fieldsProto`からqualified referenceを確認する（インストール済みSDK依存、更新時に再検証）。安全整数外・整数値double・未知型は停止する。Bの新receiptにはtypedHashを保存し、旧hashだけの証拠はCへ無効。
+
+同じ業務文書は0write。余剰は子から明示削除、作成は親から、変更はmergeなしset。現在のstaff／companyプロフィール・bindings・番号予約を保全し、カウンターは現在上限を下回らない。対象100,000文書、private item／preimageの型付き内容700KB予算を超えれば停止する。未知collection・孤立業務子も停止。private `_recovery`は業務探索自体から除外する。
+
+文書変更とdefault checkpointは同一transaction。再実行は封印計画・停止済み旧worker・照合ownerを要求。封印だけが中断した計画は、未反映／前像一致を確認してabortedとして保全し、新IDで計画する。C公表は生成世代、DはCの公表世代とcheckpointに結合。公表応答消失は完成checkpointで照合し、正常再開後の正当な業務更新を巻き戻さない。自動rollback／DB削除はない。
+
+通常Functions読取はdefault markerを開始／応答直前の2回取得。anchor／動的DB／閲覧リースを省く。実課金削減は未測定。Cでは繰返しscan、権限検査、private前像／計画／checkpointのRead/Writeが必要で、N＋Mが総課金Readではない。
+
+残件：実Dev実行ラッパーと配備確認、停止前後の再観測・具体差分承認、移行／Dev受入／HS確認と別再開了承、default保護設定。全batch境界の網羅的fault injection、大容量／実課金測定、実managed backup復元、実Auth復元後ログインは未検証。旧／一時DB・前像の削除は別承認。Authの承認済み区切りは変更しない。
+
+
+### Dev再確認と実行候補（まだ承認／実行していない）
+
+2026-10-06 14:08:45 JST、読取のみでproject `termite-warranty-dev`／control `recovery-control`／normal generation 4／source `recovery-drill-20261006`を再確認。source/default各54文書、型付きhashは両方`85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400`、参照をdefault向けに正規化したset 0／delete 0、現在権限一致、activeOperations 0／operator lockなし。記録済み再開時刻03:54:00Z以降の業務updateTimeは0件。これは稼働中の非atomic比較であり、停止後の封印像ではない。
+
+実行対象は同projectのsource/default/controlだけ。現在のsource像を正とし、11:42の過去像へ戻さない。操作候補は以下で、実実行ラッパー／配備確認を準備してから停止日時と対象を提示し承認を得る。
+
+1. 現在版・Rules・indexes・保護設定・Functionsの呼出設定とrollback版を読取保全。利用中sourceの更新受付とmarkerを閉じ、HS管理者も業務アクセス不可にし、全worker／更新リースの収束を確認する。
+2. 停止後の最新source/default、現在権限／bindings／採番／番号予約と全前像を封印。比較一致なら業務set/deleteは0。差があれば件数・範囲を提示し、具体反映の別承認まで維持する。稼働中0差分を将来の上書き許可としない。
+3. `(default)`に新Rules／indexes、既存全Functionsに固定runtime、Hostingに固定clientを反映する計画。`RECOVERY_CONTROL_DATABASE=recovery-control`必須。index READY／全instance・公開Hostingの版一致／旧要求拒否を確認。firestore-control.rulesと旧anchorはこの移行では勝手に削除しない。
+4. defaultとcontrolをprotocol 2／recoveringの同世代へ移し、承認済み差分計画だけを適用。完成検証と配備検証後、sourceをretiredに保全し、defaultのHS読み取り専用／非更新CSV確認へ進む。default PITR／日次予定／監視を再確認する。
+5. HS確認とシステム外の別再開了承後にdefault normalを公表。全段階の失敗では停止維持。旧source、一時DB、全前像・計画は残す。Auth、IAM、DB削除は対象外。コピー前の移行中止、コピー後の前像復旧、旧版への配備差戻しも具体対象を照合し別承認する。自動正常再開はしない。
+
+旧source→defaultのLocal移行予行も追加し、最新像・現在権限／採番保持・書込後応答消失の再実行・C/D・旧source保持を確認した。同値0writeの実Dev移行、切替前の全境界・実配備混在／失敗は未検証で、実Dev手順の完成前に確認する。

@@ -6,7 +6,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { recoveryController, scanDatabase, authorizationDigest, inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.mjs'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH } from '../../src/domain/recovery.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
-import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from '../../functions/recovery-runtime.js'
+import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from '../helpers/legacy-recovery-runtime.mjs'
 import { exportPrivateAuthSnapshot, recordFirestoreBackupObservation, recoveryBackupMonitor } from '../../functions/recovery-backups.js'
 import { restoreMissingAuth, loadAuthAuthority, missingAuthPlan } from '../../scripts/lib/auth-recovery.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort) || process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated emulators required')
@@ -160,6 +160,10 @@ test('isolated recovery fences stale calls, drains leases, checks accounts and r
   // A missing Firestore backup must not overwrite a successful Auth backup.
   const credential=applicationDefault(), originalToken=credential.getAccessToken, originalFetch=globalThis.fetch
   const originalProject=process.env.GCLOUD_PROJECT, originalMailEvidence=process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE
+  const historicMarker=(await source.doc(ACCESS_PATH).get()).data()
+  // The monitor now resolves only the fixed public marker; historical cutover
+  // assertions above/below remain a separate test-only controller regression.
+  await source.doc(ACCESS_PATH).set({protocol:2,phase:'normal',generation:4,databaseId:'(default)',controlDatabaseId:'test-control'})
   process.env.GCLOUD_PROJECT='demo-termite-warranty'
   process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE='fictional/notification'
   credential.getAccessToken=async()=>({access_token:'fictional-test-token',expires_in:3600})
@@ -174,6 +178,7 @@ test('isolated recovery fences stale calls, drains leases, checks accounts and r
     assert.equal(health.authBackup,'success')
     assert.equal((await control.doc('recovery/authExportLock').get()).exists,false)
   } finally {
+    await source.doc(ACCESS_PATH).set(historicMarker)
     credential.getAccessToken=originalToken;globalThis.fetch=originalFetch
     if(originalProject===undefined)delete process.env.GCLOUD_PROJECT;else process.env.GCLOUD_PROJECT=originalProject
     if(originalMailEvidence===undefined)delete process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE;else process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE=originalMailEvidence

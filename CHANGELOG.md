@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-06 固定(default)復旧のLocal実装
+
+- ブラウザ／Functionsをdefault固定・protocol 2必須へ変更。旧要求・直接更新の世代／nonce継承を拒否。
+- 型付きprivate計画／全前像、余剰削除を含む完全同期、中断再実行、公表応答消失の照合をLocal専用コマンドへ追加。
+- Local全7ゲート・独立レビュー済み。実Dev実行ラッパー・配備・切り戻しは未実施で実Dev操作は無効。[範囲・残件](docs/design/default-database-recovery.md#2026-10-06-固定default方式のlocal実装状況)。
+
 ## 2026-10-06 業務DBを(default)固定へ変更する方針
 
 - 通常業務を(default)固定、一時DBを復元・開発検証限定とする確定方針を仕様・要件・ADR・運用手順へ反映。

@@ -6,7 +6,9 @@ import {
   setPersistence,
 } from 'firebase/auth'
 import { connectFirestoreEmulator, getFirestore, doc, onSnapshot } from 'firebase/firestore'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { getDoc } from 'firebase/firestore'
+import { fixedRuntimeState } from '../../src/domain/fixed-recovery.mjs'
 import { initializeRecovery, recoveryRuntime, recoveryProblem, type RecoveryRuntime } from '../utils/recoveryClient'
 import { LOCAL_RUNTIME, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
 
@@ -44,7 +46,7 @@ export default defineNuxtPlugin(async () => {
     ? getApp()
     : initializeApp(firebaseOptions)
   const auth = getAuth(app)
-  let firestore = getFirestore(app)
+  const firestore = getFirestore(app)
   const functions = getFunctions(app, functionsRegion)
 
   const emulatorState = globalThis as typeof globalThis & {
@@ -58,25 +60,16 @@ export default defineNuxtPlugin(async () => {
   }
   await setPersistence(auth, browserSessionPersistence)
   try {
-    const result = (await httpsCallable<Record<string, never>, RecoveryRuntime>(functions, 'recoveryRuntime')({})).data
-    if (!['normal', 'recovering', 'verification'].includes(result.phase) || !Number.isSafeInteger(result.generation)) throw new Error('Runtime unavailable')
+    const result = fixedRuntimeState((await getDoc(doc(firestore, '_recovery/access'))).data()) as RecoveryRuntime
     initializeRecovery(result)
-    if (result.databaseId !== '(default)') {
-      firestore = getFirestore(app, result.databaseId)
-      if (isLocal) connectFirestoreEmulator(firestore, LOCAL_RUNTIME.host, LOCAL_RUNTIME.firestorePort)
-    }
-    if (result.controlDatabaseId) {
-      const control = getFirestore(app, result.controlDatabaseId)
-      if (isLocal) connectFirestoreEmulator(control, LOCAL_RUNTIME.host, LOCAL_RUNTIME.firestorePort)
-      onSnapshot(doc(control, 'recovery/runtime'), snapshot => {
-        const value = snapshot.data()
-        if (!value || value.generation !== result.generation || value.phase !== result.phase || value.databaseId !== result.databaseId) {
-          recoveryRuntime.value = { ...result, phase: 'unavailable' }
-          // Force recreation of Firebase handles, profile listeners and caches.
-          window.location.reload()
-        }
-      }, () => { recoveryRuntime.value = { ...result, phase: 'unavailable' }; recoveryProblem.value = '接続状態を確認できません。再読込してください。' })
-    }
+    onSnapshot(doc(firestore, '_recovery/access'), snapshot => {
+      const value = snapshot.data()
+      if (!value || value.protocol !== 2 || value.generation !== result.generation || value.phase !== result.phase || value.databaseId !== '(default)' || value.controlDatabaseId !== result.controlDatabaseId) {
+        recoveryRuntime.value = { ...result, phase: 'unavailable' }
+        // Force recreation of Firebase handles, profile listeners and caches.
+        window.location.reload()
+      }
+    }, () => { recoveryRuntime.value = { ...result, phase: 'unavailable' }; recoveryProblem.value = '接続状態を確認できません。再読込してください。' })
   } catch {
     recoveryProblem.value = 'システムの接続状態を確認できません。時間をおいて再読込してください。'
   }

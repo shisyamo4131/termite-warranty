@@ -1,0 +1,158 @@
+import { test,after } from 'node:test'
+import assert from 'node:assert/strict'
+import { initializeApp,deleteApp } from 'firebase-admin/app'
+import { getFirestore,Timestamp,GeoPoint } from 'firebase-admin/firestore'
+import { getAuth } from 'firebase-admin/auth'
+import { defaultRecovery,documentImage,imageHash } from '../../scripts/lib/default-recovery.mjs'
+import { authorizationDigest,scanDatabase,recoveryController } from '../../scripts/lib/recovery-controller.mjs'
+import { LOCAL_RUNTIME,localRuntimeHost } from '../../src/config/local-emulator.mjs'
+if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated fictional emulator required')
+const app=initializeApp({projectId:'demo-termite-warranty'},'default-sync-test'),auth=getAuth(app),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)
+const target=database('(default)'),source=database('test-sync-source'),control=database('test-sync-control'),revision='b'.repeat(40)
+const api=defaultRecovery({database,auth,controlId:'test-sync-control',revision})
+after(async()=>deleteApp(app))
+async function clean(){for(const db of [target,source,control])for(const root of await db.listCollections())await db.recursiveDelete(root);let token;do{const p=await auth.listUsers(1000,token);for(const u of p.users)await auth.deleteUser(u.uid);token=p.pageToken}while(token)}
+async function evidence(gen,id){
+ const authority=await authorizationDigest(target,auth)
+ await control.doc(`recoveryBaselines/${id}`).set({generation:gen,revision,authorizationHash:authority,highWater:{year:9}})
+ await source.doc('_recovery/access').set({phase:'recovering',generation:gen,databaseId:source.databaseId})
+ await control.doc(`recoveryVerifications/${id}`).set({generation:gen,revision,target:source.databaseId,baselineId:id,authorizationHash:authority,approval:'external/recovery',typedHash:imageHash(await documentImage(source)),snapshot:await scanDatabase(source)})
+ return {source:source.databaseId,baselineId:id,verificationId:id,approval:'external/recovery'}
+}
+test('full default synchronization preserves current roles, counters and typed references; resumes response loss and permits two recoveries',async()=>{
+ await clean();await auth.createUser({uid:'sync-admin',email:'sync@example.invalid',password:'Fictional-only-123'})
+ const profile={email:'sync@example.invalid',role:'house_solution_administrator',enabled:true}
+ await target.doc('staffAccounts/sync-admin').set(profile)
+ await source.doc('staffAccounts/sync-admin').set({...profile,role:'general_staff'})
+ await target.doc('warrantyCounters/year').set({lastValue:9})
+ await source.doc('warrantyCounters/year').set({lastValue:9})
+ await target.doc('properties/obsolete').set({old:true});await target.doc('properties/obsolete/history/child').set({old:true})
+ await target.doc('properties/kept').set({v:0,obsoleteField:true})
+ const expected={v:1,stamp:new Timestamp(42,123000),bytes:Buffer.from([0,255]),point:new GeoPoint(35,139),link:source.doc('properties/kept')}
+ await source.doc('properties/kept').set(expected);await source.doc('properties/kept/history/current').set({v:2})
+ await api.initialize()
+ const plan=await api.plan(1,'sync-plan-first',await evidence(1,'baseline-first'))
+ assert.equal(plan.deletes,2);assert.equal(plan.changes,2)
+ assert.equal((await control.collection('defaultRecoveryPlans/sync-plan-first/preimage').get()).size,5)
+ let lost=false
+ const fault=defaultRecovery({database,auth,controlId:'test-sync-control',revision,afterCommit:async()=>{if(!lost){lost=true;throw Error('fictional lost response')}}})
+ await assert.rejects(fault.apply('sync-plan-first'),/interrupted/)
+ assert.equal((await target.doc('_recovery/access').get()).data().phase,'recovering')
+ const held=(await control.doc('recovery/operatorLock').get()).data()
+ await assert.rejects(recoveryController({database,auth,controlId:'test-sync-control',revision}).resumeOperator(1,'sync-plan-first',true),/dedicated/)
+ await assert.rejects(api.apply('sync-plan-first',{resume:true,workerStopped:true,expectedOwner:'wrong-owner'}))
+ assert.equal((await api.apply('sync-plan-first',{resume:true,workerStopped:true,expectedOwner:held.owner})).status,'verified')
+ assert.equal((await target.doc('properties/obsolete').get()).exists,false)
+ assert.equal((await target.doc('properties/obsolete/history/child').get()).exists,false)
+ const row=(await target.doc('properties/kept').get()).data()
+ assert.equal(row.obsoleteField,undefined);assert.equal(row.link.firestore.databaseId,'(default)');assert.equal(row.stamp.nanoseconds,123000);assert.deepEqual(row.bytes,expected.bytes)
+ assert.equal((await target.doc('staffAccounts/sync-admin').get()).data().role,profile.role)
+ assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
+ await assert.rejects(api.publish('sync-plan-first','external/recovery',{reopen:true}))
+ assert.equal((await api.publish('sync-plan-first','external/recovery')).phase,'verification')
+ await assert.rejects(api.publish('sync-plan-first','external/recovery',{reopen:true}))
+ assert.equal((await api.publish('sync-plan-first','external/reopen',{reopen:true})).phase,'normal')
+ assert.equal((await api.enter(3,'enter-second')).generation,4)
+ await assert.rejects(api.publish('sync-plan-first','external/recovery'))
+ const second=await api.plan(4,'sync-plan-second',await evidence(4,'baseline-second'))
+ assert.equal(second.changes,0);assert.equal(second.deletes,0)
+ const version=(await target.doc('properties/kept').get()).updateTime
+ await api.apply('sync-plan-second')
+ assert.equal((await target.doc('properties/kept').get()).updateTime.isEqual(version),true)
+ await api.publish('sync-plan-second','external/recovery');await api.publish('sync-plan-second','external/reopen-second',{reopen:true})
+ assert.equal((await api.emergencyClose(6,'emergency-third')).generation,7)
+ assert.ok((await documentImage(target)).size>0) // private orphan checkpoint paths are deliberately excluded
+})
+test('orphan business parents, unknown collections and target conflicts keep maintenance closed',async()=>{
+ await clean();await api.initialize()
+ await source.doc('properties/missing/history/child').set({v:1})
+ await assert.rejects(documentImage(source))
+ await source.recursiveDelete(source.collection('properties'))
+ await source.doc('unknownRecords/record').set({v:1});await assert.rejects(documentImage(source));await source.recursiveDelete(source.collection('unknownRecords'))
+ await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await target.doc('properties/change').set({v:1});await source.doc('properties/change').set({v:2})
+ await api.plan(1,'conflict-plan',await evidence(1,'baseline-conflict'))
+ await target.doc('properties/change').set({v:3})
+ await assert.rejects(api.apply('conflict-plan'))
+ assert.equal((await target.doc('properties/change').get()).data().v,3)
+ assert.equal((await api.status()).runtime.phase,'recovering')
+ assert.equal((await api.status()).operatorBlocked,true)
+})
+
+test('publication response loss uses atomic completion evidence; incomplete seal is retained and safely abandoned',async()=>{
+ await clean();await api.initialize();await api.initialize()
+ await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await target.doc('properties/record').set({v:0});await source.doc('properties/record').set({v:1})
+ const args=await evidence(1,'baseline-sealing')
+ const sealing=defaultRecovery({database,auth,controlId:'test-sync-control',revision,afterSealItem:async()=>{throw Error('fixture seal interruption')}})
+ await assert.rejects(sealing.plan(1,'incomplete-plan',args))
+ let held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('incomplete-plan',{workerStopped:true,expectedOwner:held.owner})).status,'aborted-before-application')
+ assert.equal((await target.doc('properties/record').get()).data().v,0)
+ await api.plan(1,'publication-plan',args);await api.apply('publication-plan')
+ const publish=defaultRecovery({database,auth,controlId:'test-sync-control',revision,afterPublish:async()=>{throw Error('fixture publication response loss')}})
+ await assert.rejects(publish.publish('publication-plan','external/recovery'))
+ assert.equal((await target.doc('_recovery/access').get()).data().phase,'verification')
+ held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('publication-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'verification')
+ await assert.rejects(publish.publish('publication-plan','external/reopen',{reopen:true}))
+ // After the normal marker commits, permitted business writes can already occur.
+ await target.doc('properties/record').update({v:2})
+ held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('publication-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'normal')
+ assert.equal((await target.doc('properties/record').get()).data().v,2)
+ await api.emergencyClose(3,'emergency-close')
+ await assert.rejects(api.reconcileEmergency(4,'emergency-reconcile'))
+ assert.equal((await api.reconcileEmergency(4,'emergency-reconcile',{workerStopped:true})).phase,'recovering')
+})
+
+test('B typed evidence rejects a sub-millisecond change hidden by the historical hash',async()=>{
+ await clean();await api.initialize();await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await source.doc('properties/stamp').set({stamp:new Timestamp(42,1000)})
+ const args=await evidence(1,'baseline-typed'),old=(await scanDatabase(source)).hash
+ await source.doc('properties/stamp').set({stamp:new Timestamp(42,2000)})
+ assert.equal((await scanDatabase(source)).hash,old)
+ await assert.rejects(api.plan(1,'stale-typed-plan',args))
+ assert.equal((await control.doc('recovery/operatorLock').get()).exists,false)
+})
+
+test('source changed between B comparison and the sealed-image read is refused',async()=>{
+ await clean();await api.initialize();await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await source.doc('properties/race').set({stamp:new Timestamp(42,1000)})
+ const args=await evidence(1,'baseline-source-race')
+ let changed=false
+ const raceAuth={getUser:auth.getUser.bind(auth),listUsers:async(...args)=>{if(!changed){changed=true;await source.doc('properties/race').update({stamp:new Timestamp(42,2000)})}return auth.listUsers(...args)}}
+ const raced=defaultRecovery({database,auth:raceAuth,controlId:'test-sync-control',revision})
+ await assert.rejects(raced.plan(1,'source-race-plan',args))
+ assert.equal((await control.doc('defaultRecoveryPlans/source-race-plan').get()).exists,false)
+})
+
+test('legacy named Dev-shaped runtime migrates latest image to default without restoring historical authority',async()=>{
+ await clean()
+ await auth.createUser({uid:'migration-admin',email:'migration@example.invalid',password:'Fictional-only-123'})
+ const profile={email:'migration@example.invalid',role:'house_solution_administrator',enabled:true}
+ await source.doc('staffAccounts/migration-admin').set(profile)
+ await target.doc('staffAccounts/migration-admin').set({...profile,role:'general_staff'})
+ await source.doc('warrantyCounters/year').set({lastValue:9});await target.doc('warrantyCounters/year').set({lastValue:4})
+ await source.doc('properties/latest').set({v:2});await target.doc('properties/latest').set({v:1})
+ const legacy={phase:'normal',generation:4,databaseId:source.databaseId,controlDatabaseId:control.databaseId}
+ await control.doc('recovery/runtime').set(legacy);await source.doc('_recovery/access').set(legacy);await target.doc('_recovery/access').set({phase:'retired',generation:3,databaseId:'(default)'})
+ const old=recoveryController({database,auth,controlId:control.databaseId,revision})
+ await old.enter(4,'legacy-stop-migration');await old.baseline(5,'baseline-migration')
+ const plan=await api.plan(5,'migration-plan',{source:source.databaseId,baselineId:'baseline-migration',approval:'external/latest-migration',migration:true})
+ assert.equal(plan.changes,3);assert.equal(plan.deletes,0)
+ let lost=false
+ const partial=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterCommit:async()=>{if(!lost){lost=true;throw Error('fictional migration response loss')}}})
+ await assert.rejects(partial.apply('migration-plan'))
+ const held=(await control.doc('recovery/operatorLock').get()).data()
+ await api.apply('migration-plan',{resume:true,workerStopped:true,expectedOwner:held.owner})
+ assert.equal((await target.doc('properties/latest').get()).data().v,2)
+ assert.deepEqual((await target.doc('staffAccounts/migration-admin').get()).data(),profile)
+ assert.equal((await control.doc('recovery/runtime').get()).data().databaseId,'(default)')
+ await assert.rejects(old.enter(5,'old-enter-denied'))
+ await api.publish('migration-plan','external/latest-migration')
+ assert.equal((await source.doc('_recovery/access').get()).data().phase,'retired')
+ await api.publish('migration-plan','external/latest-reopen',{reopen:true})
+ assert.equal((await target.doc('_recovery/access').get()).data().phase,'normal')
+ assert.equal((await source.doc('properties/latest').get()).data().v,2) // source retained, never deleted
+})
