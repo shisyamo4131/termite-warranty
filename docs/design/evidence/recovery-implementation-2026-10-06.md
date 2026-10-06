@@ -42,6 +42,16 @@
 
 [実行範囲・利用者確認手順](../default-database-recovery.md#次のdev実行範囲と利用者確認)を準備。現在source最新像を維持し、0差分なら業務文書set/delete 0。停止後に差が生じていた場合は具体差分の別承認まで反映しない。HS確認待ちに達した時点で利用者へ報告して停止し、別の再開了承前にDへ進まない。
 
+### コミット後の正式Dev読取照合
+
+所有22ファイルを`5a6743bb1c81d274935d7ad537bd6b6eb7ec632e`へLocalコミットし、未所有docs/README.mdとoperations本文の変更を残した。pushなし。
+
+`node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --source recovery-drill-20261006 --generation 4 --revision 5a6743bb1c81d274935d7ad537bd6b6eb7ec632e --site termite-warranty-dev --dev-inspect`はexit 0。実Git gateでclean runtime／HEADを確認して専用profileを生成、DevはGET／読取のみ。10検査中6 pass（Git、runtime clean、3DBのidentity/location、normal generation4 protocol1、リース0／lockなし、control Rules）。4 blocked（default新Rules、default新indexes READY、新Functions source／Run、Hosting全成果物）。旧版が稼働しているため、新方式の配備完成とは判定しない。`writesPerformed=false / cloudWrites=false / liveMutationAvailable=false / ready=false`。
+
+15:01:15 JSTに業務像も読取再照合（exit 0）。source/default各54、型付きhashは先の値と同一、正規化set/delete各0、現在権限一致、採番上限16、再開後の業務updateTime0、更新リース0・operator lockなし。稼働中の非atomic比較で、停止後の封印を省略しない。
+
+本追記だけはdocumentation-only。コードmanifestは変わらず全7のコード証拠を保持し、governance-check／diff-checkを再実行する。後続の記録コミットでHEADが変わるため、実配備・実操作ではその時点の実HEADを再確認し専用profileを生成する。今の観測版を別revisionの配備証拠へ流用しない。次の承認範囲は「一時停止→最新像保全→18 Functions／Hosting／Rules／indexes再配備→停止後も差分0ならdefault移行→開発側検査→HS確認待ちで停止」。差分発生・失敗なら停止維持し報告。業務データの上書き／削除、Auth変更、IAM変更、旧／一時DB削除、通常再開はこの候補範囲へ追加しない。
+
 - 日付：2026-10-06
 - 状態：初期実装のLocal全7ゲートと限定画面確認を完了。クラウド運用開始・Dev配備／予行・Auth取込の完了記録ではない。
 - 承認：オーナーの「バックアップ・復元について他に確認すべきことがなければ実装開始」。採用済み運用は[仕様](../../specification.md#2026-10-06-バックアップ復元の対象範囲)と[ADR0032](../../decisions/0032-production-firebase-operations.md#2026-10-06-recovery-operation-amendment)。
