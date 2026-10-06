@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import { test, after } from 'node:test'
-import { initializeApp, deleteApp } from 'firebase-admin/app'
+import { initializeApp, deleteApp, applicationDefault } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { recoveryController, scanDatabase, authorizationDigest, inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.mjs'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH } from '../../src/domain/recovery.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from '../../functions/recovery-runtime.js'
-import { exportPrivateAuthSnapshot, recordFirestoreBackupObservation } from '../../functions/recovery-backups.js'
+import { exportPrivateAuthSnapshot, recordFirestoreBackupObservation, recoveryBackupMonitor } from '../../functions/recovery-backups.js'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort) || process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated emulators required')
 const app=initializeApp({projectId:'demo-termite-warranty'})
 const database=id=>id==='(default)' ? getFirestore(app) : getFirestore(app,id)
@@ -104,6 +104,27 @@ test('isolated recovery fences stale calls, drains leases, checks accounts and r
   invalidate=false
   assert.equal((await exportPrivateAuthSnapshot(control,{force:true,auth:fakeAuth,storage})).status,'success')
   assert.equal(stored,2)
+  // A missing Firestore backup must not overwrite a successful Auth backup.
+  const credential=applicationDefault(), originalToken=credential.getAccessToken, originalFetch=globalThis.fetch
+  const originalProject=process.env.GCLOUD_PROJECT, originalMailEvidence=process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE
+  process.env.GCLOUD_PROJECT='demo-termite-warranty'
+  process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE='fictional/notification'
+  credential.getAccessToken=async()=>({access_token:'fictional-test-token',expires_in:3600})
+  globalThis.fetch=async url=>{
+    assert.ok(String(url).startsWith('https://firestore.googleapis.com/v1/projects/demo-termite-warranty/'))
+    return {ok:true,json:async()=>String(url).includes('/backups')?{backups:[]}:{locationId:'fictional-location'}}
+  }
+  try {
+    await assert.rejects(recoveryBackupMonitor.run({}),/Backup monitoring failed/)
+    const health=(await control.doc('recovery/backupHealth').get()).data()
+    assert.equal(health.monitoring,'failed')
+    assert.equal(health.authBackup,'success')
+    assert.equal((await control.doc('recovery/authExportLock').get()).exists,false)
+  } finally {
+    credential.getAccessToken=originalToken;globalThis.fetch=originalFetch
+    if(originalProject===undefined)delete process.env.GCLOUD_PROJECT;else process.env.GCLOUD_PROJECT=originalProject
+    if(originalMailEvidence===undefined)delete process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE;else process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE=originalMailEvidence
+  }
   await recordFirestoreBackupObservation(control,{status:'success',backupTime:'2026-10-01T00:00:00Z'})
   await assert.rejects(exportPrivateAuthSnapshot(control,{force:true,auth:{listUsers:async()=>{throw Error('injected Auth permission failure')}},storage}))
   await control.doc('recovery/backupHealth').set({monitoring:'failed'},{merge:true})

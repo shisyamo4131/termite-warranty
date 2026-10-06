@@ -69,7 +69,7 @@ export async function exportPrivateAuthSnapshot(control, { force = false, auth =
 }
 export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', schedule: '0 10 * * *', timeZone: 'Asia/Tokyo', retryCount: 0 }, async () => {
   if (!enabled.value()) return
-  let control
+  let control, authStatus = 'unavailable'
   try {
     const resolved = await resolveRecovery()
     control = resolved.control
@@ -81,10 +81,11 @@ export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', sch
     const health = backupHealth(backups, resource, Date.now())
     await recordFirestoreBackupObservation(control, health)
     const auth = await exportPrivateAuthSnapshot(control)
+    authStatus = auth.status
     await control.doc('recovery/backupHealth').set({ monitoring: mailEvidence.value() ? health.status : 'unconfigured', authBackup: auth.status, checkedAt: new Date() }, {merge:true})
     if (health.status !== 'success' || auth.status !== 'success') throw new Error('Backup is missing, stale or unconfigured.')
   } catch {
-    if (control) await control.doc('recovery/backupHealth').set({ monitoring: mailEvidence.value() ? 'failed' : 'unconfigured', authBackup: 'unavailable', checkedAt: new Date() }, { merge: true })
+    if (control) await control.doc('recovery/backupHealth').set({ monitoring: mailEvidence.value() ? 'failed' : 'unconfigured', authBackup: authStatus, checkedAt: new Date() }, { merge: true })
     // Cloud Monitoring log-based alert sends developer-only email after its
     // separately verified notification channel/policy has been configured.
     logger.error('Recovery backup check failed.', { recoveryBackupFailure: true })
