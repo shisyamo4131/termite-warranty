@@ -1,5 +1,7 @@
 # Design Index
 
+- [(default)固定の全体復旧設計](default-database-recovery.md)：2026-10-06確定方式、Cの完全同期と失敗回復、Read/Write見積、未実装境界、現在Devの読取確認とデータを失わない移行計画。
+
 - [バックアップ・復旧の実装設計](backup-recovery-implementation.md)：採用済み運用の実装開始、管理状態と復元データの分離、外部コマンド、Local検証と未実施の実設定／Dev予行。
 - [バックアップ・復旧操作手順](../runbooks/backup-recovery.md)：導入設定、外部コマンド、限定補正、途中失敗の再開、通常Devの停止予行と未実装のAuth取込。
 - [バックアップ・復旧のLocal検証](evidence/recovery-implementation-2026-10-06.md)：最終ゲート、独立レビュー、画面確認、未コミット差分と実運用前の残作業。

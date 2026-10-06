@@ -2,6 +2,8 @@
 
 ## 2026-10-06 バックアップ／復元の対象範囲
 
+方式変更（同日、オーナー確定）：通常業務の接続先は常にFirestore `(default)`。別DBは復元・開発側検証だけの一時領域とし、通常業務DBへ昇格しない。必要な再配備を許容する。Aは新規更新停止・収束とHS管理者も業務アクセス不可。Bは指定時点の一時DB復元・開発側検証。Cは余剰文書の扱いを含む全体復旧を(default)へ成立させ、復旧制御情報・現在権限・発行済み番号を保全し、反映後検証の成功時だけHS管理者の読み取り専用／非更新CSV確認へ移る。途中失敗では停止を維持し、安全な再実行・回復を可能にする。DはC検証とシステム外で別途得たHS再開了承を条件に解除する。Authは必要時だけ別復旧。一時／旧DBを無断削除しない。[新方式の設計とDev移行計画](design/default-database-recovery.md)を参照。現行Devはまだ別DBで通常稼働し、新方式の実装・配備・移行は未実施。今回の指示は現行Devの削除／上書き／追加停止の包括承認ではない。以下の旧「新DB切替」は実施履歴であり、今後の通常業務接続方針ではない。
+
 追加採用（同日）：Auth復元は、消失したアカウントだけを同じUIDで戻す。既存アカウント・現在の権限・停止状態を維持し、全アカウント消失にも対応する。残存アカウントのパスワード破損修復は別範囲。通常DevのAuthは変更せず、まずLocalの架空データで実装・検証する。[追加実装の範囲](design/backup-recovery-implementation.md#2026-10-06-missing-identity-auth-repair-increment)を参照。
 
 実装開始指示（同日）：上記質疑で採用した運用を実装する。現在の実装・検証範囲は[実装設計](design/backup-recovery-implementation.md)、実操作は[復旧手順](runbooks/backup-recovery.md)、Devの実施結果・残件は[実測記録](design/evidence/recovery-implementation-2026-10-06.md)を参照。メンテナンス二段階、管理者の状態画面、外部コマンド、現在権限・採番の保全、取得監視／Auth退避のコードを追加した。Dev設定・配備・通知受信・隔離PITR復元／切替とHS管理者の確認、別了承後の通常再開、実Auth退避を確認済み。以下の質疑時点の「未実装／未実施／モックのみ」はこの確認済み範囲で更新する。初回managed backup生成とそこからの復元は未確認。消失Authのみの取込はLocal検証済み。実Auth取込は無効で、復元後ログインは未検証のため、実環境の消失復旧を完了とは扱わない。
@@ -158,7 +160,7 @@ UI改修・Dev反映・架空データ3件の準備と開発側表示確認を�
 UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
 
 - Last updated: 2026-10-06
-- Specification version: 0.1.120
+- Specification version: 0.1.121
 - Status: Confirmed initial-release requirements; implementation and acceptance incomplete
 - Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
 

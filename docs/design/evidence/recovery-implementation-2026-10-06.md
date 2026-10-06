@@ -302,3 +302,26 @@ Dev read-only `node scripts/auth-recovery.mjs inspect --project termite-warranty
 続行時の実`backups`確認はexit 0、active DBの日次30日予定1件／バックアップ0件。初回生成とその実復元は未確認。取得時刻は指定できず、10:00 JSTは監視時刻（[公式バックアップ仕様](https://firebase.google.com/docs/firestore/backups)）。実Auth取込の有効化には退避証拠の保存世代固定、隔離した実資格情報の復元後ログイン検証、部分失敗の手動照合手順が必要。現状は自動retry／rollback／手動resumeを提供しない。[公式Auth取込](https://firebase.google.com/docs/auth/admin/import-users)の同UID上書き・部分成功を前提に、別経路の同時Auth操作を止める運用も必要。
 
 所有変更は上記5コード／testと、仕様・環境要件・ADR0032・実装設計・runbook・技術台帳・本証拠・changelogの計13ファイル。新しい業務schema／Rules／IAM／Functions配備／ガバナンス変更はなし。データ契約は業務データ形状変更がなく維持。新規文書なしで既存索引から到達でき、全体進捗は加点しない。README／operationsの別作業差分は保全し、commit対象外。Devの停止・Auth更新・配備・メール送信・旧DB削除・Prod操作・Git pushは今回実施していない。
+
+### Auth承認範囲の区切りと(default)固定設計の事前確認
+
+2026-10-06のオーナー指示：Auth関連は承認済み範囲で結果を区切り、未実装・未検証を完了扱いしない。その後、通常業務(default)固定・別DBは復元／開発側検証限定へ方式変更。A/B/C/D、制御／現在権限／発行番号保全、Auth別復旧、外部HS了承を維持。現在Devデータの削除／上書き／再停止を包括承認しない。実行対象・具体手順の提示と承認を移行前提にする。
+
+実HEADはprimary main `05bc0b4f0cb19bbe9002605cdbf5b0a453e67c7d`。Auth実装は同commitに保存済みで、前節の全7ゲート成功証拠は当該runtime／testに対応する。今回Authコードは変更しない。承認済みLocal消失復元と実非公開退避／readbackは完了。実Auth取込・実パスワード復元後ログイン・部分失敗後の専用手動回復・legacy退避参照の保存世代固定は未完了。全Auth消失の実復旧能力を完成とは扱わない。
+
+| 読取確認 | 観測結果 | exit |
+| --- | --- | --- |
+| `node scripts/auth-recovery.mjs inspect --project termite-warranty-dev --control recovery-control --revision 05bc0b4f0cb19bbe9002605cdbf5b0a453e67c7d` | normal／世代4、3件保持・欠損0、writesPerformed=false、backupReferencePinned=false | 0 |
+| `node scripts/recovery.mjs backups --project termite-warranty-dev --control recovery-control --revision 05bc0b4f0cb19bbe9002605cdbf5b0a453e67c7d` | active DBの日次30日予定1件、managed backup 0件 | 0 |
+| メモリ内SDK事前比較（既存`scanDatabase`を両DBへ実行、updateTimeの件数集計） | active `recovery-drill-20261006`／default各54文書、同hash、marker一致。03:54:00Z以後の業務updateTime 0件 | 0 |
+| `node scripts/recovery.mjs status --project termite-warranty-dev --control recovery-control --revision 05bc0b4f0cb19bbe9002605cdbf5b0a453e67c7d` | normal／世代4／active named DB、activeOperations=0、operatorBlocked=false、interruptedOperation=null | 0 |
+
+SDK観測は2026-10-06 13:27 JSTまでに実施。hashは両DBとも`e8120d2ff120e79ae9cccc37a5e28365665a6cdab73026631b9de22e2f190d6d`。内訳はcompanyBranches 1／constructionCompanies 1／propertyOperationReceipts 24／propertyWarranties 16／prototypeSettings 1／staffAccounts 3／warrantyCounters 1／warrantyGroups 7、合計54。`_recovery`は業務hash／件数から除外。秘密・文書本文・UID／メールを出力／保存していない。稼働中の両scanは同一transactionではなく、既存hashはReferenceのDB識別まで比較しないため、これだけをC／Dev移行の完成証拠にしない。停止・収束後の最新像と型付き比較が必要。
+
+新方式は[設計](../default-database-recovery.md)へ整理。仕様0.1.121・環境／アクセス要件・ADR0032・runbook・技術台帳・既存設計の置換告知・design index・changelogへ反映する。operations／root docs READMEの別作業差分は保全。運用手順の正は更新したrunbookへ置き、新文書は既存design indexと仕様から到達できる。業務schemaは今回変更せず、要求世代／nonce・protocol・private checkpointの具体契約は新実装時に確定・更新する。全体進捗の加点なし。
+
+独立設計レビューDEFAULT-DESIGN-01は旧部分updateの世代継承、marker／controlの非atomic公表、親子操作順序を指摘。要求nonceの変更検査、default markerを唯一の公開authorityとする公表順序、default側checkpointとowner fencing、子→親削除／親→子作成、封印計画を使う部分再開を設計へ追加。実装・試験済みという意味ではない。
+
+DEFAULT-DESIGN-02ではcontrol欠損の検知範囲の曖昧さを指摘。private control欠損時はFunctionsの更新受付／復旧操作を拒否するが、読取と直接SDKはdefault markerで判断するため即時検知できないこと、開発側の緊急marker閉鎖後に両経路を停止確認しcontrol回復／収束までB/C/Dへ進まないことを明記。DEFAULT-DESIGN-03の再レビューで修正範囲のP1/P2残件なし。レビューはread-onlyで、実装／Dev受入成功は主張していない。
+
+今回の変更は文書のみでdocumentation-onlyのgovernance-check／diff checkを選択。`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は文書更新後に各exit 0を確認。最終所有文書を対象に両コマンドを再確認してから保存する。他6ゲートはアプリ／実装／設定／依存／データ契約の変更がないため今回非選択。Authの以前の7ゲートを新Cの検証へ流用しない。新Cの全7ゲート・Dev実行・配備・切り戻し・HS再確認は未実施。実Devは読み取りだけで状態・データ・Auth・設定の書込はなし。

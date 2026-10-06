@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-06 業務DBを(default)固定へ変更する方針
+
+- 通常業務を(default)固定、一時DBを復元・開発検証限定とする確定方針を仕様・要件・ADR・運用手順へ反映。
+- Cの完全同期／余剰文書削除／現在権限・番号保全／途中回復と、現在Devデータを保つ切り戻し計画を設計。実装・配備・移行は未実施。
+- Authは承認済みLocal復元検証までを区切り、実取込／復元後ログイン等は未完了として保持。Dev読取で両DBの業務54文書hash一致・Auth3件欠損0を確認。[設計](docs/design/default-database-recovery.md)・[実測](docs/design/evidence/recovery-implementation-2026-10-06.md)。
+
 ## 2026-10-06 消失Authのみ復元するLocal実装
 
 - 消失UIDだけを復元する方針を採用。既存アカウント・現在の権限・停止状態を保持するLocal復元コマンドと、Dev読取専用診断を追加。

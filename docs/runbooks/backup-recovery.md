@@ -1,5 +1,11 @@
 # バックアップ・全体復旧の操作手順
 
+## 2026-10-06 方式変更後の運用対象
+
+通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。**新コマンドは未実装。以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
+
+Authは退避・private readbackとLocal欠損UID復元の承認済み範囲で区切る。実Auth取込と実ログイン・部分失敗の手動回復は未対応。Devの再停止・具体データ反映・配備は対象と手順を提示して別承認後。HS確認とDの再開了承も別。旧DB／一時DB／保全像の削除は別承認が必要。
+
 状態：初期実装のLocal検証済み。2026-10-06にDevの保護設定・制御DB・限定IAM・復旧対応版の配備、メンテナンス有効化、通知到達、隔離PITR復元と検証・切替を実施。HS管理者の確認と別の再開了承を受け、通常Devを新DBで再開（世代4）。実Auth退避・私有readbackは3件で成功。初回managed backup生成は未確認。Firestore未取得時もAuth成功を保持する監視状態修正は全7ゲート・Dev配備・実再試験済み。現在の状態・保留操作は[実測記録](../design/evidence/recovery-implementation-2026-10-06.md)を参照。Prod設定はHSアカウント等の情報待ち。確定仕様は[復旧範囲](../specification.md#2026-10-06-バックアップ復元の対象範囲)、内部契約は[実装設計](../design/backup-recovery-implementation.md)。
 
 ## 導入前の確認
