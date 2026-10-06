@@ -264,3 +264,41 @@ Devブラウザは停止画面からログイン画面へ自動遷移した。[�
 最終所有差分は設計・手順・技術台帳・本証拠、仕様冒頭の実施状態、changelog、業務情報なしのDev画像2点。runtime修正2点は上記commit済み。管理者確認・再開の了承はこのチャットの2026-10-06回答を根拠とし、復旧ルール自体は変更しない。ADR／データ契約／ガバナンス／全体進捗は新たな要件・耐久判断・schema変更がないため変更しない。新しい文書の追加はなく、既存索引で到達する。README／operationsの別作業差分は保全し、commit対象外。配備後の文書確定にgovernance-check／diff checkを再実行し、runtime変更なしのため他6ゲートは上記の成功証拠を再利用する。Git pushなし。
 
 最終実`status`はnormal／generation 4／新DB、activeOperations=0、operatorBlocked=false、interruptedOperation=null（exit 0）。文書確定後の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit 0。日次Firestoreの初回確認を次の運用確認事項とする。
+
+### 消失Authのみ復元するLocal追加実装
+
+2026-10-06、オーナーは「消失アカウントのみ復元する案を採用」と回答。既存UID・現在権限・停止状態を維持し、全消失にも対応するLocal実装を承認した。残存UIDのパスワード破損修復は別範囲。基準はprimary `main`／実HEAD `4d6939dc60fda9885477a6a885076c2431ea860a`。通常DevのAuthは変更せず、実取込はCLIの資格情報読取前に拒否する。
+
+追加コマンドは`scripts/auth-recovery.mjs`、内部実装は`scripts/lib/auth-recovery.mjs`。現行プロフィールとのUID・メール・停止状態を検査し、欠損だけを取込対象とする。現在のプロフィール自体が信用できない場合は停止する。復旧作業中・一致した世代／DBマーカー・更新収束・非公開export不在・共通ロックを要求する。非公開`recoveryAuthRepairs`には件数・状態・ダイジェストだけを記録し、秘密値や利用者本文は載せない。
+
+独立read-onlyレビューAUTH-RESTORE-01／02で、一般的な`resume-operator`が新しいAuth復元intentのロックを解除できる問題と、秘密設定の記録済み保存世代を読まない問題を指摘。前者を`scripts/lib/recovery-controller.mjs`で拒否し、後者を保存世代固定GETと不一致拒否で修正。再レビューでは残存P1/P2なし。後続のテスト追加は全消失と模擬部分成功を補強し、実装コードは変更していない。
+
+架空demoだけで、欠損1件／既存保持、全消失2件、現在の無効状態保持、重複・不整合・非対応provider／claims／hash設定の拒否を検査。応答消失と模擬部分成功では共通ロック・復旧作業中状態を保持し、一般resumeも拒否する。架空hashでの取込であり、実パスワードによるログイン成功を意味しない。
+
+| 選択ゲート／コマンド | 実結果 | exit |
+| --- | --- | --- |
+| `npm test` | 197件／195成功／既存skip 2／失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功、既存Nitro外部参照／未使用import等の警告 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 27モジュール成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `npm run test:rules` | 最終ソース固定後に94成功／失敗0／skip 0、エミュレータ終了確認 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 文書確定後に管理対象／検証方針整合を確認 | 0 |
+
+アカウント復旧の影響を考慮して全7ゲートを選択し、省略なし。先行成功したRules試験は最終テスト修正により再実行。最終再実行の初回はFirebase CLI設定読取EPERMでexit 1、必要権限で同一コマンドを再実行してexit 0。文書だけの後続更新は他6ゲートの無効化条件に該当せず、その成功証拠を再利用する。追加の`node --check`は新CLI・新内部実装・controllerの各3コマンドともexit 0。文書確定後の`git diff --check`もexit 0。
+
+最終runtime／testの作業ツリーSHA-256：
+
+| ファイル | SHA-256 |
+| --- | --- |
+| `scripts/auth-recovery.mjs` | `4a9bf9e1bcb08f718696c22a6b3ac42a5f7b4c1527aa770e4986da1cb3a6b989` |
+| `scripts/lib/auth-recovery.mjs` | `f5a8c2794803cf9493e78b44331b21e8da875fe659ee0eb395f4e25092a97f04` |
+| `scripts/lib/recovery-controller.mjs` | `ad300065583d70cd1523ed50913c3bafe706a51b91436b7ebf782a37fe7bc5e3` |
+| `test/recovery.test.mjs` | `4cb63b56f7765a47bc8893bbc67d8431851ca2a04f1bf740eca06d950bc0c1af` |
+| `test/emulator/recovery.test.mjs` | `56d8782f4235216f2c7e522e4bf7e1c7e9b71ff3df9930ae2a9fccefb6fc7bef` |
+
+Dev read-only `node scripts/auth-recovery.mjs inspect --project termite-warranty-dev --control recovery-control --revision 4d6939dc60fda9885477a6a885076c2431ea860a`はexit 0。normal／generation 4、3件／欠損0／保持3／歴史上のみの件数0、writesPerformed=false。秘密設定の保存世代は固定して読み、既存Auth退避参照には世代がないため`backupReferencePinned=false`と明示した。秘密内容・UID・メール等は出力／ローカル保存していない。
+
+続行時の実`backups`確認はexit 0、active DBの日次30日予定1件／バックアップ0件。初回生成とその実復元は未確認。取得時刻は指定できず、10:00 JSTは監視時刻（[公式バックアップ仕様](https://firebase.google.com/docs/firestore/backups)）。実Auth取込の有効化には退避証拠の保存世代固定、隔離した実資格情報の復元後ログイン検証、部分失敗の手動照合手順が必要。現状は自動retry／rollback／手動resumeを提供しない。[公式Auth取込](https://firebase.google.com/docs/auth/admin/import-users)の同UID上書き・部分成功を前提に、別経路の同時Auth操作を止める運用も必要。
+
+所有変更は上記5コード／testと、仕様・環境要件・ADR0032・実装設計・runbook・技術台帳・本証拠・changelogの計13ファイル。新しい業務schema／Rules／IAM／Functions配備／ガバナンス変更はなし。データ契約は業務データ形状変更がなく維持。新規文書なしで既存索引から到達でき、全体進捗は加点しない。README／operationsの別作業差分は保全し、commit対象外。Devの停止・Auth更新・配備・メール送信・旧DB削除・Prod操作・Git pushは今回実施していない。

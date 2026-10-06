@@ -8,11 +8,64 @@ import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH } from '../../src/domain/rec
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from '../../functions/recovery-runtime.js'
 import { exportPrivateAuthSnapshot, recordFirestoreBackupObservation, recoveryBackupMonitor } from '../../functions/recovery-backups.js'
+import { restoreMissingAuth, loadAuthAuthority, missingAuthPlan } from '../../scripts/lib/auth-recovery.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort) || process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated emulators required')
 const app=initializeApp({projectId:'demo-termite-warranty'})
 const database=id=>id==='(default)' ? getFirestore(app) : getFirestore(app,id)
 const source=database('(default)'),control=database('test-control'),target=database('test-restored'),auth=getAuth(app),revision='a'.repeat(40)
 after(async()=>{delete process.env.RECOVERY_CONTROL_DATABASE;await source.doc(ACTIVATION_PATH).delete();await source.doc(ACCESS_PATH).delete();await deleteApp(app)})
+test('missing Auth repair imports fictional missing UID only, fences maintenance and retains partial failure',async()=>{
+  const repairControl=database('test-auth-control'),business=database('test-auth-business')
+  for(const db of [repairControl,business])for(const root of await db.listCollections())await db.recursiveDelete(root)
+  let token
+  do {const page=await auth.listUsers(1000,token);for(const user of page.users)await auth.deleteUser(user.uid);token=page.pageToken}while(token)
+  await auth.createUser({uid:'auth-preserved',email:'preserved@example.invalid',password:'Fictional-only-123',displayName:'current preserved'})
+  const runtime={phase:'normal',generation:10,databaseId:'test-auth-business',controlDatabaseId:'test-auth-control'}
+  await repairControl.doc(RUNTIME_PATH).set(runtime);await business.doc(ACCESS_PATH).set(runtime);await source.doc(ACTIVATION_PATH).set({controlDatabaseId:'test-auth-control'})
+  const users=['auth-preserved','auth-missing'].map((uid,i)=>({uid,email:`${i?'missing':'preserved'}@example.invalid`,disabled:false,displayName:'historic',providerData:[{providerId:'password'}],passwordHash:'ZmFrZQ==',passwordSalt:'c2FsdA=='}))
+  for(const [i,u] of users.entries())await business.doc(`staffAccounts/${u.uid}`).set({email:u.email,role:'general_staff',enabled:i===0})
+  const snapshot={schemaVersion:1,hashConfigurationEvidence:'fictional/hash',users},configuration={schemaVersion:1,project:'demo-termite-warranty',hashConfig:{algorithm:'SCRYPT',signerKey:'ZmFrZQ==',saltSeparator:'',rounds:8,memoryCost:14}}
+  const options={database,auth,controlId:'test-auth-control',project:'demo-termite-warranty',revision,generation:10,operationId:'auth-repair-success',approval:'fictional/separate-auth-approval',snapshot,configuration}
+  await assert.rejects(restoreMissingAuth(options)) // normal business must stay untouched
+  assert.equal((await auth.getUser('auth-preserved')).displayName,'current preserved')
+  const stopped={...runtime,phase:'recovering'};await repairControl.doc(RUNTIME_PATH).set(stopped);await business.doc(ACCESS_PATH).set(stopped)
+  const result=await restoreMissingAuth(options)
+  assert.deepEqual(result,{status:'verified',imported:1,preserved:1,total:2})
+  assert.equal((await auth.getUser('auth-missing')).disabled,true)
+  assert.equal((await auth.getUser('auth-preserved')).displayName,'current preserved')
+  assert.equal((await repairControl.doc('recovery/operatorLock').get()).exists,false)
+  await assert.rejects(restoreMissingAuth(options)) // immutable operation journal, never blindly retry
+  await auth.deleteUser('auth-missing')
+  const uncertainAuth={listUsers:auth.listUsers.bind(auth),importUsers:async()=>{throw Error('fictional lost response')}}
+  await assert.rejects(restoreMissingAuth({...options,auth:uncertainAuth,operationId:'auth-repair-uncertain'}),/interrupted/)
+  assert.equal((await repairControl.doc('recovery/operatorLock').get()).data().failed,true)
+  assert.equal((await repairControl.doc('recoveryAuthRepairs/auth-repair-uncertain').get()).data().status,'importing')
+  const heldBefore=(await repairControl.doc('recovery/operatorLock').get()).data()
+  const repairController=recoveryController({database,auth,controlId:'test-auth-control',revision})
+  await assert.rejects(repairController.resumeOperator(10,'auth-repair-uncertain',true),/Auth repair/)
+  assert.deepEqual((await repairControl.doc('recovery/operatorLock').get()).data(),heldBefore)
+  assert.equal((await repairControl.doc(RUNTIME_PATH).get()).data().phase,'recovering')
+  const authority=await loadAuthAuthority(business,auth)
+  assert.equal(missingAuthPlan(snapshot,authority.profiles,authority.users).missing,1)
+  await repairControl.doc('recovery/operatorLock').delete() // fixture-only teardown, not a recovery procedure
+  await auth.deleteUser('auth-preserved')
+  assert.deepEqual(await restoreMissingAuth({...options,operationId:'auth-repair-total-loss'}),{status:'verified',imported:2,preserved:0,total:2})
+  await auth.deleteUser('auth-missing')
+  const extra={...users[1],uid:'auth-z-extra-missing',email:'extra@example.invalid'}
+  await business.doc(`staffAccounts/${extra.uid}`).set({email:extra.email,role:'general_staff',enabled:false})
+  const partialAuth={listUsers:auth.listUsers.bind(auth),importUsers:async(records,settings)=>{
+    const imported=await auth.importUsers(records.slice(0,1),settings)
+    assert.equal(imported.successCount,1)
+    return {successCount:1,failureCount:1,errors:[{index:1,error:{code:'fictional-partial-failure'}}]}
+  }}
+  await assert.rejects(restoreMissingAuth({...options,auth:partialAuth,snapshot:{...snapshot,users:[...users,extra]},operationId:'auth-repair-partial'}),/interrupted/)
+  assert.equal((await repairControl.doc('recovery/operatorLock').get()).data().failed,true)
+  assert.equal((await auth.getUser('auth-missing')).disabled,true)
+  await assert.rejects(auth.getUser('auth-z-extra-missing'),e=>e.code==='auth/user-not-found')
+  await assert.rejects(repairController.resumeOperator(10,'auth-repair-partial',true),/Auth repair/)
+  await repairControl.doc('recovery/operatorLock').delete() // fictional partial-failure cleanup only
+  await source.doc(ACTIVATION_PATH).delete()
+})
 test('isolated recovery fences stale calls, drains leases, checks accounts and retires the source',async()=>{
   // This is the final isolated emulator suite. All records are fictional.
   for(const root of await source.listCollections())await source.recursiveDelete(root)

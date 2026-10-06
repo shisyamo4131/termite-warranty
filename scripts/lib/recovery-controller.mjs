@@ -291,6 +291,7 @@ export function recoveryController({ database, auth, controlId, revision, now = 
         const [snapshot,current]=await Promise.all([tx.get(lock),tx.get(runtime)]),value=snapshot.data()
         if(current.data()?.generation!==generation||!value||value.operationId!==expectedOperation
           || value.recoveryOwner&&(value.recoveryOwner!==expectedRecoveryOwner||recoveryWorkerStopped!==true))throw new RecoveryError('Inspected ownership, stopped operator and stopped recovery owner are required.')
+        if(value.intent?.kind==='auth-repair')throw new RecoveryError('Auth repair requires private manual reconciliation; generic operator resume cannot release its lock.')
         tx.update(lock,{recoveryOwner})
         return value
       })

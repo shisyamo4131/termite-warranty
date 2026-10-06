@@ -72,3 +72,20 @@ Auth自体の破損では、業務復元だけで再開しない。非公開退�
 Localの実測・画面確認と未実施範囲は[実装・検証記録](../design/evidence/recovery-implementation-2026-10-06.md)を参照。Local結果を実管理バックアップ復元やDev予行の完了に読み替えない。
 
 最初に架空データ／隔離復元先で、件数、原像と補正、参照・採番、権限、旧要求拒否、途中失敗、所要時間を確認する。その後、調整した日時に通常Devでメンテナンス→接続先切替→HS確認待ち→再開を予行する。実メールは別の試験承認・宛先照合後。隔離試験だけで通常Devの予行完了と報告しない。
+
+
+## 初回日次バックアップの確認と次の復元試験
+
+2026-10-06の続行確認では、実active DBの日次30日予定は維持、バックアップは0件だった。日次バックアップの取得時刻は指定できず、10:00 JSTは取得時刻ではなく監視時刻（[公式バックアップ仕様](https://firebase.google.com/docs/firestore/backups)）。初回完了時刻は未確定。予定の再作成やPITRで日次バックアップの実生成を代用しない。
+
+次回は`backups`で実source一致・READY・期限内・snapshotTimeを確認し、実バックアップを選んで新しい隔離DBへ復元する。復元先名・Rulesをその場で照合し、元時点の期待像がない場合は件数/hashを記録して参照・採番・Auth対応を検査する。現在の業務DBとのhash一致を成功条件にしない。現CLIの`restore`はrecovering状態を要求するため、通常Devを再停止する日時と実復旧時点の了承が必要。前回の停止／時点／再開了承を流用しない。稼働中に隔離復元する新経路は未実装。
+
+## 消失Authの復元：Local先行
+
+2026-10-06に消失UIDだけの復元を採用。`node scripts/auth-recovery.mjs inspect --project <確認した対象> --control <実制御DB> --revision <実HEAD>`はDevの私有証拠と現行対応を読み、件数だけを表示する。Devの`restore`／`--apply`は拒否する。
+
+Localは`--project demo-termite-warranty --emulator`と、秘密を含まない架空の`--snapshot <JSON fixture>`／`--hash-configuration <JSON fixture>`を指定。実行には`restore --apply --confirm auth-recovery --generation <確認した世代> --operation-id <新規処理ID> --approval <Auth専用了承参照> --confirm-exclusive-auth`を追加する。復旧作業中・業務更新収束・private export不在・運用ロックなしが必要。実Auth退避をLocalのファイルにコピーしない。
+
+現行のアカウント文書が信用できる場合だけ、欠損AuthをそのUID／email／停止状態で補修し、その後に通常の`baseline`／整合検証へ戻る。現在の権限・停止状態も失われた場合は自動復元しない。既存UIDは取込対象にしない。別UIDへの同じメール、部分失敗、応答消失、未知方式等では停止し、記録を保持。部分失敗のロックを一般的な`resume-operator`で解除しない。
+
+Localは全7ゲート成功。全消失・既存UID保持・現在の停止状態保持・部分成功／応答消失時のロック保持を架空データで検査した。実パスワードの復元後ログインや、実Auth消失のDev予行はまだ確認していない。生きたDevのアカウントを削除して試験することは今回の承認に含まれない。実取込の有効化前に、退避ファイルの保存世代を固定する証拠、隔離した実資格情報の予行、部分失敗の手動照合手順を整える。

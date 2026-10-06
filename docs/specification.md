@@ -2,7 +2,9 @@
 
 ## 2026-10-06 バックアップ／復元の対象範囲
 
-実装開始指示（同日）：上記質疑で採用した運用を実装する。現在の実装・検証範囲は[実装設計](design/backup-recovery-implementation.md)、実操作は[復旧手順](runbooks/backup-recovery.md)、Devの実施結果・残件は[実測記録](design/evidence/recovery-implementation-2026-10-06.md)を参照。メンテナンス二段階、管理者の状態画面、外部コマンド、現在権限・採番の保全、取得監視／Auth退避のコードを追加した。Dev設定・配備・通知受信・隔離PITR復元／切替とHS管理者の確認、別了承後の通常再開、実Auth退避を確認済み。以下の質疑時点の「未実装／未実施／モックのみ」はこの確認済み範囲で更新する。初回managed backup生成とそこからの復元は未確認。Auth一括取込は未実装であり、ログイン情報自体の消失復旧を完了とは扱わない。
+追加採用（同日）：Auth復元は、消失したアカウントだけを同じUIDで戻す。既存アカウント・現在の権限・停止状態を維持し、全アカウント消失にも対応する。残存アカウントのパスワード破損修復は別範囲。通常DevのAuthは変更せず、まずLocalの架空データで実装・検証する。[追加実装の範囲](design/backup-recovery-implementation.md#2026-10-06-missing-identity-auth-repair-increment)を参照。
+
+実装開始指示（同日）：上記質疑で採用した運用を実装する。現在の実装・検証範囲は[実装設計](design/backup-recovery-implementation.md)、実操作は[復旧手順](runbooks/backup-recovery.md)、Devの実施結果・残件は[実測記録](design/evidence/recovery-implementation-2026-10-06.md)を参照。メンテナンス二段階、管理者の状態画面、外部コマンド、現在権限・採番の保全、取得監視／Auth退避のコードを追加した。Dev設定・配備・通知受信・隔離PITR復元／切替とHS管理者の確認、別了承後の通常再開、実Auth退避を確認済み。以下の質疑時点の「未実装／未実施／モックのみ」はこの確認済み範囲で更新する。初回managed backup生成とそこからの復元は未確認。消失Authのみの取込はLocal検証済み。実Auth取込は無効で、復元後ログインは未検証のため、実環境の消失復旧を完了とは扱わない。
 
 復元DBへの切替後も、切替前のDBは直ちに削除せず、通常の業務アクセスから切り離して復旧確認・原因調査の完了まで保存する（2026-10-06、推奨案をオーナー採用）。その後の削除は別途判断する。具体的な保持期間・調査完了の確認・削除手順は未確定。この方針採用は実データ削除の実行承認ではない。
 
@@ -156,7 +158,7 @@ UI改修・Dev反映・架空データ3件の準備と開発側表示確認を�
 UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
 
 - Last updated: 2026-10-06
-- Specification version: 0.1.119
+- Specification version: 0.1.120
 - Status: Confirmed initial-release requirements; implementation and acceptance incomplete
 - Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
 

@@ -1,10 +1,64 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { spawnSync } from 'node:child_process'
 import { runtimeState, assertRequest, assertTransition, PROPERTY_READ_ACTIONS } from '../src/domain/recovery.mjs'
 import { recoveryOptions } from '../scripts/lib/recovery-options.mjs'
 import { firestoreRecoveryProvider } from '../scripts/lib/firestore-recovery-provider.mjs'
 import { backupHealth, assertPrivateAuthBucket } from '../src/domain/backup-health.mjs'
+import { missingAuthPlan, authImportOptions, readPrivateAuthObject } from '../scripts/lib/auth-recovery.mjs'
 const state = { phase: 'normal', generation: 5, databaseId: '(default)', controlDatabaseId: 'test-control' }
+const privateSnapshot={schemaVersion:1,hashConfigurationEvidence:'fictional/hash',users:[
+  {uid:'existing',email:'existing@example.invalid',disabled:false,passwordHash:'ZmFrZQ==',passwordSalt:'c2FsdA==',providerData:[{providerId:'password'}]},
+  {uid:'missing',email:'missing@example.invalid',disabled:false,passwordHash:'ZmFrZQ==',passwordSalt:'c2FsdA==',providerData:[{providerId:'password'}]},
+]}
+const currentProfiles=privateSnapshot.users.map((u,i)=>({uid:u.uid,email:u.email,enabled:i===0,role:'general_staff',collection:'staffAccounts'}))
+const liveExisting=[{uid:'existing',email:'existing@example.invalid',disabled:false}]
+test('private inspection reads recorded generation instead of a replacement and labels legacy references',async()=>{
+  const ref={bucket:'termite-warranty-dev-recovery-auth',object:'fictional/hash.json',generation:'97'},calls=[]
+  const request=async url=>{calls.push(url);if(url.includes('alt=media'))return new Response('old');return new Response(JSON.stringify({generation:url.includes('generation=97')?'97':'98',size:3}))}
+  const saved=await readPrivateAuthObject(ref,request,{requirePinned:true})
+  assert.equal(saved.bytes.toString(),'old');assert.equal(saved.pinned,true)
+  assert.ok(calls.every(url=>url.includes('generation=97')))
+  const legacy={bucket:ref.bucket,object:'fictional/auth.gz'}
+  assert.equal((await readPrivateAuthObject(legacy,request)).pinned,false)
+  await assert.rejects(readPrivateAuthObject(legacy,request,{requirePinned:true}))
+  await assert.rejects(readPrivateAuthObject(ref,async()=>new Response(JSON.stringify({generation:'98',size:3})),{requirePinned:true}))
+})
+test('Auth CLI refuses live restore before reading credentials or private evidence',()=>{
+  const result=spawnSync(process.execPath,['scripts/auth-recovery.mjs','restore','--project','termite-warranty-dev','--control','test-control','--revision','a'.repeat(40),'--apply'],{encoding:'utf8'})
+  assert.equal(result.status,1)
+  assert.equal(result.stdout,'')
+  assert.equal(JSON.parse(result.stderr).status,'failed')
+})
+test('Auth repair restores only missing identities and uses current disable authority',()=>{
+  const plan=missingAuthPlan(privateSnapshot,currentProfiles,liveExisting)
+  assert.equal(plan.missing,1);assert.equal(plan.preserved,1)
+  assert.equal(plan.records[0].uid,'missing');assert.equal(plan.records[0].disabled,true)
+  assert.ok(Buffer.isBuffer(plan.records[0].passwordHash))
+  const allMissing=missingAuthPlan(privateSnapshot,currentProfiles,[])
+  assert.equal(allMissing.missing,2)
+  const obsolete={...privateSnapshot,users:[...privateSnapshot.users,{uid:'deleted-historical'}]}
+  assert.equal(missingAuthPlan(obsolete,currentProfiles,liveExisting).ignoredHistorical,1)
+  assert.equal(missingAuthPlan(privateSnapshot,currentProfiles,[...liveExisting,{uid:'missing',email:'missing@example.invalid',disabled:true}]).missing,0)
+})
+test('Auth repair rejects duplicate, stale, mismatched and unsupported identities before import',()=>{
+  for(const [snapshot,profiles,users] of [
+    [{...privateSnapshot,users:[privateSnapshot.users[0],privateSnapshot.users[0]]},currentProfiles,liveExisting],
+    [privateSnapshot,[...currentProfiles,currentProfiles[0]],liveExisting],
+    [privateSnapshot,currentProfiles,[{...liveExisting[0],disabled:true}]],
+    [privateSnapshot,currentProfiles,[{uid:'orphan',email:'orphan@example.invalid',disabled:false}]],
+    [privateSnapshot,currentProfiles.map(p=>({...p,email:'same@example.invalid'})),liveExisting],
+    [{...privateSnapshot,users:[]},currentProfiles,liveExisting],
+    [{...privateSnapshot,users:privateSnapshot.users.map(u=>({...u,passwordHash:'invalid!'}))},currentProfiles,liveExisting],
+    [{...privateSnapshot,users:privateSnapshot.users.map(u=>({...u,providerData:[{providerId:'google.com'}]}))},currentProfiles,liveExisting],
+    [{...privateSnapshot,users:privateSnapshot.users.map(u=>({...u,customClaims:{admin:true}}))},currentProfiles,liveExisting],
+    [privateSnapshot,currentProfiles.map(p=>({...p,role:'construction_company'})),liveExisting],
+  ])assert.throws(()=>missingAuthPlan(snapshot,profiles,users))
+  const config={schemaVersion:1,project:'fictional-project',hashConfig:{algorithm:'SCRYPT',signerKey:'ZmFrZQ==',saltSeparator:'',rounds:8,memoryCost:14}}
+  assert.ok(Buffer.isBuffer(authImportOptions(config,'fictional-project').hash.key))
+  for(const patch of [{algorithm:'STANDARD_SCRYPT'},{rounds:9},{memoryCost:15},{signerKey:'invalid!'}])assert.throws(()=>authImportOptions({...config,hashConfig:{...config.hashConfig,...patch}},'fictional-project'))
+  assert.throws(()=>authImportOptions(config,'wrong-project'))
+})
 test('backup health rejects stale, unavailable, expired and future backups',()=>{
   const now=Date.parse('2026-10-06T00:00:00Z'), row={database:'business',state:'READY',snapshotTime:'2026-10-05T00:00:00Z',expireTime:'2026-11-01T00:00:00Z'}
   assert.equal(backupHealth([row],'business',now).status,'success')
