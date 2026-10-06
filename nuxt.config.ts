@@ -1,4 +1,10 @@
+const recoveryReleaseRevision = process.env.RECOVERY_RELEASE_REVISION
+if (recoveryReleaseRevision !== undefined && !/^[a-f0-9]{40}$/.test(recoveryReleaseRevision)) {
+  throw new Error('Invalid recovery release revision.')
+}
+
 export default defineNuxtConfig({
+  ...(recoveryReleaseRevision ? { buildId: recoveryReleaseRevision } : {}),
   compatibilityDate: '2026-09-10',
   ssr: false,
   app: {

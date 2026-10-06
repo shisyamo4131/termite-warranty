@@ -1,25 +1,132 @@
-// Local rehearsal only. Live execution requires a separately reviewed Dev release gate.
+// Local rehearsal and guarded Dev commands. Actual execution requires separate approval.
 import { initializeApp, deleteApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { databaseId } from '../src/domain/recovery.mjs'
 import { defaultRecovery } from './lib/default-recovery.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
+import { devPreflight, repositoryPreflight, infrastructureChecks, closedDataRules, DEV_RUNTIME_PATHS } from './lib/default-recovery-preflight.mjs'
+import {admitDev,sanitizeCommand,dispatchDev} from './lib/default-recovery-admission.mjs'
+import { createRequire } from 'node:module'
+import { readFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { fileURLToPath } from 'node:url'
+import { releaseProof, localReleaseInputs, ARCHIVE_LIMIT } from './lib/default-recovery-release-proof.mjs'
+import {buildReleaseArtifacts} from './lib/default-recovery-build.mjs'
 
 export function options(args) {
-  const command=args.shift(),allowed=new Set(['initialize','status','enter','plan','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
+  const command=args.shift(),allowed=new Set(['initialize','status','preflight','enter','plan','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
   if(!allowed.has(command))throw Error('Unknown fixed recovery command.')
-  const o={command},flags=new Set(['apply','worker-stopped','migration'])
-  const keys=new Set(['project','control','revision','generation','operation','source','baseline','verification','approval','expected-owner',...flags])
-  while(args.length){const k=args.shift()?.replace(/^--/,'');if(!keys.has(k)||k in o)throw Error('Unknown or duplicate argument.');o[k]=flags.has(k)?true:args.shift();if(o[k]===undefined||String(o[k]).startsWith('--'))throw Error('Missing argument.')}
-  // Deliberately cannot execute against Dev, even with --apply. No ambient credential fallback.
-  if(o.project!=='demo-termite-warranty'||!o.control||o.control==='(default)'||!/^[a-z][a-z0-9-]{3,62}$/.test(o.control)||!/^[a-f0-9]{40}$/.test(o.revision??''))throw Error('Only the explicit fictional project and separate control are enabled.')
+  const o={command},flags=new Set(['apply','worker-stopped','migration','dev-inspect','dev-execute'])
+  const keys=new Set(['project','control','revision','generation','operation','source','site','confirm','baseline','verification','approval','expected-owner',...flags])
+  while(args.length){const raw=args.shift();if(!raw?.startsWith('--'))throw Error('Unknown argument.');const k=raw.slice(2);if(!keys.has(k)||k in o)throw Error('Unknown or duplicate argument.');o[k]=flags.has(k)?true:args.shift();if(o[k]===undefined||String(o[k]).startsWith('--'))throw Error('Missing argument.')}
+  const dev=o.project==='termite-warranty-dev'
+  if(!['demo-termite-warranty','termite-warranty-dev'].includes(o.project)||!o.control||o.control==='(default)'||!/^[a-f0-9]{40}$/.test(o.revision??''))throw Error('Explicit approved project, revision and separate control required.')
+  // Read-only flag cannot promote ANY command, including --apply, to Dev writes.
+  const execute=dev&&o['dev-execute']===true
+  if(dev&&!execute&&(!o['dev-inspect']||!['status','preflight'].includes(o.command)||o.apply||o.migration||o['worker-stopped']||o.operation||o.approval||o.baseline||o.verification||o['expected-owner']||o.confirm))throw Error('Explicit Dev inspection only.')
+  if(execute&&(!['plan','apply','resume','publish','reopen','recover-operator','enter'].includes(command)||o['dev-inspect']||o.apply!==true||o.confirm!=='fixed-recovery'||!o.site||!/^[-\w./:]{4,160}$/.test(o.approval??'')||!/^[\w-]{8,80}$/.test(o.operation??'')))throw Error('Explicit guarded Dev command required.')
+  if(execute&&command==='plan'&&(!/^[\w-]{8,80}$/.test(o.baseline??'')||!o.migration&&!/^[\w-]{8,80}$/.test(o.verification??'')))throw Error('Explicit plan evidence required.')
+  if(execute&&['resume','recover-operator'].includes(command)&&(!o['worker-stopped']||!o['expected-owner']))throw Error('Stopped worker and exact lock owner required.')
+  if(execute&&command!=='plan'&&(o.migration||o.baseline||o.verification)||execute&&!['resume','recover-operator'].includes(command)&&(o['worker-stopped']||o['expected-owner']))throw Error('Command-specific evidence required.')
+  if(!dev&&(o['dev-inspect']||o['dev-execute']||o.confirm||o.command==='preflight'))throw Error('Dev options cannot target emulators.')
   databaseId(o.control);if(o.source!==undefined)databaseId(o.source)
   if(o.generation!==undefined){o.generation=Number(o.generation);if(!Number.isSafeInteger(o.generation)||o.generation<1)throw Error('Invalid generation.')}
+  if(dev&&(!o.source||!Number.isSafeInteger(o.generation)||o.source===o.control))throw Error('Explicit observed source and generation required.')
+  if(o.site!==undefined&&(!dev||!/^[-a-z0-9]+$/.test(o.site)))throw Error('Explicit valid Dev site required.')
+  if(execute&&command==='enter'&&o.source!=='(default)')throw Error('Legacy maintenance entry uses the existing recovery CLI.')
   return o
+}
+async function inspectDev(o) {
+  const git=promisify(execFile),cwd=fileURLToPath(new URL('..',import.meta.url))
+  const repository={head:(await git('git',['rev-parse','HEAD'],{cwd})).stdout.trim(),dirty:Boolean((await git('git',['status','--porcelain','--untracked-files=all','--',...DEV_RUNTIME_PATHS],{cwd})).stdout.trim())}
+  const local=repositoryPreflight(o,repository)
+  if(o['dev-execute']&&local.some(check=>check.status==='blocked'))throw Error('Local release gate blocked.')
+  if(local.some(check=>check.status==='blocked'))return {mode:'inspect',writesPerformed:false,liveMutationAvailable:false,ready:false,checks:[...local,{id:'cloud-preflight',status:'blocked',reason:'local-gate-blocked'},{id:'functions-release-proof',status:'blocked',reason:'not-implemented'},{id:'hosting-release-proof',status:'blocked',reason:'not-implemented'}]}
+  if(process.env.FIRESTORE_EMULATOR_HOST||process.env.FIREBASE_AUTH_EMULATOR_HOST)throw Error('Mixed environment forbidden.')
+  const require=createRequire(import.meta.url),auth=require('firebase-tools/lib/auth.js'),api=require('firebase-tools/lib/api.js'),account=auth.getGlobalDefaultAccount()
+  if(!account?.tokens?.refresh_token)throw Error('Explicit Firebase CLI sign-in required.')
+  const {OAuth2Client}=await import('google-auth-library'),{Firestore}=await import('@google-cloud/firestore')
+  const oauth=new OAuth2Client(api.clientId(),api.clientSecret());oauth.setCredentials({refresh_token:account.tokens.refresh_token})
+  const instances=new Map()
+  const database=id=>{if(!instances.has(id))instances.set(id,new Firestore({projectId:o.project,databaseId:id,authClient:oauth}));return instances.get(id)}
+  let verifiedProjectNumber
+  const authorizedFetch=async url=>{
+    const target=new URL(url)
+    const scopedV1=['https://firestore.googleapis.com','https://firebaserules.googleapis.com'].includes(target.origin)&&target.pathname.startsWith(`/v1/projects/${o.project}/`)
+    const management=target.origin==='https://firebase.googleapis.com'&&target.pathname===`/v1beta1/projects/${o.project}`
+    const functions=target.origin==='https://cloudfunctions.googleapis.com'&&target.pathname===`/v2/projects/${o.project}/locations/-/functions`
+    const run=target.origin==='https://run.googleapis.com'&&[o.project,verifiedProjectNumber].filter(Boolean).some(id=>new RegExp(`^/v2/projects/${id}/locations/asia-northeast1/services/[a-z0-9-]+(/revisions/[a-z0-9-]+)?$`).test(target.pathname))
+    const hosting=o.site&&target.origin==='https://firebasehosting.googleapis.com'&&(target.pathname===`/v1beta1/projects/${o.project}/sites/${o.site}`||new RegExp(`^/v1beta1/sites/${o.site}/(channels/live|versions/[-a-zA-Z0-9]+(/files)?)$`).test(target.pathname))
+    const storage=verifiedProjectNumber&&target.origin==='https://storage.googleapis.com'&&new RegExp(`^/storage/v1/b/gcf-v2-(sources|uploads)-${verifiedProjectNumber}-asia-northeast1/o/[^/]+$`).test(target.pathname)&&/^[1-9]\d*$/.test(target.searchParams.get('generation')??'')
+    if(target.username||target.password||!(scopedV1||management||functions||run||hosting||storage))throw Error('Unapproved read-only API scope.')
+    const token=await auth.getAccessToken(account.tokens.refresh_token,['https://www.googleapis.com/auth/cloud-platform','https://www.googleapis.com/auth/firebase'])
+    const response=await fetch(url,{method:'GET',redirect:'error',headers:{Authorization:`Bearer ${token.access_token}`},signal:AbortSignal.timeout(60000)})
+    if(!response.ok)throw Error('Read-only API unavailable.')
+    return response
+  }
+  const request=async url=>{
+    const value=await (await authorizedFetch(url)).json()
+    if(new URL(url).origin==='https://firebase.googleapis.com'&&value.projectId===o.project&&/^\d+$/.test(String(value.projectNumber)))verifiedProjectNumber=String(value.projectNumber)
+    return value
+  }
+  const readArchive=async source=>{
+    const url=`https://storage.googleapis.com/storage/v1/b/${source.bucket}/o/${encodeURIComponent(source.object)}?generation=${source.generation}`
+    const meta=await request(url)
+    if(String(meta.generation)!==String(source.generation)||meta.bucket!==source.bucket||meta.name!==source.object||!/^\d+$/.test(String(meta.size))||Number(meta.size)>ARCHIVE_LIMIT)throw Error('Archive metadata mismatch.')
+    const response=await authorizedFetch(url+'&alt=media'),parts=[];let size=0
+    for await(const chunk of response.body){size+=chunk.length;if(size>ARCHIVE_LIMIT||size>Number(meta.size))throw Error('Archive budget exceeded.');parts.push(Buffer.from(chunk))}
+    if(size!==Number(meta.size))throw Error('Archive size mismatch.')
+    return Buffer.concat(parts,size)
+  }
+  let authApp
+  try {
+    const expectedRules={default:await readFile(new URL('../firestore.rules',import.meta.url),'utf8'),control:await readFile(new URL('../firestore.control.rules',import.meta.url),'utf8'),controlId:o.control}
+    const indexConfig=JSON.parse(await readFile(new URL('../firestore.indexes.json',import.meta.url),'utf8'))
+    let receipt
+    const releaseChecks=async()=>{
+      receipt??=await buildReleaseArtifacts({root:cwd,revision:o.revision})
+      return releaseProof({project:o.project,control:o.control,site:o.site,request,readArchive,inputs:await localReleaseInputs(cwd,{receipt,revision:o.revision})})
+    }
+    const verifyDeployment=async()=>{
+      const fresh={head:(await git('git',['rev-parse','HEAD'],{cwd})).stdout.trim(),dirty:Boolean((await git('git',['status','--porcelain','--untracked-files=all','--',...DEV_RUNTIME_PATHS],{cwd})).stdout.trim())}
+      if(repositoryPreflight(o,fresh).some(c=>c.status!=='pass'))return false
+      const checks=await infrastructureChecks({project:o.project,request,expectedRules,indexConfig,releaseChecks})
+      return checks.length===5&&checks.every(c=>c.status==='pass')
+    }
+    if(o['dev-execute']) {
+      const admission=()=>admitDev({options:o,repository,request,readDocument:async(id,path)=>{const row=await database(id).doc(path).get();return row.exists?row.data():null},listOperations:async id=>(await database(id).collection('recoveryOperations').limit(1).get()).docs.map(()=>true)})
+      authApp=initializeApp({projectId:o.project,credential:{getAccessToken:async()=>{const value=await oauth.getAccessToken();if(!value.token)throw Error('Explicit credential unavailable.');return {access_token:value.token,expires_in:Math.max(1,Math.floor(((oauth.credentials.expiry_date??Date.now()+60000)-Date.now())/1000))}}}},'fixed-dev-operator')
+      const factory=defaultRecovery({database,auth:getAuth(authApp),controlId:o.control,revision:o.revision,verifyDeployment})
+      const result=await dispatchDev(o,{factory,admission,verifyClosedRules:()=>closedDataRules({project:o.project,control:o.control,request,expectedRules})})
+      return {...sanitizeCommand(result,o.command),localArtifactBuild:Boolean(receipt)}
+    }
+    const report=await devPreflight({options:o,repository,request,
+      readDocument:async(id,path)=>{const row=await database(id).doc(path).get();return row.exists?row.data():null},
+      listOperations:async id=>(await database(id).collection('recoveryOperations').limit(1).get()).docs.map(()=>true),
+      expectedRules,indexConfig,releaseChecks})
+    const observed={}
+    if(o.command==='status') {
+      const select=value=>{
+        if(!value)return null
+        const output={}
+        for(const key of ['databaseId','controlDatabaseId'])if(typeof value[key]==='string'){try{databaseId(value[key]);output[key]=value[key]}catch{}}
+        if(['normal','recovering','verification','retired'].includes(value.phase))output.phase=value.phase
+        if(Number.isSafeInteger(value.generation)&&value.generation>0)output.generation=value.generation
+        if([1,2].includes(value.protocol))output.protocol=value.protocol
+        return output
+      }
+      const runtime=await database(o.control).doc('recovery/runtime').get(),marker=await database('(default)').doc('_recovery/access').get(),held=(await database(o.control).doc('recovery/operatorLock').get()).data()
+      observed.runtime=select(runtime.data());observed.marker=select(marker.data());observed.interruptedOperation=null
+      if(held&&/^[\w-]{8,80}$/.test(held.operationId??'')&&/^[\w-]{8,160}$/.test(held.owner??'')&&['default-enter','default-apply','default-seal','default-publish'].includes(held.intent?.kind))observed.interruptedOperation={operationId:held.operationId,owner:held.owner,kind:held.intent.kind,failed:held.failed===true}
+    }
+    return {...report,...observed,localArtifactBuild:Boolean(receipt),cloudWrites:false}
+  }finally{for(const instance of instances.values())await instance.terminate();if(authApp)await deleteApp(authApp)}
 }
 async function main(){
   const o=options(process.argv.slice(2))
+  if(o['dev-inspect']||o['dev-execute']){console.log(JSON.stringify(await inspectDev(o)));return}
   if(o.command!=='status'&&!o.apply){console.log(JSON.stringify({mode:'plan',command:o.command,writesPerformed:false}));return}
   for(const [key,port] of [['FIRESTORE_EMULATOR_HOST',LOCAL_RUNTIME.firestorePort],['FIREBASE_AUTH_EMULATOR_HOST',LOCAL_RUNTIME.authPort]]){const expected=localRuntimeHost(port);if(process.env[key]!==expected)throw Error('Dedicated emulator endpoints must already be configured.')}
   const app=initializeApp({projectId:o.project},'fixed-recovery-operator'),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)

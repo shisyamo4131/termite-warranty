@@ -2,7 +2,7 @@
 
 ## 2026-10-06 方式変更後の運用対象
 
-通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。**新コマンドは架空Local専用で全7ゲート・独立レビュー済み。実Dev実行ラッパーは未実装。以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
+通常業務は(default)固定に変更する。新A/B/C/Dの手順・余剰文書削除を含むCの回復設計・現在Devの切り戻し計画は[新方式設計](../design/default-database-recovery.md)を参照。Local基盤は全7ゲート・独立レビュー済み。続行で明示的なDevガードと実配備照合を追加し、最終Local全7ゲート・独立レビュー済み。**以下の旧cutover／全体復旧順序は実施履歴と現行コードの説明であり、新方式の実行手順として使わない。** 旧cutoverを(default)へ無理に適用しない。
 
 Authは退避・private readbackとLocal欠損UID復元の承認済み範囲で区切る。実Auth取込と実ログイン・部分失敗の手動回復は未対応。Devの再停止・具体データ反映・配備は対象と手順を提示して別承認後。HS確認とDの再開了承も別。旧DB／一時DB／保全像の削除は別承認が必要。
 
@@ -99,7 +99,7 @@ Localは全7ゲート成功。全消失・既存UID保持・現在の停止状�
 
 ## 固定(default) Local予行
 
-専用Firestore/Authエミュレータ、明示した架空project `demo-termite-warranty`、独立control、確認した40桁revisionが必須。`node scripts/default-recovery.mjs <command> --project demo-termite-warranty --control <fictional-control> --revision <inspected-HEAD> ...`。status以外は`--apply`なしなら計画表示だけ。Dev IDは--apply指定でも拒否する。この手順をDevへ読み替えない。
+専用Firestore/Authエミュレータ、明示した架空project `demo-termite-warranty`、独立control、確認した40桁revisionが必須。`node scripts/default-recovery.mjs <command> --project demo-termite-warranty --control <fictional-control> --revision <inspected-HEAD> ...`。status以外は`--apply`なしなら計画表示だけ。Devは以下の明示ガードと具体実行承認を要する。このLocal手順をDevへ読み替えない。
 
 | 段階 | commandと追加引数 | 完成／失敗時 |
 | --- | --- | --- |
@@ -115,3 +115,29 @@ Localは全7ゲート成功。全消失・既存UID保持・現在の停止状�
 | control回復後 | reconcile-emergency --generation <closed-marker> --operation <id> --worker-stopped --apply | 全writer停止／リース収束を確認後、controlを停止状態へ照合 |
 
 止まっていない旧workerのownerを交換しない。Source／権限／版／世代の変化では停止して調査。前像への差戻しは自動実行せず、private前像から別承認した復旧像を用意して完全同期・再検証する。無条件ロック削除・Auth巻戻し・旧DB削除はしない。[型／予算／未検証](../design/default-database-recovery.md#2026-10-06-固定default方式のlocal実装状況)参照。
+
+## 固定(default) Devの読取事前照合
+
+`node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control <実control> --source <実source> --generation <実世代> --revision <実HEAD> --site <実Hosting site> --dev-inspect`を使う。`status`も同じ明示引数を要する。実HEADとruntimeソースcleanを資格情報取得より先に判定する。未コミットruntime差分がある場合はクラウドへ接続せずblockedを返す。Devの更新コマンドを`--dev-inspect`で有効化しない。CLIの実認証だけを用い、ADCやemulatorへfallbackしない。
+
+各検査のpass／blockedを個別に報告する。Rules/indexだけが合っても配備成功にしない。実Functions source保存世代・Cloud Run revision/trafficとHosting live release／構成／全ファイルを照合し、欠けた証拠や部分配備では確認待ちを開かない。今回の読取はDev停止・配備・コピーの承認ではない。具体的な切り戻し対象・停止／失敗時の手順と、後続の[HS確認手順](../design/default-database-recovery.md#次のdev実行範囲と利用者確認)を提示して承認を得る。
+
+Hosting照合は当該processで信頼するNuxtビルドを実行する。現在HEAD／runtime clean／入力と無視対象env／公開成果物のhashをビルド前後・利用前後で照合し、process内の証拠だけを受理する。読取コマンドでもLocalの`.output`は再生成するが、cloudWritesはfalse。ビルド失敗・古い成果物・入力や公開成果物の差替えでは配備検証を成功にしない。秘密の値やhashを保存・出力しない。
+
+復旧時のHosting配備成果物は、clean HEADで`npm run build:recovery-release -- --revision <実HEAD>`を実行して準備する。このコマンドはLocal生成だけで、認証・配備は行わない。復旧照合専用profileでNuxt buildIdを実HEADに固定し、既知manifestのtimestampを0へ正規化する。timestampは実生成日時の証拠にしない。通常buildの既定動作は維持する。同じrevisionでも環境・依存関係・公開データが違う成果物は全ファイル照合で拒否し、異なる成果物を一致として扱わない。
+
+SPA HTML内の既知Nuxt payloadだけは`prerenderedAt`を1へ正規化し、値の有無によるキャッシュ判定を維持する。未知のpayload形式は拒否する。生成時刻の差を理由に公開ファイルを照合対象から外さない。
+
+今回のC/D用配備は、同じLocal環境・専用profileで生成／照合した成果物に限定する。既存CIは通常buildなので、そのartifactを復旧照合済みと扱わない。C/Dの排他的な配備区間ではworkflow_dispatchによる配備を含む他の配備を止める。通常CI配備後に復旧する場合も専用profileへ再配備して照合する。Local/CI間、別OS／Node patch／zlib／環境のbyte再現性は未検証で、完全一致しなければ停止を維持する。
+
+実行計画・baseline・公表は同じ実HEADに束縛する。AからDの運用区間でGitの版を変更しない。運用記録の更新だけでもコミットするとHEADが変わるので、再開まで記録のコミットを待つ。修正配備でrevisionが変わる場合は旧計画や旧検証を流用せず、停止状態と前像を保持したまま新しい計画・配備・完成検証を用意する。
+
+## 固定(default) Devの明示実行ガード（実行承認待ち）
+
+`enter`、`plan`、`apply`、`resume`、`publish`、`reopen`、`recover-operator`のみ対応。上記project/control/source/generation/revision/siteに、`--operation <照合ID> --approval <該当する非公開了承記録> --dev-execute --apply --confirm fixed-recovery`を追加する。flagsは安全装置であって、人の個別実行承認の代わりではない。初期化／緊急制御のDev経路・Prodは有効化しない。
+
+sourceは、`enter`では(default)、`plan`ではコピー元一時DB、後続では封印したplan.sourceを指定する。`plan`は`--baseline <id>`と、通常復旧なら`--verification <id>`、旧named DBからの最新像移行なら`--migration`を追加。旧方式の停止開始／baselineだけは既存`recovery.mjs`を使い、旧cutover/reopenは使わない。`resume`／`recover-operator`は`--worker-stopped --expected-owner <statusで確認したowner>`を要する。revision・source・approvalを別のplanから流用しない。
+
+停止開始／閉鎖中断回復は、現行DB／世代／intentを束縛して先に閉じ、その後に残る更新リース・Auth退避の収束を待つ。先にリース0を要求して停止開始を拒否しない。plan/apply/resumeは閉鎖とRules本文を照合し、収束必須。Functions/Hostingが一部未配備でも、純粋な閉鎖・封印中断の整理・既公表receiptの後処理は可能。未公表のC/Dだけはfresh build／全配備照合を直前に要求する。公表済みnormalの後処理では正当な新更新を巻き戻さない。
+
+`status`はprivate Admin CLI内で最小runtime／default marker／中断ID・owner・種別・failedを表示する。未収束、未知の状態、版／世代／owner／source／了承参照の不一致では中止。markerの公表前後・中断intentとcompletion receiptを読取確認するまで同じ処理を無条件再送しない。実配備／Dev受入の未完了項目は[記録](../design/evidence/recovery-implementation-2026-10-06.md)を参照。

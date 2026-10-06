@@ -148,11 +148,123 @@ test('legacy named Dev-shaped runtime migrates latest image to default without r
  await api.apply('migration-plan',{resume:true,workerStopped:true,expectedOwner:held.owner})
  assert.equal((await target.doc('properties/latest').get()).data().v,2)
  assert.deepEqual((await target.doc('staffAccounts/migration-admin').get()).data(),profile)
+ assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
  assert.equal((await control.doc('recovery/runtime').get()).data().databaseId,'(default)')
  await assert.rejects(old.enter(5,'old-enter-denied'))
- await api.publish('migration-plan','external/latest-migration')
+ const retiring=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async stage=>{if(stage==='publish-source-retired')throw Error('fictional source-retirement response loss')}})
+ await assert.rejects(retiring.publish('migration-plan','external/latest-migration'))
+ assert.equal((await target.doc('_recovery/access').get()).data().phase,'recovering')
+ const publication=(await control.doc('recovery/operatorLock').get()).data()
+ await api.recoverOperator('migration-plan',{workerStopped:true,expectedOwner:publication.owner})
  assert.equal((await source.doc('_recovery/access').get()).data().phase,'retired')
  await api.publish('migration-plan','external/latest-reopen',{reopen:true})
  assert.equal((await target.doc('_recovery/access').get()).data().phase,'normal')
  assert.equal((await source.doc('properties/latest').get()).data().v,2) // source retained, never deleted
+})
+
+test('maintenance closure recovers either cross-database response-loss boundary without reopening',async()=>{
+ for(const stage of ['enter-control-prepared','enter-marker-closed']){
+  await clean();await api.initialize()
+  const normal={protocol:2,phase:'normal',generation:3,databaseId:'(default)',controlDatabaseId:control.databaseId}
+  await control.doc('recovery/runtime').set(normal);await target.doc('_recovery/access').set(normal)
+  const fault=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async seen=>{if(seen===stage)throw Error('fictional uncertain closure')}})
+  await assert.rejects(fault.enter(3,'uncertain-enter'))
+  const held=(await control.doc('recovery/operatorLock').get()).data()
+  assert.equal((await control.doc('recovery/runtime').get()).data().phase,'recovering')
+  assert.equal((await api.recoverOperator('uncertain-enter',{workerStopped:true,expectedOwner:held.owner})).phase,'recovering')
+  assert.equal((await api.status()).marker.generation,4)
+  assert.equal((await api.status()).operatorBlocked,false)
+ }
+})
+
+test('migration interrupted between database markers resumes only its sealed prior/next states',async()=>{
+ for(const stage of ['migration-marker-closed','migration-control-prepared']){
+  await clean()
+  await source.doc('warrantyCounters/year').set({lastValue:9});await target.doc('warrantyCounters/year').set({lastValue:4})
+  await source.doc('properties/current').set({v:2});await target.doc('properties/current').set({v:1})
+  const legacy={phase:'recovering',generation:5,databaseId:source.databaseId,controlDatabaseId:control.databaseId}
+  await control.doc('recovery/runtime').set(legacy);await source.doc('_recovery/access').set(legacy)
+  await target.doc('_recovery/access').set({phase:'retired',generation:3,databaseId:'(default)'})
+  const old=recoveryController({database,auth,controlId:control.databaseId,revision});await old.baseline(5,'boundary-baseline')
+  for(const unexpected of [{phase:'normal',generation:3},{phase:'retired',generation:99},{phase:'retired',generation:3,controlDatabaseId:'other-control'},{phase:'retired',generation:3,protocol:99}]){
+   await target.doc('_recovery/access').set({databaseId:'(default)',...unexpected})
+   await assert.rejects(api.plan(5,'boundary-invalid',{source:source.databaseId,baselineId:'boundary-baseline',approval:'external/latest',migration:true}))
+   assert.equal((await control.doc('recovery/operatorLock').get()).exists,false)
+   assert.equal((await control.doc('defaultRecoveryPlans/boundary-invalid').get()).exists,false)
+   assert.equal((await target.doc('_recovery/access').get()).data().generation,unexpected.generation)
+  }
+  await target.doc('_recovery/access').set({phase:'retired',generation:3,databaseId:'(default)'})
+  await api.plan(5,'boundary-migration',{source:source.databaseId,baselineId:'boundary-baseline',approval:'external/latest',migration:true})
+  const fault=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async seen=>{if(seen===stage)throw Error('fictional uncertain migration')}})
+  await assert.rejects(fault.apply('boundary-migration'))
+  assert.equal((await target.doc('properties/current').get()).data().v,1)
+  let held=(await control.doc('recovery/operatorLock').get()).data()
+  // An unexpected marker cannot be silently overwritten by a retry.
+  const marker=(await target.doc('_recovery/access').get()).data()
+  await target.doc('_recovery/access').update({generation:99})
+  await assert.rejects(api.apply('boundary-migration',{resume:true,workerStopped:true,expectedOwner:held.owner}))
+  assert.equal((await target.doc('_recovery/access').get()).data().generation,99)
+  await target.doc('_recovery/access').set(marker)
+  const runtime=(await control.doc('recovery/runtime').get()).data()
+  await control.doc('recovery/runtime').update({generation:99})
+  held=(await control.doc('recovery/operatorLock').get()).data()
+  await assert.rejects(api.apply('boundary-migration',{resume:true,workerStopped:true,expectedOwner:held.owner}))
+  assert.equal((await control.doc('recovery/runtime').get()).data().generation,99)
+  await control.doc('recovery/runtime').set(runtime)
+  held=(await control.doc('recovery/operatorLock').get()).data()
+  await api.apply('boundary-migration',{resume:true,workerStopped:true,expectedOwner:held.owner})
+  assert.equal((await target.doc('properties/current').get()).data().v,2)
+  assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
+  assert.equal((await api.status()).marker.phase,'recovering')
+ }
+})
+
+test('a live publication cannot bypass absent or partial deployment proof',async()=>{
+ let reads=0
+ const liveDatabase=()=>({projectId:'termite-warranty-dev',doc:()=>({get:()=>{reads++;throw Error('No live read permitted in fixture')}})})
+ const blocked=defaultRecovery({database:liveDatabase,controlId:'test-sync-control',revision})
+ await assert.rejects(blocked.publish('fictional-plan','external/recovery'))
+ assert.equal(reads,0)
+ const partial=defaultRecovery({database:liveDatabase,controlId:'test-sync-control',revision,verifyDeployment:async()=>false})
+ await assert.rejects(partial.publish('fictional-plan','external/recovery'))
+ assert.equal(reads,0)
+})
+
+test('live proof admission gates uncommitted publication recovery but not committed receipt cleanup',async()=>{
+ await clean();await api.initialize()
+ await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await source.doc('properties/proof').set({v:1})
+ await api.plan(1,'live-proof-plan',await evidence(1,'live-proof-baseline'));await api.apply('live-proof-plan')
+ // Methods stay bound to the dedicated fictional SDK. Only the admission
+ // project identity is simulated; this fixture cannot contact a live database.
+ const liveTarget=new Proxy(target,{get(object,key){if(key==='projectId')return 'termite-warranty-dev';const value=Reflect.get(object,key,object);return typeof value==='function'?value.bind(object):value}})
+ const simulated=id=>id==='(default)'?liveTarget:database(id)
+ const early=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async stage=>{if(stage==='publish-control-prepared')throw Error('fixture interruption')}})
+ await assert.rejects(early.publish('live-proof-plan','external/recovery'))
+ let held=(await control.doc('recovery/operatorLock').get()).data(),proofCalls=0
+ const denied=defaultRecovery({database:simulated,auth,controlId:control.databaseId,revision,verifyDeployment:async()=>{proofCalls++;return false}})
+ await assert.rejects(denied.recoverOperator('live-proof-plan',{workerStopped:true,expectedOwner:held.owner}))
+ assert.equal(proofCalls,1);assert.equal((await api.status()).marker.phase,'recovering')
+ held=(await control.doc('recovery/operatorLock').get()).data()
+ const proven=defaultRecovery({database:simulated,auth,controlId:control.databaseId,revision,verifyDeployment:async()=>{proofCalls++;return true}})
+ await proven.recoverOperator('live-proof-plan',{workerStopped:true,expectedOwner:held.owner});assert.equal(proofCalls,2)
+ const late=defaultRecovery({database:simulated,auth,controlId:control.databaseId,revision,verifyDeployment:async()=>true,afterPublish:async()=>{throw Error('fixture committed response loss')}})
+ await assert.rejects(late.publish('live-proof-plan','external/reopen',{reopen:true}))
+ await target.doc('properties/proof').update({v:2})
+ held=(await control.doc('recovery/operatorLock').get()).data();proofCalls=0
+ assert.equal((await denied.recoverOperator('live-proof-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'normal')
+ assert.equal(proofCalls,0);assert.equal((await target.doc('properties/proof').get()).data().v,2)
+})
+
+test('publication before-marker failure retains closed access and resumes after fresh integrity validation',async()=>{
+ await clean();await api.initialize()
+ await target.doc('warrantyCounters/year').set({lastValue:9});await source.doc('warrantyCounters/year').set({lastValue:9})
+ await source.doc('properties/current').set({v:1})
+ await api.plan(1,'before-publish-plan',await evidence(1,'before-publish-baseline'));await api.apply('before-publish-plan')
+ const fault=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async stage=>{if(stage==='publish-control-prepared')throw Error('fictional deploy/worker interruption')}})
+ await assert.rejects(fault.publish('before-publish-plan','external/recovery'))
+ assert.equal((await api.status()).marker.phase,'recovering')
+ const held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('before-publish-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'verification')
+ assert.equal((await api.status()).marker.phase,'verification')
 })

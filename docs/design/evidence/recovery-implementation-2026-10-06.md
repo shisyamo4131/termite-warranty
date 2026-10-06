@@ -1,5 +1,47 @@
 # バックアップ・復旧のLocal実装・検証
 
+## 続行：固定(default)の実配備照合・実行準備
+
+状態：2026-10-06オーナーの続行指示に基づくLocal実装・最終全7ゲート・独立レビューを完了。Devの停止・配備・データ反映は未実施。実行承認と、C後の利用者確認／別再開了承は未取得。Authの実取込・実ログイン検証は従来の未完了範囲を維持する。
+
+実装対象は、実Dev用の明示的な読取／実行コマンド、現行版・DB・世代・source・運用lockの照合、Rules/indexes／Functions source・Run revision／Hosting公開成果物の照合、ビルド入力と成果物の結合、およびDB間の中断状態を照合した再実行。資格情報・archive本文・実アカウントの値は証拠へ記録しない。独立レビューで検出した封印前marker不正受理、旧marker互換性、古いHosting成果物受理を修正対象とした。
+
+実ビルド2回の比較で、buildId／manifest timestamp固定後にも8 HTMLの`prerenderedAt`が変化することを確認（比較exit 1）。完成証拠には使わず、追加修正・再比較を要する。既存CIとのbyte再現性は未検証で、今回の復旧配備は同一Local環境の専用profileに限定する。通常CIのartifactを新方式の配備照合成功とは扱わない。
+
+修正後に同じLocal環境で実Nuxt generateを2回実行し、991公開ファイルのpath／byte SHA256が全一致（exit 0、比較hash `f64c7e5038f3601a9012954266869a0665bbe9bc744e5af21ffcc08d142d91a4`）。既知SPA payloadの`prerenderedAt`はtruthyな固定値1とし、manifest timestampは0、buildIdは確認したHEADとした。この比較では未コミットソースを許すrepositoryテスト注入を明示的に使用したため、clean HEAD／実配備一致の証拠ではない。コミット後の実読取コマンドでは実Git gateを必須とする。
+
+### 読取だけで確認したDev
+
+- 14:23:53 JST、source `recovery-drill-20261006`と(default)は各54業務文書、型付きhashは`85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400`。正規化set/delete各0、現在権限一致、発行済み上限16、再開時刻03:54Z以後の業務updateTime 0、更新リース0／operator lockなし。非atomic比較であり、停止後の再観測と封印を要する。
+- 14:28:53／14:32:29／14:38:36、`termite-warranty-dev`の18 FunctionsはACTIVE・control設定`recovery-control`・source保存世代あり。Hosting実サイトは同projectの`termite-warranty-dev`。1関数のRun最新ready/created revision一致・配信100%、live Hosting FINALIZEDを読取確認。これだけで全Functions source／新方式の配備成功とは扱わない。
+- 14:38:36のAPI確認でsource/default/controlはFIRESTORE_NATIVE／asia-northeast1。source/defaultはPITR有効・日次30日予定各1、controlは削除保護有効／PITR無効／予定0。business DBの削除保護設定は無効だが削除操作は今回対象外。実管理バックアップは0件で、初回生成とそこからの復元は未確認。
+- 上記読取コマンドはいずれもEXIT 0。データ本文・秘密・環境変数全体は出力していない。停止・書込・配備なし。
+- 14:46:29 JST、1関数の保存世代を指定した実source ZIPをメモリ内で解析し、36ファイルと既存entrypointを確認。新固定runtimeのdomainは未収録で、現配備が新方式ではないことを確認。archive本文は保存・出力しない。解析器の実形式対応の証拠であり、新版全18関数の一致証拠ではない。
+
+### 最終検証と残件
+
+混合変更（application／migration／build／verification policy）の全7ゲートを選択、省略なし。最終コードに対するコマンド完了とexitを個別に確認した。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `npm test` | 233件、231成功・既存Windows symlink関連2スキップ・失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功。既存Nitro外部参照等の警告あり | 0 |
+| `npm run test:rules` | 架空demoのみ、107成功・失敗0・スキップ0 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 28モジュール成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | common 3.0.0／生成policy summary整合 | 0 |
+
+独立レビューFIXED-FINAL-DELTA-10は凍結ソースにP1/P2残件を検出せず終了。先の指摘（封印前marker、旧形式互換、中断CAS、停止前drain条件、Hosting鮮度／非決定性）は修正・対象回帰済み。レビューは試験・実環境受入の証拠とは分ける。追加4unitファイルは`npm test`へ包含。verification policyのoperator helper失効範囲を`default-recovery*.mjs`へ広げ、正しいv3 managed syncで生成summaryだけを同期した。common contract・AGENTS・権限は変更していない。
+
+所有コード／設定／試験15ファイル（nuxt.config.ts、package.json、governance/verification-policy.json、scripts/default-recovery.mjs、scripts/build-recovery-release.mjs、scripts/lib/default-recovery{,-admission,-build,-preflight,-release-proof}.mjs、test/emulator/default-recovery.test.mjs、test/default-recovery{-admission,-build,-preflight,-release-proof}.test.mjs）の生バイトSHA256をpath順で`path:hash`、LF連結・終端LFなしで結合したSHA256：`f75f38275d84f79dbccd9b70b24073029b4ed582373745ed485f45268994b6dd`。基点HEADは`b8efee19a3360ce566de540975c2a3f1f46ca806`。以後の文書更新はcode evidenceを変更しない。ガバナンス／diff検査は記録確定後にも再実行する。
+
+変更文書は本記録、固定DB設計、runbook、仕様の実装状態、技術改修台帳、changelog、およびoperationsの生成policy block。確定業務要件・schemaは変えていないため仕様version／業務data contract／ADRは変更しない。新文書を追加せず既存indexリンクを使う。全体進捗の加点なし。既存のdocs/README.mdとoperationsの生成block外の変更は所有範囲外として保持し、コミットへ含めない。
+
+実Devの途中配備失敗予行、大容量／実課金計測、全fault境界、実管理バックアップ復元、実Auth復元後ログインは未検証。実Dev切り戻し・HS受入・通常再開も未実施で、本Local完了とは区別する。
+
+[実行範囲・利用者確認手順](../default-database-recovery.md#次のdev実行範囲と利用者確認)を準備。現在source最新像を維持し、0差分なら業務文書set/delete 0。停止後に差が生じていた場合は具体差分の別承認まで反映しない。HS確認待ちに達した時点で利用者へ報告して停止し、別の再開了承前にDへ進まない。
+
 - 日付：2026-10-06
 - 状態：初期実装のLocal全7ゲートと限定画面確認を完了。クラウド運用開始・Dev配備／予行・Auth取込の完了記録ではない。
 - 承認：オーナーの「バックアップ・復元について他に確認すべきことがなければ実装開始」。採用済み運用は[仕様](../../specification.md#2026-10-06-バックアップ復元の対象範囲)と[ADR0032](../../decisions/0032-production-firebase-operations.md#2026-10-06-recovery-operation-amendment)。

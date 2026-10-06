@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-06 固定(default)復旧のDev実行準備
+
+- Dev読取／実行の明示ガード、Rules・index READY・Functions実source／Run・Hosting全公開ファイルの照合を追加。
+- 停止前に更新リース0を要求する条件、移行markerの不正世代受理、DB間中断の再実行、古いHosting成果物の受理を修正。復旧用ビルドの識別子・生成時刻を正規化し、実2ビルドの991ファイル一致を確認。
+- 最終Local全7ゲート・独立レビューの結果は[実測記録](docs/design/evidence/recovery-implementation-2026-10-06.md#続行固定defaultの実配備照合実行準備)へ記録する。実Dev停止・配備・移行は承認待ちで未実施。Auth実復元等の残件は完了扱いにしない。
+
 ## 2026-10-06 固定(default)復旧のLocal実装
 
 - ブラウザ／Functionsをdefault固定・protocol 2必須へ変更。旧要求・直接更新の世代／nonce継承を拒否。

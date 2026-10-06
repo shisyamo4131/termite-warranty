@@ -84,7 +84,7 @@ Localの全7ゲートと独立レビューを新実装の最終状態で行う�
 
 Aの新規拒否と収束、HS業務閲覧拒否、旧Callable／旧画面直接更新／オフライン再送拒否、C未完了のreopen拒否、HS確認時の読取・非更新CSV、非管理者拒否、再開後の通常処理を検査。marker欠損／古いprotocolはSDK・Functionsとも拒否。必須配備設定欠損はFunctionsを拒否し、配備混在では再開しない。
 
-private control欠損ではFunctionsの更新受付／復旧操作を拒否する。一方、正常なdefault markerが残る場合、Functionsの読取と直接SDKの認可はその公開markerで判定し、private control欠損を即時検知する保証はない。直接SDK更新も別controlを参照できない。control異常時に業務全体を止める開発側の緊急手順として、default markerを直接recoveringへ閉じる経路を用意し、閉鎖後にSDK／Functions両経路の拒否を確認する。緊急閉鎖後、control復旧・更新収束を確認できるまでB/C/Dへ進まない。正常marker＋control欠損、marker閉鎖の応答消失を検証し、この境界を運用上の停止完了と区別する。緊急閉鎖コマンドも未実装。
+private control欠損ではFunctionsの更新受付／復旧操作を拒否する。一方、正常なdefault markerが残る場合、Functionsの読取と直接SDKの認可はその公開markerで判定し、private control欠損を即時検知する保証はない。直接SDK更新も別controlを参照できない。control異常時に業務全体を止める開発側の緊急手順として、default markerを直接recoveringへ閉じる経路を用意し、閉鎖後にSDK／Functions両経路の拒否を確認する。緊急閉鎖後、control復旧・更新収束を確認できるまでB/C/Dへ進まない。正常marker＋control欠損、marker閉鎖の応答消失を検証し、この境界を運用上の停止完了と区別する。緊急閉鎖・control照合コマンドはLocal実装済み。Dev経路は有効化していない。
 
 Devは読み取り事前確認→対象・停止・具体反映計画の承認→停止後の再照合と前像保全→移行→defaultの検証・HS確認→別了承後再開。稼働中の観測を停止後の完成証拠へ読み替えない。managed backup初回生成／その復元、実Auth復元後ログインは独立した未検証ゲートとして残す。
 
@@ -113,7 +113,7 @@ Devは読み取り事前確認→対象・停止・具体反映計画の承認�
 
 固定runtime／ブラウザはprotocol 2・(default)固定。公開authorityはdefaultの`_recovery/access`、controlはprivate運用状態／リース／保全証拠。新runtimeではanchorを読まない。旧anchorとcontrol Rulesの旧public getはDev移行互換として残し、新clientは利用しない。
 
-`scripts/default-recovery.mjs`は架空demo専用。Dev IDは資格情報読取前に拒否する。Localで実SDKを使う同期／回復基盤は全7Localゲート・独立レビュー済みだが、実Devの配備・index READY・Functions／Hosting一致を確認する実行ラッパーは未実装。配備・切り戻しは未実施。通常Devを再停止する承認も未取得。
+Localで実SDKを使う同期／回復基盤は全7Localゲート・独立レビュー済み。続行で`scripts/default-recovery.mjs`に明示的なDev読取・実行ガードとRules／index READY／Functions source・Run／Hosting一致の検査を追加し、最終Local全7ゲート・独立レビュー済み。通常Devの再停止・配備・切り戻しは未実施で、具体的な実行承認も未取得。Dev実行flagsを人の承認の代用にしない。
 
 計画はprivate controlの`defaultRecoveryPlans/{id}`、items／preimageに封印。全対象前像を保存し、型付きJSONを文字列で保持してFirestoreにReferenceを再解釈させない。SDKのReferenceデコードはDB識別を失うため、snapshotのraw `_fieldsProto`からqualified referenceを確認する（インストール済みSDK依存、更新時に再検証）。安全整数外・整数値double・未知型は停止する。Bの新receiptにはtypedHashを保存し、旧hashだけの証拠はCへ無効。
 
@@ -123,7 +123,7 @@ Devは読み取り事前確認→対象・停止・具体反映計画の承認�
 
 通常Functions読取はdefault markerを開始／応答直前の2回取得。anchor／動的DB／閲覧リースを省く。実課金削減は未測定。Cでは繰返しscan、権限検査、private前像／計画／checkpointのRead/Writeが必要で、N＋Mが総課金Readではない。
 
-残件：実Dev実行ラッパーと配備確認、停止前後の再観測・具体差分承認、移行／Dev受入／HS確認と別再開了承、default保護設定。全batch境界の網羅的fault injection、大容量／実課金測定、実managed backup復元、実Auth復元後ログインは未検証。旧／一時DB・前像の削除は別承認。Authの承認済み区切りは変更しない。
+残件：実Dev配備の実照合、停止前後の再観測・具体差分承認、移行／Dev受入／HS確認と別再開了承、default保護設定の再確認。全batch境界の網羅的fault injection、大容量／実課金測定、実managed backup復元、実Auth復元後ログインは未検証。旧／一時DB・前像の削除は別承認。Authの承認済み区切りは変更しない。
 
 
 ### Dev再確認と実行候補（まだ承認／実行していない）
@@ -134,8 +134,36 @@ Devは読み取り事前確認→対象・停止・具体反映計画の承認�
 
 1. 現在版・Rules・indexes・保護設定・Functionsの呼出設定とrollback版を読取保全。利用中sourceの更新受付とmarkerを閉じ、HS管理者も業務アクセス不可にし、全worker／更新リースの収束を確認する。
 2. 停止後の最新source/default、現在権限／bindings／採番／番号予約と全前像を封印。比較一致なら業務set/deleteは0。差があれば件数・範囲を提示し、具体反映の別承認まで維持する。稼働中0差分を将来の上書き許可としない。
-3. `(default)`に新Rules／indexes、既存全Functionsに固定runtime、Hostingに固定clientを反映する計画。`RECOVERY_CONTROL_DATABASE=recovery-control`必須。index READY／全instance・公開Hostingの版一致／旧要求拒否を確認。firestore-control.rulesと旧anchorはこの移行では勝手に削除しない。
+3. `(default)`に新Rules／indexes、既存全Functionsに固定runtime、Hostingに固定clientを反映する計画。`RECOVERY_CONTROL_DATABASE=recovery-control`必須。index READY／Functionsの完成revision・配信traffic／公開Hostingの版一致／旧要求拒否を確認。実行中の旧更新はリース等で別に収束確認し、管理APIのtrafficだけで全instance停止と断定しない。firestore-control.rulesと旧anchorはこの移行では勝手に削除しない。
 4. defaultとcontrolをprotocol 2／recoveringの同世代へ移し、承認済み差分計画だけを適用。完成検証と配備検証後、sourceをretiredに保全し、defaultのHS読み取り専用／非更新CSV確認へ進む。default PITR／日次予定／監視を再確認する。
 5. HS確認とシステム外の別再開了承後にdefault normalを公表。全段階の失敗では停止維持。旧source、一時DB、全前像・計画は残す。Auth、IAM、DB削除は対象外。コピー前の移行中止、コピー後の前像復旧、旧版への配備差戻しも具体対象を照合し別承認する。自動正常再開はしない。
 
 旧source→defaultのLocal移行予行も追加し、最新像・現在権限／採番保持・書込後応答消失の再実行・C/D・旧source保持を確認した。同値0writeの実Dev移行、切替前の全境界・実配備混在／失敗は未検証で、実Dev手順の完成前に確認する。
+
+### 続行：実配備照合と中断境界
+
+2026-10-06オーナーは「どんどん進めてください。私が検証すべきものが発生した時点で停止。報告とともに手順を提示」と指示。Local実装・検証とDev読取準備を続行する。先の具体対象承認を要するDev停止・反映・配備の境界は撤回されていない。
+
+14:23:53 JSTのDev再観測でもsource/defaultは各54文書、型付きhash／正規化差分／現在権限／採番上限は上記14:08と一致。再開後の業務updateTimeは0件、更新リース0件、運用lockなし。14:28:53の管理API読取ではFunctionsは18件すべてACTIVE・control設定一致・source保存世代あり、Hostingの実サイトは`termite-warranty-dev`。ACTIVEだけを新方式の配備成功と判断しない。
+
+Local実装した実配備照合は、コミット済み実HEAD／runtimeソースclean、DB ID／所在地／phase／世代、default/control Rulesの本文一致、READY複合indexと単項目除外を別々に判定する。Functionsは保存世代を固定した実source archiveをメモリ内で読み、対象ソース／domain／packageを比較し、全関数とCloud Runの完成revision／trafficを照合する。Hostingはlive releaseの構成／確定version／全ファイルのgzip SHA256をローカル成果物と比較する。資格情報・環境変数の秘密・archive本文はログやrepositoryへ出さない。未知の形式や一部失敗ではreadyとしない。実配備照合のReadは運用時の管理API／source object取得であり、通常画面のFirestore取得へ追加しない。
+
+配備照合からC/D公表までは、他の配備者・CLI・CIが同じ対象を更新しない排他的な運用区間とする。Functions一覧／Hosting live releaseを終端でも再取得し、照合中の版変更は拒否する。それでも複数クラウドサービスのatomic snapshotではなく、排他的な配備区間と更新収束を組み合わせる。管理APIのrevision／100% trafficは既に実行中の全instance終了を直接証明しない。
+
+Nuxt通常generateのランダムbuildId／生成timestampが公開ファイルの再照合を妨げるため、復旧照合専用profileではbuildIdを実HEAD、既知manifestのtimestampを0へ正規化する。既存の更新検知はidで判定する。通常buildの既定値は維持し、復旧時の実配備用成果物だけを専用Localコマンドで生成する。ビルド環境が異なる場合のbyte一致は推定せず、実ファイル照合の成功を要求する。
+
+移行計画の封印前にもdefault markerの閉鎖phase／世代／controlを検査する。旧形式のretired markerは正の旧世代、固定形式のrecovering markerは同世代・同controlに限定。再実行では封印したpriorまたは正確な閉鎖nextのみ受理し、将来世代や別controlを上書きしない。公表の実環境経路は独立した配備照合callbackの成功を要求する。既にnormal公表が成立した応答消失の収束は完成receiptを照合し、再開後の業務更新を巻き戻さない。
+
+追加試験の完成証拠は[実測記録](evidence/recovery-implementation-2026-10-06.md)へ記録する。実Dev切り戻し・実配備の部分失敗予行は未実施。
+
+### 次のDev実行範囲と利用者確認
+
+実行対象は`termite-warranty-dev`の現在source `recovery-drill-20261006`、`(default)`、`recovery-control`、既存18 Functions、同projectのHosting／Rules／indexes。現在sourceの最新像を正とし、過去の11:42像は使わない。停止前の配備・呼出設定と全前像を保全し、停止後に再比較する。0差分なら業務文書のset/deleteは0。差分が生じていれば内容の範囲と件数を報告し、具体反映承認まで停止を維持する。配備失敗時も停止を維持し、完了済みの配備・marker・checkpointを読取確認して再試行する。旧source／private前像／制御情報／Authを無断で削除・巻戻ししない。
+
+通常Devを止める実行承認を得た後、開発側がCのデータ・配備・権限・旧要求拒否・CSV非更新を検証し、HS確認待ちで停止して以下を利用者へ提示する。未配備の今この操作確認を依頼しない。
+
+1. Devを開き、HS管理者でログイン。HS確認待ちの案内が表示されることを確認する。
+2. 物件／保証一覧で既知の保証番号を完全一致検索し、物件・工務店・支店・日付・保証期間が切替前と一致することを確認する。
+3. 保険報告用一覧／請求用一覧で対象行を選びCSVを出力し、内容を確認する。報告済み・請求済みへ変更する操作は行わない。
+4. 新規登録・編集・報告済み変更等の業務更新が利用できないことを確認する。開発側は同時に文書hash不変を照合する。
+5. 確認結果をシステム外で開発側へ知らせる。データ確認OKと通常再開の了承は別に記録し、再開了承前にDへ進まない。

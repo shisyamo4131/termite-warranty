@@ -92,10 +92,11 @@ export function difference(expected,current) {
   return changes.sort((a,b)=>a.kind!==b.kind?(a.kind==='delete'?-1:1):a.kind==='delete'?b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path):a.path.split('/').length-b.path.split('/').length||a.path.localeCompare(b.path))
 }
 
-export function defaultRecovery({database,auth,controlId,revision,afterCommit=async()=>{},afterSealItem=async()=>{},afterPublish=async()=>{}}) {
+export function defaultRecovery({database,auth,controlId,revision,verifyDeployment,afterCommit=async()=>{},afterSealItem=async()=>{},afterPublish=async()=>{},afterTransition=async()=>{}}) {
   databaseId(controlId)
   if(controlId==='(default)'||!/^[a-f0-9]{40}$/.test(revision))deny()
   const target=database('(default)'),control=database(controlId),runtime=control.doc(RUNTIME_PATH),marker=target.doc(ACCESS_PATH),lock=control.doc('recovery/operatorLock'),guard=target.doc('_recovery/apply')
+  async function deployment(){if(target.projectId==='demo-termite-warranty')return;if(typeof verifyDeployment!=='function'||await verifyDeployment()!==true)deny()}
   const planRef=id=>control.doc(`defaultRecoveryPlans/${id}`)
   const ids=(id,approval)=>{if(!/^[\w-]{8,80}$/.test(id)||approval&&!/^[\w./:-]{4,160}$/.test(approval))deny()}
   async function stopped(generation,{migration=false}={}) {
@@ -129,7 +130,9 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       const next={...state,phase:'recovering',generation:generation+1}
       const owner=randomUUID()
       await control.runTransaction(async tx=>{const [s,l]=await Promise.all([tx.get(runtime),tx.get(lock)]);if(!sameFixedEpoch(fixedRuntimeState(s.data()),state)||l.exists)deny();tx.create(lock,{operationId:id,intent:{kind:'default-enter',prior:state,next},generation,owner});tx.set(runtime,next)})
+      await afterTransition('enter-control-prepared')
       await target.runTransaction(async tx=>{const m=fixedRuntimeState((await tx.get(marker)).data());if(!sameFixedEpoch(m,state))deny();tx.set(marker,next)})
+      await afterTransition('enter-marker-closed')
       await release(owner);return {...next,activeOperations:(await control.collection('recoveryOperations').get()).size}
     },
     async emergencyClose(generation,id) {
@@ -150,6 +153,13 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       const state=await stopped(generation,{migration}),baseline=(await control.doc(`recoveryBaselines/${baselineId}`).get()).data()
       const sourceDb=database(source),sourceMarker=(await sourceDb.doc(ACCESS_PATH).get()).data()
       if(!baseline||baseline.generation!==generation||baseline.revision!==revision||sourceMarker?.phase!=='recovering'||sourceMarker.generation!==generation||sourceMarker.databaseId!==source)deny()
+      let migrationMarker
+      if(migration){
+        migrationMarker=(await marker.get()).data()
+        const retired=migrationMarker?.phase==='retired'&&migrationMarker.protocol===undefined&&Number.isSafeInteger(migrationMarker.generation)&&migrationMarker.generation>0&&migrationMarker.generation<generation
+        const closed=migrationMarker?.phase==='recovering'&&migrationMarker.protocol===2&&migrationMarker.generation===generation&&migrationMarker.controlDatabaseId===controlId
+        if(state.protocol!==undefined||sourceMarker.protocol!==undefined||sourceMarker.controlDatabaseId!==undefined&&sourceMarker.controlDatabaseId!==controlId||migrationMarker?.databaseId!=='(default)'||migrationMarker.controlDatabaseId!==undefined&&migrationMarker.controlDatabaseId!==controlId||!retired&&!closed)deny()
+      }
       let verifiedTypedHash
       const authoritySource=migration?state.databaseId:'(default)'
       if(migration&&source!==state.databaseId)deny()
@@ -166,7 +176,7 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       const changes=difference(expected,current),owner=await acquire(id,generation,'default-seal')
       try {
         const ref=planRef(id);if((await ref.get()).exists)deny()
-        const value={status:'sealing',source,target:'(default)',controlId,generation,revision,approval,migration,authoritySource,authorizationHash:baseline.authorizationHash,highWater:baseline.highWater,sourceHash:imageHash(original),beforeHash:imageHash(current),expectedHash:imageHash(expected),count:expected.size,total:changes.length,owner,createdAt:new Date()}
+        const value={status:'sealing',source,target:'(default)',controlId,generation,revision,approval,migration,authoritySource,authorizationHash:baseline.authorizationHash,highWater:baseline.highWater,sourceHash:imageHash(original),beforeHash:imageHash(current),expectedHash:imageHash(expected),count:expected.size,total:changes.length,owner,createdAt:new Date(),...(migration?{migrationRuntime:state,migrationMarker}: {})}
         await ref.create(value)
         for(const [path,row] of current){if(Buffer.byteLength(JSON.stringify(typed(row.fields)))>700_000)deny();await ref.collection('preimage').doc(Buffer.from(path).toString('base64url')).create({path,wire:JSON.stringify(typed(row.fields)),hash:row.hash,version:row.version})}
         for(let i=0;i<changes.length;i++){const row=changes[i];if(Buffer.byteLength(JSON.stringify([typed(row.fields??null),typed(row.prior??null)]))>700_000)deny();await ref.collection('items').doc(String(i).padStart(6,'0')).create({...row,fields:row.fields?JSON.stringify(typed(row.fields)):null,prior:JSON.stringify(typed(row.prior))});await afterSealItem(i)}
@@ -183,7 +193,16 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       try {
         await stopped(plan.generation,{migration:plan.migration})
         if(plan.status==='sealed'&&imageHash(await documentImage(target))!==plan.beforeHash)deny()
-        if(plan.migration){await marker.set({protocol:2,phase:'recovering',generation:plan.generation,databaseId:'(default)',controlDatabaseId:controlId});await runtime.set({protocol:2,phase:'recovering',generation:plan.generation,databaseId:'(default)',controlDatabaseId:controlId})}
+        if(plan.migration){
+          const next={protocol:2,phase:'recovering',generation:plan.generation,databaseId:'(default)',controlDatabaseId:controlId}
+          // A response can be lost between the two databases. Accept only the
+          // sealed prior state or this exact closed destination; never overwrite
+          // an intervening operator's generation/configuration on resume.
+          await target.runTransaction(async tx=>{const current=(await tx.get(marker)).data();if(digest(typed(current))!==digest(typed(plan.migrationMarker))&&digest(typed(current))!==digest(typed(next)))deny();tx.set(marker,next)})
+          await afterTransition('migration-marker-closed')
+          await control.runTransaction(async tx=>{const [r,l]=await Promise.all([tx.get(runtime),tx.get(lock)]);const current=r.data();if(l.data()?.owner!==owner||l.data()?.operationId!==id||digest(typed(current))!==digest(typed(plan.migrationRuntime))&&digest(typed(current))!==digest(typed(next)))deny();tx.set(runtime,next)})
+          await afterTransition('migration-control-prepared')
+        }
         await validatePlan(plan)
         await target.runTransaction(async tx=>{const [m,g]=await Promise.all([tx.get(marker),tx.get(guard)]);if(fixedRuntimeState(m.data()).phase!=='recovering'||m.data().generation!==plan.generation||g.exists&&g.data().planId!==id&&g.data().generation>=plan.generation)deny();tx.set(guard,{planId:id,owner,generation:plan.generation})})
         await ref.update({status:'applying',owner})
@@ -211,6 +230,7 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       }catch{await failed(owner);throw new RecoveryError('Default application interrupted; retain maintenance, private plan and operator lock.')}
     },
     async publish(id,approval,{reopen=false}={}) {
+      await deployment()
       ids(id,approval);const ref=planRef(id),plan=(await ref.get()).data()
       if(!plan||plan.status!=='verified'||plan.revision!==revision||!approval||(await lock.get()).exists||(await control.collection('recoveryOperations').limit(1).get()).size)deny()
       const state=fixedRuntimeState((await runtime.get()).data()),access=fixedRuntimeState((await marker.get()).data())
@@ -223,7 +243,9 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
       const owner=randomUUID()
       await control.runTransaction(async tx=>{const [s,l]=await Promise.all([tx.get(runtime),tx.get(lock)]);if(!sameFixedEpoch(fixedRuntimeState(s.data()),state)||l.exists)deny();tx.create(lock,{operationId:id,generation:state.generation,intent:{kind:'default-publish',prior:state,next,approval},owner});tx.set(runtime,next)})
       try {
+        await afterTransition('publish-control-prepared')
         if(plan.migration)await database(plan.source).doc(ACCESS_PATH).set({databaseId:plan.source,phase:'retired',generation:next.generation})
+        await afterTransition('publish-source-retired')
         await target.runTransaction(async tx=>{const m=fixedRuntimeState((await tx.get(marker)).data());if(!sameFixedEpoch(m,state))deny();tx.set(marker,next);tx.set(target.doc('_recovery/publication'),{planId:id,approval,phase:next.phase,generation:next.generation,revision,expectedHash:plan.expectedHash,completedAt:new Date()})})
         await afterPublish(next.phase);await ref.update({publishedPhase:next.phase,publishedGeneration:next.generation});await release(owner);return next
       }catch{await failed(owner);throw new RecoveryError('Publication response is uncertain; inspect paired state and checkpoint before resuming.')}
@@ -245,6 +267,7 @@ export function defaultRecovery({database,auth,controlId,revision,afterCommit=as
         if(held.intent.kind==='default-publish') {
           const ref=planRef(id),plan=(await ref.get()).data();if(plan?.status!=='verified'||plan.revision!==revision||!approval)deny()
           if(sameFixedEpoch(access,prior)) {
+            await deployment()
             if(imageHash(await documentImage(target))!==plan.expectedHash||await authorizationDigest(target,auth)!==plan.authorizationHash)deny()
             await inspectBusinessIntegrity(target,plan.highWater)
             if(plan.migration)await database(plan.source).doc(ACCESS_PATH).set({databaseId:plan.source,phase:'retired',generation:next.generation})
