@@ -4,6 +4,8 @@ import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, onCall } from 'firebase-functions/v2/https'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { assertApprovedPrototypeRuntime } from './local-runtime.js'
+import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from './recovery-runtime.js'
+import { PROPERTY_READ_ACTIONS } from './domain/recovery.mjs'
 import { propertyPrototypeOperation } from './property-warranty.js'
 import { registerCaseTransaction } from './register-case.js'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
@@ -28,10 +30,11 @@ import {
 assertApprovedPrototypeRuntime()
 setGlobalOptions({ region: 'asia-northeast1' })
 initializeApp()
+export { recoveryBackupMonitor } from './recovery-backups.js'
 
 export const propertyPrototype = onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')
-  try { return await propertyPrototypeOperation(getAuth(), getFirestore(), request.data, request.auth.uid) }
+  try { return await withRecovery(request, !PROPERTY_READ_ACTIONS.includes(request.data?.action), db => propertyPrototypeOperation(getAuth(), db, request.data, request.auth.uid), { accountMutation: ['createAccount','setAccountEnabled'].includes(request.data?.action) }) }
   catch (error) {
     if (error instanceof HttpsError) throw error
     if (error instanceof TypeError || error instanceof RangeError || (error instanceof Error && !error.code)) throw new HttpsError('invalid-argument', error.message)
@@ -42,9 +45,8 @@ export const propertyPrototype = onCall(async request => {
 
 export const registerCase = onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
-  const firestore = getFirestore()
   try {
-    return await registerCaseTransaction(firestore, request.data, request.auth.uid)
+    return await withRecovery(request, true, db => registerCaseTransaction(db, request.data, request.auth.uid))
   } catch (error) {
     if (error?.code === 'permission-denied') {
       throw new HttpsError('permission-denied', error.message)
@@ -55,7 +57,7 @@ export const registerCase = onCall(async (request) => {
 
 const warrantyCallable = (operation) => onCall(async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
-  try { return await operation(getFirestore(), request.data, request.auth.uid) } catch (error) {
+  try { return await withRecovery(request, true, db => operation(db, request.data, request.auth.uid)) } catch (error) {
     const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'aborted', 'failed-precondition'])
     throw new HttpsError(allowed.has(error?.code) ? error.code : 'internal', error instanceof AppliedWarrantyOperationError ? error.message : '適用保証を更新できませんでした。')
   }
@@ -63,10 +65,10 @@ const warrantyCallable = (operation) => onCall(async (request) => {
 export const addAppliedWarranty = warrantyCallable(addAppliedWarrantyTransaction)
 export const updateAppliedWarranty = warrantyCallable(updateAppliedWarrantyTransaction)
 
-const companyPortalCallable = operation => onCall(async request => {
+const companyPortalCallable = (operation, accountMutation = false) => onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
   try {
-    return await operation(request)
+    return await withRecovery(request, true, db => operation(request, db), { accountMutation })
   } catch (error) {
     const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'aborted', 'failed-precondition'])
     const code = error instanceof CompanyPortalError && allowed.has(error.code) ? error.code : 'internal'
@@ -74,25 +76,25 @@ const companyPortalCallable = operation => onCall(async request => {
   }
 })
 
-export const createConstructionCompanyAccount = companyPortalCallable(request =>
-  createConstructionCompanyAccountOperation(getAuth(), getFirestore(), request.data, request.auth.uid))
-export const setConstructionCompanyAccountEnabled = companyPortalCallable(request =>
-  setConstructionCompanyAccountEnabledOperation(getAuth(), getFirestore(), request.data, request.auth.uid))
-export const createRenewalWorkItem = companyPortalCallable(request =>
-  createRenewalWorkItemOperation(getFirestore(), request.data, request.auth.uid))
-export const createNewCaseWorkItem = companyPortalCallable(request =>
-  createNewCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
-export const updateCompanyCaseWorkItem = companyPortalCallable(request =>
-  updateCompanyCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
-export const withdrawNewCaseWorkItem = companyPortalCallable(request =>
-  withdrawNewCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
-export const reviewCompanyCaseWorkItem = companyPortalCallable(request =>
-  reviewCompanyCaseWorkItemOperation(getFirestore(), request.data, request.auth.uid))
+export const createConstructionCompanyAccount = companyPortalCallable((request, db) =>
+  createConstructionCompanyAccountOperation(getAuth(), db, request.data, request.auth.uid), true)
+export const setConstructionCompanyAccountEnabled = companyPortalCallable((request, db) =>
+  setConstructionCompanyAccountEnabledOperation(getAuth(), db, request.data, request.auth.uid), true)
+export const createRenewalWorkItem = companyPortalCallable((request, db) =>
+  createRenewalWorkItemOperation(db, request.data, request.auth.uid))
+export const createNewCaseWorkItem = companyPortalCallable((request, db) =>
+  createNewCaseWorkItemOperation(db, request.data, request.auth.uid))
+export const updateCompanyCaseWorkItem = companyPortalCallable((request, db) =>
+  updateCompanyCaseWorkItemOperation(db, request.data, request.auth.uid))
+export const withdrawNewCaseWorkItem = companyPortalCallable((request, db) =>
+  withdrawNewCaseWorkItemOperation(db, request.data, request.auth.uid))
+export const reviewCompanyCaseWorkItem = companyPortalCallable((request, db) =>
+  reviewCompanyCaseWorkItemOperation(db, request.data, request.auth.uid))
 
-const staffAccountCallable = operation => onCall(async request => {
+const staffAccountCallable = (operation, mutation = true) => onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
   try {
-    return await operation(request)
+    return await withRecovery(request, mutation, db => operation(request, db), { accountMutation: mutation })
   } catch (error) {
     const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'aborted', 'failed-precondition'])
     const code = error instanceof StaffAccountError && allowed.has(error.code) ? error.code : 'internal'
@@ -100,11 +102,14 @@ const staffAccountCallable = operation => onCall(async request => {
   }
 })
 
-export const listManageableStaffAccounts = staffAccountCallable(request =>
-  listManageableStaffAccountsOperation(getFirestore(), request.auth.uid))
-export const createStaffAccount = staffAccountCallable(request =>
-  createStaffAccountOperation(getAuth(), getFirestore(), request.data, request.auth.uid))
-export const updateStaffAccount = staffAccountCallable(request =>
-  updateStaffAccountOperation(getAuth(), getFirestore(), request.data, request.auth.uid))
-export const setStaffAccountEnabled = staffAccountCallable(request =>
-  setStaffAccountEnabledOperation(getAuth(), getFirestore(), request.data, request.auth.uid))
+export const listManageableStaffAccounts = staffAccountCallable((request, db) =>
+  listManageableStaffAccountsOperation(db, request.auth.uid), false)
+export const createStaffAccount = staffAccountCallable((request, db) =>
+  createStaffAccountOperation(getAuth(), db, request.data, request.auth.uid))
+export const updateStaffAccount = staffAccountCallable((request, db) =>
+  updateStaffAccountOperation(getAuth(), db, request.data, request.auth.uid))
+export const setStaffAccountEnabled = staffAccountCallable((request, db) =>
+  setStaffAccountEnabledOperation(getAuth(), db, request.data, request.auth.uid))
+
+export const recoveryRuntime = onCall(() => recoveryRuntimeOperation())
+export const recoveryStatus = onCall(request => recoveryStatusOperation(request))

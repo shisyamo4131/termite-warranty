@@ -2,6 +2,23 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function accessExists() { return exists(/databases/$(database)/documents/_recovery/access); }
+    function identityReadable() {
+      return (!accessExists() && database == '(default)') || (accessExists()
+        && get(/databases/$(database)/documents/_recovery/access).data.databaseId == database
+        && get(/databases/$(database)/documents/_recovery/access).data.phase != 'retired');
+    }
+    function recoveryAdministrator() {
+      return signedInAndEnabled() && get(/databases/$(database)/documents/staffAccounts/$(request.auth.uid)).data.role in ['developer_superuser', 'house_solution_administrator'];
+    }
+    function businessReadable() {
+      return identityReadable() && (!accessExists()
+        || get(/databases/$(database)/documents/_recovery/access).data.phase == 'normal'
+        || (get(/databases/$(database)/documents/_recovery/access).data.phase == 'verification' && recoveryAdministrator()));
+    }
+    function businessWritable() {
+      return identityReadable() && (!accessExists() || get(/databases/$(database)/documents/_recovery/access).data.phase == 'normal');
+    }
     function signedInAndEnabled() {
       return request.auth != null
         && exists(/databases/$(database)/documents/staffAccounts/$(request.auth.uid))
@@ -19,7 +36,7 @@ service cloud.firestore {
     }
 
     match /staffAccounts/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if identityReadable() && request.auth != null && request.auth.uid == uid;
       allow write: if false;
     }
 
@@ -29,21 +46,23 @@ service cloud.firestore {
         && (account.scope == 'company' || (account.scope == 'branch' && data.branchId == account.branchId));
     }
     match /propertyWarranties/{propertyId} {
-      allow read: if signedInAndEnabled() || (request.auth != null && prototypeCompanyOwns(resource.data));
-      allow write: if signedInAndEnabled();
+      allow read: if businessReadable() && (signedInAndEnabled() || (request.auth != null && prototypeCompanyOwns(resource.data)));
+      allow write: if businessWritable() && signedInAndEnabled();
     }
     match /companyBranches/{branchId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
     match /warrantyGroups/{groupId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
     match /warrantyCounters/{groupId} {
       allow read, write: if false;
     }
 
     match /constructionCompanyAccounts/{uid} {
-      allow read: if request.auth != null && (request.auth.uid == uid || signedInAndEnabled());
+      allow read: if identityReadable() && request.auth != null && (request.auth.uid == uid || (businessReadable() && signedInAndEnabled()));
       allow write: if false;
     }
 
@@ -56,8 +75,8 @@ service cloud.firestore {
     }
 
     match /constructionCompanyCaseWorkItems/{workItemId} {
-      allow read: if signedInAndEnabled()
-        || (signedInCompanyEnabled() && resource.data.constructionCompanyId == currentCompanyId());
+      allow read: if businessReadable() && (signedInAndEnabled()
+        || (signedInCompanyEnabled() && resource.data.constructionCompanyId == currentCompanyId()));
       allow write: if false;
     }
 
@@ -69,47 +88,54 @@ service cloud.firestore {
     // the live enabled-account boundary. Canonical shapes, business invariants,
     // lifecycle transitions, and soft-delete behavior belong to the application.
     match /branches/{branchId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
 
     match /constructionCompanies/{companyId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
 
     match /homeowners/{homeownerId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
 
     match /properties/{propertyId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
 
     match /warrantyServices/{serviceId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
     }
 
     // Firestore collection-group queries require a recursive wildcard match.
     match /{path=**}/appliedWarranties/{warrantyId} {
-      allow read: if signedInAndEnabled();
+      allow read: if businessReadable() && (signedInAndEnabled());
     }
 
     match /cases/{caseId} {
-      allow read, write: if signedInAndEnabled();
+      allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
 
       match /appliedWarranties/{warrantyId} {
-        allow read, write: if signedInAndEnabled();
+        allow read: if businessReadable() && signedInAndEnabled();
+      allow write: if businessWritable() && signedInAndEnabled();
       }
     }
 
     // These documents are server-owned implementation state, not staff business
     // records. Browser reads support the current UI; writes remain Admin-only.
     match /systemCounters/{counterId} {
-      allow read: if signedInAndEnabled() && counterId == 'caseNumber';
+      allow read: if businessReadable() && (signedInAndEnabled() && counterId == 'caseNumber');
       allow write: if false;
     }
 
     match /caseNumberReservations/{caseNumber} {
-      allow read: if signedInAndEnabled();
+      allow read: if businessReadable() && (signedInAndEnabled());
       allow write: if false;
     }
 

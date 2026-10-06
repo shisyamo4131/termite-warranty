@@ -1,3 +1,4 @@
+import { withRuntimeGeneration } from '../utils/recoveryClient.ts'
 import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore'
 import { httpsCallable, type Functions } from 'firebase/functions'
 import { matchesCaseUpdateBaseline } from '../../src/domain/case-rows.mjs'
@@ -112,7 +113,7 @@ export const createFirebaseCaseCommandGateway = (firestore: Firestore, functions
   createCaseCommandGateway({
     async invoke<TInput, TResult>(name: string, input: TInput) {
       const callable = httpsCallable<TInput, TResult>(functions, name)
-      return (await callable(input)).data
+      return (await callable(withRuntimeGeneration(input))).data
     },
     updateCase: input => updateCaseTransaction(firestore, input),
   })

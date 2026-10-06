@@ -29,6 +29,26 @@ let testEnvironment
 
 const contextFor = (uid) => testEnvironment.authenticatedContext(uid).firestore()
 
+test('recovery phases fence business writes, retired targets and administrator verification reads', async () => {
+  await seedDocument('staffAccounts/recovery-admin',{enabled:true,role:'house_solution_administrator'})
+  await seedStaff('recovery-staff')
+  await seedDocument('propertyWarranties/recovery-row',{name:'架空復旧物件'})
+  const admin=contextFor('recovery-admin'), staff=contextFor('recovery-staff')
+  for(const phase of ['recovering','verification','retired']) {
+    await seedDocument('_recovery/access',{databaseId:'(default)',phase,generation:2})
+    await assertFails(updateDoc(doc(admin,'propertyWarranties/recovery-row'),{name:'禁止された修正'}))
+    await assertFails(getDoc(doc(staff,'propertyWarranties/recovery-row')))
+    if(phase==='verification') await assertSucceeds(getDoc(doc(admin,'propertyWarranties/recovery-row')))
+    else await assertFails(getDoc(doc(admin,'propertyWarranties/recovery-row')))
+  }
+  await seedDocument('_recovery/access',{databaseId:'source-database',phase:'normal',generation:1})
+  await assertFails(getDoc(doc(admin,'propertyWarranties/recovery-row')))
+  await assertFails(getDoc(doc(admin,'staffAccounts/recovery-admin')))
+  await assertFails(setDoc(doc(admin,'_recovery/access'),{databaseId:'(default)',phase:'normal',generation:3}))
+  await seedDocument('_recovery/access',{databaseId:'(default)',phase:'normal',generation:3})
+  await assertSucceeds(updateDoc(doc(staff,'propertyWarranties/recovery-row'),{name:'架空修正'}))
+})
+
 test('account mutation journals remain private to Admin even for enabled staff and account owners', async () => {
   await seedStaff('lock-admin')
   await seedDocument('constructionCompanyAccounts/lock-company', { enabled: true, constructionCompanyId: 'c' })

@@ -1,5 +1,9 @@
 # Design Index
 
+- [バックアップ・復旧の実装設計](backup-recovery-implementation.md)：採用済み運用の実装開始、管理状態と復元データの分離、外部コマンド、Local検証と未実施の実設定／Dev予行。
+- [バックアップ・復旧操作手順](../runbooks/backup-recovery.md)：導入設定、外部コマンド、限定補正、途中失敗の再開、通常Devの停止予行と未実装のAuth取込。
+- [バックアップ・復旧のLocal検証](evidence/recovery-implementation-2026-10-06.md)：最終ゲート、独立レビュー、画面確認、未コミット差分と実運用前の残作業。
+
 - [アカウント競合と取得効率改善](account-concurrency-read-efficiency-2026-10-05.md)：承認された改修と5分参照キャッシュ、Local／Dev検証・復旧境界。
 
 - [現行実装の点検とバックアップ準備](evidence/current-implementation-audit-2026-10-05.md)：旧画面撤去、サブエージェントによる不具合・Read/Write調査、オフラインモックと未実装境界。
