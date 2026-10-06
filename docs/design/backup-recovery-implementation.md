@@ -1,6 +1,6 @@
 # Backup and Recovery Implementation
 
-- Status: Initial Local implementation verified; full recovery delivery remains in progress. Real cloud configuration and Dev drill not performed; Auth import unimplemented.
+- Status: Initial Local implementation verified; Dev configuration, deployment, notification delivery and PITR restoration/cutover verified. The owner confirmed HS-administrator acceptance and separately approved reopening on 2026-10-06; Dev is normal, generation 4. Live private Auth export/readback succeeded for 3 accounts. First managed backup remains unverified; Auth import unimplemented. The monitor status correction was locally verified, deployed to Dev, and confirmed by a live trial. Current evidence is in [the verification record](evidence/recovery-implementation-2026-10-06.md).
 - Authority: Implements the owner-approved recovery scope in the [specification](../specification.md#2026-10-06-バックアップ復元の対象範囲) and [ADR0032](../decisions/0032-production-firebase-operations.md#2026-10-06-recovery-operation-amendment).
 - Start instruction: owner requested implementation on 2026-10-06 after the recovery Q&A.
 - Baseline: primary repository `main`, `e88214d2ae2172c8c27c1e0dea72070c8abd0252`, plus the accepted uncommitted recovery documentation. Preserve unrelated README/operations edits.
@@ -11,7 +11,7 @@ Implement and locally verify operational controls, read-only status UI, real-pro
 
 ## Runtime and Maintenance
 
-- Operational state lives in a separately configured Firestore control database, outside all business database restore targets. Its external ID is not yet confirmed. `RECOVERY_CONTROL_DATABASE` is an explicit deployment parameter; an empty value preserves existing, unactivated operation until initialization and verified deployment.
+- Operational state lives in a separately configured Firestore control database, outside all business database restore targets. Dev's `recovery-control` was created and matched through the live API on 2026-10-06; no production ID is confirmed. `RECOVERY_CONTROL_DATABASE` is an explicit deployment parameter; an empty value preserves existing, unactivated operation until initialization and verified deployment.
 - The control database publishes only phase (`normal`, `recovering`, `verification`), active business database ID and generation. Private backup metadata/operation receipts are not exposed by public reads. They are returned only to enabled developer/HS administrators through a trusted read-only Callable.
 - Every business database has a server-owned access marker. A retired marker blocks client business access; recovering blocks all business reads/writes; verification permits enabled developer/HS administrators to read and denies every client business write. Existing account self-reads remain available to establish login identity. Existing live-enabled/company-scope checks remain intact.
 - Functions resolve the active business database from the control state and authorize maintenance access server-side. All mutations acquire a control transaction lease only in normal mode and release it on completion. Entering recovery first stops new admissions, then closes the business marker; restore/cutover requires outstanding operations to be zero. Hung leases are not automatically expired or silently cleared.

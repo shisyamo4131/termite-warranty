@@ -118,3 +118,149 @@ Storageのget／update／setIamPolicyはプロジェクト対象の権限テス�
 設定順序：既存DBの日次30日／PITR保護を先行し、その後に制御DB・非公開保管先・通知と権限を準備する。復旧制御の有効化は停止日時調整後。実設定の成功、バックアップ取得、通知到達、復元成功はまだこの照合結果から主張しない。
 
 技術一次資料：[管理バックアップ](https://docs.cloud.google.com/firestore/native/docs/backups)、[PITR](https://docs.cloud.google.com/firestore/native/docs/use-pitr)、[権限照合API](https://docs.cloud.google.com/resource-manager/reference/rest/v1/projects/testIamPermissions)。バックアップ予定の作成とPITR有効化は[操作手順](../../runbooks/backup-recovery.md)の導入設定経路と既存providerを使い、実行版を固定してから行う。
+
+### 先行する保護設定
+
+レビュー済み実装41ファイルを`b83dcf68d9b177879dde1085ef76a0674b289f7e`へローカルコミット（exit 0、pushなし）。runtime 26ファイルのmanifest一致を実測し、同一ソースの既存全7ゲート証拠を再利用した。追記文書はgovernance-check、diff check、cached diff checkともexit 0。別作業のREADME／operationsだけが残る状態で実設定を実行した。
+
+2026-10-06 11:19:55 JST、既存providerの`configure('(default)')`を導入設定として実行（Node exit 0）。実HEAD一致・runtime clean・Emulator指定なし・実DB名／所在地／形式一致を再確認した。日次予定POSTとPITR PATCHはHTTP200。設定後GETで日次予定1件、保存2592000秒（30日）、PITR ENABLED、versionRetentionPeriod=604800秒（7日）を確認。設定予定のIDは`24ea9a81-65e2-442c-9c94-b1085900ef15`、変更処理は`projects/termite-warranty-dev/databases/(default)/operations/BhADmOeyoBAG1pG1yggMChAa`。実バックアップの生成、変更処理の完了GETは後続確認する。設定直後のPITRに過去7日分が揃ったとは扱わない。業務文書・Rules・接続先・Authは変更していない。
+
+新設予定の運用名は制御DB `recovery-control`、非公開バケット `termite-warranty-dev-recovery-auth`。これは既存リソースが存在するという事実ではなく、採用済み準備範囲内の作成名の選択。APIで未作成を確認してから作成し、実応答でID／所在地を照合する。既存または別所有のリソースなら停止し、勝手に上書きしない。制御DBの公開範囲は確認済みcontrol Rulesのみ、Authバケットは公開防止・統一アクセス・auth/30日削除を設定する。通常Devの状態初期化・Functions接続先設定は停止日時の回答まで行わない。
+
+### 実リソース・停止の準備
+
+- オーナーは通常Devの停止／有効化／切替予行を「今から実施する」と回答した。復元後のHS確認・再開了承は別条件のまま。
+- 制御DB／Rules公開対象の404を確認し、制御Rulesを新DB名へ先行公開して本文一致をGETで確認した。その後`recovery-control`を新設、作成完了と東京所在地・削除保護をGET確認（Node exit 0）。Rulesetは`70ad0b64-25c8-47cb-8fda-213e9edf806c`。未作成DB名へのRules公開経路が実環境で成立した。
+- Authバケットの404を確認し、新設後に既存`assertPrivateAuthBucket`で公開防止enforced・統一アクセス・auth/30日削除・公開メンバーなしを検査（Node exit 0）。Auth内容・秘密のハッシュ設定はまだ書き込んでいない。
+- 指定された開発側のメールに限定した通知チャネル`5177019720332995880`とポリシー`18428139543408174434`を作成（Node exit 0）。フィルタは`jsonPayload.recoveryBackupFailure=true`。試験ログ`recovery-notification-test-038136d8-b83a-4206-9401-0a46aa4dc9c9`を1件送信（HTTP200、Node exit 0）。受信確認はオーナー回答待ち。
+- Authハッシュ取得／バックアップ閲覧の実Functions主体への追加と新バケットIAM限定の実行は、一般的な準備承認では具体的権限変更を承認できないとして自動承認レビューに拒否された。プロセスは起動せず、当該IAM変更は未実行。影響範囲を明示した個別承認を質問し、回答待ち。迂回して実行しない。
+- Devの読取scanは54文書、ハッシュ`e8120d2ff120e79ae9cccc37a5e28365665a6cdab73026631b9de22e2f190d6d`。Auth対応／参照／採番の読み取り検査も成功（いずれもNode exit 0）。54件の内訳はscanのコレクション別件数だけを取得し、本文は出力していない。
+- PITR変更LROの後続GETは404（当該確認コマンドexit 1）。DBのENABLED／604800秒はGET確認済みだが、このLROの取得完了とは区別する。設定変更の再送はしていない。
+
+初回切替の計画：実Functions15件のCloud Runサービスと現在の公開invoker、実行時間上限60秒をGETで照合（Node exit 0）。停止のために公開呼出だけを一時的に閉じ、旧世代の新規受付を止める。私有control `recoveryAudit`へ元IAMと元Functionsソース参照を保全してから効果を適用する。他のIAM割当を変更せず、再開は保全した元の公開呼出だけを復元する。初回導入中は復旧対応Functionsの制御設定を有効にし、未初期化を拒否させる。全世代の更新／収束を確認する前に業務を開放しない。部署等の一般権限追加とは別の、許可されたDev停止／再開の操作であり、拒否されたAuth権限追加の代替ではない。
+
+### Dev配備・メンテナンス有効化の実測
+
+配備前に全7ゲートを実際に再実行した。実装のmanifestは上記と同一、配備元は`b83dcf68d9b177879dde1085ef76a0674b289f7e`。ignored `functions/.env`には制御DB・Authバケットの参照と自動退避無効を設定し、秘密値は含めていない。別の`.env.local`は変更していない。
+
+| コマンド | 今回の実測 | exit |
+| --- | --- | --- |
+| `npm test` | 193件中191成功、既存skip 2、失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功。既存のNitro外部driver／unused import／timing警告あり | 0 |
+| `node scripts/check-functions-syntax.mjs` | 27モジュール成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `npm run test:rules` | 93成功、失敗・skip 0。架空Emulatorのみ | 0 |
+
+実行・確認結果：
+
+- 既存Functions15件の公開呼出を一時停止し、元IAM／ソース参照を私有control `recoveryAudit/dev-setup-pause-20261006`へ保全した（Node exit 0）。全件の公開メンバー除外をGETで確認。旧最大実行時間60秒を超えてから初期化した。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only 'firestore:rules,functions,hosting' --non-interactive`はexit 0。既存15件更新、新規`recoveryRuntime`／`recoveryStatus`／`recoveryBackupMonitor`の3件作成、Hosting公開完了。Cloud Scheduler API有効化を含む。
+- 配備後の全18件ACTIVE、実行主体一致、`RECOVERY_CONTROL_DATABASE=recovery-control`、`RECOVERY_BACKUP_AUTOMATION=false`をGETで確認（Node exit 0）。Auth退避・監視処理を自動有効化したとは扱わない。
+- default／control／復元先名`recovery-drill-20261006`のRules本文が実ソースと一致（Node exit 0）。復元先名にはRulesのみ先行公開し、DB自体はまだ作成・復元していない。
+- Hosting HTTP200、公開HTMLとbuild成果物がバイト一致。SHA-256は`e5f64c476dd76ca1c14490f89323d242a97273a3554046e8782fc6c27af1810a`（Node exit 0）。
+- 初期化前にdefault `_recovery/access`をrecovering／generation 0で作成（Node exit 0）。配備収束確認後、実CLIの`initialize`でnormal／generation 1、直後の`enter`でrecovering／generation 2へ遷移した（各exit 0）。実行中更新0件。公開呼出は停止状態を維持した。
+- `baseline --generation 2 --operation-id dev-baseline-20261006`はexit 0、54件。現行権限・Auth対応と採番上限を私有controlへ保全。Authアカウントや業務本文の書き換えはしていない。
+- Devブラウザで「メンテナンス中」とシステム外連絡の案内を確認。[停止表示の画像](recovery-maintenance-dev-2026-10-06.png)には業務・個人情報なし。未認証Runtimeへの直接POSTは自動承認レビューが関数実行の影響を理由に拒否したため実行せず、ブラウザ表示で検査した。
+
+### IAM・Auth秘密設定・通知の後続結果
+
+オーナーは2026-10-06に、実Functions共有主体へのAuthハッシュ取得／バックアップ閲覧と、新設バケットIAM限定を具体的に許可した。これにより先の拒否条件を解消してから実行した。
+
+- custom role `recoveryAuthHashReader`は`firebaseauth.configs.getHashConfig`のみ、`recoveryAuthBucketMetadataReader`は`storage.buckets.get`／`storage.buckets.getIamPolicy`のみで定義を照合。
+- shared実行主体へproject側の前者と`roles/datastore.backupsViewer`を追加。既存project IAMは保全。最初の実行はproject側適用後にbucket PUTで400、exit 1。GETで部分適用を確認し、Storageの取得済みpolicy形式・etagを保持してbucket側だけを適用し、HTTP200／exit 0で照合した。
+- バケット直付けは開発者の`roles/storage.admin`、実行主体の`roles/storage.objectCreator`／metadata custom roleの計3割当に限定。公開メンバーなし。既存project IAMの継承は維持しており、project管理者のアクセスまで除去したという意味ではない。
+- Auth復元用秘密ハッシュ設定の新規保存は別に自動承認レビューに拒否された。オーナーが同じDev非公開バケットへの退避を具体的に許可してから実施。`hash-configuration/firebase-auth-20261006.json`へcreate-only保存し、私有readbackの一致を確認（Node exit 0）。これは`auth/`の30日Delete対象外。参照・generation・検査版だけを私有control `recovery/hashConfigurationEvidence`に記録。秘密値をGit／画面／ログ／ローカルファイルへ保存していない。Auth利用者の実退避・取込はまだ実行していない。
+- オーナーは初回通知を未受信と回答。チャネルenabled／UNSPECIFIED、ポリシーenabled／OR／単一log条件／通知先1件をGET確認（Node exit 0）。試験ログは時刻範囲・新しい順で検索し、保存とfilter対象を確認。時刻範囲なし検索の空ページだけで未保存と断定しない。
+- 追加試験ログ`recovery-notification-retest-77262139-f7fa-4135-a22e-2ae3e62ff8bc`を1件だけ送信（HTTP200／Node exit 0）。サーバーが2026-10-06T02:44:57.275205407Zを割当。後続GETでポリシーに対応したOPENアラート`projects/termite-warranty-dev/alerts/0.odhu4tcwhdth`、openTime=2026-10-06T02:46:02Zを確認（Node exit 0）。メール受信は未確認。初回不達の原因は確定していない。
+
+通知の一次資料：[log-based通知](https://docs.cloud.google.com/logging/docs/alerting/log-based-alerts)、[アラート一覧](https://docs.cloud.google.com/monitoring/alerts/log-based-incidents)。Auth設定の形は[公式Config API](https://docs.cloud.google.com/identity-platform/docs/reference/rest/v2/Config)で確認した。秘密値は引用しない。
+
+### この時点の停止状態・次の承認境界
+
+Devはrecovering／generation 2／業務DB `(default)`。既存Functions15件の公開呼出設定はまだ一時停止中。実復元先・接続先切替・HS確認待ち・通常再開は未実行。
+
+1. 更新停止後の2026-10-06 11:40 JST（`2026-10-06T02:40:00Z`）をDev予行の復旧時点にする案を提示し、了承待ち。PITR最古時点は実GETで`2026-10-06T01:20:00Z`。了承・直前照合なしに復元POSTを送らない。
+2. 保全した既存15件の公開呼出設定だけを戻す操作は自動承認レビューが「広範な公開アクセス境界を戻す個別承認が必要」と拒否。未実行で、メンテナンスによる更新停止維持と通常再開の別了承を説明して許可を質問中。迂回しない。
+3. 追加通知のメール到達確認、初回managed backup生成、Auth利用者の実退避、自動監視有効化、実復元の出自／完了・整合確認、Dev切替／管理者確認／別の再開了承が残る。PITR予行をmanaged backup復元成功として報告しない。
+
+今回の後続文書更新は実測・運用状態の反映で、確定仕様や業務データ契約を変更していない。設計status／runbook／技術台帳／本証拠を更新し、既存設計索引から到達可能。仕様・ADR・changelog・全体進捗は新しい要件・設計判断・アプリ差分がないため追加更新しない。他タスクのREADME／operations差分は保全。
+
+### 後続の承認・通知到達・自動設定配備・復元開始
+
+上の承認待ち記録を次の実結果で更新する。Devは引き続きrecovering／generation 2。
+
+- 非公開baselineの実createdAtは`2026-10-06T02:40:22.998Z`。先の11:40案はこれより前だったため取り下げ、11:42へ訂正してオーナーが明示了承した。復元参照は`owner-dev-point-20261006-1142`。保全前の時点を停止後と断定した案の誤りを訂正し、了承前に復元していない。
+- `restore --target recovery-drill-20261006 --snapshot-time 2026-10-06T02:42:00Z`はexit 0。実処理名は`projects/termite-warranty-dev/databases/recovery-drill-20261006/operations/3sYom4Wo17QESwEnxIt21xAqMXRzYWVodHJvbi1haXNhDyIMECUa`、service開始時刻は`2026-10-06T02:51:10.397029Z`。後続`restore-status`はすべてexit 0、PITRの元DB／時点一致を検査済みだが`done:false`。管理APIの進行表示はPROCESSING／estimatedWork=100／completedWork=30だった。完了、件数一致、整合性、切替を未検査のまま成功へ読み替えない。POSTは1回のみ。
+- オーナーは「タイトルは異なるが、メールは11:46に受信した」と確認。実ポリシー名は`Dev recovery backup failure`。試験JSONのmessageをメール文面へ抽出していないため、依頼時の`(retest)`文言がメールの題名に出るという説明は訂正した。初回不達の原因は未確定だが、追加試験でlog→OPENアラート→メール到達を確認。私有control `recovery/notificationEvidence`へ受信確認と実リソース参照だけを記録（Node exit 0）、宛先は記録しない。
+- ignored `.env`のハッシュ設定参照／通知参照を、上記2つの私有control記録へ設定し、`RECOVERY_BACKUP_AUTOMATION=true`を準備した。この設定後も全7ゲートを再実行。domain 191成功／既存skip 2、typecheck成功、build成功、syntax 27成功、seed syntax成功、governance成功、rules 93成功、各exit 0。rulesは最初sandboxのCLI設定読取EPERMでexit 1、必要な権限で架空Emulatorに限定して再実行しexit 0。`.env.local`の無効設定は保全し、実Devへ試験接続していない。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only functions --non-interactive`はexit 0。全18件ACTIVE／automation=true／private参照一致をGET確認（Node exit 0）。Scheduler `firebase-schedule-recoveryBackupMonitor-asia-northeast1`はENABLED、`0 10 * * *`／Asia/Tokyo。maintenance中は既存実装が早期returnするため、実Auth退避成功や初回managed backup成功はまだ確認していない。Hostingはこの追加配備で変更していない。追加buildのHTMLハッシュは`943e73fdacf1b2528d87731056db0f42213b8f4271d4037a2028c1d1d0f80bab`で、先の公開HTMLとの一致証拠は最初の配備時の成果物を指す。
+- オーナーが既存15件の元公開呼出設定の復元を具体的に許可。初期helperの完全名へのprefix重複GET404と空IAM応答のbindings扱いで、最初の変更前に各exit 1。保全した完全名と実Functions一覧を全件照合し、空bindingsを処理して再実行。元の公開メンバーだけを各etag付き現policyへ反映し、15件GET照合と私有audit更新に成功（Node exit 0）。他の現在IAMは保全、phaseはrecovering／generation 2のまま。元の公開設定復元と通常業務の再開は別。
+
+この後は実復元の完了・元像scan・限定補正・Auth／参照／採番検査を行い、検証済み証拠だけで接続先をHS確認待ちへ切り替える。通常再開は別のオーナー了承を得るまで実行しない。実復元完了前にDB削除・復元POST再送・失敗証拠の成功書換えをしない。
+
+### 実復元完了・検証・確認待ち切替
+
+2026-10-06T03:07:49ZまでにCLI `restore-status`の`done:true`を確認（exit 0）。後続管理APIで実startTime=`2026-10-06T02:51:10.397029Z`、endTime=`2026-10-06T03:06:13.118834Z`を確認し、クラウド本体の所要時間は902.721秒（約15分3秒）。完了確認までの約17分とは区別する。この54文書での1回の実測をProdの復旧時間保証へ広げない。
+
+| 実コマンド／照合 | 結果 | exit |
+| --- | --- | --- |
+| `quarantine` | targetのRules一致とrecovering世代2マーカー | 0 |
+| `scan` | 54文書、元DBと同じ`e8120d2ff120e79ae9cccc37a5e28365665a6cdab73026631b9de22e2f190d6d`。内訳も一致 | 0 |
+| `reconcile` | `dev-reconcile-20261006`完了、accountChanges=0／counterChanges=0／54件 | 0 |
+| `verify` | `dev-verify-20261006`、実復元出自・元像／補正・現在のAuth／権限・物件参照／採番が成功、54件 | 0 |
+| `cutover` | verification／generation 3／`recovery-drill-20261006` | 0 |
+| `configure-backups` | active target日次30日予定作成、PITR PATCHの`done:true` | 0 |
+| 後続GET／SDK読取 | targetの東京／PITR ENABLED／604800秒、daily予定1件・2592000秒、sourceInfo COMPLETED、全状態一致 | 0 |
+| 実一覧クエリ | `updatedAt desc`＋document ID desc＋`limit(20)`で物件／保証16件、保証番号完全一致の索引検索で選択した1件一致 | 0 |
+
+物件／保証の本文・番号・UIDは出力していない。限定補正と検証の処理参照は上記の実結果。target日次予定は`c16d0414-b803-464d-b2bf-a0eda2d15f86`。元defaultはretiredマーカーとなり、`_recovery/activation`は保持。私有controlのruntimeとtargetマーカーは確認待ち世代3で一致。旧DBの物件／保証・アカウント・バックアップは削除していない。
+
+Schedulerの実HTTP target／OIDC主体と監視Functionsのprivate invoker IAMが対応し、public invokerなし、ENABLED・ACTIVEをGET照合（Node exit 0）。これは起動経路の設定検証で、Authファイルの実生成とは区別する。
+
+Devブラウザは停止画面からログイン画面へ自動遷移した。[確認待ちの未ログイン表示](recovery-verification-login-dev-2026-10-06.png)には個人情報なし。この環境のbrowser inventoryに既存Chromeはなく、管理者の既存ログインを操作できないため、実管理者の一覧・詳細・CSV確認はオーナーへ依頼。Localの同種確認は実施済みだが、これをDevのログイン後受入へ読み替えない。
+
+**現在の再開境界**：通常Devはverification／generation 3で業務更新停止中。オーナーへ管理者での確認と別の再開了承を質問済み。回答を得るまで`reopen`は実行しない。了承後は実HEAD・runtime clean・私有検証証拠の版を再照合し、必要なら証拠を再検証して再開する。実Auth退避試験、初回managed backup生成とそこからの復元試験は残る。PITR復元成功をこれらの成功とは扱わない。
+
+区切り前の実`status`はverification／generation 3／新DB、activeOperations=0、operatorBlocked=false、interruptedOperation=null（exit 0）。実Git HEADは引き続き`b83dcf68d9b177879dde1085ef76a0674b289f7e`。後続所有差分は設計status・runbook・技術台帳・本記録の4文書とDev画像2点、ignored `.env`の設定だけ。アプリ／Functions／CLI／Rulesのtracked runtime差分なし。README／operationsの別作業差分2点は未編集・未ステージで保全。実CLIのHEAD一致と私有検証証拠の版を再開まで維持するため、この後続文書差分はまだcommitしない。新たなpushなし。後続文書にはdocumentation-onlyのgovernance-check／diff checkを適用し、runtime変更がないので他6ゲートの成功証拠を再利用する。
+
+
+### HS管理者受入・別了承後の再開・実Auth退避
+
+2026-10-06、オーナーが「HS管理者でログイン→各種確認OK」と報告。その後、確認と再開を分けた質問へ「通常Devの再開を了承する」と回答した。復旧時点の了承とは異なる参照`owner-dev-reopen-20261006`を用いた。
+
+- 初回`status`はsandboxのFirebase CLI認証設定読取EPERMでexit 1。必要な権限で再実行しverification／generation 3／実行中更新0／運用ロックなしを確認、exit 0。
+- 実HEADは`b83dcf68d9b177879dde1085ef76a0674b289f7e`、tracked runtime差分なし。`node scripts/recovery.mjs reopen --project termite-warranty-dev --control recovery-control --revision b83dcf68d9b177879dde1085ef76a0674b289f7e --generation 3 --approval owner-dev-reopen-20261006 --operation-id dev-reopen-20261006 --apply --confirm recovery`はexit 0。実Auth／権限と54文書の検証像を再照合した上でnormal／generation 4へ移行した。
+- 再開後SDK読取はruntimeと新DBマーカーのphase／generation／DB ID一致、最新20件クエリの16件を確認、exit 0。通常Devの業務更新受付を再開し、旧DBのretiredは維持する。既存業務データを試験更新していない。
+- 実Scheduler GETでENABLED・10:00 JST・OIDC主体とprivate targetを照合。初回Auth成功記録はまだなかった。`:run`を一度だけ送信し受付成功、各Node exit 0。初回Firestore管理バックアップ未取得の失敗通知が生じ得ることを事前説明した。
+- 非公開`lastAuthBackup`とStorage実体を読み取り、gzip／schemaVersion 1／利用者3件／passwordアカウント3件／秘密ハッシュ・salt項目の存在／秘密設定参照一致をメモリ内で検査、exit 0。実completedAt=`2026-10-06T03:54:55.188Z`（12:54:55 JST）、退避ロックなし。利用者本文・UID・メール・ハッシュ・salt・オブジェクト本文は出力・ローカル保存していない。
+- 同じ監視結果ではFirestore未取得後のcatchが成功したAuthを`unavailable`へ上書きする不具合を確認。退避ファイルと最終成功記録は正常。`functions/recovery-backups.js`で取得済みAuth結果をcatchにも保持し、`test/emulator/recovery.test.mjs`でFirestore未取得＋Auth成功の同時状態を検査する回帰を追加。実通知／外部APIを使わず架空demoのstubで検査する。新要件・データ契約・権限変更ではなく既存の独立状態表示の修復。
+
+修正の配備前全7ゲートは完了。アプリ処理＋配備の混合影響として省略なし。修正は`c6331bacf16ddc6ddac0a4a5a2dfad1818e088e6`に2ファイルのみをcommitし、通常再開の旧検証証拠の版は履歴として保持。所有runtimeのSHA-256は`functions/recovery-backups.js`=`8346b3eece279a8cfae2a7d33a7c7a157bfd213028d3ee0fbac1faa220938add`、`test/emulator/recovery.test.mjs`=`70f5384aa9b2fe74f7943a139844cfec90f512d73b5f0dff061e8b79dc1a4c68`。前の26ファイルmanifestは修正前の証拠であり、その後の同一runtimeを意味しない。
+
+| 修正後コマンド | 結果 | exit |
+| --- | --- | --- |
+| `npm test` | 193件／191成功／既存skip 2／失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功、既存Nitro外部参照／未使用import警告 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 27モジュール成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 管理対象／検証方針整合 | 0 |
+| `npm run test:rules` | 架空demoの93成功／失敗0／skip 0、新しい監視handler回帰も成功、終了を確認 | 0 |
+
+実Devの`backups`読取は新DBのdaily30日予定1件、managed backupはまだ0件、exit 0。現在は`functions:recoveryBackupMonitor`だけを配備中。通常Dev再開と実Auth退避は完了している。Auth一括取込・初回managed backup生成／そこからの実復元・Prod構築は残る。
+
+
+### 状態修正のDev配備・実再試験と最終状態
+
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only functions:recoveryBackupMonitor --non-interactive`はexit 0。対象1件の更新成功を確認。Hosting／他のFunctions／Rules／IAMを追加変更していない。
+- 管理API GETで対象ACTIVE、updateTime=`2026-10-06T04:00:22.571998418Z`、実Cloud Run revision=`recoverybackupmonitor-00003-cif`、control／automation／private bucket設定一致を確認。SchedulerのENABLED・URI一致・10:00 JSTを照合して修正後の`:run`を1回送信、Node exit 0。
+- 後続私有GETでcheckedAt=`2026-10-06T04:00:57.567Z`、monitoring=`failed`、authBackup=`success`、Auth3件・最終成功日時保持、exportLockなし、runtime normal／generation 4を確認、Node exit 0。Firestore管理バックアップがまだ0件なので全体監視の失敗は実態どおり。これを監視全体成功とは報告しない。今回の修正後試験では週次キャッシュの既存Auth成功を再利用し、追加の秘密ファイル生成は要求していない。
+- 再開前はオーナーがHS管理者でログイン後の各種確認OKと報告。再開後の通常状態・一覧読取と監視は開発側で実検査済み。実業務レコードの試験更新は実施していない。
+
+通常Devの停止→PITR復元→新DB切替→HS管理者確認→別了承→再開の予行と、Auth実退避／私有readback、発見した監視表示不具合の修正・Dev実再試験は完了。初回managed backup生成とその復元、Auth一括取込、Prod構築、旧DB削除は未完了／未実装または別範囲として保持する。
+
+最終所有差分は設計・手順・技術台帳・本証拠、仕様冒頭の実施状態、changelog、業務情報なしのDev画像2点。runtime修正2点は上記commit済み。管理者確認・再開の了承はこのチャットの2026-10-06回答を根拠とし、復旧ルール自体は変更しない。ADR／データ契約／ガバナンス／全体進捗は新たな要件・耐久判断・schema変更がないため変更しない。新しい文書の追加はなく、既存索引で到達する。README／operationsの別作業差分は保全し、commit対象外。配備後の文書確定にgovernance-check／diff checkを再実行し、runtime変更なしのため他6ゲートは上記の成功証拠を再利用する。Git pushなし。
+
+最終実`status`はnormal／generation 4／新DB、activeOperations=0、operatorBlocked=false、interruptedOperation=null（exit 0）。文書確定後の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit 0。日次Firestoreの初回確認を次の運用確認事項とする。

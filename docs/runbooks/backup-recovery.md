@@ -1,12 +1,12 @@
 # バックアップ・全体復旧の操作手順
 
-状態：初期実装のLocal検証済み。Devの実設定を確認中。実バックアップ取得、実メール、管理バックアップからの実復元、通常Devの停止予行は未実施。Prod設定はHSアカウント等の情報待ち。確定仕様は[復旧範囲](../specification.md#2026-10-06-バックアップ復元の対象範囲)、内部契約は[実装設計](../design/backup-recovery-implementation.md)。
+状態：初期実装のLocal検証済み。2026-10-06にDevの保護設定・制御DB・限定IAM・復旧対応版の配備、メンテナンス有効化、通知到達、隔離PITR復元と検証・切替を実施。HS管理者の確認と別の再開了承を受け、通常Devを新DBで再開（世代4）。実Auth退避・私有readbackは3件で成功。初回managed backup生成は未確認。Firestore未取得時もAuth成功を保持する監視状態修正は全7ゲート・Dev配備・実再試験済み。現在の状態・保留操作は[実測記録](../design/evidence/recovery-implementation-2026-10-06.md)を参照。Prod設定はHSアカウント等の情報待ち。確定仕様は[復旧範囲](../specification.md#2026-10-06-バックアップ復元の対象範囲)、内部契約は[実装設計](../design/backup-recovery-implementation.md)。
 
 ## 導入前の確認
 
-実プロジェクト・制御DB・復元先・DB所在地・配備版・権限をその場で照合する。制御DB名は未確定のため、実IDを例示しない。通常Devを止める日時と、実設定・配備・予行の対象を確認してから実施する。Functionsの全世代を停止／切替し、旧世代の処理が収束したことを確認して初期化する。
+実プロジェクト・制御DB・復元先・DB所在地・配備版・権限をその場で照合する。Devの実制御DBは`recovery-control`、所在地は`asia-northeast1`。再作業でもAPIで照合し、Prodへ同じ名前や承認を広げない。通常Devを止める日時と、実設定・配備・予行の対象を確認してから実施する。Functionsの全世代を停止／切替し、旧世代の処理が収束したことを確認して初期化する。
 
-`RECOVERY_CONTROL_DATABASE`を設定したFunctionsは、未初期化ならアクセスを停止する。制御DBに`firestore.control.rules`、業務DBに`firestore.rules`をそれぞれ配備する。CLIはAPIで各DBの実際のRules本文を照合する。復元先名にも、復元のPOST前にDB IDで隔離する業務Rulesを公開して照合する。DB作成前のRules公開可否は実環境で未検証であり、不可ならこの順序を別途設計する。既存DBの上書きで代用しない。
+`RECOVERY_CONTROL_DATABASE`を設定したFunctionsは、未初期化ならアクセスを停止する。制御DBに`firestore.control.rules`、業務DBに`firestore.rules`をそれぞれ配備する。CLIはAPIで各DBの実際のRules本文を照合する。復元先名にも、復元のPOST前にDB IDで隔離する業務Rulesを公開して照合する。DB作成前のRules公開は2026-10-06のDevで成立し、control／復元先名とも本文一致を確認した。別環境で成立するとは仮定せず、不可なら順序を再設計する。既存DBの上書きで代用しない。
 
 既定DBの`_recovery/activation`は恒久的な導入確認点。既定DBを旧業務DBとして切り離した後も、この確認点を保持する。既定DB削除は現構成では利用停止を引き起こすため禁止。旧DBの将来の削除は、確認点の移設を含む別設計・承認が必要。削除コマンドは用意しない。
 
