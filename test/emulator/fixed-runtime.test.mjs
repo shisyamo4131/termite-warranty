@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
-import { initializeApp, deleteApp } from 'firebase-admin/app'
+import { initializeApp, deleteApp, applicationDefault } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { withRecovery, resolveRecovery } from '../../functions/recovery-runtime.js'
+import { recoveryBackupMonitor } from '../../functions/recovery-backups.js'
 import { fixtureRuntime } from '../helpers/fixed-runtime.mjs'
 
 if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:28080' || process.env.FIREBASE_AUTH_EMULATOR_HOST !== '127.0.0.1:29099') throw new Error('Dedicated fictional emulators required.')
@@ -61,4 +62,63 @@ test('fixed Functions resolve only default, reject absent protocol/config and le
   await marker.set({...fixtureRuntime,generation:6});await runtime.set({...fixtureRuntime,generation:6})
   await assert.rejects(withRecovery(request(4),true,()=>assert.fail('old screen after reopen')))
   await withRecovery(request(6),true,async db=>assert.equal(db.databaseId,'(default)'))
+})
+
+test('backup failure emits structured notification when both history and health storage fail',async()=>{
+  await marker.set(fixtureRuntime);await runtime.set(fixtureRuntime)
+  const referencePrototype=Object.getPrototypeOf(control.doc('recovery/backupHealth'))
+  const originalSet=referencePrototype.set,originalCreate=referencePrototype.create
+  const credential=applicationDefault(),originalToken=credential.getAccessToken,originalFetch=globalThis.fetch
+  const originalWrite=process.stderr.write,logs=[]
+  const keys=['GCLOUD_PROJECT','RECOVERY_BACKUP_AUTOMATION','RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE']
+  const environment=Object.fromEntries(keys.map(key=>[key,process.env[key]]))
+  process.env.GCLOUD_PROJECT='demo-termite-warranty';process.env.RECOVERY_BACKUP_AUTOMATION='true';process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE='fictional/notification'
+  credential.getAccessToken=async()=>({access_token:'fictional-token',expires_in:3600})
+  globalThis.fetch=async url=>{assert.ok(String(url).startsWith('https://firestore.googleapis.com/v1/projects/demo-termite-warranty/'));return{ok:true,json:async()=>String(url).includes('/backups')?{backups:[]}:{locationId:'fictional-location'}}}
+  referencePrototype.create=async function(...args){if(this.path.startsWith('backupHistory/'))throw Error('fictional-private-history-failure');return originalCreate.apply(this,args)}
+  referencePrototype.set=async function(...args){if(this.path==='recovery/backupHealth')throw Error('fictional-private-health-failure');return originalSet.apply(this,args)}
+  process.stderr.write=function(chunk,...args){logs.push(String(chunk));return true}
+  try{
+    await assert.rejects(recoveryBackupMonitor.run({}),/Backup monitoring failed/)
+    const entries=logs.flatMap(line=>line.trim().split('\n')).map(line=>JSON.parse(line))
+    const notifications=entries.filter(entry=>entry.recoveryBackupFailure===true)
+    assert.equal(notifications.length,1)
+    assert.equal(notifications[0].severity,'ERROR')
+    assert.equal(JSON.stringify(entries).includes('fictional-private'),false)
+    assert.equal(JSON.stringify(entries).includes('fictional-token'),false)
+  }finally{
+    referencePrototype.set=originalSet;referencePrototype.create=originalCreate
+    credential.getAccessToken=originalToken;globalThis.fetch=originalFetch;process.stderr.write=originalWrite
+    for(const key of keys)if(environment[key]===undefined)delete process.env[key];else process.env[key]=environment[key]
+  }
+})
+
+test('successful account mutation keeps its result and notifies when Auth export and health storage fail',async()=>{
+  await marker.set(fixtureRuntime);await runtime.set(fixtureRuntime)
+  await business.doc('staffAccounts/fixed-admin').set({enabled:true,role:'house_solution_administrator'})
+  await control.doc('recovery/lastAuthBackup').delete()
+  await control.doc('recovery/authExportLock').delete()
+  const keys=['RECOVERY_BACKUP_AUTOMATION','RECOVERY_AUTH_BACKUP_BUCKET','RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE']
+  const environment=Object.fromEntries(keys.map(key=>[key,process.env[key]]))
+  process.env.RECOVERY_BACKUP_AUTOMATION='true';process.env.RECOVERY_AUTH_BACKUP_BUCKET='fictional-unreachable-private-bucket';process.env.RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE='fictional/hash'
+  const referencePrototype=Object.getPrototypeOf(control.doc('recovery/backupHealth')),originalSet=referencePrototype.set
+  const credential=applicationDefault(),originalToken=credential.getAccessToken
+  const originalWrite=process.stderr.write,logs=[]
+  credential.getAccessToken=async()=>{throw Error('fictional-private-credential-failure')}
+  referencePrototype.set=async function(...args){if(this.path==='recovery/backupHealth')throw Error('fictional-private-health-failure');return originalSet.apply(this,args)}
+  process.stderr.write=function(chunk,...args){logs.push(String(chunk));return true}
+  try{
+    assert.equal(await withRecovery(request(),true,async()=> 'account-change-succeeded',{accountMutation:true}),'account-change-succeeded')
+    const entries=logs.flatMap(line=>line.trim().split('\n')).map(line=>JSON.parse(line))
+    const notifications=entries.filter(entry=>entry.recoveryBackupFailure===true)
+    assert.equal(notifications.length,1)
+    assert.equal(notifications[0].severity,'ERROR')
+    assert.equal(JSON.stringify(entries).includes('fictional-private'),false)
+    assert.equal(JSON.stringify(entries).includes('fictional-unreachable'),false)
+    assert.equal((await control.collection('recoveryOperations').get()).size,0)
+    assert.equal((await control.doc('recovery/authExportLock').get()).exists,false)
+  }finally{
+    referencePrototype.set=originalSet;credential.getAccessToken=originalToken;process.stderr.write=originalWrite
+    for(const key of keys)if(environment[key]===undefined)delete process.env[key];else process.env[key]=environment[key]
+  }
 })

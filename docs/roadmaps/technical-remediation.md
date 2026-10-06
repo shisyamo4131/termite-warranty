@@ -2,7 +2,11 @@
 
 ## 2026-10-06 障害通知からの復旧準備
 
-オーナーは今回専用補助処理で終えず、このCodexプロジェクトの実障害通知から停止・復元を開始できる状態を指示。正式CLIへHosting管理ファイル照合とビルド不要のread-only observeを実装、project-rules／仕様／設計／runbookへ入口・停止の事前指示・復旧時点と別HS再開了承の境界を反映。通常アプリ・業務schemaは無変更。対象は現設定Dev、Prod非対応。最終Local全7ゲート（domain242/240pass2skip、Rules108pass）と独立レビュー、Dev observe/provider出自の読取確認を完了。新HEADのHosting反映と正式全配備証明は未完了。今回指示を正常Devの再停止と扱わない。実Auth・managedbackup初回／実復元・全fault/volume/cost・実Dev緊急閉鎖は別残件で、全体進捗を加点しない。
+オーナーは今回専用補助処理で終えず、このCodexプロジェクトの実障害通知から停止・復元を開始できる状態を指示。正式CLIへHosting管理ファイル照合とビルド不要のread-only observeを実装、project-rules／仕様／設計／runbookへ入口・停止の事前指示・復旧時点と別HS再開了承の境界を反映。通常アプリ・業務schemaは無変更。対象は現設定Dev、Prod非対応。Local全7ゲート（domain242/240pass2skip、Rules108pass）と独立レビュー後、承認されたb89af5eのDev Hosting反映と正式全10確認（18 Functions/18 archive・Hosting993を含む）を完了。18:43 JSTにnormal7・業務54文書hash不変を読取確認。
+
+配備後の独立再点検で、通知marker不足と監視状態の保存失敗による通知欠落のP2を2件確認。Localで安全な構造化ログ先行／状態保存失敗捕捉へ修正、成功account変更結果を保持する障害注入3試験と修正差分review済み。修正後の全Rules回帰110成功、domain240成功/既存2skip、Functions28構文/seed/governanceも各exit0。typecheck/buildは無変更のapp/buildに対する既存exit0証拠をpolicyの失効条件により再利用。追加Dev Functions/Hosting配備は未実施。HS確認待ち中の新障害も停止に戻す既存動作をrunbookへ明記。今回のDev反映承認は具体的なHosting-onlyであり、追加配備対象は完成した差分・検証とともに提示する。[実測](../design/evidence/recovery-implementation-2026-10-06.md)を現在の実行状態の正本とする。
+
+18:44 JSTの実読取ではdefaultの日次30日／PITRとJST10時監視は有効、managedbackup初回0件、Auth非公開退避3件の存在を確認。Auth退避objectの保存世代固定は現在の成功記録にも実装されておらず、過去データだけの問題ではない。実Auth取込／復元後login、managedbackup実取得／実復元、全fault/volume/cost、実Dev緊急閉鎖は別残件。今回指示を正常Devの再停止と扱わず、全体進捗を加点しない。
 
 ## 2026-10-06 Authの区切りと(default)固定復旧への変更
 

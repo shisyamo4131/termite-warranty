@@ -13,6 +13,15 @@ const enabled = defineBoolean('RECOVERY_BACKUP_AUTOMATION', { default: false })
 const bucketName = defineString('RECOVERY_AUTH_BACKUP_BUCKET', { default: '' })
 const hashEvidence = defineString('RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE', { default: '' })
 const mailEvidence = defineString('RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE', { default: '' })
+export async function recordBackupFailure(control, health) {
+  // Notification must survive a control-store failure. Never log raw errors,
+  // private backup references, account records or credentials.
+  logger.error('Recovery backup check failed.', { recoveryBackupFailure: true })
+  if (control) {
+    try { await control.doc('recovery/backupHealth').set(health, { merge: true }) }
+    catch { logger.warn('Recovery backup failure status could not be saved.') }
+  }
+}
 async function api(path) {
   const token = await applicationDefault().getAccessToken()
   const response = await fetch(`https://firestore.googleapis.com/v1/${path}`, { headers: { Authorization: `Bearer ${token.access_token}` }, signal: AbortSignal.timeout(60_000) })
@@ -85,10 +94,9 @@ export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', sch
     await control.doc('recovery/backupHealth').set({ monitoring: mailEvidence.value() ? health.status : 'unconfigured', authBackup: auth.status, checkedAt: new Date() }, {merge:true})
     if (health.status !== 'success' || auth.status !== 'success') throw new Error('Backup is missing, stale or unconfigured.')
   } catch {
-    if (control) await control.doc('recovery/backupHealth').set({ monitoring: mailEvidence.value() ? 'failed' : 'unconfigured', authBackup: authStatus, checkedAt: new Date() }, { merge: true })
     // Cloud Monitoring log-based alert sends developer-only email after its
     // separately verified notification channel/policy has been configured.
-    logger.error('Recovery backup check failed.', { recoveryBackupFailure: true })
+    await recordBackupFailure(control, { monitoring: mailEvidence.value() ? 'failed' : 'unconfigured', authBackup: authStatus, checkedAt: new Date() })
     throw new Error('Backup monitoring failed; inspect private operational state.')
   }
 })

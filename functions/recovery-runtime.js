@@ -56,11 +56,11 @@ export async function withRecovery(request, mutation, operation, { accountMutati
   finally {
     await lease.delete()
     if (accountMutation && completed) {
-      const { exportPrivateAuthSnapshot } = await import('./recovery-backups.js')
+      const { exportPrivateAuthSnapshot, recordBackupFailure } = await import('./recovery-backups.js')
       // Coalesce signals. Failed/rejected calls do not force a full export;
       // the epoch preserves uncertain authorized mutations for the next run.
       try { await exportPrivateAuthSnapshot(control) }
-      catch { await control.doc('recovery/backupHealth').set({ authBackup: 'failed' }, { merge: true }); console.error('Recovery Auth backup failed.', { recoveryBackupFailure: true }) }
+      catch { await recordBackupFailure(control, { authBackup: 'failed' }) }
     }
   }
 }

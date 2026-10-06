@@ -574,3 +574,49 @@ Dev正式observeはexit0、protocol2/default/normal7、control/marker一致、�
 影響ファイル：scripts/default-recovery.mjs、lib/default-recovery-provider-init.mjs/default-recovery-observation.mjs/default-recovery-release-proof.mjs/recovery-controller.mjs、admission/release-proof/emulator-defaultの試験、project-rules、仕様、両復旧設計、ADR0032、runbook、技術台帳、changelog、本記録。business data contract/アプリ/Functions/Rules/index/schema/通常ReadWriteは不変。private baselineのbindings追加は実装設計に反映。既存indexから到達可能、新規文書なし。docs/READMEとoperationsの所有外差分は保持。共通managed/governance policy/version変更なし、全体進捗加点なし。
 
 未完了：新commitの専用profile成果物をDev Hostingへ反映して正式CLIの全配備確認を通すこと。tool-only commitでもbuildIdが変わるため、旧配信artifactを新HEAD一致と扱わない。現normal7を停止/復元せず、Hosting-onlyの対象・成果物・差戻し先を提示し実行承認後に確認する。実Auth取込/復元後login、managedbackup初回/実復元、全fault/volume/cost、実Dev緊急閉鎖は従来の別残件。プラットフォーム/認証/control不能時の即時成功は保証しない。
+
+### INCIDENT-02 保存後のDev事前確認と配備承認待ち
+
+レビュー・最終全7Localゲート済みのowned17ファイルをローカルcommit `b89af5e0c3305339f6b9df2fa804d584caaa61eb` に保存。pushなし。docs/README.mdとdocs/operations.mdの所有外変更は未stageのまま保持。runtime sourceはclean。
+
+正式CLI `preflight --dev-inspect --project termite-warranty-dev --control recovery-control --revision b89af5e0c3305339f6b9df2fa804d584caaa61eb --source (default) --generation 7 --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/b053d7fc67931cde` はactual exit0/cloudWrites false。project/DB2件・normal7 marker/control・リース/lockなし、default/control Rules、READY索引11/exemption30、18 Functions/18 pinned archiveはpass。Hostingだけblockedで、ready falseを維持。新HEAD専用profileをfresh build済み、latest manifest IDは同commit、timestamp0。blocked結果を配備完了と扱わない。
+
+具体的な次の実行対象はHosting site `termite-warranty-dev` のみ。Hosting専用のignored config（public絶対path、同じheaders/rewrites、明示site、Functions/Firestore項目なし）を準備した。候補は今回専用profileの同commit成果物。現行公開 `sites/termite-warranty-dev/versions/cb5d99639a58bd25` を差戻し基点として保全。実行する場合は実HEAD/source無変更/対象/site/公開版を再照合し、Hosting-onlyを配備、正式CLIのfresh full proofとnormal7/runtime/初期画面を検証する。業務停止、業務データ反映/削除、Auth/IAM、Functions/Rules/index配備は含めない。失敗時は現在状態を読み取ってこの直前公開版への差戻しを行う。具体配備の承認はまだ未受領で実行していない。
+
+### INCIDENT-POSTDEV 画面配備完了・独立再検証（2026-10-06）
+
+前節の承認待ちは履歴。オーナーの「Dev反映ってことなら承認します。反映したら、バックアップの取得と私の声掛けからメンテナンスモード→リストアまでの流れ、実装を再度サブエージェントを使って検証」で、提示済みHosting-only更新と配備後再検証を承認。実HEAD b89af5e/source無変更・同siteの旧公開版を再照合、正式preflightでfresh profile成果物を作成した。
+
+`.\node_modules\.bin\firebase.cmd deploy --project termite-warranty-dev --only hosting --config tmp/incident-hosting-only.json` はexit0。991アプリファイルを配備し、実公開版は `sites/termite-warranty-dev/versions/2e5375bc493cc479`。Functions/Rules/index/Auth/IAM/業務文書の更新やメンテナンスは実施していない。直後のpreflightはHostingだけblockedだったため完了扱いを保留。GET-only診断で993全path/hash/ACTIVE/config/前後live版一致を確認し、正式CLI再取得で全10checks pass（18 Functions/18 source archives、default/control Rules、READY index11/exemptions30、Hosting993を含む）、actual exit0/cloudWrites false。inspectのready falseは実行許可を与えない仕様であり、失敗ではない。直後blockedの正確な原因は確認できず、伝播遅延と断定しない。
+
+`node tmp/check-dev-normal-runtime.mjs` exit0、公開runtime protocol2/default/normal7、未認証registerCase/listManageableStaffAccountsは401。`node tmp/inspect-dev-after-db-cleanup.mjs` exit0、18:43:10 JSTに業務54件のtypedhash `85436d953ae39c56c5dfaa64235467b48728394839e535a4ada7c16cb8a21400` 不変、private前像54/metadata2、retirement deleted、リース0/lockなしを確認。認証済み業務保存を新たに実行して受入とする検証はしていない。
+
+正式 `recovery.mjs backups --project termite-warranty-dev --control recovery-control --revision b89af5e0c3305339f6b9df2fa804d584caaa61eb` exit0。defaultのdaily schedule1件、retention2592000s=30日、managedbackup0件。GET-only `tmp/inspect-incident-backup-status.mjs` exit0、18:44:42 JSTにPITR有効/earliestVersionTime01:20Z、monitor ACTIVE/automation true、ENABLED/JST10:00/実endpoint一致、次回2026-10-07 10:00 JSTを確認。最終試行は13:00:55 JST/code13、private履歴Firestore missing・monitoring failed・Auth success。未取得を成功と表示していない。Firestoreの取得時刻自体は監視時刻10時ではなく、管理サービスの予定で決まる（[公式説明](https://firebase.google.com/docs/firestore/backups#create_and_manage_backup_schedules)に取得の正確な時刻は設定不可と明記）。初回取得／実managed復元は未検証のまま。
+
+Authの最新退避は12:54:55 JST/3件、private bucket条件・object存在・export lockなしを確認。本文や秘密値をこの再点検で出力しない。成功記録はobject generationをpinしておらず、今後の生成にも同じ残件がある。実Auth取込/login/部分失敗回復は別残件。現在Authを業務DB復元で巻き戻さない方針を維持。
+
+独立サブエージェント2名によるINCIDENT-POSTDEV-01／BACKUP-POSTDEV-01はread-only。Aの全配備ビルド不要・即時受付閉鎖、Bの新一時DB/不明結果再送禁止・現在profiles/bindings/上限補正、Cの全体同期/余剰削除/前像/checkpoint、HS読取・非更新CSV、別D了承をコード・既存試験と照合。新P1なし、通知P2が2件、運用文書P3が1件：
+
+- アカウント変更後のAuth退避失敗がconsole.errorで出力され、通知対象のstructured `recoveryBackupFailure` フィールドにならない。
+- 失敗状態の制御DB保存も失敗すると、通知ログまで到達しない。アカウント変更経路では成功済み業務結果も補助記録失敗で失敗に見える。
+- verification中の新障害からAへ戻る分岐がrunbookに欠け、通常observeのHS了承待ち表示と混同し得る。
+
+Local修正はfunctions/recovery-backups.jsにrecordBackupFailure（固定safe ERROR marker先行、状態保存失敗は捕捉してsafe警告）を追加し、runtimeのアカウント変更後とmonitorの失敗経路を統一。monitor自体の失敗は維持し、成功account変更結果は保持。runbook手順2を既実装のnormal/verification→enterと整合させた。許可・schema・Auth方針を変える修正ではない。BACKUP-POSTDEV-02／INCIDENT-POSTDEV-02のdelta独立reviewにP1/P2残件なし、文書P3解消。reviewerの試験/クラウド操作なしをroot実測と区別。
+
+修正後選択7ゲートの証拠：
+
+| Command | Result | Independently observed exit |
+| --- | --- | --- |
+| `npm test` | 242 total / 240 pass / 2 existing Windows symlink skips | 0 |
+| `npm run test:rules` | 110 pass / 0 skip、fixed A–D chainと通知の二重失敗注入2件を含む | 0 |
+| `node scripts/check-functions-syntax.mjs` | all 28 files | 0 |
+| `node --check scripts/seed-emulator.mjs` | success | 0 |
+| `./scripts/check-governance.ps1` | current v3 managed/policy alignment、最終文書追記後も再確認する | 0 |
+| `npm run typecheck` | INCIDENT-02のexit0証拠を再利用、app/Nuxt/dependency/TSに変更なし | 0 (reused) |
+| `npm run build` | INCIDENT-02のexit0証拠を再利用、app/build/dependencyに変更なし。次配備成果物は新revisionでfresh生成 | 0 (reused) |
+
+単独Localエミュレータfixed-runtime3件もexit0。履歴create+health.set失敗、Authcredential+health.set失敗を注入し、実SDKstderrのERROR structured marker1回・秘密値非出力・account成功結果・lease/Authlock収束を検査。全回帰は上記110件に包含した実測だがpolicy gate includesは全て[]のため必要7コマンドのstatusを個別保持。各wrapperはLASTEXITCODEを直後保存してその値で終了。修正後にdomain/Rules/Functions-syntaxの旧証拠を流用せず再実行。app/seedはpolicy失効条件に変更なし（seedは追加実行もexit0）。
+
+未反映範囲：新通知修正のDev Functions/対応Hosting配備。具体的には同Devの既存18 Functions（同一source証明の維持のため全18件）と新commit専用profile Hostingだけを更新する。IAM/実行アカウント/env値/予定/Rules/index/業務/Authを変えず、メンテナンスや復元は行わない。事前actual18件/Invoker policy/通常7を照合、更新後全5配備proof・runtime・業務hash・scheduleとIAM不変を確認。失敗時は実配備を読取り、直前b89af5eのFunctions artifactと今回成功版Hostingへ復帰し、未知応答を盲再送しない。Hosting-only承認とは別の対象なので、完成した修正と検証を提示してこの追加配備の承認を得る。
+
+影響範囲は上記Functions2/test1とrunbook、技術台帳、changelog、本記録。仕様/業務data contract/ADR/版/managed governance/verification policy/全体進捗は既存確定方針へ戻すbugfixで変更不要。新文書なしで既存indexの到達性維持。docs/README.mdとdocs/operations.mdの所有外差分を保持。実Dev A–D再予行、managedbackup取得と実復元、実Auth、control障害のDev緊急閉鎖、Prod、全fault/volume/costを完了扱いにしない。現Devは停止していない。
