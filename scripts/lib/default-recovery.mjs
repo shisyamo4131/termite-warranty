@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { Firestore, FieldPath, Timestamp, GeoPoint } from 'firebase-admin/firestore'
 import { RecoveryError, ACCESS_PATH, RUNTIME_PATH, databaseId } from '../../src/domain/recovery.mjs'
 import { fixedRuntimeState, sameFixedEpoch } from '../../src/domain/fixed-recovery.mjs'
-import { authorizationDigest, inspectBusinessIntegrity, scanDatabase } from './recovery-controller.mjs'
+import { authorizationDigest, inspectBusinessIntegrity, scanDatabase, numberingHighWater } from './recovery-controller.mjs'
 
 const roots = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','externalKeyReservations','branchCodeReservations','propertyImportSources','propertyImportReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
 const protectedRoots = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','caseNumberReservations'])
@@ -116,6 +116,34 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
     await stopped(plan.generation)
     if(imageHash(await documentImage(database(plan.source)))!==plan.sourceHash||await authorizationDigest(database(plan.authoritySource),auth)!==plan.authorizationHash)deny()
   }
+  async function addressEvidence(generation,{baselineId,addressOperationId,addressPlanHash}) {
+    ids(baselineId);if(!/^[\w-]{1,100}$/.test(addressOperationId??'')||!/^[a-f0-9]{64}$/.test(addressPlanHash??''))deny()
+    const baseline=(await control.doc(`recoveryBaselines/${baselineId}`).get()).data()
+    if(!baseline||baseline.databaseId!=='(default)'||baseline.generation!==generation||baseline.revision!==revision||!/^[a-f0-9]{64}$/.test(baseline.authorizationHash??'')||!/^[a-f0-9]{64}$/.test(baseline.typedHash??'')||!baseline.snapshot||!baseline.highWater)deny()
+    const {verifyCompletedPropertyAddresses}=await import('./property-address-migration.mjs')
+    const address=await verifyCompletedPropertyAddresses(target,control,{operationId:addressOperationId,generation,planHash:addressPlanHash})
+    const milliseconds=value=>value instanceof Date?value.getTime():typeof value?.toMillis==='function'?value.toMillis():NaN
+    if(!Number.isFinite(milliseconds(baseline.createdAt))||!Number.isFinite(milliseconds(address.createdAt))||milliseconds(baseline.createdAt)>milliseconds(address.createdAt))deny()
+    const original=await scanDatabase(target,{project:(path,fields)=>address.originals.get(path)??fields})
+    if(original.hash!==baseline.snapshot.hash||original.count!==baseline.snapshot.count||digest(typed(original.counts))!==digest(typed(baseline.snapshot.counts))||await authorizationDigest(target,auth)!==baseline.authorizationHash||digest(typed(await numberingHighWater(target)))!==digest(typed(baseline.highWater)))deny()
+    await inspectBusinessIntegrity(target,baseline.highWater)
+    const image=await documentImage(target)
+    if([...image.keys()].some(path=>path.startsWith('accountMutationLocks/')))deny()
+    const before=new Map([...image].map(([path,row])=>{
+      const original=address.originals.get(path);if(!original)return [path,row]
+      // Preserve qualified raw reference/type values outside the migrated fields.
+      const fields={...row.fields}
+      for(const key of ['address','prefecture','municipality','streetTownAndNumber','revision']){if(Object.hasOwn(original,key))fields[key]=original[key];else delete fields[key]}
+      return [path,{...row,fields,hash:digest(typed(fields))}]
+    }))
+    if(imageHash(before)!==baseline.typedHash)deny()
+    return {baseline,address,image}
+  }
+  async function validateAddressPlan(plan) {
+    if(plan.kind!=='address-migration'||plan.publicationOnly!==true||plan.source!=='(default)'||plan.authoritySource!=='(default)'||plan.target!=='(default)'||plan.controlId!==controlId||plan.revision!==revision||plan.migration!==false||plan.total!==0)deny()
+    const {baseline,address,image}=await addressEvidence(plan.generation,plan)
+    if(digest(typed(baseline))!==plan.baselineHash||address.journalHash!==plan.addressJournalHash||address.checkpointHash!==plan.addressCheckpointHash||imageHash(image)!==plan.expectedHash||plan.sourceHash!==plan.expectedHash||image.size!==plan.count||baseline.authorizationHash!==plan.authorizationHash||digest(typed(baseline.highWater))!==digest(typed(plan.highWater)))deny()
+  }
   return {
     async initialize() {
       const state={protocol:2,phase:'recovering',generation:1,databaseId:'(default)',controlDatabaseId:controlId}
@@ -184,9 +212,30 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
         await release(owner);return {planId:id,changes:changes.filter(c=>c.kind==='set').length,deletes:changes.filter(c=>c.kind==='delete').length,count:expected.size}
       }catch{await failed(owner);throw new RecoveryError('Plan sealing interrupted; keep maintenance and inspect private plan.')}
     },
+    async planAddress(generation,id,{baselineId,addressOperationId,addressPlanHash,approval}) {
+      ids(id,approval);if(!approval)deny();const state=fixedRuntimeState(await stopped(generation))
+      const ref=planRef(id),owner=randomUUID()
+      const {baseline,address,image}=await addressEvidence(generation,{baselineId,addressOperationId,addressPlanHash})
+      const hash=imageHash(image)
+      const plan={status:'sealing',kind:'address-migration',publicationOnly:true,source:'(default)',authoritySource:'(default)',target:'(default)',controlId,generation,revision,approval,migration:false,baselineId,baselineHash:digest(typed(baseline)),addressOperationId,addressPlanHash,addressJournalHash:address.journalHash,addressCheckpointHash:address.checkpointHash,authorizationHash:baseline.authorizationHash,highWater:baseline.highWater,sourceHash:hash,beforeHash:hash,expectedHash:hash,count:image.size,total:0,owner,createdAt:new Date()}
+      try {
+        // The lock and recoverable sealing evidence must exist together or neither.
+        await control.runTransaction(async tx=>{
+          const [current,held,prior,operations,exporting]=await Promise.all([tx.get(runtime),tx.get(lock),tx.get(ref),tx.get(control.collection('recoveryOperations').limit(1)),tx.get(control.doc('recovery/authExportLock'))])
+          if(!sameFixedEpoch(fixedRuntimeState(current.data()),state)||held.exists||prior.exists||operations.size||exporting.exists)deny()
+          tx.create(lock,{operationId:id,generation,intent:{kind:'default-seal'},owner,startedAt:new Date()})
+          tx.create(ref,plan)
+        })
+        await afterSealItem(0)
+        await stopped(generation);await validateAddressPlan(plan)
+        await ref.update({status:'verified',verifiedAt:new Date()})
+        await afterTransition('address-plan-verified')
+        await release(owner);return {status:'verified',planId:id,count:image.size,changes:0,deletes:0}
+      }catch{await failed(owner);throw new RecoveryError('Address publication sealing interrupted; retain maintenance and inspect private evidence.')}
+    },
     async apply(id,{resume=false,workerStopped=false,expectedOwner}={}) {
       ids(id)
-      const ref=planRef(id),plan=(await ref.get()).data();if(!plan||!['sealed','applying','verified'].includes(plan.status)||plan.revision!==revision)deny()
+      const ref=planRef(id),plan=(await ref.get()).data();if(!plan||plan.publicationOnly||plan.kind==='address-migration'||!['sealed','applying','verified'].includes(plan.status)||plan.revision!==revision)deny()
       let owner
       if(resume){if(!workerStopped||!expectedOwner)deny();owner=randomUUID();await control.runTransaction(async tx=>{const l=(await tx.get(lock)).data();if(l?.operationId!==id||l.owner!==expectedOwner||l.intent?.kind!=='default-apply')deny();tx.update(lock,{owner,failed:false})})}
       else owner=await acquire(id,plan.generation)
@@ -237,6 +286,7 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
       if(!reopen&&plan.generation!==state.generation||reopen&&(plan.publishedPhase!=='verification'||plan.publishedGeneration!==state.generation))deny()
       if(reopen){const receipt=(await target.doc('_recovery/publication').get()).data();if(receipt?.planId!==id||receipt.generation!==state.generation||receipt.phase!=='verification'||receipt.expectedHash!==plan.expectedHash)deny()}
       if(!sameFixedEpoch(state,access)||state.phase!==(reopen?'verification':'recovering')||reopen&&approval===plan.approval||!reopen&&approval!==plan.approval)deny()
+      if(plan.publicationOnly||plan.kind==='address-migration')await validateAddressPlan(plan)
       if(imageHash(await documentImage(target))!==plan.expectedHash||await authorizationDigest(target,auth)!==plan.authorizationHash)deny()
       await inspectBusinessIntegrity(target,plan.highWater)
       const next={...state,phase:reopen?'normal':'verification',generation:state.generation+1}
@@ -256,11 +306,12 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
       try {
         if(held.intent.kind==='default-seal') {
           const ref=planRef(id),plan=(await ref.get()).data()
-          if(!plan||!['sealing','sealed'].includes(plan.status)||plan.revision!==revision)deny()
+          if(!plan||!['sealing','sealed',...(plan?.publicationOnly?['verified']:[])].includes(plan.status)||plan.revision!==revision)deny()
           await stopped(plan.generation,{migration:plan.migration})
+          if(plan.publicationOnly||plan.kind==='address-migration')await validateAddressPlan(plan)
           if(imageHash(await documentImage(target))!==plan.beforeHash)deny()
           if(plan.status==='sealing')await ref.update({status:'aborted-before-application',abortedAt:new Date()})
-          await release(owner);return {status:plan.status==='sealed'?'sealed':'aborted-before-application',planId:id}
+          await release(owner);return {status:['sealed','verified'].includes(plan.status)?plan.status:'aborted-before-application',planId:id}
         }
         const {prior,next,approval}=held.intent,raw=fixedRuntimeState((await runtime.get()).data()),access=fixedRuntimeState((await marker.get()).data())
         if(!sameFixedEpoch(raw,next)||!sameFixedEpoch(access,prior)&&!sameFixedEpoch(access,next))deny()
@@ -268,6 +319,7 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
           const ref=planRef(id),plan=(await ref.get()).data();if(plan?.status!=='verified'||plan.revision!==revision||!approval)deny()
           if(sameFixedEpoch(access,prior)) {
             await deployment()
+            if(plan.publicationOnly||plan.kind==='address-migration')await validateAddressPlan(plan)
             if(imageHash(await documentImage(target))!==plan.expectedHash||await authorizationDigest(target,auth)!==plan.authorizationHash)deny()
             await inspectBusinessIntegrity(target,plan.highWater)
             if(plan.migration)await database(plan.source).doc(ACCESS_PATH).set({databaseId:plan.source,phase:'retired',generation:next.generation})

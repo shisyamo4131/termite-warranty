@@ -38,6 +38,35 @@ test('execution flags require explicit confirmation, evidence and command-specif
  for(const command of ['initialize','emergency-close','reconcile-emergency','status'])assert.throws(()=>options([command,...args]))
  assert.throws(()=>options(['resume',...args]));assert.throws(()=>options(['plan',...args]));assert.throws(()=>options(['enter',...args]))
 })
+test('address publication requires default-only explicit journal hash and pre-migration baseline',()=>{
+ const addressArgs=args.map(value=>value===source?'(default)':value)
+ const extra=['--baseline','address-baseline','--address-operation','address-migration','--address-plan-hash','d'.repeat(64)]
+ assert.equal(options(['plan-address',...addressArgs,...extra]).command,'plan-address')
+ for(const key of ['--baseline','--address-operation','--address-plan-hash']){const changed=[...extra],i=changed.indexOf(key);changed.splice(i,2);assert.throws(()=>options(['plan-address',...addressArgs,...changed]))}
+ assert.throws(()=>options(['plan-address',...args,...extra]))
+ assert.throws(()=>options(['plan-address',...addressArgs,...extra,'--verification','fictional-B-evidence']))
+ assert.throws(()=>options(['plan-address',...addressArgs,...extra,'--migration']))
+ assert.throws(()=>options(['publish',...addressArgs,...extra]))
+})
+test('publication-only plans cannot enter generic apply/resume and verified seal recovery stays closed',async()=>{
+ const f=fixture(),normalSource=f.options.source
+ f.options.source='(default)';f.plan.source='(default)';f.plan.kind='address-migration';f.plan.publicationOnly=true;f.plan.status='verified'
+ await assert.rejects(admitDev(f))
+ f.options.command='plan-address';f.options.baseline='address-baseline';f.options['address-operation']='address-migration';f.options['address-plan-hash']='d'.repeat(64)
+ await assert.doesNotReject(admitDev(f))
+ f.options.source=normalSource;await assert.rejects(admitDev(f));f.options.source='(default)'
+ f.options.command='recover-operator';f.options['worker-stopped']=true;f.options['expected-owner']='owner-123'
+ f.documents.set(`${control}/recovery/operatorLock`,{operationId:f.options.operation,owner:'owner-123',intent:{kind:'default-seal'}})
+ await assert.doesNotReject(admitDev(f))
+ f.plan.publicationOnly=false;await assert.rejects(admitDev(f))
+})
+test('address plan dispatch uses closed Rules check and no restore verifier/copy operation',async()=>{
+ const calls=[]
+ const input={command:'plan-address',generation:5,operation:'address-publish',baseline:'address-baseline','address-operation':'address-migration','address-plan-hash':'d'.repeat(64),approval:'external/address'}
+ const result=await dispatchDev(input,{admission:async()=>calls.push('admission'),verifyClosedRules:async()=>calls.push('closed'),factory:{planAddress:async(...values)=>{calls.push(values);return {status:'verified'}}}})
+ assert.equal(result.status,'verified');assert.deepEqual(calls.slice(0,3),['admission','closed','admission'])
+ assert.deepEqual(calls[3],[5,'address-publish',{baselineId:'address-baseline',addressOperationId:'address-migration',addressPlanHash:'d'.repeat(64),approval:'external/address'}])
+})
 test('wrong revision, generation, DB, source, plan, active leases and lock are refused before mutation',async()=>{
  const changes=[f=>f.repository.dirty=true,f=>f.repository.head='b'.repeat(40),f=>f.state.generation=6,f=>f.request=async()=>({name:'wrong',type:'FIRESTORE_NATIVE',locationId:'x'}),f=>f.plan.source='wrong-copy',f=>f.plan.revision='b'.repeat(40),f=>f.documents.set(`${control}/recovery/operatorLock`,{owner:'other'}),f=>f.documents.set(`${control}/recovery/authExportLock`,{owner:'other'}),f=>f.listOperations=async()=>[true],f=>f.documents.get(`${source}/_recovery/access`).phase='normal',f=>f.documents.get(`${source}/_recovery/access`).generation=4]
  await assert.doesNotReject(()=>admitDev(fixture()))

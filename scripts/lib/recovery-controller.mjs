@@ -218,12 +218,17 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       if(authorization.profiles.length>1000)throw new RecoveryError('Authorization baseline exceeds this implementation budget; paginated baseline storage is required.')
       if(Buffer.byteLength(JSON.stringify(canonical(authorization.profiles)))>750_000)throw new RecoveryError('Authorization baseline exceeds the private document size budget.')
       const snapshot = await scanDatabase(database(state.databaseId))
+      let typedHash
+      if((await runtime.get()).data()?.protocol===2){
+        const {documentImage,imageHash}=await import('./default-recovery.mjs')
+        typedHash=imageHash(await documentImage(database(state.databaseId)))
+      }
       const highWater = await numberingHighWater(database(state.databaseId))
       const bindingRows=(await database(state.databaseId).collection('constructionCompanyAccountBindings').limit(1001).get()).docs
       const bindings=bindingRows.map(row=>({id:row.id,fields:row.data()}))
       if(bindings.length>1000||Buffer.byteLength(JSON.stringify(canonical({bindings,profiles:authorization.profiles,highWater,snapshot})))>750_000)throw new RecoveryError('Combined authority baseline exceeds the private budget.')
       await effect({kind:'baseline',databaseId:state.databaseId})
-      await control.doc(`recoveryBaselines/${id}`).create({ databaseId: state.databaseId, generation, authorizationHash: authorization.hash, profiles: authorization.profiles, bindings, snapshot, highWater, revision, createdAt: now() })
+      await control.doc(`recoveryBaselines/${id}`).create({ databaseId: state.databaseId, generation, authorizationHash: authorization.hash, profiles: authorization.profiles, bindings, snapshot, highWater, revision, ...(typedHash?{typedHash}:{}),createdAt: now() })
       return { baselineId: id, count: snapshot.count }
     }) },
     async quarantine(generation, id, target) { return exclusive(generation, id, async effect => {

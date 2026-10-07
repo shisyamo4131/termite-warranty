@@ -25,6 +25,10 @@ export async function admitDev({options:o,repository,request,readDocument,listOp
     if(o.source!=='(default)'||!same(runtime,marker)||!['normal','verification'].includes(runtime.phase))deny()
     return
   }
+  if(o.command==='plan-address') {
+    if(o.source!=='(default)'||runtime.phase!=='recovering'||runtime.databaseId!=='(default)'||!same(runtime,marker)||!/^[\w-]{8,80}$/.test(o.baseline??'')||!/^[\w-]{1,100}$/.test(o['address-operation']??'')||!/^[a-f0-9]{64}$/.test(o['address-plan-hash']??''))deny()
+    return
+  }
   if(o.command==='plan') {
     if(runtime.phase!=='recovering'||source.phase!=='recovering'||source.generation!==o.generation||o.source==='(default)'||source.controlDatabaseId!==undefined&&source.controlDatabaseId!==o.control)deny()
     if(o.migration){if(runtime.protocol!==undefined||runtime.databaseId!==o.source||source.protocol!==undefined)deny()}
@@ -40,11 +44,12 @@ export async function admitDev({options:o,repository,request,readDocument,listOp
   else if(o.command!=='reopen'&&o.approval!==plan.approval)deny()
   if(o.command==='recover-operator') {
     if(lock.intent.kind==='default-seal') {
-      if(!['sealing','sealed'].includes(plan.status)||runtime.phase!=='recovering'||plan.generation!==o.generation||!plan.migration&&!same(runtime,marker))deny()
+      if(!['sealing','sealed',...(plan.publicationOnly&&plan.kind==='address-migration'?['verified']:[])].includes(plan.status)||runtime.phase!=='recovering'||plan.generation!==o.generation||!plan.migration&&!same(runtime,marker))deny()
     }else if(plan.status!=='verified'||!same(runtime,lock.intent.next)||!same(marker,lock.intent.prior)&&!same(marker,lock.intent.next))deny()
     return
   }
   if(['apply','resume'].includes(o.command)) {
+    if(plan.publicationOnly||plan.kind==='address-migration')deny()
     if(!['sealed','applying','verified'].includes(plan.status)||plan.generation!==o.generation||runtime.phase!=='recovering')deny()
     if(!plan.migration&&!same(runtime,marker))deny()
     if(plan.migration&&runtime.databaseId!==o.source&&!(runtime.protocol===2&&runtime.databaseId==='(default)'))deny()
@@ -62,11 +67,12 @@ export function sanitizeCommand(result,command) {
 // Closed operations must remain usable when the application release is broken.
 export async function dispatchDev(o,{factory,admission,verifyClosedRules}) {
   await admission()
-  if(['plan','apply','resume'].includes(o.command))await verifyClosedRules()
+  if(['plan','plan-address','apply','resume'].includes(o.command))await verifyClosedRules()
   await admission()
   const resume={workerStopped:o['worker-stopped']===true,expectedOwner:o['expected-owner']}
   if(o.command==='enter')return factory.enter(o.generation,o.operation)
   if(o.command==='plan')return factory.plan(o.generation,o.operation,{source:o.source,baselineId:o.baseline,verificationId:o.verification,approval:o.approval,migration:o.migration===true})
+  if(o.command==='plan-address')return factory.planAddress(o.generation,o.operation,{baselineId:o.baseline,addressOperationId:o['address-operation'],addressPlanHash:o['address-plan-hash'],approval:o.approval})
   if(['apply','resume'].includes(o.command))return factory.apply(o.operation,{...resume,resume:o.command==='resume'})
   if(o.command==='recover-operator')return factory.recoverOperator(o.operation,resume)
   if(['publish','reopen'].includes(o.command))return factory.publish(o.operation,o.approval,{reopen:o.command==='reopen'})

@@ -29,3 +29,12 @@ test('operator refuses live targets, duplicate arguments and invalid generations
 })
 
 test('invalid control is rejected before SDK target discovery',()=>{let calls=0;assert.throws(()=>defaultRecovery({database:()=>{calls++},controlId:'test-control-',revision:'a'.repeat(40)}));assert.equal(calls,0);assert.throws(()=>options(['status','--project','demo-termite-warranty','--control','test-control-','--revision','a'.repeat(40)]))})
+
+test('address publication-only plan is refused by apply before operator acquisition or target writes',async()=>{
+ let writes=0
+ const plan={kind:'address-migration',publicationOnly:true,status:'verified',revision:'a'.repeat(40)}
+ const database=()=>({projectId:'demo-termite-warranty',doc:path=>({get:async()=>({data:()=>path==='defaultRecoveryPlans/address-publication'?plan:undefined}),set:()=>{writes++}}),runTransaction:()=>{writes++;throw Error('unexpected mutation')}})
+ const api=defaultRecovery({database,controlId:'test-control',revision:'a'.repeat(40)})
+ await assert.rejects(api.apply('address-publication'));assert.equal(writes,0)
+ await assert.rejects(api.apply('address-publication',{resume:true,workerStopped:true,expectedOwner:'owner-123'}));assert.equal(writes,0)
+})

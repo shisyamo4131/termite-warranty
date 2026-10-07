@@ -17,20 +17,22 @@ import {buildReleaseArtifacts} from './lib/default-recovery-build.mjs'
 import {observeFixedRecovery} from './lib/default-recovery-observation.mjs'
 
 export function options(args) {
-  const command=args.shift(),allowed=new Set(['initialize','observe','status','preflight','enter','plan','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
+  const command=args.shift(),allowed=new Set(['initialize','observe','status','preflight','enter','plan','plan-address','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
   if(!allowed.has(command))throw Error('Unknown fixed recovery command.')
   const o={command},flags=new Set(['apply','worker-stopped','migration','dev-inspect','dev-execute'])
-  const keys=new Set(['project','control','revision','generation','operation','source','site','hosting-provider-version','confirm','baseline','verification','approval','expected-owner',...flags])
+  const keys=new Set(['project','control','revision','generation','operation','source','site','hosting-provider-version','confirm','baseline','verification','approval','expected-owner','address-operation','address-plan-hash',...flags])
   while(args.length){const raw=args.shift();if(!raw?.startsWith('--'))throw Error('Unknown argument.');const k=raw.slice(2);if(!keys.has(k)||k in o)throw Error('Unknown or duplicate argument.');o[k]=flags.has(k)?true:args.shift();if(o[k]===undefined||String(o[k]).startsWith('--'))throw Error('Missing argument.')}
   const dev=o.project==='termite-warranty-dev'
   if(!['demo-termite-warranty','termite-warranty-dev'].includes(o.project)||!o.control||o.control==='(default)'||!/^[a-f0-9]{40}$/.test(o.revision??''))throw Error('Explicit approved project, revision and separate control required.')
   // Read-only flag cannot promote ANY command, including --apply, to Dev writes.
   const execute=dev&&o['dev-execute']===true
   if(dev&&!execute&&(!o['dev-inspect']||!['observe','status','preflight'].includes(o.command)||o.apply||o.migration||o['worker-stopped']||o.operation||o.approval||o.baseline||o.verification||o['expected-owner']||o.confirm))throw Error('Explicit Dev inspection only.')
-  if(execute&&(!['plan','apply','resume','publish','reopen','recover-operator','enter'].includes(command)||o['dev-inspect']||o.apply!==true||o.confirm!=='fixed-recovery'||!o.site||!/^[-\w./:]{4,160}$/.test(o.approval??'')||!/^[\w-]{8,80}$/.test(o.operation??'')))throw Error('Explicit guarded Dev command required.')
+  if(execute&&(!['plan','plan-address','apply','resume','publish','reopen','recover-operator','enter'].includes(command)||o['dev-inspect']||o.apply!==true||o.confirm!=='fixed-recovery'||!o.site||!/^[-\w./:]{4,160}$/.test(o.approval??'')||!/^[\w-]{8,80}$/.test(o.operation??'')))throw Error('Explicit guarded Dev command required.')
   if(execute&&command==='plan'&&(!/^[\w-]{8,80}$/.test(o.baseline??'')||!o.migration&&!/^[\w-]{8,80}$/.test(o.verification??'')))throw Error('Explicit plan evidence required.')
   if(execute&&['resume','recover-operator'].includes(command)&&(!o['worker-stopped']||!o['expected-owner']))throw Error('Stopped worker and exact lock owner required.')
-  if(execute&&command!=='plan'&&(o.migration||o.baseline||o.verification)||execute&&!['resume','recover-operator'].includes(command)&&(o['worker-stopped']||o['expected-owner']))throw Error('Command-specific evidence required.')
+  if(command==='plan-address'&&(!/^[\w-]{8,80}$/.test(o.baseline??'')||!/^[\w-]{1,100}$/.test(o['address-operation']??'')||!/^[a-f0-9]{64}$/.test(o['address-plan-hash']??'')||o.source!=='(default)'||o.migration||o.verification))throw Error('Explicit address publication evidence required.')
+  if(command!=='plan-address'&&(o['address-operation']!==undefined||o['address-plan-hash']!==undefined))throw Error('Address evidence is command-specific.')
+  if(execute&&command!=='plan'&&command!=='plan-address'&&(o.migration||o.baseline||o.verification)||execute&&!['resume','recover-operator'].includes(command)&&(o['worker-stopped']||o['expected-owner']))throw Error('Command-specific evidence required.')
   if(!dev&&(o['dev-inspect']||o['dev-execute']||o.confirm||o.command==='preflight'))throw Error('Dev options cannot target emulators.')
   databaseId(o.control);if(o.source!==undefined)databaseId(o.source)
   if(o.generation!==undefined){o.generation=Number(o.generation);if(!Number.isSafeInteger(o.generation)||o.generation<1)throw Error('Invalid generation.')}
@@ -152,6 +154,7 @@ async function main(){
     else if(o.command==='emergency-close')result=await api.emergencyClose(o.generation,o.operation)
     else if(o.command==='reconcile-emergency')result=await api.reconcileEmergency(o.generation,o.operation,resume)
     else if(o.command==='plan')result=await api.plan(o.generation,o.operation,{source:o.source,baselineId:o.baseline,verificationId:o.verification,approval:o.approval,migration:o.migration===true})
+    else if(o.command==='plan-address')result=await api.planAddress(o.generation,o.operation,{baselineId:o.baseline,addressOperationId:o['address-operation'],addressPlanHash:o['address-plan-hash'],approval:o.approval})
     else if(o.command==='apply'||o.command==='resume')result=await api.apply(o.operation,{...resume,resume:o.command==='resume'})
     else if(o.command==='recover-operator')result=await api.recoverOperator(o.operation,resume)
     else result=await api.publish(o.operation,o.approval,{reopen:o.command==='reopen'})

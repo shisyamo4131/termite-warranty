@@ -6,6 +6,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { defaultRecovery,documentImage,imageHash } from '../../scripts/lib/default-recovery.mjs'
 import { authorizationDigest,scanDatabase,recoveryController } from '../../scripts/lib/recovery-controller.mjs'
 import { LOCAL_RUNTIME,localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { inspectPropertyAddresses,applyPropertyAddresses,rollbackPropertyAddresses } from '../../scripts/lib/property-address-migration.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'default-sync-test'),auth=getAuth(app),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)
 const target=database('(default)'),source=database('test-sync-source'),control=database('test-sync-control'),revision='b'.repeat(40)
@@ -327,4 +328,111 @@ test('publication before-marker failure retains closed access and resumes after 
  const held=(await control.doc('recovery/operatorLock').get()).data()
  assert.equal((await api.recoverOperator('before-publish-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'verification')
  assert.equal((await api.status()).marker.phase,'verification')
+})
+
+async function addressPublicationFixture(){
+ await clean();await auth.createUser({uid:'address-admin',email:'address@example.invalid',password:'Fictional-only-123'})
+ await target.doc('staffAccounts/address-admin').set({email:'address@example.invalid',role:'house_solution_administrator',enabled:true})
+ await target.doc('constructionCompanies/address-company').set({name:'fictional company',defaultGroupId:'address-group'})
+ await target.doc('warrantyGroups/address-group').set({name:'fictional group',prefix:'ADDR',fiscalStartMonth:1})
+ await target.doc('warrantyCounters/address-group_2026').set({lastValue:7})
+ await target.doc('propertyWarranties/address-property').set({name:'fictional property',status:'active',constructionCompanyId:'address-company',branchId:'',groupId:'address-group',warrantyNumber:'ADDR-26-007',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-1',postalCode:'1000001',buildingName:'fictional building',revision:2,history:[{kind:'register'}]})
+ await target.doc('properties/unrelated').set({stamp:new Timestamp(3,321000),bytes:Buffer.from([1,2,3]),link:target.doc('properties/unrelated')})
+ await api.initialize()
+ const normal={protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:control.databaseId}
+ await target.doc('_recovery/access').set(normal);await control.doc('recovery/runtime').set(normal)
+ await api.enter(1,'address-maintenance')
+ const b=recoveryController({database,auth,controlId:control.databaseId,revision})
+ await b.baseline(2,'address-baseline')
+ const address=await inspectPropertyAddresses(target),migration={operationId:'address-migration',generation:2,planHash:address.hash}
+ await applyPropertyAddresses(target,control,migration)
+ return {migration,b,input:{baselineId:'address-baseline',addressOperationId:migration.operationId,addressPlanHash:address.hash,approval:'external/address-publication'}}
+}
+
+test('healthy address baseline/migration uses publication-only plan then HS verification and separate reopening',async()=>{
+ const {input}=await addressPublicationFixture(),before=imageHash(await documentImage(target))
+ assert.equal((await api.planAddress(2,'address-publish-plan',input)).status,'verified')
+ const plan=(await control.doc('defaultRecoveryPlans/address-publish-plan').get()).data()
+ assert.equal(plan.kind,'address-migration');assert.equal(plan.publicationOnly,true);assert.equal(plan.source,'(default)');assert.equal(plan.authoritySource,'(default)');assert.equal(plan.total,0)
+ assert.equal((await control.collection('recoveryVerifications').get()).size,0)
+ assert.equal((await control.collection('defaultRecoveryPlans/address-publish-plan/items').get()).size,0)
+ await assert.rejects(api.apply('address-publish-plan'))
+ assert.equal(imageHash(await documentImage(target)),before)
+ await assert.rejects(defaultRecovery({database,auth,controlId:control.databaseId,revision:'c'.repeat(40)}).publish('address-publish-plan',input.approval))
+ assert.equal((await api.publish('address-publish-plan',input.approval)).phase,'verification')
+ await assert.rejects(api.publish('address-publish-plan',input.approval,{reopen:true}))
+ assert.equal((await api.publish('address-publish-plan','external/hs-address-reopen',{reopen:true})).phase,'normal')
+ assert.equal(imageHash(await documentImage(target)),before)
+ assert.equal((await target.doc('propertyWarranties/address-property').get()).data().address,'東京都架空市1-1')
+ assert.equal((await source.listCollections()).length,0)
+})
+
+test('address publication refuses missing/stale/after-migration baseline, wrong journal/hash and changed other business data',async()=>{
+ const changes=[async({input})=>input.baselineId='missing-baseline',async()=>control.doc('recoveryBaselines/address-baseline').update({generation:1}),async()=>control.doc('recoveryBaselines/address-baseline').update({revision:'c'.repeat(40)}),async()=>control.doc('recoveryBaselines/address-baseline').update({typedHash:(await import('firebase-admin/firestore')).FieldValue.delete()}),async({input,b})=>{await b.baseline(2,'after-address-baseline');input.baselineId='after-address-baseline'},async({input})=>input.addressPlanHash='f'.repeat(64),async()=>control.doc('addressMigrations/address-migration/preimage/address-property').update({address:'altered'}),async()=>target.doc('propertyWarranties/address-property').update({name:'changed'}),async()=>target.doc('properties/unrelated').update({extra:'changed'}),async()=>target.doc('properties/unrelated').update({stamp:new Timestamp(3,654000)}),async()=>target.doc('properties/unrelated').update({link:source.doc('properties/unrelated')}),async({migration})=>rollbackPropertyAddresses(target,control,migration)]
+ for(const change of changes){
+  const context=await addressPublicationFixture();await change(context)
+  await assert.rejects(api.planAddress(2,'address-rejected-plan',context.input))
+  assert.equal((await control.doc('defaultRecoveryPlans/address-rejected-plan').get()).exists,false)
+  assert.equal((await api.status()).marker.phase,'recovering')
+ }
+})
+
+test('completed address publication plan is invalidated by rollback or post-seal tamper',async()=>{
+ for(const mutate of [async({migration})=>rollbackPropertyAddresses(target,control,migration),async()=>control.doc('addressMigrations/address-migration').update({status:'prepared'}),async()=>target.doc('properties/unrelated').update({stamp:new Timestamp(3,654000)})]){
+  const context=await addressPublicationFixture();await api.planAddress(2,'address-tamper-plan',context.input);await mutate(context)
+  await assert.rejects(api.publish('address-tamper-plan',context.input.approval))
+  assert.equal((await api.status()).marker.phase,'recovering')
+ }
+})
+
+test('address seal and publication lost responses retain exact-owner recovery without blind reopening',async()=>{
+ const {input}=await addressPublicationFixture()
+ const fault=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async stage=>{if(stage==='address-plan-verified')throw Error('fictional lost seal response')}})
+ await assert.rejects(fault.planAddress(2,'address-lost-plan',input))
+ let held=(await control.doc('recovery/operatorLock').get()).data()
+ await assert.rejects(api.recoverOperator('address-lost-plan',{workerStopped:true,expectedOwner:'wrong-owner'}))
+ assert.equal((await api.recoverOperator('address-lost-plan',{workerStopped:true,expectedOwner:held.owner})).status,'verified')
+ assert.equal((await api.status()).marker.phase,'recovering')
+ const early=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterTransition:async stage=>{if(stage==='publish-control-prepared')throw Error('fictional publication interruption')}})
+ await assert.rejects(early.publish('address-lost-plan',input.approval))
+ held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('address-lost-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'verification')
+ const late=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterPublish:async()=>{throw Error('fictional response loss after normal')}})
+ await assert.rejects(late.publish('address-lost-plan','external/hs-address-reopen',{reopen:true}))
+ await target.doc('properties/unrelated').update({afterReopen:'legitimate change'})
+ held=(await control.doc('recovery/operatorLock').get()).data()
+ assert.equal((await api.recoverOperator('address-lost-plan',{workerStopped:true,expectedOwner:held.owner})).phase,'normal')
+ assert.equal((await target.doc('properties/unrelated').get()).data().afterReopen,'legitimate change')
+})
+
+test('address plan interruption before verification leaves a recoverable matched lock and sealed evidence',async()=>{
+ const {input}=await addressPublicationFixture(),before=imageHash(await documentImage(target))
+ const fault=defaultRecovery({database,auth,controlId:control.databaseId,revision,afterSealItem:async()=>{throw Error('fictional interrupted verification')}})
+ await assert.rejects(fault.planAddress(2,'address-before-verify',input))
+ const held=(await control.doc('recovery/operatorLock').get()).data(),plan=(await control.doc('defaultRecoveryPlans/address-before-verify').get()).data()
+ assert.equal(plan.status,'sealing');assert.equal(plan.owner,held.owner)
+ await assert.rejects(api.recoverOperator('address-before-verify',{workerStopped:false,expectedOwner:held.owner}))
+ assert.equal((await api.recoverOperator('address-before-verify',{workerStopped:true,expectedOwner:held.owner})).status,'aborted-before-application')
+ assert.equal((await control.doc('recovery/operatorLock').get()).exists,false)
+ assert.equal((await api.status()).marker.phase,'recovering');assert.equal(imageHash(await documentImage(target)),before)
+ assert.equal((await api.planAddress(2,'address-replacement-plan',input)).status,'verified')
+ await assert.rejects(api.planAddress(2,'address-replacement-plan',input))
+ assert.equal((await control.doc('recovery/operatorLock').get()).exists,false)
+})
+
+test('address sealing transaction has both plan/lock after response loss or neither after pre-commit failure',async()=>{
+ for(const committed of [false,true]){
+  const {input}=await addressPublicationFixture(),before=imageHash(await documentImage(target))
+  let injected=false
+  const store=new Proxy(control,{get(object,key){
+   if(key==='runTransaction')return async callback=>{if(!injected){injected=true;if(committed)await object.runTransaction(callback);throw Error('fictional transaction response failure')}return object.runTransaction(callback)}
+   const value=Reflect.get(object,key,object);return typeof value==='function'?value.bind(object):value
+  }})
+  const fault=defaultRecovery({database:id=>id===control.databaseId?store:database(id),auth,controlId:control.databaseId,revision})
+  await assert.rejects(fault.planAddress(2,'address-atomic-plan',input))
+  const held=await control.doc('recovery/operatorLock').get(),plan=await control.doc('defaultRecoveryPlans/address-atomic-plan').get()
+  assert.equal(held.exists,committed);assert.equal(plan.exists,committed)
+  if(committed)assert.equal((await api.recoverOperator('address-atomic-plan',{workerStopped:true,expectedOwner:held.data().owner})).status,'aborted-before-application')
+  assert.equal((await api.status()).marker.phase,'recovering');assert.equal(imageHash(await documentImage(target)),before)
+ }
 })

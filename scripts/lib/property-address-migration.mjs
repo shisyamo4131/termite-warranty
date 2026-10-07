@@ -34,6 +34,27 @@ export async function inspectPropertyAddresses(db) {
   if (page.size > 300) throw Error('Address migration exceeds the reviewed 300 document budget.')
   return { documents:page.docs.length, ...planPropertyAddresses(page.docs) }
 }
+// Verify the committed in-place migration without treating it as a DB restore.
+// Originals are reconstructed in memory only, preserving absent vs empty fields.
+export async function verifyCompletedPropertyAddresses(db,control,{operationId,generation,planHash}) {
+ if(db.projectId!==control.projectId||db.databaseId!=='(default)'||control.databaseId==='(default)'||!/^[\w-]{1,100}$/.test(operationId??'')||!/^[a-f0-9]{64}$/.test(planHash??'')||!Number.isSafeInteger(generation)||generation<1)throw Error('Explicit address verification identity required.')
+ const journal=control.doc('addressMigrations/'+operationId),prior=(await journal.get()).data(),done=(await db.doc('_recovery/addressMigration').get()).data()
+ if(!prior||prior.status!=='complete'||prior.planHash!==planHash||prior.generation!==generation||!Number.isSafeInteger(prior.count)||prior.count<0||prior.count>300||done?.operationId!==operationId||done.planHash!==planHash||done.generation!==generation||done.count!==prior.count||done.rolledBack)throw Error('Complete, unchanged address migration evidence required.')
+ const saved=await journal.collection('preimage').get(),rows=preimages(saved,prior),originals=new Map()
+ for(const row of rows){
+  if(typeof row.id!=='string'||!row.id||row.id.includes('/')||!row.fields||Object.keys(row.fields).some(key=>!['address',...oldKeys,'revision'].includes(key)))throw Error('Private preimage shape mismatch.')
+  const current=(await db.doc('propertyWarranties/'+row.id).get()).data()
+  if(!current||hash(current)!==row.expectedHash||oldKeys.some(key=>Object.hasOwn(current,key)))throw Error('Migrated business document changed.')
+  const original={...current}
+  for(const key of ['address',...oldKeys,'revision']){if(Object.hasOwn(row.fields,key))original[key]=row.fields[key];else delete original[key]}
+  const rebuilt=planPropertyAddresses([{id:row.id,data:()=>original}])
+  if(hash(original)!==row.originalHash||rebuilt.conflicts.length||rebuilt.rows.length!==1||hash(rebuilt.rows[0])!==hash(row))throw Error('Reconstructed private preimage mismatch.')
+  originals.set('propertyWarranties/'+row.id,original)
+ }
+ const remaining=await inspectPropertyAddresses(db)
+ if(remaining.rows.length||remaining.conflicts.length)throw Error('Unmigrated property address fields remain.')
+ return {count:rows.length,originals,journalHash:hash(prior),checkpointHash:hash(done),createdAt:prior.createdAt}
+}
 // Apply only in drained maintenance. Private preimages survive an unknown commit outcome.
 export async function applyPropertyAddresses(db, control, {operationId,generation,planHash,resumeOwner,previousWorkerEnded=false,afterCommit=async()=>{}}) {
   if (!/^[\w-]{1,100}$/.test(operationId ?? '') || !/^[a-f0-9]{64}$/.test(planHash ?? '')) throw Error('Explicit migration identity required.')
