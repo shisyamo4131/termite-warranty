@@ -1,3 +1,4 @@
+import { propertyAddress } from './property-warranty.mjs'
 // A4 sample only. Standard Japanese CID font; no customer template or private font is bundled.
 const hex = value => Array.from(String(value)).map(c => {
   const cp=c.codePointAt(0)
@@ -9,7 +10,7 @@ export function sampleCertificatePdf(row, companyName, branchName, issuedDate) {
     ['正式な保証書ではありません',12,80,700],
     ...[
       ['保証番号',row.warrantyNumber],['施主名',row.ownerName],['物件名',row.name],
-      ['所在地',[row.prefecture,row.municipality,row.streetTownAndNumber,row.buildingName].join('')],
+      ['所在地',[propertyAddress(row),row.buildingName].join('')],
       ['工務店',companyName],['支店',branchName],['保証グループ',row.groupName],
       ['保証開始日',row.startDate],['現在の満了日',row.expiryDate],['発行日',issuedDate],
     ].flatMap(([label,value])=> {

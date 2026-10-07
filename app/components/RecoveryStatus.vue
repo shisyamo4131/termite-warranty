@@ -3,6 +3,7 @@
   <v-alert v-if="problem" type="error" class="mb-4">{{ problem }}</v-alert>
   <v-alert v-if="status && !status.configured" type="warning" class="mb-4">自動バックアップと復旧制御は、この環境でまだ有効化されていません。</v-alert>
   <v-alert type="info" class="mb-4">復元とメンテナンスの操作は開発側で行います。復旧に関する連絡・了承はシステム外で行います。</v-alert>
+  <v-alert v-if="status?.monitoring==='paused'" type="info" class="mb-4">スキーマ改修中のため、自動バックアップとPITRは停止しています。過去の成功記録は取得履歴であり、現在復元できるバックアップを示しません。Prod提供前に取得を開始します。</v-alert>
   <v-btn variant="outlined" :loading="busy" class="mb-4" @click="load">最新の状態を取得</v-btn>
   <v-card v-if="status"><v-card-text>
     <dl class="recovery-status"><dt>システム状態</dt><dd>{{ phaseLabel }}</dd><dt>バックアップ監視</dt><dd>{{ health(status.monitoring) }}</dd><dt>業務データの最終成功時点</dt><dd>{{ date(status.lastFirestoreSuccess) }}</dd><dt>アカウントのバックアップ</dt><dd>{{ health(status.authBackup) }}</dd><dt>アカウントの最終成功時点</dt><dd>{{ date(status.lastAuthSuccess) }}</dd></dl>
@@ -15,7 +16,7 @@ type Status = { configured:boolean; runtime:{phase:string}|null; monitoring:stri
 const { $firebase } = useNuxtApp()
 const status=ref<Status|null>(null), problem=ref(''), busy=ref(false)
 const phaseLabel=computed(()=>({normal:'通常稼働',recovering:'復旧処理中',verification:'HS確認待ち'}[status.value?.runtime?.phase || ''] || '未設定'))
-const health=(value:string)=>({success:'成功',failed:'失敗',missing:'未取得',unconfigured:'未設定',unavailable:'確認できません'}[value] || '確認できません')
+const health=(value:string)=>({success:'成功',failed:'失敗',missing:'未取得',unconfigured:'未設定',unavailable:'確認できません',paused:'停止中'}[value] || '確認できません')
 const date=(value:string|null)=>value ? new Date(value).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'}) : '—'
 async function load(){busy.value=true;problem.value='';try{status.value=(await httpsCallable<Record<string,never>,Status>($firebase.functions,'recoveryStatus')({})).data}catch{problem.value='バックアップの状態を取得できませんでした。'}finally{busy.value=false}}
 onMounted(load)

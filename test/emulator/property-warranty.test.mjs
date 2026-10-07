@@ -4,7 +4,10 @@ import { initializeApp, deleteApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { propertyPrototypeOperation } from '../../functions/property-warranty.js'
-import { initialGroups, insuranceReportTarget, latestInsuranceReport } from '../../src/domain/property-warranty.mjs'
+import { propertyBulkImportOperation } from '../../functions/property-bulk-import.js'
+import { CSV_TEMPLATE_HEADERS } from '../../src/domain/property-bulk-import.mjs'
+import { inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.mjs'
+import { coveragePeriods, initialGroups, insuranceReportTarget, latestInsuranceReport } from '../../src/domain/property-warranty.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { seedFixedRuntime, httpsCallable as fixedCallable } from '../helpers/fixed-runtime.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
@@ -17,7 +20,7 @@ const call=async(action,data={},uid='meeting-hs')=>{
   }
   return propertyPrototypeOperation(auth,db,{action,...data},uid)
 }
-const fields={name:'架空物件',ownerName:'架空施主',postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
+const fields={name:'架空物件',ownerName:'架空施主',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
 const companyAddress={postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1'}
 const saveCompany=(id,defaultGroupId,enabled=true)=>call('saveCompany',{id,name:'架空工務店',defaultGroupId,enabled,address:companyAddress})
 const command=(id,revision,extra={})=>({id,revision,requestId:crypto.randomUUID(),fields,confirmRegistration:true,confirmWarnings:true,confirmCancellation:true,...extra})
@@ -32,6 +35,100 @@ before(async()=>{
   for(const [uid,company,scope,branchId] of [['meeting-head','meeting-co','company',''],['meeting-branch-user','meeting-co','branch','meeting-branch'],['meeting-otherbranch','meeting-co','branch','other'],['meeting-otherco','other','company','']])await db.doc(`constructionCompanyAccounts/${uid}`).set({role:'construction_company',enabled:true,constructionCompanyId:company,scope,branchId})
 })
 after(()=>deleteApp(app))
+
+test('branch codes reserve per company, retain existing property references and preserve omitted code',async()=>{
+  const codeDb=getFirestore(app,'test-branch-codes')
+  for(const root of await codeDb.listCollections())await codeDb.recursiveDelete(root)
+  await codeDb.doc('staffAccounts/meeting-hs').set({enabled:true,role:'house_solution_administrator'})
+  await codeDb.doc('constructionCompanies/meeting-co').set({name:'架空工務店'})
+  const codeCall=(action,data)=>propertyPrototypeOperation(auth,codeDb,{action,...data},'meeting-hs')
+  const first=await codeCall('saveBranch',{id:'code-a',name:'架空コード支店',constructionCompanyId:'meeting-co',branchCode:'0001'})
+  assert.equal(first.id,'code-a')
+  await assert.rejects(codeCall('saveBranch',{id:'code-b',name:'別支店',constructionCompanyId:'meeting-co',branchCode:'0001'}),e=>e.code==='already-exists')
+  await codeCall('saveBranch',{id:'code-a',name:'架空コード支店改名',constructionCompanyId:'meeting-co'})
+  assert.equal((await codeDb.doc('companyBranches/code-a').get()).data().branchCode,'0001')
+  await codeCall('saveBranch',{id:'code-a',name:'架空コード支店',constructionCompanyId:'meeting-co',branchCode:'0002'})
+  await codeCall('saveBranch',{id:'code-b',name:'別支店',constructionCompanyId:'meeting-co',branchCode:'0001'})
+  const legacyFields={...fields};delete legacyFields.address
+  await assert.rejects(call('save',command('old-address-client',0,{fields:legacyFields})),/住所|入力/)
+})
+
+test('real Firestore bulk transaction commits 279 rows atomically and recovery verifies identities',async()=>{
+  const imported=getFirestore(app,'test-import-volume')
+  for(const root of await imported.listCollections())await imported.recursiveDelete(root)
+  await imported.doc('staffAccounts/import-admin').set({enabled:true,role:'house_solution_administrator'})
+  await imported.doc('warrantyGroups/G').set({name:'HSC',prefix:'QA',fiscalStartMonth:1,enabled:true})
+  await imported.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
+  await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'import-admin')
+  const makeCsv=(count,offset=0)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+Array.from({length:count},(_,i)=>{
+    const row={'外部キー':`fictional-${offset+i}`,'支店コード':'0001','物件名':`架空物件${i}`,'申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'あり'}
+    return CSV_TEMPLATE_HEADERS.map(key=>row[key]??'').join(',')
+  }).join('\r\n')
+  const input={groupId:'G',companyId:'C',format:'common',csv:makeCsv(279),requestId:'volume-279'}
+  const preview=await propertyBulkImportOperation(imported,{...input,action:'preview'},'import-admin')
+  assert.equal(preview.count,279);assert.deepEqual(preview.errors,[])
+  assert.equal((await imported.collection('propertyWarranties').get()).size,0)
+  const confirm={...input,action:'commit',confirmed:true,previewHash:preview.previewHash}
+  const result=await propertyBulkImportOperation(imported,confirm,'import-admin')
+  assert.equal(result.count,279);assert.equal((await imported.collection('propertyWarranties').get()).size,279)
+  const row=(await imported.doc('propertyWarranties/'+result.ids[0]).get()).data()
+  assert.equal(row.address,'不明');assert.equal(row.insulationMaterials,'不明');assert.equal(row.status,'active')
+  assert.equal((await propertyBulkImportOperation(imported,confirm,'import-admin')).replayed,true)
+  await assert.rejects(propertyBulkImportOperation(imported,{...confirm,requestId:'duplicate-file'},'import-admin'),e=>e.details?.safeToDiscard===true)
+  assert.equal((await imported.collection('propertyWarranties').get()).size,279)
+  await inspectBusinessIntegrity(imported)
+  const receiptRef=imported.doc('propertyImportReceipts/'+input.requestId),receipt=(await receiptRef.get()).data()
+  await receiptRef.delete()
+  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
+  await receiptRef.set({...receipt,ids:receipt.ids.slice(1),count:receipt.count-1})
+  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
+  await receiptRef.set({...receipt,digest:'invalid'})
+  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
+  await receiptRef.set(receipt)
+  assert.equal((await propertyBulkImportOperation(imported,{action:'status',requestId:input.requestId},'import-admin')).count,279)
+  assert.deepEqual(await propertyBulkImportOperation(imported,{action:'status',requestId:'absent'},'import-admin'),{pending:true})
+  await imported.doc('staffAccounts/another-admin').set({enabled:true,role:'house_solution_administrator'})
+  await assert.rejects(propertyBulkImportOperation(imported,{action:'status',requestId:input.requestId},'another-admin'),e=>e.code==='permission-denied')
+  const p2=await propertyBulkImportOperation(imported,{...input,csv:makeCsv(1,900),requestId:'branch-change',action:'preview'},'import-admin')
+  await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0002'},'import-admin')
+  await assert.rejects(propertyBulkImportOperation(imported,{...input,csv:makeCsv(1,900),requestId:'branch-change',action:'commit',confirmed:true,previewHash:p2.previewHash},'import-admin'))
+  assert.equal((await imported.collection('propertyWarranties').get()).size,279)
+  const key=(await imported.collection('externalKeyReservations').limit(1).get()).docs[0]
+  await key.ref.delete()
+  await assert.rejects(inspectBusinessIntegrity(imported),/reservation/)
+  await key.ref.set(key.data())
+  const parallelInput={...input,csv:makeCsv(1,901).replace('fictional-901,0001','fictional-901,0002')}
+  const parallelPreview=await propertyBulkImportOperation(imported,{...parallelInput,action:'preview'},'import-admin')
+  const concurrent=await Promise.allSettled(['race-a','race-b'].map(requestId=>propertyBulkImportOperation(imported,{...parallelInput,requestId,action:'commit',confirmed:true,previewHash:parallelPreview.previewHash},'import-admin')))
+  assert.equal(concurrent.filter(value=>value.status==='fulfilled').length,1)
+  assert.equal((await imported.collection('propertyWarranties').get()).size,280)
+  await inspectBusinessIntegrity(imported)
+})
+
+test('warranty alert list excludes capped periods and preserves notification and cancellation filters',async()=>{
+  const prefix='notice-cap-'
+  const cases=[
+    ['ten-twenty',10,20,'active',false,true],
+    ['twenty-twenty',20,20,'active',false,false],
+    ['twenty-thirty',20,30,'active',false,true],
+    ['thirty-thirty',30,30,'active',false,false],
+    ['cancelled',10,20,'cancelled',false,false],
+    ['notified',10,20,'active',true,false],
+  ]
+  const keys=cases.map(([name])=>prefix+name)
+  const snapshots=[]
+  try {
+    for(const [name,years,maxYears,status,warrantyNotified] of cases){
+      const periods=coveragePeriods('1990-01-01',years)
+      const data={name:'架空案内物件',constructionCompanyId:'meeting-co',branchId:'meeting-branch',years,maxYears,status,warrantyNotified,handoverDate:'1990-01-01',expiryDate:periods.at(-1).expiryDate,updatedAt:new Date(2000,0,1)}
+      await db.doc('propertyWarranties/'+prefix+name).set(data)
+      snapshots.push((await db.doc('propertyWarranties/'+prefix+name).get()).data())
+    }
+    const result=await call('list',{filter:{alertKind:'warranty',notification:'pending'}})
+    assert.deepEqual(result.rows.filter(r=>keys.includes(r.id)).map(r=>r.id).sort(),cases.filter(c=>c[5]).map(c=>prefix+c[0]).sort())
+    for(const [i,key] of keys.entries())assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),snapshots[i])
+  } finally {for(const key of keys)await db.doc('propertyWarranties/'+key).delete()}
+})
 
 test('property list finds an older exact number, rejects partial numbers and keeps company/branch scope',async()=>{
   const keys=Array.from({length:25},(_,i)=>`exact-search-${i}`)
@@ -175,13 +272,13 @@ test('draft, concurrent registration, replay, boundaries, permanent renewal, cor
   await assert.rejects(call('restore',command(row.id,7,{reason:'訂正'}),'meeting-head'),e=>e.code==='permission-denied')
   await call('restore',command(row.id,7,{reason:'確認して復元'}))
   row=await call('detail',{id:row.id});assert.equal(row.warrantyNumber,number);assert.equal(row.expiryDate,'2056-09-30')
-  await call('register',command('meeting-new',0))
+  await call('register',command('meeting-new',0,{fields:{...fields,maxYears:10}}))
   assert.equal((await call('detail',{id:'meeting-new'})).groupId,'UH')
   await db.doc('constructionCompanyAccounts/meeting-head').update({enabled:false})
   await assert.rejects(call('list',{},'meeting-head'),e=>e.code==='permission-denied')
 })
 test('different concurrent properties receive unique consecutive numbers',async()=>{
-  await Promise.all(Array.from({length:5},(_,i)=>call('register',command(`meeting-concurrent-${i}`,0))))
+  await Promise.all(Array.from({length:5},(_,i)=>call('register',command(`meeting-concurrent-${i}`,0,{fields:{...fields,maxYears:10}}))))
   const all=(await call('list',{filter:{companyId:'meeting-co'}})).rows
   const nums=all.map(r=>r.warrantyNumber).filter(Boolean)
   assert.equal(new Set(nums).size,nums.length)
@@ -190,12 +287,13 @@ test('different concurrent properties receive unique consecutive numbers',async(
 test('handover is mandatory for every group, draft retry succeeds and collisions remain rejected',async()=>{
   for(const group of ['HSC','SHS','UH']){
     await saveCompany('meeting-co',group)
-    const key=`required-${group}`, req=command(key,0,{fields:{...fields,handoverDate:''}})
+    const groupFields={...fields,maxYears:group==='UH'?10:20}
+    const key=`required-${group}`, req=command(key,0,{fields:{...groupFields,handoverDate:''}})
     await assert.rejects(call('register',req))
     assert.equal((await db.doc(`propertyWarranties/${key}`).get()).exists,false)
-    req.fields={...fields,buildingArea:''}
+    req.fields={...groupFields,buildingArea:''}
     await assert.rejects(call('register',req))
-    req.fields={...fields,buildingArea:123.45,postalCode:''}
+    req.fields={...groupFields,buildingArea:123.45,postalCode:''}
     await call('register',req)
     const row=await call('detail',{id:key})
     assert.equal(row.buildingArea,123.45);assert.equal(row.insuranceExpiryDate,'2031-09-30')
@@ -409,8 +507,21 @@ test('HTTP Callable preserves account authentication and latest registration pay
     const login=webAuth(web);connectAuthEmulator(login,`http://${localRuntimeHost(LOCAL_RUNTIME.authPort)}`,{disableWarnings:true})
     const functions=getFunctions(web,'asia-northeast1');connectFunctionsEmulator(functions,LOCAL_RUNTIME.host,LOCAL_RUNTIME.functionsPort)
     const invoke=fixedCallable(functions,'propertyPrototype')
+    const bulk=fixedCallable(functions,'propertyBulkImport')
     await assert.rejects(invoke({action:'catalog'}),e=>e.code==='functions/unauthenticated')
+    await assert.rejects(bulk({action:'status',requestId:'no-receipt'}),e=>e.code==='functions/unauthenticated')
     await signInWithEmailAndPassword(login,'meeting-callable@example.invalid','Demo-only-password-123')
+    assert.deepEqual((await bulk({action:'status',requestId:'no-receipt'})).data,{pending:true})
+    const control=getFirestore(app,'test-fixed-control'),runtime=control.doc('recovery/runtime'),marker=db.doc('_recovery/access')
+    const original=(await runtime.get()).data()
+    try{
+      await runtime.update({phase:'recovering'});await marker.update({phase:'recovering'})
+      await assert.rejects(bulk({action:'status',requestId:'no-receipt'}),e=>e.code==='functions/failed-precondition')
+      await runtime.update({phase:'verification'});await marker.update({phase:'verification'})
+      assert.deepEqual((await bulk({action:'status',requestId:'no-receipt'})).data,{pending:true})
+      await assert.rejects(bulk({action:'commit',requestId:'no-receipt'}),e=>e.code==='functions/failed-precondition')
+      await assert.rejects(httpsCallable(functions,'propertyBulkImport')({action:'status',requestId:'no-receipt',runtimeProtocol:2,runtimeGeneration:0}),e=>e.code==='functions/failed-precondition')
+    }finally{await runtime.set(original);await marker.set(original)}
     const payload={action:'register',...command('http-retry',0,{fields:{...fields,buildingArea:''}})}
     await assert.rejects(invoke(payload),e=>e.code==='functions/invalid-argument')
     payload.fields={...fields,buildingArea:88.25}
@@ -462,7 +573,7 @@ test('legacy trailing dash prefix remains immutable, reserves canonical equivale
 
 
 test('undoing an already-notified extension restores the pre-extension notice state',async()=>{
-  await saveCompany('meeting-co','UH')
+  await saveCompany('meeting-co','SHS')
   for(const previousNotified of [false,true]){
     const key=`undo-notified-extension-${previousNotified}`
     await call('register',command(key,0,{fields:{...fields,maxYears:30}}))
@@ -494,7 +605,7 @@ test('undoing an already-notified extension restores the pre-extension notice st
 })
 
 test('HS latest extension undo preserves insurance and corrections, requires reason, is replay/concurrency safe',async()=>{
-  await saveCompany('meeting-co','UH')
+  await saveCompany('meeting-co','SHS')
   const key='undo-extension-test'
   await call('register',command(key,0,{fields:{...fields,maxYears:30}}))
   await call('notify',command(key,1,{notified:true}))

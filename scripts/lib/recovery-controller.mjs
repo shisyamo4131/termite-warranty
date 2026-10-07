@@ -3,7 +3,7 @@ import { FieldPath } from 'firebase-admin/firestore'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RecoveryError, databaseId, runtimeState, assertTransition } from '../../src/domain/recovery.mjs'
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
-const knownCollections = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
+const knownCollections = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','externalKeyReservations','branchCodeReservations','propertyImportSources','propertyImportReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
 const canonical = value => {
   if (value?.toDate) return { timestamp: value.toDate().toISOString() }
   if (Buffer.isBuffer(value)) return { bytes: value.toString('base64') }
@@ -120,6 +120,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     const account = accounts.get(uid)
     if (!companies.has(company) || !account || account.constructionCompanyId !== company || account.scope !== undefined) throw new RecoveryError('Restored legacy account binding requires manual reconciliation.')
   }
+  const externalProperties = new Map()
   let cursor
   do {
     let query = db.collection('propertyWarranties').orderBy(FieldPath.documentId()).limit(200)
@@ -130,9 +131,38 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
       if (!['draft','active','cancelled'].includes(value.status) || !companies.has(value.constructionCompanyId)
         || value.branchId && branches.get(value.branchId) !== value.constructionCompanyId || value.warrantyNumber && !groups.has(value.groupId)) throw new RecoveryError('Restored property references or lifecycle require verification.')
       if (value.warrantyNumber) { if (numbers.has(value.warrantyNumber)) throw new RecoveryError('Duplicate warranty numbers.'); numbers.add(value.warrantyNumber) }
+      if (value.externalKey) {
+        if (typeof value.externalKey !== 'string' || externalProperties.has(value.externalKey) || value.receivedRecordId !== row.id) throw new RecoveryError('Imported property identity requires verification.')
+        externalProperties.set(value.externalKey, { id:row.id, value })
+      }
     }
     cursor=page.size===200 ? page.docs.at(-1) : null
   } while(cursor)
+  const keyReservations = new Map((await db.collection('externalKeyReservations').get()).docs.map(row => [row.id,row.data()]))
+  for (const [key, property] of externalProperties) {
+    const expectedId = createHash('sha256').update(key).digest('hex'), reservation = keyReservations.get(expectedId)
+    if (reservation?.externalKey !== key || reservation.propertyId !== property.id) throw new RecoveryError('External key reservation is missing or mismatched.')
+  }
+  for (const [id, reservation] of keyReservations) if (typeof reservation.externalKey !== 'string' || createHash('sha256').update(reservation.externalKey).digest('hex') !== id || externalProperties.get(reservation.externalKey)?.id !== reservation.propertyId) throw new RecoveryError('Orphan external key reservation.')
+  const sources = new Map((await db.collection('propertyImportSources').get()).docs.map(row => [row.id,row.data()]))
+  for (const [key, property] of externalProperties) if (sources.get(property.id)?.propertyId !== property.id || sources.get(property.id)?.externalKey !== key) throw new RecoveryError('Import source identity is missing or mismatched.')
+  for (const [id, source] of sources) if (source.propertyId !== id || externalProperties.get(source.externalKey)?.id !== id) throw new RecoveryError('Orphan import source.')
+  const receipts = new Map((await db.collection('propertyImportReceipts').get()).docs.map(row => [row.id,row.data()]))
+  for (const [requestId, receipt] of receipts) {
+    if (typeof receipt.uid !== 'string' || !receipt.uid || !/^[a-f0-9]{64}$/.test(receipt.digest ?? '') || !/^[a-f0-9]{64}$/.test(receipt.previewHash ?? '') || !Number.isSafeInteger(receipt.count) || receipt.count < 1 || !Array.isArray(receipt.ids) || receipt.count !== receipt.ids.length || new Set(receipt.ids).size !== receipt.ids.length || receipt.ids.some(id => typeof id !== 'string' || !id || sources.get(id)?.requestId !== requestId)) throw new RecoveryError('Import receipt is incomplete or mismatched.')
+  }
+  for (const [id, source] of sources) if (typeof source.requestId !== 'string' || !receipts.get(source.requestId)?.ids.includes(id)) throw new RecoveryError('Import source has no matching complete receipt.')
+  const codeBranches = new Map()
+  for (const row of (await db.collection('companyBranches').get()).docs) {
+    const value = row.data()
+    if (!value.branchCode) continue
+    const codeId = createHash('sha256').update(value.constructionCompanyId + '\0' + value.branchCode).digest('hex')
+    if (codeBranches.has(codeId)) throw new RecoveryError('Duplicate branch code.')
+    codeBranches.set(codeId, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:row.id })
+  }
+  const codeReservations = new Map((await db.collection('branchCodeReservations').get()).docs.map(row => [row.id,row.data()]))
+  if (codeReservations.size !== codeBranches.size) throw new RecoveryError('Branch code reservations require reconciliation.')
+  for (const [id, branch] of codeBranches) if (['constructionCompanyId','branchCode','branchId'].some(key => codeReservations.get(id)?.[key] !== branch[key])) throw new RecoveryError('Branch code reservation is missing or mismatched.')
   // Older case numbering is a separate contract; never infer it from warranty counters.
   if ((await db.collection('cases').limit(1).get()).size || (await db.collection('systemCounters').limit(1).get()).size) throw new RecoveryError('Legacy case numbering requires explicit verification before recovery.')
   return counters

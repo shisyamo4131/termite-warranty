@@ -59,7 +59,7 @@
             <v-text-field v-model="branchSearch" label="所属支店名で絞り込み" clearable density="compact" />
             <p class="text-caption">{{ branchRows.length }}件／{{ selectedCompany.name }}</p>
             <v-list>
-              <v-list-item v-for="branch in paged(branchRows, branchPage)" :key="branch.id" :title="branch.name" :subtitle="branch.enabled === false ? '支店を無効化中' : selectedCompany.enabled === false ? '工務店の無効化により停止中' : '有効'">
+              <v-list-item v-for="branch in paged(branchRows, branchPage)" :key="branch.id" :title="branch.branchCode ? `${branch.name}（${branch.branchCode}）` : branch.name" :subtitle="branch.enabled === false ? '支店を無効化中' : selectedCompany.enabled === false ? '工務店の無効化により停止中' : '有効'">
                 <template #append><v-btn size="small" variant="outlined" :disabled="busy" @click="$emit('edit', 'saveBranch', branch)">編集</v-btn></template>
               </v-list-item>
             </v-list>

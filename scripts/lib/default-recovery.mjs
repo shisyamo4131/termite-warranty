@@ -4,7 +4,7 @@ import { RecoveryError, ACCESS_PATH, RUNTIME_PATH, databaseId } from '../../src/
 import { fixedRuntimeState, sameFixedEpoch } from '../../src/domain/fixed-recovery.mjs'
 import { authorizationDigest, inspectBusinessIntegrity, scanDatabase } from './recovery-controller.mjs'
 
-const roots = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
+const roots = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','externalKeyReservations','branchCodeReservations','propertyImportSources','propertyImportReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
 const protectedRoots = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','caseNumberReservations'])
 const deny = () => { throw new RecoveryError('Default recovery requires inspected private evidence, drained maintenance and unchanged authority.') }
 export const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')

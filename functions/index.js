@@ -7,6 +7,7 @@ import { assertApprovedPrototypeRuntime } from './local-runtime.js'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from './recovery-runtime.js'
 import { PROPERTY_READ_ACTIONS } from './domain/recovery.mjs'
 import { propertyPrototypeOperation } from './property-warranty.js'
+import { propertyBulkImportOperation } from './property-bulk-import.js'
 import { registerCaseTransaction } from './register-case.js'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 import {
@@ -31,6 +32,16 @@ assertApprovedPrototypeRuntime()
 setGlobalOptions({ region: 'asia-northeast1' })
 initializeApp()
 export { recoveryBackupMonitor } from './recovery-backups.js'
+
+export const propertyBulkImport = onCall({ timeoutSeconds: 300 }, async request => {
+  if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')
+  try { return await withRecovery(request, request.data?.action === 'commit', db => propertyBulkImportOperation(db, request.data, request.auth.uid)) }
+  catch (error) {
+    if (error instanceof HttpsError) throw error
+    console.error('propertyBulkImport failed', { code:error?.code })
+    throw new HttpsError('internal', '取込結果を確認できません。同じ実行を再確認してください。')
+  }
+})
 
 export const propertyPrototype = onCall(async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')

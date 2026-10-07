@@ -28,12 +28,24 @@ export function coveragePeriods(start, years) {
   }
   return periods
 }
+// These identify source-supported intervals, not historical extension operations.
+export function importedWarrantyPeriods(start, years, sourceRecordId) {
+  if (typeof sourceRecordId !== 'string' || !/^[\w-]{1,128}$/.test(sourceRecordId)) throw new Error('取込情報の識別子が不正です。')
+  return coveragePeriods(start, years).map((period, index) => ({ ...period, index, sourceRecordId, id: index ? `import-${sourceRecordId}-${index}` : 'initial' }))
+}
+// During migration, explicit single-field values (including empty) take precedence.
+export function propertyAddress(input = {}) {
+  if (Object.hasOwn(input, 'address')) return String(input.address ?? '').trim()
+  return ['prefecture', 'municipality', 'streetTownAndNumber'].map(key => String(input[key] ?? '').trim()).join('')
+}
 export function normalizeProperty(input, formal) {
   const result = {}
-  for (const key of ['name', 'ownerName', 'ownerTelephone', 'postalCode', 'prefecture', 'municipality', 'streetTownAndNumber', 'buildingName', 'handoverDate', 'applicationDate', 'notes', 'insulationMaterials']) {
+  for (const key of ['name', 'ownerName', 'ownerTelephone', 'postalCode', 'buildingName', 'handoverDate', 'applicationDate', 'notes', 'insulationMaterials']) {
     result[key] = String(input[key] ?? '').trim()
     if (result[key].length > 2000) throw new Error('入力内容が長すぎます。')
   }
+  result.address = propertyAddress(input)
+  if (result.address.length > 2000) throw new Error('入力内容が長すぎます。')
   result.postalCode = result.postalCode.replace(/[-\s]/g, '')
   result.buildingArea = input.buildingArea === '' || input.buildingArea == null ? null : Number(input.buildingArea)
   result.maxYears = Number(input.maxYears ?? 20)
@@ -41,7 +53,7 @@ export function normalizeProperty(input, formal) {
   if (input.foundationInsulation != null && typeof input.foundationInsulation !== 'boolean') throw new Error('基礎断熱材の有無を選択してください。')
   if (formal && result.foundationInsulation && !result.insulationMaterials) throw new Error('基礎断熱材が有の場合は使用資材を入力してください。')
   if (result.postalCode && !/^\d{7}$/.test(result.postalCode)) throw new Error('郵便番号は7桁で入力してください。空欄でも登録できます。')
-  if (![20, 30].includes(result.maxYears)) throw new Error('最長保証期間は20年または30年です。')
+  if (![10, 20, 30].includes(result.maxYears)) throw new Error('最長保証期間は10年・20年・30年です。')
   if (!result.name) throw new Error('物件名を入力してください。')
   if (result.applicationDate) calculateExpiryDate(result.applicationDate, 1)
   if (formal && !result.applicationDate) throw new Error('本登録には申込日が必要です。')
@@ -49,7 +61,7 @@ export function normalizeProperty(input, formal) {
   if (formal && !result.handoverDate) throw new Error('本登録には引渡日が必要です。')
   if (result.buildingArea !== null && (!Number.isFinite(result.buildingArea) || result.buildingArea <= 0)) throw new Error('建築面積は正の数で入力してください。')
   if (result.buildingArea !== null && Math.abs(result.buildingArea * 100 - Math.round(result.buildingArea * 100)) > 0.000001) throw new Error('建築面積は小数2桁までです。')
-  if (formal && (!result.ownerName || !result.prefecture || !result.municipality || !result.streetTownAndNumber || result.buildingArea === null)) throw new Error('本登録には施主名・住所・建築面積が必要です。')
+  if (formal && (!result.ownerName || !result.address || result.buildingArea === null)) throw new Error('本登録には施主名・住所・建築面積が必要です。')
   return result
 }
 export function matchesProperty(row, filter = {}) {
@@ -66,7 +78,7 @@ export function matchesProperty(row, filter = {}) {
   }
   if (filter.search) {
     const plan = createSearchPlan(filter.search)
-    const tokens = generateSearchTokens([row.name, row.ownerName, row.prefecture, row.municipality, row.streetTownAndNumber].join(' '))
+    const tokens = generateSearchTokens([row.name, row.ownerName, propertyAddress(row)].join(' '))
     if (!plan.requiredTwoCharacterTokens.every(token => tokens.twoCharacter.includes(token))) return false
   }
   if (filter.expiryBefore && (row.status !== 'active' || row.expiryDate > filter.expiryBefore)) return false
@@ -143,7 +155,10 @@ export function warrantyTransactions(row) {
   const extensions = activeExtensions(row)
   return periods.map((period, index) => {
     const event = index ? extensions.find(h => h.before?.years === index * 10) : null
-    const id = index ? event?.requestId : 'initial'
+    const received = !event && index && Array.isArray(row.importedWarrantyPeriods) && typeof row.receivedRecordId === 'string'
+      ? row.importedWarrantyPeriods.filter(value => value.index === index && value.sourceRecordId === row.receivedRecordId && value.id === `import-${row.receivedRecordId}-${index}` && value.startDate === period.startDate && value.expiryDate === period.expiryDate)
+      : []
+    const id = index ? event ? event.requestId : received.length === 1 ? received[0].id : null : 'initial'
     const saved = (row.billingItems ?? []).find(b => b.id === id)
     return { ...period, id: id || `unknown-${index}`, label: index ? `延長${index}` : '初回', billingKind: index ? '延長' : '新規', billingDate: index ? period.startDate : row.applicationDate || '', billingState: saved?.state || 'unknown', identifiable: !!id }
   })
@@ -204,6 +219,7 @@ export function alertStartDate(expiryDate, months = 2) {
 }
 export function expiryAlertEligible(row, kind, today = japanDate(), months = 2) {
   calculateExpiryDate(today, 1)
+  if (kind === 'warranty' && !(row.years < row.maxYears)) return false
   const expiry = kind === 'insurance' ? row.insuranceExpiryDate : row.expiryDate
   return row.status === 'active' && !!expiry && today >= alertStartDate(expiry, months)
 }

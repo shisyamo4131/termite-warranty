@@ -1,7 +1,25 @@
 import { nextInsuranceReportLabel } from '../app/utils/insuranceReportDisplay.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { coveragePeriods, fiscalYear, warrantyNumber, initialGroups, japanDate, reportRows, csvCell, normalizeProperty } from '../src/domain/property-warranty.mjs'
+import { coveragePeriods, fiscalYear, warrantyNumber, initialGroups, japanDate, reportRows, csvCell, normalizeProperty, propertyAddress, matchesProperty } from '../src/domain/property-warranty.mjs'
+
+test('imported warranty periods are source-bound, date-exact and subordinate to real extensions', async () => {
+  const { importedWarrantyPeriods, warrantyTransactions, extensionUndoPreview } = await import('../src/domain/property-warranty.mjs')
+  const row = { handoverDate: '2015-01-01', years: 30, receivedRecordId: 'source-1', importedWarrantyPeriods: importedWarrantyPeriods('2015-01-01', 30, 'source-1'), history: [] }
+  const periods = warrantyTransactions(row)
+  assert.deepEqual(periods.map(period => period.id), ['initial', 'import-source-1-1', 'import-source-1-2'])
+  assert.ok(periods.every(period => period.identifiable))
+  assert.equal(extensionUndoPreview({ ...row, status: 'active' }), null)
+  const corrupt = structuredClone(row)
+  corrupt.importedWarrantyPeriods[1].expiryDate = '2034-12-30'
+  assert.equal(warrantyTransactions(corrupt)[1].identifiable, false)
+  assert.equal(warrantyTransactions({ ...row, receivedRecordId: 'other' })[1].identifiable, false)
+  const duplicated = { ...row, importedWarrantyPeriods: [...row.importedWarrantyPeriods, row.importedWarrantyPeriods[1]] }
+  assert.equal(warrantyTransactions(duplicated)[1].identifiable, false)
+  const actual = { ...row, history: [{ kind: 'extend', requestId: 'actual', before: { years: 10 } }] }
+  assert.equal(warrantyTransactions(actual)[1].id, 'actual')
+  assert.throws(() => importedWarrantyPeriods('2015-01-01', 20, '../bad'))
+})
 
 test('first insurance period skips elapsed uninsured periods without inventing reports', async () => {
   const {initialInsurancePeriodAt}=await import('../src/domain/property-warranty.mjs')
@@ -140,7 +158,7 @@ test('calendar-month alerts include boundary and overdue, excluding unknown date
   const { alertStartDate, expiryAlertEligible, insuranceExpiryDate, normalizeAlertSettings, matchesProperty } = await import('../src/domain/property-warranty.mjs')
   assert.equal(alertStartDate('2027-04-30',2),'2027-02-28')
   assert.equal(alertStartDate('2028-04-30',2),'2028-02-29')
-  const row={status:'active',expiryDate:'2027-04-30',insuranceExpiryDate:'2027-04-30'}
+  const row={status:'active',years:10,maxYears:20,expiryDate:'2027-04-30',insuranceExpiryDate:'2027-04-30'}
   assert.equal(expiryAlertEligible(row,'warranty','2027-02-27'),false)
   assert.equal(expiryAlertEligible(row,'warranty','2027-02-28'),true)
   assert.equal(expiryAlertEligible(row,'insurance','2027-05-01'),true)
@@ -154,8 +172,117 @@ test('calendar-month alerts include boundary and overdue, excluding unknown date
   assert.equal(matchesProperty({handoverDate:''},{handoverMissing:'yes'}),true)
   assert.equal(matchesProperty({handoverDate:'2026-10-01'},{handoverMissing:'yes'}),false)
 })
+
+test('single property address accepts legacy input but never resurrects an explicit cleared value', () => {
+  const legacy={name:'架空',ownerName:'架空',prefecture:' 東京都 ',municipality:' 架空市 ',streetTownAndNumber:' 1-2 ',postalCode:'012-3456',buildingName:'架空ビル',buildingArea:10,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
+  const original=structuredClone(legacy)
+  assert.equal(propertyAddress(legacy),'東京都架空市1-2')
+  const normalized=normalizeProperty(legacy,true)
+  assert.equal(normalized.address,'東京都架空市1-2')
+  assert.equal(normalized.postalCode,'0123456')
+  assert.equal(normalized.buildingName,'架空ビル')
+  for(const field of ['prefecture','municipality','streetTownAndNumber']) assert.equal(Object.hasOwn(normalized,field),false)
+  assert.equal(normalizeProperty({...legacy,address:' 別の住所 '},true).address,'別の住所')
+  assert.equal(normalizeProperty({...legacy,address:''},false).address,'')
+  assert.equal(propertyAddress({...legacy,address:null}),'')
+  assert.throws(()=>normalizeProperty({...legacy,address:' '},true),/住所/)
+  assert.throws(()=>normalizeProperty({...legacy,address:'あ'.repeat(2001)},true),/長すぎ/)
+  assert.equal(normalizeProperty({...legacy,address:'不明'},true).address,'不明')
+  assert.deepEqual(legacy,original)
+  assert.equal(matchesProperty({...legacy,address:'京都府架空町'},{search:'京都'}),true)
+  assert.equal(matchesProperty({...legacy,address:'京都府架空町'},{search:'東京'}),false)
+  assert.equal(normalizeProperty({...legacy,maxYears:10},true).maxYears,10)
+  assert.throws(()=>normalizeProperty({...legacy,maxYears:15},true),/最長保証期間/)
+})
+
+test('sample certificate prints single and legacy addresses consistently', async () => {
+  const {sampleCertificatePdf}=await import('../src/domain/sample-certificate.mjs')
+  const legacy={name:'架空',ownerName:'架空',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-2',buildingName:'架空ビル'}
+  const single={...legacy,address:propertyAddress(legacy)}
+  assert.deepEqual(sampleCertificatePdf(legacy,'架空工務店','','2026-10-07'),sampleCertificatePdf(single,'架空工務店','','2026-10-07'))
+  assert.notDeepEqual(sampleCertificatePdf(single,'架空工務店','','2026-10-07'),sampleCertificatePdf({...single,address:'不明'},'架空工務店','','2026-10-07'))
+})
+
+test('warranty notices exclude the final period without changing insurance alerts', async () => {
+  const { expiryAlertEligible } = await import('../src/domain/property-warranty.mjs')
+  const row={status:'active',expiryDate:'2027-04-30',insuranceExpiryDate:'2027-04-30'}
+  for (const [years,maxYears,expected] of [[10,10,false],[10,20,true],[10,30,true],[20,30,true],[20,20,false],[30,30,false]]) {
+    const property={...row,years,maxYears}
+    assert.equal(expiryAlertEligible(property,'warranty','2027-02-28'),expected,`${years}/${maxYears}`)
+    assert.equal(expiryAlertEligible(property,'warranty','2027-05-01'),expected,`overdue ${years}/${maxYears}`)
+    assert.equal(expiryAlertEligible(property,'insurance','2027-02-28'),true)
+    assert.equal(expiryAlertEligible({...property,status:'cancelled'},'warranty','2027-05-01'),false)
+  }
+  assert.equal(expiryAlertEligible(row,'warranty','2027-05-01'),false)
+  assert.equal(normalizeProperty({name:'架空物件',maxYears:10},false).maxYears,10)
+})
 import { readFileSync } from 'node:fs'
 import ts from 'typescript'
+
+async function propertyAddressViewForTest(provider) {
+  const vue=await import('vue')
+  const postal=await import('../src/domain/postal-lookup.mjs')
+  const rules=await import('../src/domain/input-rules.mjs')
+  const source=readFileSync(new URL('../app/components/PropertyAddressFields.vue',import.meta.url),'utf8')
+    .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
+  const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const form=vue.ref({postalCode:'1000001',address:'手入力住所',buildingName:'別建物'})
+  const props=vue.reactive({postalLookupProvider:provider,validateRequired:true})
+  let unmount
+  const view=new Function('defineProps','defineModel','ref','watch','onBeforeUnmount','defineExpose','createPostalLookupCoordinator','propertyAddress','requiredRule','lengthRule','postalRule',
+    compiled+'\nreturn {handlePostalBlur,applyCandidate,candidateOptions,lookupMessage};')(
+    ()=>props,()=>form,vue.ref,vue.watch,fn=>unmount=fn,()=>{},postal.createPostalLookupCoordinator,propertyAddress,rules.requiredRule,rules.lengthRule,rules.postalRule)
+  return {...view,form,props,unmount}
+}
+
+test('single address postal lookup preserves manual edits and invalidates stale candidates', async () => {
+  let resolve
+  const provider={lookup:()=>new Promise(r=>resolve=r)}
+  const view=await propertyAddressViewForTest(provider)
+  const pending=view.handlePostalBlur()
+  view.form.value.address='途中の手修正'
+  view.form.value.address='手入力住所'
+  resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
+  await pending
+  assert.equal(view.form.value.address,'手入力住所')
+  const fresh=view.handlePostalBlur()
+  resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
+  await fresh
+  assert.equal(view.form.value.address,'東京都架空市架空町')
+  assert.equal(view.form.value.buildingName,'別建物')
+  const ambiguous=view.handlePostalBlur()
+  resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
+  await ambiguous
+  assert.equal(view.form.value.address,'東京都架空市架空町')
+  const oldCandidate=view.candidateOptions.value[0]
+  view.form.value.postalCode='1000002'
+  view.applyCandidate(oldCandidate)
+  assert.equal(view.form.value.address,'東京都架空市架空町')
+  const second=view.handlePostalBlur()
+  resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
+  await second
+  view.applyCandidate(view.candidateOptions.value[0])
+  assert.equal(view.form.value.address,'東京都架空市候補町')
+  const replaced=view.handlePostalBlur()
+  view.form.value={postalCode:'1000002',address:'別物件住所',buildingName:''}
+  resolve({status:'resolved',address:{prefecture:'古い県',municipality:'古い市'}})
+  await replaced
+  assert.equal(view.form.value.address,'別物件住所')
+  view.unmount()
+})
+
+test('single address postal lookup failure retains address and allows a later retry', async () => {
+  let fail=true
+  const view=await propertyAddressViewForTest({lookup:async()=>{if(fail)throw new Error('offline');return {status:'resolved',address:{prefecture:'架空県',municipality:'架空市',streetTownAndNumber:'架空町'}}}})
+  await view.handlePostalBlur()
+  assert.equal(view.form.value.address,'手入力住所')
+  assert.equal(view.lookupMessage.value.type,'error')
+  fail=false
+  await view.handlePostalBlur()
+  assert.equal(view.form.value.address,'架空県架空市架空町')
+  assert.equal(view.lookupMessage.value,null)
+  view.unmount()
+})
 
 test('session read failure releases loading, retry works, stale login cannot replace a newer account',async()=>{
   const source=readFileSync(new URL('../app/composables/useSession.ts',import.meta.url),'utf8')

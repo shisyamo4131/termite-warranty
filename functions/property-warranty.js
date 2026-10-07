@@ -1,4 +1,5 @@
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
+import { createHash } from 'node:crypto'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { warrantyTransactions, activeInsuranceReports, latestInsuranceReport, insuranceReportTarget, handoverChangeBlockers } from './domain/property-warranty.mjs'
@@ -127,6 +128,25 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       value.enabled = input.enabled ?? old?.enabled ?? true
       if (old && action === 'saveBranch' && old.constructionCompanyId !== value.constructionCompanyId) fail('failed-precondition', '登録済み支店の工務店は変更できません。')
       if (action === 'saveBranch' && !(await tx.get(db.doc(`constructionCompanies/${value.constructionCompanyId}`))).exists) fail('not-found', '工務店が見つかりません。')
+      if (action === 'saveBranch') {
+        // Older clients omit the field; they must not erase a configured code.
+        value.branchCode = String(input.branchCode ?? old?.branchCode ?? '').trim()
+        if (value.branchCode.length > 200 || /[\u0000-\u001f\u007f]/.test(value.branchCode)) fail('invalid-argument', '支店コードは200文字以内で入力してください。')
+        const reservation = code => db.doc('branchCodeReservations/' + createHash('sha256').update(value.constructionCompanyId + '\0' + code).digest('hex'))
+        const previousCode = String(old?.branchCode ?? '').trim()
+        const newRef = value.branchCode ? reservation(value.branchCode) : null
+        const previousRef = previousCode ? reservation(previousCode) : null
+        const held = newRef ? (await tx.get(newRef)).data() : null
+        const previous = previousRef && previousCode !== value.branchCode ? (await tx.get(previousRef)).data() : null
+        if (held && (held.branchId !== ref.id || held.branchCode !== value.branchCode || held.constructionCompanyId !== value.constructionCompanyId)) fail('already-exists', '同じ工務店内で支店コードが重複しています。')
+        if (value.branchCode) {
+          const matching = await tx.get(db.collection('companyBranches').where('constructionCompanyId','==',value.constructionCompanyId).where('branchCode','==',value.branchCode).limit(2))
+          if (matching.docs.some(row => row.id !== ref.id)) fail('already-exists', '同じ工務店内で支店コードが重複しています。')
+        }
+        if (previous && (previous.branchId !== ref.id || previous.branchCode !== previousCode || previous.constructionCompanyId !== value.constructionCompanyId)) fail('failed-precondition', '支店コードの管理情報を確認してください。')
+        if (previousRef && previousCode !== value.branchCode && previous) tx.delete(previousRef)
+        if (newRef) tx.set(newRef, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:ref.id })
+      }
       // Reserve numbering settings and prefixes from creation, even while disabled.
       if (action === 'saveGroup') {
         if (old && (normalizeWarrantyPrefix(old.prefix) !== normalizeWarrantyPrefix(value.prefix) || old.fiscalStartMonth !== value.fiscalStartMonth)) fail('failed-precondition', '登録済みグループの接頭辞・年度開始月は変更できません。')
@@ -244,10 +264,13 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
     } else
     if (action === 'save' || action === 'register') {
+      if (!Object.hasOwn(input.fields ?? {}, 'address')) fail('failed-precondition', '住所の入力形式が変更されました。画面を再読込してください。')
+      if (typeof input.fields.address !== 'string') fail('invalid-argument', '住所は文字列で入力してください。')
       if (old?.status === 'cancelled') fail('failed-precondition', '取消物件は復元後に編集してください。')
       const supplied = { ...input.fields }
       if (old?.status === 'active' && supplied.applicationDate === undefined) supplied.applicationDate = old.applicationDate
       const fields = normalizeProperty(supplied, false)
+      if (old?.groupName?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
       if (old?.status === 'active' && fields.applicationDate !== old.applicationDate) fail('failed-precondition', '本登録後の申込日は変更できません。')
       if (old?.status === 'active' && (supplied.constructionCompanyId !== old.constructionCompanyId || (supplied.branchId || '') !== old.branchId)) fail('failed-precondition','本登録後の工務店・支店は変更できません。誤登録は取消後に再登録してください。')
       if ((old?.years ?? 0) > fields.maxYears) fail('failed-precondition', '既に延長した期間より短い上限にはできません。')
@@ -261,6 +284,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       normalizeProperty(supplied, action === 'register' || old?.status === 'active')
       if (old?.status === 'active' && old.handoverDate && !fields.handoverDate) fail('failed-precondition', '確定済みの引渡日は空欄に戻せません。')
       next = { ...next, ...fields, constructionCompanyId, branchId, status: old?.status ?? 'draft', years: old?.years ?? 0 }
+      for (const key of ['prefecture','municipality','streetTownAndNumber']) delete next[key]
       if (old?.status === 'active' && old.handoverDate !== fields.handoverDate) {
         const blockers = handoverChangeBlockers(old)
         if (blockers.length) fail('failed-precondition',blockers.join('\n'))
@@ -280,6 +304,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (!groupId) fail('failed-precondition', 'HSに保証グループの設定を依頼してください。')
         const group = (await tx.get(db.doc(`warrantyGroups/${id(groupId)}`))).data()
         if (!group || group.enabled === false) fail('failed-precondition', '保証グループが未設定または無効です。HSに設定変更を依頼してください。')
+        if (group.name?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
         const year = fiscalYear(fields.applicationDate, group.fiscalStartMonth)
         const counterRef = db.doc(`warrantyCounters/${groupId}_${year}`)
         const counter = (await tx.get(counterRef)).data()
