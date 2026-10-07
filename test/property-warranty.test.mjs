@@ -1,6 +1,21 @@
 import { nextInsuranceReportLabel } from '../app/utils/insuranceReportDisplay.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { externalKeySettings, normalizeExternalKey } from '../src/domain/external-key.mjs'
+
+test('external key settings preserve optional legacy groups and require labelled UH keys',()=>{
+  assert.deepEqual(externalKeySettings({name:'HSC'}),{required:false,label:'外部キー'})
+  assert.deepEqual(externalKeySettings({name:'UH'}),{required:true,label:'お施主様契約No'})
+  assert.throws(()=>externalKeySettings({name:'UH',externalKeyRequired:false}))
+  assert.throws(()=>externalKeySettings({externalKeyRequired:'false'}))
+  assert.throws(()=>externalKeySettings({externalKeyRequired:true,externalKeyLabel:' '}))
+  assert.throws(()=>externalKeySettings({externalKeyLabel:'x'.repeat(81)}))
+  assert.throws(()=>externalKeySettings({externalKeyLabel:'a\nb'}))
+  assert.equal(normalizeExternalKey(' 0001-2026001 '),'0001-2026001')
+  assert.throws(()=>normalizeExternalKey(123))
+  assert.throws(()=>normalizeExternalKey('x'.repeat(201)))
+  assert.throws(()=>normalizeExternalKey('a\nb'))
+})
 import { coveragePeriods, fiscalYear, warrantyNumber, initialGroups, japanDate, reportRows, csvCell, normalizeProperty, propertyAddress, matchesProperty } from '../src/domain/property-warranty.mjs'
 
 test('imported warranty periods are source-bound, date-exact and subordinate to real extensions', async () => {
@@ -316,9 +331,9 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const vue=await import('vue')
   const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
   const inputRules=await import('../src/domain/input-rules.mjs')
-  const notifications=[];const env={...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  return new Function(...Object.keys(env),code+';return {referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {groups,propertyKeySettings,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
 }
 
 test('dialog company search preserves background catalog and selected company; branch fetch has local loading',async()=>{
@@ -373,6 +388,17 @@ test('dialog lookup failure releases loading and registration confirmation never
   fail=false;view.selectPropertyCompany('chosen');await new Promise(r=>setImmediate(r));assert.equal(view.catalogError.value,'')
   view.confirmRegistration.value=true;view.confirmWarnings.value=true;view.registrationWarnings.value=['前の物件の注意']
   view.propertyForm.value={validate:async()=>({valid:true})};await view.openRegistrationConfirmation();assert.equal(view.confirmRegistration.value,false);assert.equal(view.confirmWarnings.value,false);assert.deepEqual(view.registrationWarnings.value,[])
+})
+test('property editor uses loaded company key settings and preserves issued group settings',async()=>{
+  const view=await prototypeViewForTest(async()=>({branches:[],companies:[{id:'selected',name:'架空工務店',defaultGroupId:'required'}],groups:[{id:'required',name:'架空グループ',externalKeyRequired:true,externalKeyLabel:'架空契約No'}]}))
+  view.form.value.constructionCompanyId='selected';view.selectPropertyCompany('selected');await new Promise(r=>setImmediate(r))
+  assert.deepEqual(view.propertyKeySettings.value,{required:true,label:'架空契約No'})
+  assert.match(view.externalKeyRule('invalid\nkey'),/架空契約No/)
+  view.groups.value.push({id:'issued',name:'架空任意',externalKeyRequired:false,externalKeyLabel:'発行時の名称'})
+  view.current.value={warrantyNumber:'TEST-26-001',groupId:'issued'}
+  assert.deepEqual(view.propertyKeySettings.value,{required:false,label:'発行時の名称'})
+  view.current.value=null
+  assert.equal(view.propertyKeySettings.value.required,true)
 })
 
 

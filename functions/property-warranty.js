@@ -1,5 +1,6 @@
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { createHash } from 'node:crypto'
+import { externalKeySettings, normalizeExternalKey } from './domain/external-key.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { warrantyTransactions, activeInsuranceReports, latestInsuranceReport, insuranceReportTarget, handoverChangeBlockers } from './domain/property-warranty.mjs'
@@ -149,6 +150,14 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
       // Reserve numbering settings and prefixes from creation, even while disabled.
       if (action === 'saveGroup') {
+        let settings, previous
+        try {
+          previous = old ? externalKeySettings(old) : null
+          settings = externalKeySettings({ name:value.name, externalKeyRequired:input.externalKeyRequired ?? previous?.required, externalKeyLabel:input.externalKeyLabel ?? previous?.label })
+        } catch (error) { fail('invalid-argument', error.message) }
+        if (previous && settings.required !== previous.required) fail('failed-precondition', '登録済みグループの外部キー必須設定は変更できません。')
+        value.externalKeyRequired = settings.required
+        value.externalKeyLabel = settings.label
         if (old && (normalizeWarrantyPrefix(old.prefix) !== normalizeWarrantyPrefix(value.prefix) || old.fiscalStartMonth !== value.fiscalStartMonth)) fail('failed-precondition', '登録済みグループの接頭辞・年度開始月は変更できません。')
         const all = await tx.get(db.collection('warrantyGroups'))
         if (all.docs.some(d => d.id !== ref.id && normalizeWarrantyPrefix(d.data().prefix) === normalizeWarrantyPrefix(value.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
@@ -220,6 +229,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (!old && !['save', 'register'].includes(action)) fail('not-found', '物件が見つかりません。')
     const now = Timestamp.now(), date = japanDate(now.toDate())
     let next = { ...old }
+    let newKeyReservation = null
     let operationTarget = null
     if (['bill','undoBill','confirmUnbilled'].includes(action)) {
       if (old.status !== 'active') fail('failed-precondition','本登録済みの物件だけが対象です。')
@@ -281,9 +291,28 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       const branch = branchId ? (await tx.get(db.doc(`companyBranches/${branchId}`))).data() : null
       if (!company || (branchId && branch?.constructionCompanyId !== constructionCompanyId)) fail('invalid-argument', '工務店・支店を確認してください。')
       if ((!old || action === 'register') && (company.enabled === false || branch?.enabled === false)) fail('failed-precondition', '無効な工務店・支店では新規登録できません。既存の保証は引き続き処理できます。')
+      // Issued records retain their group even after a company's reassignment.
+      const keyGroupId = old?.status === 'active' ? old.groupId : company.defaultGroupId
+      const keyGroup = keyGroupId ? (await tx.get(db.doc(`warrantyGroups/${id(keyGroupId)}`))).data() : null
+      let keySettings, externalKey
+      try {
+        keySettings = externalKeySettings(keyGroup ?? {})
+        externalKey = normalizeExternalKey(Object.hasOwn(supplied,'externalKey') ? supplied.externalKey : old?.externalKey, keySettings.label)
+      } catch (error) { fail('invalid-argument', error.message) }
+      if (old?.externalKey && externalKey !== old.externalKey) fail('failed-precondition', `${keySettings.label}は登録後に変更できません。`)
+      if (keySettings.required && !externalKey) fail('invalid-argument', `${keySettings.label}を入力してください。`)
+      if (externalKey) {
+        const keyRef = db.doc('externalKeyReservations/' + createHash('sha256').update(externalKey).digest('hex'))
+        const held = (await tx.get(keyRef)).data()
+        const matching = await tx.get(db.collection('propertyWarranties').where('externalKey','==',externalKey).limit(2))
+        if (held && (held.propertyId !== ref.id || held.externalKey !== externalKey) || matching.docs.some(row=>row.id !== ref.id)) fail('already-exists', `${keySettings.label}は既に登録されています。`)
+        if (old?.externalKey && !held) fail('failed-precondition', '外部キーの管理情報を開発側へ確認してください。')
+        if (!held) newKeyReservation = {ref:keyRef,value:{externalKey,propertyId:ref.id,createdAt:now}}
+      }
       normalizeProperty(supplied, action === 'register' || old?.status === 'active')
       if (old?.status === 'active' && old.handoverDate && !fields.handoverDate) fail('failed-precondition', '確定済みの引渡日は空欄に戻せません。')
       next = { ...next, ...fields, constructionCompanyId, branchId, status: old?.status ?? 'draft', years: old?.years ?? 0 }
+      if (externalKey) next.externalKey = externalKey
       for (const key of ['prefecture','municipality','streetTownAndNumber']) delete next[key]
       if (old?.status === 'active' && old.handoverDate !== fields.handoverDate) {
         const blockers = handoverChangeBlockers(old)
@@ -357,6 +386,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, ownerName: old.ownerName, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
     if (action !== 'notify') next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
     // Separate receipts provide replay safety without introducing a business report/notice history.
+    if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
     tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,createdAt:now})
     next.revision = (old?.revision ?? 0) + 1
     next.updatedAt = now

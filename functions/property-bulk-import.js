@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { externalKeySettings } from './domain/external-key.mjs'
 import { Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { prepareBulkImportRows } from './domain/property-bulk-import.mjs'
@@ -58,6 +59,8 @@ export async function propertyBulkImportOperation(db, input, uid) {
     if (!company || company.enabled === false || company.defaultGroupId !== groupId) errors.push(reason(null, '工務店', '有効な工務店と所属保証グループを指定してください。'))
     if (!group || group.enabled === false || !Number.isInteger(group.fiscalStartMonth) || group.fiscalStartMonth < 1 || group.fiscalStartMonth > 12) errors.push(reason(null, '保証グループ', '有効な保証グループと年度設定を確認してください。'))
     const isUh = String(group?.name ?? '').trim().toUpperCase() === 'UH'
+    let keyLabel = '外部キー'
+    try { keyLabel = externalKeySettings(group ?? {}).label } catch(error) { errors.push(reason(null,'保証グループ',error.message)) }
     if ((format === 'uh') !== isUh) errors.push(reason(null, '形式', 'UHはUH日付補完、それ以外は共通形式を指定してください。'))
     const branches = new Map()
     for (const code of new Set(parsed.rows.map(row => row.branchCode))) {
@@ -70,7 +73,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
       const reserved = await tx.get(keyRef)
       const existing = await tx.get(db.collection('propertyWarranties').where('externalKey', '==', row.externalKey).limit(1))
       keys.set(row.externalKey, keyRef)
-      if (reserved.exists || !existing.empty) errors.push(reason(row, '外部キー', '既に取り込まれている外部キーです。'))
+      if (reserved.exists || !existing.empty) errors.push(reason(row, keyLabel, `${keyLabel}は既に登録されています。`))
       if (!branches.has(row.branchCode)) errors.push(reason(row, '支店コード', '指定工務店の有効な支店コードが一意に登録されていません。'))
     }
     const now = Timestamp.now(), today = japanDate(now.toDate())
@@ -116,7 +119,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
       }
     }
     const previewHash = hash(JSON.stringify({ digest, group: group ? { name: group.name, prefix: group.prefix, fiscalStartMonth: group.fiscalStartMonth, enabled: group.enabled ?? true } : null, company: company ? { name: company.name, defaultGroupId: company.defaultGroupId, enabled: company.enabled ?? true } : null, branches: [...branches].map(([code, branch]) => [code, branch.id, branch.name, branch.enabled ?? true]), counters: [...counters].map(([year, counter]) => [year, counter.original, counter.value]), numbers: plans.map(plan => plan.value.warrantyNumber) }))
-    const preview = { count: parsed.rows.length, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
+    const preview = { count: parsed.rows.length, externalKeyLabel:keyLabel, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
     if (!commit) return preview
     if (errors.length) fail('failed-precondition', '入力に問題があるため全件を棄却しました。', errors, true)
     if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に所属・支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)

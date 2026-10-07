@@ -1,4 +1,4 @@
-export const initialGroups: Array<{id:string;name:string;prefix:string;fiscalStartMonth:number;template:string}>
+export const initialGroups: Array<{id:string;name:string;prefix:string;fiscalStartMonth:number;template:string;externalKeyRequired?:boolean;externalKeyLabel?:string}>
 export function japanDate(now?:Date):string
 export function fiscalYear(date:string,startMonth:number):number
 export function normalizeWarrantyPrefix(value:unknown):string

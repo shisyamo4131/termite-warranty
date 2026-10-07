@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { externalKeySettings, normalizeExternalKey } from '../../src/domain/external-key.mjs'
 import { FieldPath } from 'firebase-admin/firestore'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RecoveryError, databaseId, runtimeState, assertTransition } from '../../src/domain/recovery.mjs'
 
@@ -100,8 +101,11 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   }
   if (Object.keys(highWater).some(key => !(key in counters))) throw new RecoveryError('A numbering high-water mark is missing.')
   // Verification-only reads; ordinary UI lists remain bounded.
-  const companies = new Set((await db.collection('constructionCompanies').get()).docs.map(row => row.id))
-  const groups = new Set((await db.collection('warrantyGroups').get()).docs.map(row => row.id))
+  const companyRecords = new Map((await db.collection('constructionCompanies').get()).docs.map(row => [row.id,row.data()]))
+  const companies = new Set(companyRecords.keys())
+  const groupRecords = new Map((await db.collection('warrantyGroups').get()).docs.map(row => [row.id,row.data()]))
+  const groups = new Set(groupRecords.keys())
+  for (const group of groupRecords.values()) { try { externalKeySettings(group) } catch { throw new RecoveryError('External key group settings require verification.') } }
   const branches = new Map((await db.collection('companyBranches').get()).docs.map(row => [row.id,row.data().constructionCompanyId]))
   for (const row of (await db.collection('staffAccounts').get()).docs) {
     if (!['developer_superuser','house_solution_administrator','general_staff'].includes(row.data().role)) throw new RecoveryError('Restored staff account role requires reconciliation.')
@@ -120,7 +124,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     const account = accounts.get(uid)
     if (!companies.has(company) || !account || account.constructionCompanyId !== company || account.scope !== undefined) throw new RecoveryError('Restored legacy account binding requires manual reconciliation.')
   }
-  const externalProperties = new Map()
+  const externalProperties = new Map(), importedProperties = new Map()
   let cursor
   do {
     let query = db.collection('propertyWarranties').orderBy(FieldPath.documentId()).limit(200)
@@ -131,9 +135,19 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
       if (!['draft','active','cancelled'].includes(value.status) || !companies.has(value.constructionCompanyId)
         || value.branchId && branches.get(value.branchId) !== value.constructionCompanyId || value.warrantyNumber && !groups.has(value.groupId)) throw new RecoveryError('Restored property references or lifecycle require verification.')
       if (value.warrantyNumber) { if (numbers.has(value.warrantyNumber)) throw new RecoveryError('Duplicate warranty numbers.'); numbers.add(value.warrantyNumber) }
+      const keyGroupId = value.warrantyNumber ? value.groupId : companyRecords.get(value.constructionCompanyId)?.defaultGroupId
+      let keySettings
+      try { keySettings = externalKeySettings(groupRecords.get(keyGroupId) ?? {}) } catch { throw new RecoveryError('External key group settings require verification.') }
+      if (keySettings.required && !value.externalKey) throw new RecoveryError('A required external key is missing.')
       if (value.externalKey) {
-        if (typeof value.externalKey !== 'string' || externalProperties.has(value.externalKey) || value.receivedRecordId !== row.id) throw new RecoveryError('Imported property identity requires verification.')
+        let normalized
+        try { normalized = normalizeExternalKey(value.externalKey) } catch { throw new RecoveryError('External property identity requires verification.') }
+        if (normalized !== value.externalKey || externalProperties.has(value.externalKey)) throw new RecoveryError('External property identity requires verification.')
         externalProperties.set(value.externalKey, { id:row.id, value })
+      }
+      if (value.receivedRecordId !== undefined) {
+        if (!value.externalKey || value.receivedRecordId !== row.id) throw new RecoveryError('Imported property identity requires verification.')
+        importedProperties.set(value.externalKey,{id:row.id,value})
       }
     }
     cursor=page.size===200 ? page.docs.at(-1) : null
@@ -145,8 +159,8 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   }
   for (const [id, reservation] of keyReservations) if (typeof reservation.externalKey !== 'string' || createHash('sha256').update(reservation.externalKey).digest('hex') !== id || externalProperties.get(reservation.externalKey)?.id !== reservation.propertyId) throw new RecoveryError('Orphan external key reservation.')
   const sources = new Map((await db.collection('propertyImportSources').get()).docs.map(row => [row.id,row.data()]))
-  for (const [key, property] of externalProperties) if (sources.get(property.id)?.propertyId !== property.id || sources.get(property.id)?.externalKey !== key) throw new RecoveryError('Import source identity is missing or mismatched.')
-  for (const [id, source] of sources) if (source.propertyId !== id || externalProperties.get(source.externalKey)?.id !== id) throw new RecoveryError('Orphan import source.')
+  for (const [key, property] of importedProperties) if (sources.get(property.id)?.propertyId !== property.id || sources.get(property.id)?.externalKey !== key) throw new RecoveryError('Import source identity is missing or mismatched.')
+  for (const [id, source] of sources) if (source.propertyId !== id || importedProperties.get(source.externalKey)?.id !== id) throw new RecoveryError('Orphan import source.')
   const receipts = new Map((await db.collection('propertyImportReceipts').get()).docs.map(row => [row.id,row.data()]))
   for (const [requestId, receipt] of receipts) {
     if (typeof receipt.uid !== 'string' || !receipt.uid || !/^[a-f0-9]{64}$/.test(receipt.digest ?? '') || !/^[a-f0-9]{64}$/.test(receipt.previewHash ?? '') || !Number.isSafeInteger(receipt.count) || receipt.count < 1 || !Array.isArray(receipt.ids) || receipt.count !== receipt.ids.length || new Set(receipt.ids).size !== receipt.ids.length || receipt.ids.some(id => typeof id !== 'string' || !id || sources.get(id)?.requestId !== requestId)) throw new RecoveryError('Import receipt is incomplete or mismatched.')

@@ -17,7 +17,7 @@
         </v-form>
         <v-file-input v-if="locked && pendingRecord && !csv && !result && !rejected" v-model="file" accept=".csv,text/csv" label="前回と同じCSVファイルを選択" :rules="[fileRule]" :disabled="busy" show-size @update:model-value="readFile" />
         <v-btn variant="outlined" class="mb-3" @click="$emit('downloadTemplate')">共通テンプレートをダウンロード</v-btn>
-        <p class="text-body-2 mb-3">Excel等で編集する際、外部キー・支店コード・保証番号・郵便番号は文字列として扱い、先頭の0を保持してください。日付はYYYY-MM-DDで入力します。共通形式では現在の保証年数と最長期間を10・20・30年から指定し、UHは10年とします。住所が空欄、または断熱材ありで資材名が空欄の場合は「不明」を保存します。</p>
+        <p class="text-body-2 mb-3">共通CSVの「外部キー」列には{{ keyLabel }}を入力してください。</p><p class="text-body-2 mb-3">Excel等で編集する際、外部キー・支店コード・保証番号・郵便番号は文字列として扱い、先頭の0を保持してください。日付はYYYY-MM-DDで入力します。共通形式では現在の保証年数と最長期間を10・20・30年から指定し、UHは10年とします。住所が空欄、または断熱材ありで資材名が空欄の場合は「不明」を保存します。</p>
         <p v-if="format==='uh'" class="text-body-2 mb-3">UH形式では申込年月の1日を申込日とし、年月日まで指定した上棟日に92日を加えた日を引渡日とします。加盟店コードは契約No先頭4桁とは別に照合します。</p>
         <v-progress-linear v-if="busy" indeterminate class="mb-3" />
         <template v-if="preview">
@@ -25,7 +25,7 @@
           <v-alert v-if="preview.errors.length" type="error" class="mb-4">{{ preview.errors.length }}件の問題があるため全件を登録できません。ファイルを修正して再検証してください。</v-alert>
           <v-table v-if="preview.errors.length" density="compact"><thead><tr><th>行</th><th>項目</th><th>理由</th></tr></thead><tbody><tr v-for="(item,index) in preview.errors" :key="index"><td>{{ item.line || '全体' }}</td><td>{{ item.field }}</td><td>{{ item.message }}</td></tr></tbody></v-table>
           <v-pagination v-if="preview.rows.length" v-model="page" :length="Math.max(1,Math.ceil(preview.rows.length/20))" :disabled="busy" />
-          <v-table v-if="preview.rows.length" density="compact"><thead><tr><th>行／外部キー</th><th>物件名</th><th>支店</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchLabel || '本店' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
+          <v-table v-if="preview.rows.length" density="compact"><thead><tr><th>行／{{ preview.externalKeyLabel || keyLabel }}</th><th>物件名</th><th>支店</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchLabel || '本店' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
           <v-checkbox v-if="!preview.errors.length && !locked && !result" v-model="confirmed" label="所属・支店・日付・補完内容を確認し、全件を本登録します。" :disabled="busy" />
         </template>
         <v-alert v-if="discardConfirmation" type="warning" class="mt-4">登録が拒否された今回の取込みを破棄し、入力を見直します。<div class="d-flex flex-wrap ga-2 mt-3"><v-btn variant="outlined" @click="discardConfirmation=false">戻る</v-btn><v-btn variant="outlined" @click="discardRejected">入力を見直す</v-btn></div></v-alert>
@@ -47,9 +47,9 @@ import { BULK_IMPORT_MAX_BYTES } from '../../src/domain/property-bulk-import.mjs
 import { loadPendingImport, savePendingImport, clearPendingImport, hashImportCsv, type PendingImport } from '../../src/domain/property-bulk-import-pending.mjs'
 type Company = { id: string; name: string; defaultGroupId?: string; enabled?: boolean; [key:string]: any }
 type PreviewRow = { line:number; externalKey:string; branchId:string; branchLabel:string; warrantyNumber:string; name:string; address:string; applicationDate:string; handoverDate:string; insulationMaterials:string }
-type Preview = { count:number; rows:PreviewRow[]; errors:Array<{line:number;field:string;message:string}>; previewHash:string }
+type Preview = { count:number; externalKeyLabel?:string; rows:PreviewRow[]; errors:Array<{line:number;field:string;message:string}>; previewHash:string }
 type CommitResult = { count:number; ids:string[]; replayed?:boolean }
-const props = defineProps<{ projectId:string; actorUid:string; groups:Array<{id:string;name:string;enabled?:boolean}>; fetchCompanies:(groupId:string,search:string)=>Promise<Company[]>; invoke:(data:Record<string,unknown>)=>Promise<Record<string,any>> }>()
+const props = defineProps<{ projectId:string; actorUid:string; groups:Array<{id:string;name:string;enabled?:boolean;externalKeyLabel?:string}>; fetchCompanies:(groupId:string,search:string)=>Promise<Company[]>; invoke:(data:Record<string,unknown>)=>Promise<Record<string,any>> }>()
 const emit = defineEmits<{ completed:[result:CommitResult]; downloadTemplate:[] }>()
 const open = defineModel<boolean>({ required:true })
 const groupId=ref(''), companyId=ref(''), companyOptions=ref<Company[]>([])
@@ -62,6 +62,7 @@ const pendingRecord=ref<PendingImport|null>(null)
 let version=0, fileVersion=0, scopeVersion=0, committedPayload:Record<string,unknown>|null=null
 const storageScope=()=>({projectId:props.projectId,actorUid:props.actorUid})
 const activeGroups=computed(()=>props.groups.filter(group=>group.enabled!==false))
+const keyLabel=computed(()=>props.groups.find(group=>group.id===groupId.value)?.externalKeyLabel || '外部キー')
 const uhGroup=computed(()=>props.groups.find(group=>group.id===groupId.value)?.name.trim().toUpperCase()==='UH')
 function invalidatePreview() { if(locked.value)return;version++;preview.value=null;confirmed.value=false;problem.value='';page.value=1;requestId.value=crypto.randomUUID() }
 watch([groupId,companyId,format,csv],invalidatePreview,{flush:'sync'})

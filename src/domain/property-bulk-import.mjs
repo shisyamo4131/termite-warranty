@@ -1,5 +1,6 @@
 import { normalizeProperty } from './property-warranty.mjs'
 import { calculateExpiryDate } from './warranty.mjs'
+import { normalizeExternalKey } from './external-key.mjs'
 
 export const BULK_IMPORT_MAX_ROWS = 300
 export const BULK_IMPORT_MAX_BYTES = 1024 * 1024
@@ -37,7 +38,7 @@ export function parseBulkImportCsv(csv) {
   if (businessRows.length > BULK_IMPORT_MAX_ROWS) throw new Error(`取込対象は${BULK_IMPORT_MAX_ROWS}件以内にしてください。`)
   return businessRows.map(row => {
     if (row.cells.length !== header.length) throw new Error(`${row.line}行目：列数がテンプレートと一致しません。`)
-    return { line: row.line, values: Object.fromEntries(header.map((name, i) => [name, row.cells[i].trim()])) }
+    return { line: row.line, values: Object.fromEntries(header.map((name, i) => [name, name === '外部キー' ? row.cells[i] : row.cells[i].trim()])) }
   })
 }
 
@@ -51,7 +52,8 @@ function date(value, label) {
 }
 function prepareRow(record, format) {
   const v = record.values
-  const externalKey = required(v['外部キー'], '外部キー', 200)
+  const externalKey = normalizeExternalKey(v['外部キー'])
+  if (!externalKey) throw new Error('外部キーを正しく入力してください。')
   const branchCode = required(v['支店コード'], '支店コード', 200)
   let applicationDate = v['申込日'], handoverDate = v['引渡日']
   const framingDate = v['上棟日']

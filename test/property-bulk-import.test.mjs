@@ -48,6 +48,21 @@ test('whole file errors include duplicate keys, malformed last row and no silent
   assert.deepEqual(prepareBulkImportRows(csv({ ...sample, '現在保証年数': '20' })).errors, [])
   assert.ok(prepareBulkImportRows(csv({ ...sample, '断熱材あり': 'true' })).errors.length)
 })
+test('quoted external keys reject internal controls accepted by the CSV parser', () => {
+  for (const character of ['\t', '\n', '\r', '\u007f']) {
+    const value = { ...sample, '外部キー': `source${character}invalid` }
+    assert.equal(parseBulkImportCsv(csv(value))[0].values['外部キー'], value['外部キー'])
+    const prepared = prepareBulkImportRows(csv(sample, value))
+    assert.equal(prepared.errors.length, 1)
+    assert.match(prepared.errors[0].message, /外部キー/)
+  }
+})
+test('CSV rejects control characters at key edges and trims ordinary spaces', () => {
+  for (const value of ['\tfirst', 'last\n', '\rwrapped\u007f']) {
+    assert.match(prepareBulkImportRows(csv({ ...sample, '外部キー': value })).errors[0].message, /外部キー/)
+  }
+  assert.equal(prepareBulkImportRows(csv({ ...sample, '外部キー': '  source-000001  ' })).rows[0].externalKey, sample['外部キー'])
+})
 test('strict template, quoting, capacity and unknown columns reject malformed input', () => {
   assert.throws(() => parseBulkImportCsv(createBulkImportTemplate()), /取込対象/)
   assert.throws(() => parseBulkImportCsv(csv(sample).replace('"備考"', '"取消状態"')), /見出し/)
@@ -93,6 +108,16 @@ const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_sta
 // Functions use the generated deployment domain; test preparation is explicit.
 const server = () => import('../functions/property-bulk-import.js')
 const request = (records = [sample], extra = {}) => ({ action: 'preview', groupId: 'HSC', companyId: 'company', csv: csv(...records), format: 'common', requestId: 'request-1', ...extra })
+test('one invalid quoted key rejects the entire file without writes', async () => {
+  const { propertyBulkImportOperation: operation } = await server()
+  for (const character of ['\t', '\n', '\r', '\u007f']) {
+    const db = fakeDb(seed()), input = request([sample, { ...sample, '外部キー': `bad${character}key` }])
+    const preview = await operation(db, input, 'staff')
+    assert.match(preview.errors[0].message, /外部キー/)
+    await assert.rejects(operation(db, { ...input, action: 'commit', confirmed: true, previewHash: preview.previewHash }, 'staff'), /全件/)
+    assert.equal(db.stats.writes.length, 0)
+  }
+})
 test('transaction success, exact replay, new request duplicate and changed content', async () => {
   const { propertyBulkImportOperation: operation } = await server()
   const db = fakeDb(seed()), input = request()
