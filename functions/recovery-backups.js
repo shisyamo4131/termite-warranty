@@ -8,6 +8,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { logger } from 'firebase-functions'
 import { resolveRecovery } from './recovery-runtime.js'
 import { backupHealth, assertPrivateAuthBucket } from './domain/backup-health.mjs'
+import { measureFirestoreOperation } from './firestore-metrics.js'
 
 const enabled = defineBoolean('RECOVERY_BACKUP_AUTOMATION', { default: false })
 const bucketName = defineString('RECOVERY_AUTH_BACKUP_BUCKET', { default: '' })
@@ -76,7 +77,7 @@ export async function exportPrivateAuthSnapshot(control, { force = false, auth =
     await control.runTransaction(async tx => { const held=await tx.get(lock);if(held.data()?.owner===owner)tx.delete(lock) })
   }
 }
-export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', schedule: '0 10 * * *', timeZone: 'Asia/Tokyo', retryCount: 0 }, async () => {
+export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', schedule: '0 10 * * *', timeZone: 'Asia/Tokyo', retryCount: 0 }, () => measureFirestoreOperation('recoveryBackupMonitor', null, async () => {
   if (!enabled.value()) return
   let control, authStatus = 'unavailable'
   try {
@@ -99,4 +100,4 @@ export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', sch
     await recordBackupFailure(control, { monitoring: mailEvidence.value() ? 'failed' : 'unconfigured', authBackup: authStatus, checkedAt: new Date() })
     throw new Error('Backup monitoring failed; inspect private operational state.')
   }
-})
+}))

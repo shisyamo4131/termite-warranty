@@ -1,12 +1,13 @@
 import { normalizeProperty } from './property-warranty.mjs'
 import { calculateExpiryDate } from './warranty.mjs'
 import { normalizeExternalKey } from './external-key.mjs'
+import { normalizeBranchCode } from './branch-code.mjs'
 
 export const BULK_IMPORT_MAX_ROWS = 300
 export const BULK_IMPORT_MAX_BYTES = 1024 * 1024
 const CSV_FIELDS = Object.freeze(['外部キー', '支店コード', '物件名', '施主電話番号', '郵便番号', '住所', '建物名', '建築面積', '断熱材あり', '資材名', '申込日', '引渡日', '最長保証期間', '備考'])
 const REQUIRED_FIELDS = new Set(['外部キー', '支店コード', '物件名', '建築面積', '断熱材あり', '申込日', '引渡日', '最長保証期間'])
-export const CSV_TEMPLATE_HEADERS = Object.freeze(CSV_FIELDS.map(name => name + (REQUIRED_FIELDS.has(name) ? '（＊）' : '')))
+export const CSV_TEMPLATE_HEADERS = Object.freeze(CSV_FIELDS.map(name => (name === '支店コード' ? '本支店コード' : name) + (REQUIRED_FIELDS.has(name) ? '（＊）' : '')))
 const quote = value => `"${String(value).replaceAll('"', '""')}"`
 export function createBulkImportTemplate() { return '\uFEFF' + CSV_TEMPLATE_HEADERS.map(quote).join(',') + '\r\n' }
 
@@ -34,20 +35,17 @@ export function parseBulkImportCsv(csv) {
   if (quoted) throw new Error(`${startLine}行目：引用符が閉じられていません。`)
   if (value || cells.length || closed) { cell(); records.push({ line: startLine, cells }) }
   const header = records.shift()?.cells
-  if (!header || header.length !== CSV_TEMPLATE_HEADERS.length || header.some((name, i) => name !== CSV_TEMPLATE_HEADERS[i])) throw new Error('見出しがテンプレートと一致しません。共通CSVテンプレートを利用してください。')
+  // Keep sourceValues keys and raw-file digests stable for previously issued CSVs/receipts.
+  if (!header || header.length !== CSV_TEMPLATE_HEADERS.length || header.some((name, i) => name !== CSV_TEMPLATE_HEADERS[i] && !(CSV_FIELDS[i] === '支店コード' && name === '支店コード（＊）'))) throw new Error('見出しがテンプレートと一致しません。共通CSVテンプレートを利用してください。')
   const businessRows = records.filter(row => row.cells.some(value => value.trim()))
   if (!businessRows.length) throw new Error('取込対象がありません。')
   if (businessRows.length > BULK_IMPORT_MAX_ROWS) throw new Error(`取込対象は${BULK_IMPORT_MAX_ROWS}件以内にしてください。`)
   return businessRows.map(row => {
     if (row.cells.length !== header.length) throw new Error(`${row.line}行目：列数がテンプレートと一致しません。`)
-    return { line: row.line, values: Object.fromEntries(CSV_FIELDS.map((name, i) => [name, name === '外部キー' ? row.cells[i] : row.cells[i].trim()])) }
+    return { line: row.line, values: Object.fromEntries(CSV_FIELDS.map((name, i) => [name, ['外部キー', '支店コード'].includes(name) ? row.cells[i] : row.cells[i].trim()])) }
   })
 }
 
-const required = (value, label, max = 2000) => {
-  if (!value || value.length > max || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(value)) throw new Error(`${label}を正しく入力してください。`)
-  return value
-}
 function date(value, label) {
   const slash = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(value)
   const normalized = slash ? `${slash[1]}-${slash[2].padStart(2, '0')}-${slash[3].padStart(2, '0')}` : value
@@ -58,7 +56,8 @@ function prepareRow(record, group) {
   const v = record.values
   const externalKey = normalizeExternalKey(v['外部キー'])
   if (!externalKey) throw new Error('外部キーを正しく入力してください。')
-  const branchCode = required(v['支店コード'], '支店コード', 200)
+  const branchCode = normalizeBranchCode(v['支店コード'])
+  if (!branchCode) throw new Error('本支店コードを入力してください。')
   const applicationDate = date(v['申込日'], '申込日'), handoverDate = date(v['引渡日'], '引渡日')
   const isUh = String(group.name ?? '').trim().toUpperCase() === 'UH'
   if (isUh) {
@@ -72,7 +71,7 @@ function prepareRow(record, group) {
   if (v['建築面積'] && !/^\d+(?:\.\d{1,2})?$/.test(v['建築面積'])) throw new Error('建築面積は正の数・小数2桁までで入力してください。')
   const fields = normalizeProperty({ name: v['物件名'], ownerTelephone: v['施主電話番号'], postalCode: v['郵便番号'], address: v['住所'], buildingName: v['建物名'], applicationDate, handoverDate, maxYears, buildingArea: v['建築面積'], foundationInsulation, insulationMaterials: v['資材名'], notes: v['備考'] }, true, group)
   if (fields.ownerTelephone && !/^[0-9-]+$/.test(fields.ownerTelephone)) throw new Error('施主電話番号は半角数字とハイフンのみ入力してください。')
-  return { line: record.line, externalKey, branchCode, years, fields, sourceValues: v }
+  return { line: record.line, externalKey, branchCode, years, fields, sourceValues: { ...v, '支店コード': branchCode } }
 }
 export function prepareBulkImportRows(csv, { format = 'common', group = {} } = {}) {
   if (format !== 'common') return { rows: [], errors: [{ line: 0, field: '形式', message: '取込みルールが変更されました。共通CSVテンプレートを再取得してください。' }] }

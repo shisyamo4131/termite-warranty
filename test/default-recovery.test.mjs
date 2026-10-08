@@ -1,8 +1,32 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { Timestamp, GeoPoint } from 'firebase-admin/firestore'
 import { typed,digest,difference,defaultRecovery } from '../scripts/lib/default-recovery.mjs'
 import { options } from '../scripts/default-recovery.mjs'
+import { inspectBusinessIntegrity } from '../scripts/lib/recovery-controller.mjs'
+
+test('business integrity reserves only branch-local active codes and detects stale or missing reservations',async()=>{
+ const codeId=createHash('sha256').update('C\0'+'0001').digest('hex')
+ const branches={active:{constructionCompanyId:'C',branchCode:'0001'},disabled:{constructionCompanyId:'C',branchCode:'0001',enabled:false},blank:{constructionCompanyId:'C',branchCode:''}}
+ const reservation={constructionCompanyId:'C',branchCode:'0001',branchId:'active'}
+ const data={constructionCompanies:{C:{name:'fictional company',enabled:false}},companyBranches:branches,branchCodeReservations:{[codeId]:reservation}}
+ // Read-only in-memory collection adapter; no SDK/environment access.
+ const db={collection(name){const query={orderBy:()=>query,limit:()=>query,get:async()=>{const docs=Object.entries(data[name]??{}).map(([id,value])=>({id,data:()=>value}));return {docs,size:docs.length}}};return query}}
+ assert.deepEqual(await inspectBusinessIntegrity(db),{})
+ branches.duplicate={constructionCompanyId:'C',branchCode:'0001',enabled:true}
+ await assert.rejects(inspectBusinessIntegrity(db),/Duplicate branch code/)
+ delete branches.duplicate
+ delete data.branchCodeReservations[codeId]
+ await assert.rejects(inspectBusinessIntegrity(db),/reservations/)
+ data.branchCodeReservations[codeId]={...reservation,branchId:'disabled'}
+ await assert.rejects(inspectBusinessIntegrity(db),/missing or mismatched/)
+ data.branchCodeReservations[codeId]=reservation
+ branches.active.enabled=false
+ await assert.rejects(inspectBusinessIntegrity(db),/reservations/)
+ delete data.branchCodeReservations[codeId]
+ assert.deepEqual(await inspectBusinessIntegrity(db),{})
+})
 test('typed comparison includes reference database, nanoseconds, bytes and rejects unsafe integers',()=>{
  const ref=databaseId=>({firestore:{projectId:'demo-termite-warranty',databaseId},path:'properties/a'})
  assert.notDeepEqual(typed(ref('source')),typed(ref('(default)')))

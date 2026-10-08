@@ -313,7 +313,7 @@ test('session read failure releases loading, retry works, stale login cannot rep
   let authCallback, snapshotCallback, rejectReads=true, reads=[], auth={currentUser:{uid:'first'}}
   const api={browserSessionPersistence:{},onAuthStateChanged:(_,cb)=>{authCallback=cb},signOut:async()=>{},setPersistence:async()=>{},signInWithEmailAndPassword:async()=>{},sendPasswordResetEmail:async()=>{}}
   const firestore={doc:(_,collection,uid)=>({path:`${collection}/${uid}`}),getDoc:ref=>rejectReads ? Promise.reject(Error('offline')) : new Promise(resolve=>reads.push(()=>resolve({exists:()=>ref.path.startsWith('staffAccounts/')}))),onSnapshot:(ref,cb)=>{snapshotCallback=()=>cb({exists:()=>true,ref,data:()=>({enabled:true,role:'general_staff',displayName:ref.path})});return ()=>{}}}
-  const exports={};new Function('require','exports','shallowRef','ref','useNuxtApp',compiled)(name=>name==='firebase/auth'?api:firestore,exports,value=>({value}),value=>({value}),()=>({$firebase:{auth,firestore:{}}}))
+  const exports={};new Function('require','exports','shallowRef','ref','useNuxtApp',compiled)(name=>name==='firebase/auth'?api:name.includes('firestoreMetrics')?{createMeasuredFirestore:()=>firestore}:firestore,exports,value=>({value}),value=>({value}),()=>({$firebase:{auth,firestore:{}}}))
   const session=exports.useSession()
   await authCallback(auth.currentUser)
   assert.equal(session.loading.value,false);assert.match(session.errorMessage.value,/再試行/)
@@ -339,9 +339,18 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const vue=await import('vue')
   const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
   const inputRules=await import('../src/domain/input-rules.mjs')
-  const notifications=[];const env={...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const fixtureProfile=vue.ref({accountType:'staff',uid:'fictional-hs',role:'house_solution_administrator'})
+  const references={companies:vue.ref([]),branches:vue.ref([]),groups:vue.ref([]),status:vue.ref('ready'),error:vue.ref('')}
+  let referenceLoaded=false
+  references.ensureReady=async(force=false)=>{if(referenceLoaded && !force)return;const value=await invoke({action:'catalog',purpose:'referenceStore'});for(const key of ['companies','branches','groups'])references[key].value=value?.[key] || [];referenceLoaded=true}
+  references.reset=()=>{referenceLoaded=false;for(const key of ['companies','branches','groups'])references[key].value=[]}
+  references.activeCompanies=vue.computed(()=>references.companies.value.filter(row=>row.enabled!==false))
+  references.activeBranches=id=>references.branches.value.filter(row=>row.constructionCompanyId===id && row.enabled!==false)
+  references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
+  vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
+  const notifications=[];const env={useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  return new Function(...Object.keys(env),code+';return {groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
 
 test('property editor discards the former name field before saving legacy documents',async()=>{
@@ -360,26 +369,18 @@ test('property editor discards the former name field before saving legacy docume
   assert.equal(Object.hasOwn(v.form.value,'ownerName'),false)
 })
 
-test('dialog company search preserves background catalog and selected company; branch fetch has local loading',async()=>{
-  let resolve
-  const view=await prototypeViewForTest(()=>new Promise(r=>{resolve=r}))
-  view.companies.value=[{id:'chosen',name:'選択中'}];view.branches.value=[{id:'background'}]
-  view.resetDialogCatalog();view.propertyDialog.value=true;view.form.value.constructionCompanyId='chosen';view.form.value.branchId='old'
-  const search=view.fetchCompanyOptions('検索')
-  assert.equal(view.catalogBusy.value,false);assert.equal(view.busy.value,false)
-  await Promise.resolve()
-  resolve({groups:[{id:"g"}],companies:[{id:'found',name:'検索一致',defaultGroupId:'g'}],branches:[{id:'unrelated'}]});await search
-  assert.deepEqual(view.companies.value.map(x=>x.id),['chosen'])
-  assert.deepEqual(view.branches.value.map(x=>x.id),['background'])
-  assert.deepEqual(view.dialogCompanies.value.map(x=>x.id),['chosen'])
+test('shared company candidates preserve the selected value and company change clears former branch',async()=>{
+  const calls=[]
+  const view=await prototypeViewForTest(async data=>{calls.push(data);return {companies:[{id:'chosen',name:'選択中'},{id:'found',name:'検索一致'}],branches:[{id:'found-branch',constructionCompanyId:'found'}],groups:[]}})
+  await view.loadCatalog();view.resetDialogCatalog();view.propertyDialog.value=true;view.form.value.constructionCompanyId='chosen';view.form.value.branchId='old'
+  assert.deepEqual((await view.fetchCompanyOptions('検索')).map(row=>row.id),['chosen','found'])
   assert.equal(view.form.value.branchId,'old')
-  view.choosePropertyCompany({id:'found',name:'検索一致'});assert.equal(view.catalogBusy.value,true);assert.equal(view.busy.value,false);assert.equal(view.form.value.branchId,'')
-  await Promise.resolve()
-  resolve({branches:[{id:'found-branch'}]});await new Promise(r=>setImmediate(r))
-  assert.deepEqual(view.dialogBranches.value.map(x=>x.id),['found-branch']);assert.equal(view.catalogBusy.value,false)
+  view.choosePropertyCompany({id:'found',name:'検索一致'});assert.equal(view.form.value.branchId,'');assert.deepEqual(view.dialogBranches.value,[])
+  await new Promise(r=>setImmediate(r));assert.deepEqual(view.dialogBranches.value.map(row=>row.id),['found-branch'])
+  assert.equal(calls.filter(row=>row.action==='catalog').length,1);assert.equal(view.catalogBusy.value,false)
 })
 
-test('reference cache integration reuses catalog, forces refresh, invalidates on master save and identity change; lists remain fresh', async()=>{
+test('shared references reuse catalogs while alert cache refreshes on save and lists remain fresh', async()=>{
   const calls=[]
   const v=await prototypeViewForTest(async data=>{
     calls.push(data.action)
@@ -393,14 +394,15 @@ test('reference cache integration reuses catalog, forces refresh, invalidates on
   assert.equal(calls.filter(action=>action==='propertyList').length,2)
   await v.referenceCache.get('other-condition',async()=>['stale'])
   await v.loadCatalog(true)
-  assert.equal(v.referenceCache.size(),2)
+  assert.equal(v.referenceCache.size(),1)
   assert.equal(calls.filter(action=>action==='catalog').length,2)
   v.settingForm.value={validate:async()=>({valid:true})}
   await v.saveSetting()
-  assert.equal(calls.filter(action=>action==='catalog').length,3)
+  assert.equal(calls.filter(action=>action==='catalog').length,2)
+  assert.equal(calls.filter(action=>action==='alertSettings').length,3)
   v.profile.value={accountType:'staff',uid:'another',role:'house_solution_administrator'}
   await v.loadCatalog()
-  assert.equal(calls.filter(action=>action==='catalog').length,4)
+  assert.equal(calls.filter(action=>action==='catalog').length,3)
   v.profile.value=null
   assert.equal(v.referenceCache.size(),0)
 })
@@ -459,28 +461,30 @@ test('invalid component validation prevents master, property and account network
 
 async function autocompleteForTest(fetchOptions){
  const vue=await import('vue'),props=vue.reactive({modelValue:'',items:[],active:true,disabled:false,fetchOptions}),events=[]
- let scheduled,dispose
- const env={...vue,requiredRules:[],defineProps:()=>props,defineEmits:()=> (event,value)=>{events.push([event,value]);if(event==='update:modelValue')props.modelValue=value},onBeforeUnmount:fn=>{dispose=fn},setTimeout:fn=>{scheduled=fn;return 1},clearTimeout:()=>{scheduled=undefined}}
+ let dispose
+ const env={...vue,requiredRules:[],defineProps:()=>props,defineEmits:()=> (event,value)=>{events.push([event,value]);if(event==='update:modelValue')props.modelValue=value},onBeforeUnmount:fn=>{dispose=fn}}
  const source=readFileSync(new URL('../app/components/CompanyAutocomplete.vue',import.meta.url),'utf8').split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
- const state=new Function(...Object.keys(env),code+';return {search,rows,loading,problem,focus,compositionStart,compositionEnd,choose,clear,run};')(...Object.values(env))
- return {...state,props,events,tick:vue.nextTick,flush:async()=>{const fn=scheduled;scheduled=undefined;await fn?.()},dispose:()=>dispose()}
+ const state=new Function(...Object.keys(env),code+';return {rows,available,loading,problem,choose,load};')(...Object.values(env))
+ return {...state,props,events,tick:vue.nextTick,dispose:()=>dispose()}
 }
-test('company autocomplete debounces, suppresses IME and short queries, rejects stale results',async()=>{
- const calls=[],pending=[]
- const v=await autocompleteForTest(q=>{calls.push(q);return new Promise(resolve=>pending.push(resolve))})
- v.focus(true);v.search.value='東';await v.tick();await v.flush();assert.deepEqual(calls,[])
- v.compositionStart();v.search.value='東京';await v.tick();await v.flush();assert.deepEqual(calls,[])
- v.compositionEnd();await v.tick();const old=v.flush();assert.deepEqual(calls,['東京'])
- v.search.value='大阪';await v.tick();const fresh=v.flush();pending[1]([{id:'new',name:'大阪'}]);await fresh
- pending[0]([{id:'old',name:'東京'}]);await old;assert.equal(v.rows.value[0].id,'new')
- v.props.active=false;await v.tick();assert.equal(v.loading.value,false);assert.deepEqual(v.rows.value,[]);v.dispose()
+
+test('company autocomplete supplies all candidates to standard filtering and rejects stale loads',async()=>{
+ const calls=[],pending=[];const v=await autocompleteForTest(q=>{calls.push(q);return new Promise(resolve=>pending.push(resolve))})
+ const latest=v.load();const candidates=Array.from({length:25},(_,i)=>({id:String(i),name:'架空工務店'+i}))
+ pending[1](candidates);await latest;pending[0]([{id:'stale',name:'旧候補'}]);await v.tick()
+ assert.deepEqual(calls,['','']);assert.equal(v.rows.value.length,25);assert.equal(v.rows.value[24].id,'24')
+ const template=readFileSync(new URL('../app/components/CompanyAutocomplete.vue',import.meta.url),'utf8').split('<template>')[1]
+ assert.match(template,/<v-autocomplete/);assert.doesNotMatch(template,/no-filter|custom-filter|update:search|auto-select-first/)
+ v.props.active=false;await v.tick();assert.deepEqual(v.rows.value,[]);v.dispose()
 })
-test('company autocomplete reports local failure, retries, selects and clears a company',async()=>{
+
+test('company autocomplete retries failures, selects by id, clears and suppresses unmounted replies',async()=>{
  let fail=true;const v=await autocompleteForTest(async()=>{if(fail)throw Error('offline');return [{id:'a',name:'工務店A'}]})
- v.focus(true);await v.flush();assert.match(v.problem.value,/再試行/);assert.equal(v.loading.value,false)
- fail=false;await v.run();assert.equal(v.problem.value,'');v.choose(v.rows.value[0]);await v.tick();assert.equal(v.props.modelValue,'a')
- await v.clear();assert.equal(v.props.modelValue,'');assert.deepEqual(v.events.at(-1),['select',null]);v.dispose()
+ await v.tick();assert.match(v.problem.value,/取得できません/);assert.equal(v.loading.value,false)
+ fail=false;await v.load();assert.equal(v.problem.value,'');v.choose('a');await v.tick();assert.equal(v.props.modelValue,'a')
+ v.choose(null);assert.equal(v.props.modelValue,'');assert.deepEqual(v.events.at(-1),['select',null]);v.dispose()
+ let resolve;const late=await autocompleteForTest(()=>new Promise(r=>resolve=r));late.dispose();resolve([{id:'late',name:'遅延'}]);await late.tick();assert.deepEqual(late.rows.value,[])
 })
 
 test('validation snackbar appears at the top and repeat attempts restart the notification',()=>{
@@ -667,3 +671,16 @@ test('group field requirements default safely and apply equally to formal manual
  assert.equal(view.propertyKeySettings.value.required,false);assert.equal(view.propertyRequirements.value.addressRequired,true);
  view.current.value={warrantyNumber:'issued',groupId:'old'};assert.equal(view.propertyKeySettings.value.required,true);assert.equal(view.propertyRequirements.value.addressRequired,false);
 });
+
+
+test('account scope change rejects delayed property list and keeps previous account rows cleared',async()=>{
+ let resolve
+ const v=await prototypeViewForTest(data=>data.action==='propertyList' ? new Promise(r=>resolve=r) : Promise.resolve({groups:[],companies:[],branches:[]}))
+ v.rows.value=[{id:'old-visible'}]
+ const pending=v.fetchRows()
+ v.profile.value={uid:'new-user',accountType:'staff',role:'general_staff'}
+ assert.deepEqual(v.rows.value,[])
+ resolve({rows:[{id:'old-late'}],limited:true})
+ await assert.rejects(pending)
+ assert.deepEqual(v.rows.value,[])
+})

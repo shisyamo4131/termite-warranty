@@ -26,7 +26,7 @@
               <td>{{ roleLabel(account.role) }}</td>
               <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.enabled ? '有効' : '無効' }}</v-chip></td>
               <td>
-                <v-btn size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
+                <v-btn v-if="account.enabled" size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
                 <v-btn
                   size="small"
                   variant="outlined"
@@ -120,6 +120,7 @@ const openCreate = () => {
   dialogOpen.value = true
 }
 const openEdit = (account: StaffAccountRow) => {
+  if (!account.enabled) return
   saveError.value='';
   editingUid.value = account.uid
   Object.assign(form, { displayName: account.displayName, email: account.email })

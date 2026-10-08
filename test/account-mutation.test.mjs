@@ -42,6 +42,22 @@ function fixture() {
 }
 const profile = (auth, db, uid = 'u', name = 'After') => updateStaffAccountOperation(auth, db, { uid, email: `${name.toLowerCase()}@example.invalid`, displayName: name }, 'admin')
 
+test('disabled profile is rejected before lock or Auth access and becomes editable only after enabling',async()=>{
+  const {db,auth}=fixture()
+  db.data.get('staffAccounts/u').enabled=false
+  auth.users.get('u').disabled=true
+  const before={...db.data.get('staffAccounts/u')}
+  let authReads=0
+  const get=auth.getUser;auth.getUser=async uid=>{authReads++;return get(uid)}
+  await assert.rejects(profile(auth,db),{code:'failed-precondition'})
+  assert.equal(authReads,0)
+  assert.equal(db.data.has('accountMutationLocks/u'),false)
+  assert.deepEqual(db.data.get('staffAccounts/u'),before)
+  await setStaffAccountEnabledOperation(auth,db,{uid:'u',enabled:true},'admin')
+  await profile(auth,db)
+  assert.equal(db.data.get('staffAccounts/u').displayName,'After')
+})
+
 test('same UID profile/state overlap is rejected while a different UID progresses', async () => {
   const { db, auth } = fixture(), entered = deferred(), resume = deferred()
   auth.hook = async uid => { if (uid === 'u') { entered.resolve(); await resume.promise } }
@@ -82,6 +98,7 @@ test('failed enable returns to disabled and unknown Auth/revoke outcomes retain 
   assert.equal(db.data.get('staffAccounts/u').enabled, false)
   assert.equal(auth.users.get('u').disabled, true)
   assert.equal(db.data.has('accountMutationLocks/u'), false)
+  await setStaffAccountEnabledOperation(auth, db, { uid: 'u', enabled: true }, 'admin')
   auth.hook = async () => { throw new Error('unknown network outcome') }
   await assert.rejects(profile(auth, db), { code: 'failed-precondition' })
   assert.equal(db.data.get('accountMutationLocks/u').status, 'recovery_required')

@@ -125,7 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { collection, documentId, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('companyPortal')
+
+import { collection, documentId, limit, orderBy, query, where } from 'firebase/firestore'
 import type { CompanyAccountProfile, CompanyCaseWorkItem, NewCaseWorkItemInput, WorkItemResponse } from '../types/company-portal.ts'
 import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 

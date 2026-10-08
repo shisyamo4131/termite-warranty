@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { before, after, test } from 'node:test'
 import { initializeApp, deleteApp } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { propertyPrototypeOperation } from '../../functions/property-warranty.js'
 import { propertyBulkImportOperation } from '../../functions/property-bulk-import.js'
@@ -24,6 +25,8 @@ const call=async(action,data={},uid='meeting-hs')=>{
 const fields={name:'架空物件',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
 const companyAddress={postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1'}
 const saveCompany=(id,defaultGroupId,enabled=true)=>call('saveCompany',{id,name:'架空工務店',defaultGroupId,enabled,address:companyAddress})
+// Scenario setup only: model historical affiliations without allowing the UI command to move a company.
+const seedScenarioGroup=defaultGroupId=>db.doc('constructionCompanies/meeting-co').update({defaultGroupId,updatedAt:Timestamp.now()})
 const command=(id,revision,extra={})=>({id,revision,requestId:crypto.randomUUID(),fields,confirmRegistration:true,confirmWarnings:true,confirmCancellation:true,...extra})
 before(async()=>{
   await seedFixedRuntime(db)
@@ -65,7 +68,66 @@ test('branch codes reserve per company, retain existing property references and 
   assert.equal((await codeDb.doc('companyBranches/code-a').get()).data().branchCode,'0001')
   await codeCall('saveBranch',{id:'code-a',name:'架空コード支店',constructionCompanyId:'meeting-co',branchCode:'0002'})
   await codeCall('saveBranch',{id:'code-b',name:'別支店',constructionCompanyId:'meeting-co',branchCode:'0001'})
+  const reenable=id=>codeCall('reenableMaster',{kind:'branch',id})
+  const save=(id,branchCode,enabled=true)=>codeCall('saveBranch',{id,name:'架空検証支店',constructionCompanyId:'meeting-co',branchCode,enabled})
+  const reserved=code=>codeDb.doc('branchCodeReservations/'+createHash('sha256').update('meeting-co\0'+code).digest('hex'))
+  await codeDb.doc('propertyWarranties/existing').set({status:'draft',constructionCompanyId:'meeting-co',branchId:'code-a'})
+  await save('code-a','0002',false)
+  assert.equal((await reserved('0002').get()).exists,false)
+  for(const id of ['inactive-a','inactive-b','inactive-c'])await save(id,'0002',false)
+  await save('replacement','0002')
+  await assert.rejects(save('code-a','0002',false),/先に有効化/) // Must not delete replacement's reservation.
+  await assert.rejects(save('inactive-a','0003',false),/先に有効化/)
+  assert.equal((await reserved('0002').get()).data().branchId,'replacement')
+  await assert.rejects(reenable('code-a'),e=>e.code==='already-exists')
+  assert.equal((await codeDb.doc('propertyWarranties/existing').get()).data().branchId,'code-a')
+  await inspectBusinessIntegrity(codeDb)
+  await save('replacement','0002',false)
+  const inactiveBefore=new Map(await Promise.all(['code-a','inactive-b'].map(async key=>[key,(await codeDb.doc('companyBranches/'+key).get()).data()])))
+  await assert.rejects(codeCall('reenableMaster',{kind:'branch',id:'code-a',name:'同時編集不可'}),e=>e.code==='invalid-argument')
+  const racing=await Promise.allSettled([reenable('code-a'),reenable('inactive-b')])
+  assert.equal(racing.filter(result=>result.status==='fulfilled').length,1)
+  assert.equal(racing.filter(result=>result.status==='rejected' && result.reason.code==='already-exists').length,1)
+  const winner=(await reserved('0002').get()).data().branchId
+  const {enabled:beforeEnabled,updatedAt:beforeTime,...beforeFields}=inactiveBefore.get(winner)
+  const {enabled:afterEnabled,updatedAt:afterTime,...afterFields}=(await codeDb.doc('companyBranches/'+winner).get()).data()
+  assert.equal(beforeEnabled,false);assert.equal(afterEnabled,true);assert.deepEqual(afterFields,beforeFields)
+  await codeDb.doc('constructionCompanies/meeting-co').update({enabled:false})
+  await save(winner,'0002')
+  await assert.rejects(save('parent-disabled-duplicate','0002'),e=>e.code==='already-exists')
+  await codeDb.doc('companyBranches/'+winner).update({enabled: FieldValue.delete()})
+  await assert.rejects(save('legacy-enabled-duplicate','0002'),e=>e.code==='already-exists')
+  await inspectBusinessIntegrity(codeDb)
+  const savedReservation=(await reserved('0002').get()).data()
+  await reserved('0002').delete()
+  await assert.rejects(save(winner,'0002',false),/管理情報/)
+  await assert.rejects(save('missing-reservation-duplicate','0002'),e=>e.code==='already-exists')
+  await assert.rejects(inspectBusinessIntegrity(codeDb),/reservation/)
+  await reserved('0002').set(savedReservation)
+  await save('stale-inactive','stale',false)
+  await reserved('stale').set({constructionCompanyId:'meeting-co',branchCode:'stale',branchId:'stale-inactive'})
+  await assert.rejects(inspectBusinessIntegrity(codeDb),/reservation/)
+  await reenable('stale-inactive')
+  await save('stale-inactive','stale',false)
+  assert.equal((await reserved('stale').get()).exists,false)
+  await save('blank-a','');await save('blank-b','')
+  await codeDb.doc('constructionCompanies/another').set({name:'別工務店'})
+  await codeCall('saveBranch',{id:'another-code',name:'別工務店支店',constructionCompanyId:'another',branchCode:'0002'})
+  await assert.rejects(codeCall('saveBranch',{id:winner,name:'移動不可',constructionCompanyId:'another',branchCode:'0002'}),/変更できません/)
+  await inspectBusinessIntegrity(codeDb)
   const legacyFields={...fields};delete legacyFields.address
+  for(const size of [201,2201]){
+    const code='0'+'長'.repeat(size-1), key='long-'+size
+    await save(key,' '+code+' ')
+    assert.equal((await codeDb.doc('companyBranches/'+key).get()).data().branchCode,code)
+    await assert.rejects(save(key+'-duplicate',code),e=>e.code==='already-exists')
+    await save(key+'-different',code+'1')
+    await save(key,code,false)
+    await save(key+'-duplicate',code)
+    await assert.rejects(reenable(key),e=>e.code==='already-exists')
+  }
+  for(const control of ['\t','\n','\u007f'])await assert.rejects(save('invalid-control',control+'0001'),/制御文字/)
+  await inspectBusinessIntegrity(codeDb)
   await assert.rejects(call('save',command('old-address-client',0,{fields:legacyFields})),/住所|入力/)
 })
 
@@ -79,7 +141,7 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   const dates=[['2018/4/1','2018/6/30'],['2018/9/1','2018/11/30'],['2018/10/1','2018/12/30']]
   const makeCsv=values=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+values.map(([application,handover],index)=>{
     const row={'外部キー':`0001-202690${index+1}`,'支店コード':'0001','物件名':`架空Excel物件${index+1}`,'申込日':application,'引渡日':handover,'最長保証期間':'10','建築面積':'200','断熱材あり':'あり'}
-    return CSV_TEMPLATE_HEADERS.map(header=>row[header.replace('（＊）','')]??'').join(',')
+    return CSV_TEMPLATE_HEADERS.map(header=>row[header.replace('（＊）','').replace('本支店コード','支店コード')]??'').join(',')
   }).join('\r\n')
   const base={groupId:'U',companyId:'C',format:'common',requestId:'excel-dates',csv:makeCsv(dates)}
   const bad={...base,requestId:'excel-invalid',csv:makeCsv([dates[0],['2018/9/1','2018/11/31']])}
@@ -90,7 +152,7 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   const unknown={...base,requestId:'excel-unknown-branch',csv:base.csv.replaceAll(',0001,',',0999,')}
   const unknownPreview=await propertyBulkImportOperation(target,{...unknown,action:'preview'},'excel-admin')
   assert.equal(unknownPreview.errors.length,3)
-  assert.ok(unknownPreview.errors.every(error=>error.field==='支店コード'))
+  assert.ok(unknownPreview.errors.every(error=>error.field==='本支店コード'))
   assert.equal(unknownPreview.rows[0].applicationDate,'2018-04-01')
   await assert.rejects(propertyBulkImportOperation(target,{...unknown,action:'commit',confirmed:true,previewHash:unknownPreview.previewHash},'excel-admin'),error=>error.details?.safeToDiscard===true)
   for(const root of ['propertyWarranties','propertyImportSources','propertyImportReceipts','externalKeyReservations','warrantyCounters'])assert.equal((await target.collection(root).get()).size,0)
@@ -266,7 +328,7 @@ test('draft, concurrent registration, replay, boundaries, permanent renewal, cor
   await assert.rejects(call('detail',{id:row.id},'meeting-otherbranch'),e=>e.code==='permission-denied')
   await assert.rejects(call('detail',{id:row.id},'meeting-otherco'),e=>e.code==='permission-denied')
   assert.equal((await call('list',{},'meeting-otherbranch')).rows.length,0)
-  await saveCompany('meeting-co','UH')
+  await seedScenarioGroup('UH')
   await call('extend',command(row.id,2),'meeting-branch-user')
   row=await call('detail',{id:row.id});assert.equal(row.warrantyNumber,number);assert.equal(row.groupId,'HSC');assert.equal(row.years,20)
   await assert.rejects(call('extend',command(row.id,3)),e=>e.code==='failed-precondition')
@@ -296,7 +358,7 @@ test('different concurrent properties receive unique consecutive numbers',async(
 })
 test('handover is mandatory for every group, draft retry succeeds and collisions remain rejected',async()=>{
   for(const group of ['HSC','SHS','UH']){
-    await saveCompany('meeting-co',group)
+    await seedScenarioGroup(group)
     const groupFields={...fields,maxYears:group==='UH'?10:20,...(group==='UH'?{externalKey:'fictional-uh-required'}:{})}
     const key=`required-${group}`, req=command(key,0,{fields:{...groupFields,handoverDate:''}})
     await assert.rejects(call('register',req))
@@ -309,7 +371,7 @@ test('handover is mandatory for every group, draft retry succeeds and collisions
     assert.equal(row.buildingArea,123.45);assert.equal(row.insuranceExpiryDate,'2031-09-30')
     assert.equal(row.insuranceRenewalMonth,'203109');assert.equal(row.insuranceReported,false)
   }
-  await saveCompany('meeting-co','HSC')
+  await seedScenarioGroup('HSC')
   await call('register',command('meeting-collision-source',0))
   const counterRef=db.doc('warrantyCounters/HSC_2026'),counter=(await counterRef.get()).data()
   await counterRef.update({lastValue:counter.lastValue-1})
@@ -319,7 +381,7 @@ test('handover is mandatory for every group, draft retry succeeds and collisions
 })
 
 test('application date editable before registration, drives fiscal year, and is immutable afterwards',async()=>{
-  await saveCompany('meeting-co','SHS')
+  await seedScenarioGroup('SHS')
   const dated={...fields,applicationDate:'2026-04-01',handoverDate:'2026-09-30'}
   await call('save',command('meeting-backdate',0,{fields:dated}))
   const corrected={...dated,applicationDate:'2026-03-31'}
@@ -348,7 +410,7 @@ test('group identity locked before numbering, disable blocks new use but retains
   const {id:groupId}=await call('saveGroup',group)
   await assert.rejects(call('saveGroup',{...group,id:groupId,prefix:'OTHER-'}),e=>e.code==='failed-precondition')
   await assert.rejects(call('saveGroup',{...group,id:groupId,fiscalStartMonth:4}),e=>e.code==='failed-precondition')
-  await saveCompany('meeting-co',groupId)
+  await seedScenarioGroup(groupId)
   await call('register',command('meeting-disabled-group-existing',0))
   const original=await call('detail',{id:'meeting-disabled-group-existing'})
   await assert.rejects(call('saveGroup',{...group,id:groupId,enabled:false},'meeting-branch-user'),e=>e.code==='permission-denied')
@@ -363,7 +425,7 @@ test('group identity locked before numbering, disable blocks new use but retains
   assert.equal(extended.years,20);assert.equal(extended.warrantyNumber,original.warrantyNumber)
   assert.ok((await call('catalog')).groups.some(g=>g.id===groupId && g.enabled===false))
   await assert.rejects(call('saveGroup',{...group,name:'重複グループ'}),e=>e.code==='already-exists')
-  await call('saveGroup',{...group,id:groupId,enabled:true})
+  await call('reenableMaster',{kind:'group',id:groupId})
   await call('register',command('meeting-reenabled-group',0))
   assert.match((await call('detail',{id:'meeting-reenabled-group'})).warrantyNumber,/-002$/)
 })
@@ -372,6 +434,9 @@ test('group identity locked before numbering, disable blocks new use but retains
 test('company and branch disable stop only new registrations; reenable preserves branch-local state',async()=>{
   const co='hierarchy-co',branch='hierarchy-branch',other='hierarchy-other'
   await saveCompany(co,'HSC')
+  const companyBefore=(await db.doc(`constructionCompanies/${co}`).get()).data()
+  await assert.rejects(saveCompany(co,'SHS'),/所属保証グループは変更できません/)
+  assert.deepEqual((await db.doc(`constructionCompanies/${co}`).get()).data(),companyBefore)
   await call('saveBranch',{id:branch,name:'個別停止支店',constructionCompanyId:co})
   await call('saveBranch',{id:other,name:'継続支店',constructionCompanyId:co})
   const commandFor=(key,revision=0,branchId=branch)=>command(key,revision,{fields:{...fields,constructionCompanyId:co,branchId}})
@@ -395,16 +460,17 @@ test('company and branch disable stop only new registrations; reenable preserves
   assert.equal(extended.warrantyNumber,original.warrantyNumber)
   assert.equal(extended.years,20)
   assert.ok((await call('list',{filter:{from:fields.handoverDate,to:fields.handoverDate}})).rows.some(r=>r.id===original.id))
-  await saveCompany(co,'SHS',true)
+  await assert.rejects(saveCompany(co,'SHS',true),/先に有効化/)
+  await call('reenableMaster',{kind:'company',id:co})
   assert.equal((await db.doc(`companyBranches/${branch}`).get()).data().enabled,false)
   assert.equal((await db.doc(`companyBranches/${other}`).get()).data().enabled,true)
   await assert.rejects(call('register',commandFor('hierarchy-still-disabled')),e=>e.code==='failed-precondition')
   await call('register',commandFor('hierarchy-new-group',0,other))
-  assert.equal((await call('detail',{id:'hierarchy-new-group'})).groupId,'SHS')
+  assert.equal((await call('detail',{id:'hierarchy-new-group'})).groupId,'HSC')
   assert.equal((await call('detail',{id:original.id})).groupId,'HSC')
-  await call('saveBranch',{id:branch,name:'再開支店',constructionCompanyId:co,enabled:true})
+  await call('reenableMaster',{kind:'branch',id:branch})
   await call('register',commandFor('hierarchy-branch-reenabled'))
-  assert.equal((await call('detail',{id:'hierarchy-branch-reenabled'})).groupId,'SHS')
+  assert.equal((await call('detail',{id:'hierarchy-branch-reenabled'})).groupId,'HSC')
   await assert.rejects(call('saveCompany',{id:co,name:'不正',defaultGroupId:'HSC',address:companyAddress,enabled:'false'}),e=>e.code==='invalid-argument')
   await assert.rejects(call('saveBranch',{id:branch,name:'不正',constructionCompanyId:co,enabled:0}),e=>e.code==='invalid-argument')
   await assert.rejects(call('saveBranch',{id:branch,name:'独自グループ不可',constructionCompanyId:co,groupId:'UH'}),e=>e.code==='invalid-argument')
@@ -440,7 +506,7 @@ test('hierarchy catalog filters before pagination and never changes company-user
 
 test('annual counters reset at fiscal boundary and old global counters require migration',async()=>{
   const {id:g}=await call('saveGroup',{name:'年度検証',prefix:'YEAR-',fiscalStartMonth:4})
-  await saveCompany('meeting-co',g)
+  await seedScenarioGroup(g)
   for(const [key,date,num] of [['march','2026-03-31','YEAR-25-001'],['april','2026-04-01','YEAR-26-001'],['next','2026-04-02','YEAR-26-002']]){
     await call('register',command(`year-${key}`,0,{fields:{...fields,applicationDate:date}}))
     assert.equal((await call('detail',{id:`year-${key}`})).warrantyNumber,num)
@@ -451,7 +517,7 @@ test('annual counters reset at fiscal boundary and old global counters require m
 })
 
 test('report/export separation, renewal, replay, undo snapshot, sticky handover lock and notification reset',async()=>{
-  await saveCompany('meeting-co','HSC')
+  await seedScenarioGroup('HSC')
   const key='insurance-flow'
   await call('register',command(key,0))
   let row=await call('detail',{id:key})
@@ -483,9 +549,9 @@ test('report/export separation, renewal, replay, undo snapshot, sticky handover 
 })
 
 test('same name and address need no confirmation; owner/affiliation/insulation checks preserve saved data',async()=>{
-  await saveCompany('meeting-co','HSC')
+  await seedScenarioGroup('HSC')
   await call('register',command('warning-property',0,{confirmWarnings:false}))
-  await assert.rejects(call('save',command('warning-property',1,{fields:{...fields,branchId:''}})),/工務店・支店/)
+  await assert.rejects(call('save',command('warning-property',1,{fields:{...fields,branchId:''}})),/工務店・本支店/)
   await assert.rejects(call('save',command('warning-property',1,{fields:{...fields,foundationInsulation:true}})),/使用資材/)
   await call('save',command('warning-property',1,{fields:{...fields,name:'変更後物件名',ownerTelephone:'03-0000-0000'}}))
   const row=await call('detail',{id:'warning-property'})
@@ -521,6 +587,22 @@ test('HTTP Callable preserves account authentication and latest registration pay
     await assert.rejects(invoke({action:'catalog'}),e=>e.code==='functions/unauthenticated')
     await assert.rejects(bulk({action:'status',requestId:'no-receipt'}),e=>e.code==='functions/unauthenticated')
     await signInWithEmailAndPassword(login,'meeting-callable@example.invalid','Demo-only-password-123')
+    for(const [kind,collection,record] of [
+      ['group','warrantyGroups',{name:'HTTP状態確認',prefix:'HTTPSTATE',fiscalStartMonth:1}],
+      ['company','constructionCompanies',{name:'HTTP会社',defaultGroupId:'HSC'}],
+      ['branch','companyBranches',{name:'HTTP本支店',constructionCompanyId:'meeting-co',branchCode:'http-state-code'}],
+    ]){
+      const id='http-reenable-'+kind,ref=db.doc(`${collection}/${id}`)
+      await ref.set({...record,enabled:false,legacyOnly:'unchanged'})
+      const before=(await ref.get()).data()
+      await assert.rejects(invoke({action:'reenableMaster',kind,id,name:'編集混入'}),e=>e.code==='functions/invalid-argument')
+      assert.deepEqual((await ref.get()).data(),before)
+      await assert.rejects(httpsCallable(functions,'propertyPrototype')({action:'reenableMaster',kind,id,runtimeGeneration:0,runtimeProtocol:2}),e=>e.code==='functions/failed-precondition')
+      assert.deepEqual((await invoke({action:'reenableMaster',kind,id})).data,{id})
+      const {updatedAt,...after}=(await ref.get()).data()
+      assert.deepEqual(after,{...before,enabled:true})
+      assert.ok(updatedAt)
+    }
     assert.deepEqual((await bulk({action:'status',requestId:'no-receipt'})).data,{pending:true})
     const control=getFirestore(app,'test-fixed-control'),runtime=control.doc('recovery/runtime'),marker=db.doc('_recovery/access')
     const original=(await runtime.get()).data()
@@ -583,7 +665,7 @@ test('legacy trailing dash prefix remains immutable, reserves canonical equivale
 
 
 test('undoing an already-notified extension restores the pre-extension notice state',async()=>{
-  await saveCompany('meeting-co','SHS')
+  await seedScenarioGroup('SHS')
   for(const previousNotified of [false,true]){
     const key=`undo-notified-extension-${previousNotified}`
     await call('register',command(key,0,{fields:{...fields,maxYears:30}}))
@@ -615,7 +697,7 @@ test('undoing an already-notified extension restores the pre-extension notice st
 })
 
 test('HS latest extension undo preserves insurance and corrections, requires reason, is replay/concurrency safe',async()=>{
-  await saveCompany('meeting-co','SHS')
+  await seedScenarioGroup('SHS')
   const key='undo-extension-test'
   await call('register',command(key,0,{fields:{...fields,maxYears:30}}))
   await call('notify',command(key,1,{notified:true}))

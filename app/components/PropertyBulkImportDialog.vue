@@ -3,30 +3,29 @@
     <v-card>
       <v-card-title>物件・保証の一括取込み</v-card-title>
       <v-card-text>
-        <v-alert type="info" class="mb-4">毎月届く増分の初回保証を登録します。外部キー必須の保証グループだけで利用できます。外部キーの重複や未登録の支店コードなどが1件でもあれば全件を登録しません。登録後の訂正は通常の編集画面で行います。</v-alert>
+        <v-alert type="info" class="mb-4">毎月届く増分の初回保証を登録します。外部キー必須の保証グループだけで利用できます。外部キーの重複や未登録の本支店コードなどが1件でもあれば全件を登録しません。登録後の訂正は通常の編集画面で行います。</v-alert>
+        <v-alert v-if="props.referenceReady===false" type="warning" class="mb-4">参照マスタの最新状態を確認できません。保証グループ・工務店の選択は再取得後に行ってください。</v-alert>
         <v-alert v-if="problem" type="error" class="mb-4">{{ problem }}</v-alert>
         <v-alert v-if="locked && !result" type="warning" class="mb-4">{{ rejected ? '今回の登録はサーバーで拒否されました。修正する場合は、下の「入力を見直す」から確認してください。' : '以前の登録結果が未確認です。「登録結果を確認」で確認してください。結果がまだ確認できない場合は同じCSVを選択し、同じ取込みとして再送できます。新しい取込みとして送信し直さないでください。' }}</v-alert>
         <v-alert v-if="result" type="success" class="mb-4">{{ result.count }}件を本登録しました。{{ result.replayed ? '前回の登録結果を確認しました。追加の登録は行っていません。' : '' }}</v-alert>
-        <v-form ref="importForm" @submit.prevent="previewFile" :disabled="busy || locked || !!result">
+        <v-form ref="importForm" @submit.prevent="previewFile" :disabled="props.referenceReady===false || busy || locked || !!result">
           <v-row>
             <v-col cols="12" md="6"><v-select v-model="groupId" :items="activeGroups" item-title="name" item-value="id" :rules="requiredRules" label="保証グループ" required /></v-col>
-            <v-col cols="12" md="6"><CompanyAutocomplete v-model="companyId" :items="companyOptions" :fetch-options="searchCompanies" :active="open" :disabled="!groupId || busy || locked || !!result" required @select="chooseCompany" /></v-col>
+            <v-col cols="12" md="6"><CompanyAutocomplete :key="groupId" v-model="companyId" :items="props.companies.filter(company=>company.defaultGroupId===groupId)" :fetch-options="searchCompanies" :active="open" :disabled="props.referenceReady===false || !groupId || busy || locked || !!result" required @select="chooseCompany" /></v-col>
             <v-col cols="12" md="6"><v-text-field :model-value="'共通CSV・増分の初回10年登録'" label="取込みルール" readonly /></v-col>
-            <v-col v-if="!locked" cols="12" md="6"><v-file-input v-model="file" accept=".csv,text/csv" label="CSVファイル（UTF-8・1MBまで）" :rules="[fileRule]" show-size required @update:model-value="readFile" /></v-col>
+            <v-col v-if="!locked" cols="12" md="6"><v-file-input v-model="file" prepend-icon="" append-inner-icon="$file" accept=".csv,text/csv" label="CSVファイル（UTF-8・1MBまで）" :rules="[fileRule]" show-size required @update:model-value="readFile" /></v-col>
           </v-row>
         </v-form>
-        <v-file-input v-if="locked && pendingRecord && !csv && !result && !rejected" v-model="file" accept=".csv,text/csv" label="前回と同じCSVファイルを選択" :rules="[fileRule]" :disabled="busy" show-size @update:model-value="readFile" />
+        <v-file-input v-if="locked && pendingRecord && !csv && !result && !rejected" v-model="file" prepend-icon="" append-inner-icon="$file" accept=".csv,text/csv" label="前回と同じCSVファイルを選択" :rules="[fileRule]" :disabled="busy" show-size @update:model-value="readFile" />
         <v-btn variant="outlined" class="mb-3" @click="$emit('downloadTemplate')">共通テンプレートをダウンロード</v-btn>
-        <p class="text-body-2 mb-3">共通CSVの「外部キー」列には{{ keyLabel }}を入力してください。</p><p class="text-body-2 mb-3">（＊）の列は入力必須です。外部キー・支店コード・郵便番号は文字列として扱い、先頭の0を保持してください。申込日・引渡日はExcelの日付で入力できます。CSV保存後の「2026/10/8」「2026/01/08」「2026-10-08」に対応します。年月日をすべて入力し、CSV UTF-8で保存してください。全件、引渡日起算の初回10年で登録し、保証番号を新規採番します。最長保証期間は将来の延長上限です。</p>
-        <p v-if="groupId" class="text-body-2 mb-3">住所：{{ selectedGroup?.addressRequired ? '入力必須' : '任意（空欄のまま保存）' }}。断熱材ありの場合の資材名：{{ selectedGroup?.insulationMaterialsRequired ? '入力必須' : '任意（空欄のまま保存）' }}。</p><p v-if="uhGroup" class="text-body-2 mb-3">UHの最長保証期間は10年です。支店コードは契約Noの先頭4桁とは別に照合します。</p>
         <v-progress-linear v-if="busy" indeterminate class="mb-3" />
         <template v-if="preview">
           <p class="mb-3">検証対象：{{ preview.count }}件（上限300件）。全件の保証番号を新規採番します。</p>
           <v-alert v-if="preview.errors.length" type="error" class="mb-4">{{ preview.errors.length }}件の問題があるため全件を登録できません。ファイルを修正して再検証してください。</v-alert>
           <v-table v-if="preview.errors.length" density="compact"><thead><tr><th>行</th><th>項目</th><th>理由</th></tr></thead><tbody><tr v-for="(item,index) in preview.errors" :key="index"><td>{{ item.line || '全体' }}</td><td>{{ item.field }}</td><td>{{ item.message }}</td></tr></tbody></v-table>
           <v-pagination v-if="preview.rows.length" v-model="page" :length="Math.max(1,Math.ceil(preview.rows.length/20))" :disabled="busy" />
-          <v-table v-if="preview.rows.length" density="compact"><thead><tr><th>行／{{ preview.externalKeyLabel || keyLabel }}</th><th>物件名</th><th>支店コード</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchCode ?? '—' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
-          <v-checkbox v-if="!preview.errors.length && !locked && !result" v-model="confirmed" label="所属・支店・日付・補完内容を確認し、全件を本登録します。" :disabled="busy" />
+          <v-table v-if="preview.rows.length" density="compact"><thead><tr><th>行／{{ preview.externalKeyLabel || keyLabel }}</th><th>物件名</th><th>本支店コード</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchCode ?? '—' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
+          <v-checkbox v-if="!preview.errors.length && !locked && !result" v-model="confirmed" label="所属・本支店・日付・補完内容を確認し、全件を本登録します。" :disabled="busy" />
         </template>
         <v-alert v-if="discardConfirmation" type="warning" class="mt-4">登録が拒否された今回の取込みを破棄し、入力を見直します。<div class="d-flex flex-wrap ga-2 mt-3"><v-btn variant="outlined" @click="discardConfirmation=false">戻る</v-btn><v-btn variant="outlined" @click="discardRejected">入力を見直す</v-btn></div></v-alert>
       </v-card-text>
@@ -49,7 +48,7 @@ type Company = { id: string; name: string; defaultGroupId?: string; enabled?: bo
 type PreviewRow = { line:number; externalKey:string; branchCode?:string; branchId:string; branchLabel:string; warrantyNumber:string; name:string; address:string; applicationDate:string; handoverDate:string; insulationMaterials:string }
 type Preview = { count:number; externalKeyLabel?:string; rows:PreviewRow[]; errors:Array<{line:number;field:string;message:string}>; previewHash:string }
 type CommitResult = { count:number; ids:string[]; replayed?:boolean }
-const props = defineProps<{ projectId:string; actorUid:string; groups:Array<{id:string;name:string;enabled?:boolean;externalKeyRequired?:boolean;externalKeyLabel?:string;addressRequired?:boolean;insulationMaterialsRequired?:boolean}>; fetchCompanies:(groupId:string,search:string)=>Promise<Company[]>; invoke:(data:Record<string,unknown>)=>Promise<Record<string,any>> }>()
+const props = defineProps<{ projectId:string; actorUid:string; referenceReady?:boolean; companies:Company[]; groups:Array<{id:string;name:string;enabled?:boolean;externalKeyRequired?:boolean;externalKeyLabel?:string;addressRequired?:boolean;insulationMaterialsRequired?:boolean}>; fetchCompanies:(groupId:string,search:string)=>Promise<Company[]>; invoke:(data:Record<string,unknown>)=>Promise<Record<string,any>> }>()
 const emit = defineEmits<{ completed:[result:CommitResult]; downloadTemplate:[] }>()
 const open = defineModel<boolean>({ required:true })
 const groupId=ref(''), companyId=ref(''), companyOptions=ref<Company[]>([])
@@ -64,7 +63,6 @@ const storageScope=()=>({projectId:props.projectId,actorUid:props.actorUid})
 const activeGroups=computed(()=>props.groups.filter(group=>group.enabled!==false && group.externalKeyRequired===true))
 const selectedGroup=computed(()=>props.groups.find(group=>group.id===groupId.value))
 const keyLabel=computed(()=>props.groups.find(group=>group.id===groupId.value)?.externalKeyLabel || '外部キー')
-const uhGroup=computed(()=>props.groups.find(group=>group.id===groupId.value)?.name.trim().toUpperCase()==='UH')
 function invalidatePreview() { if(locked.value)return;version++;preview.value=null;confirmed.value=false;problem.value='';page.value=1;requestId.value=crypto.randomUUID() }
 watch([groupId,companyId,format,csv],invalidatePreview,{flush:'sync'})
 watch(groupId,()=>{if(!locked.value){companyId.value='';companyOptions.value=[];format.value='common'}},{flush:'sync'})

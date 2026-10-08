@@ -84,7 +84,28 @@ test('company/branch saves read the reference only once in the transaction and r
   assert.equal(db.reads.filter(path => path === 'warrantyGroups/g').length, 1)
   await propertyPrototypeOperation({}, db, { action: 'saveBranch', name: 'New', constructionCompanyId: 'match-0', address }, 'admin')
   assert.equal(db.reads.filter(path => path === 'constructionCompanies/match-0').length, 1)
-  await assert.rejects(propertyPrototypeOperation({}, db, { action: 'saveCompany', name: 'Missing', defaultGroupId: 'missing', address }, 'admin'), { code: 'not-found' })
+  await assert.rejects(propertyPrototypeOperation({}, db, { action: 'saveCompany', id: 'new-missing', name: 'Missing', defaultGroupId: 'missing', address }, 'admin'), { code: 'not-found' })
   db.records.set('warrantyGroups/disabled', { enabled: false })
-  await assert.rejects(propertyPrototypeOperation({}, db, { action: 'saveCompany', name: 'Disabled', defaultGroupId: 'disabled', address }, 'admin'), { code: 'failed-precondition' })
+  await assert.rejects(propertyPrototypeOperation({}, db, { action: 'saveCompany', id: 'new-disabled', name: 'Disabled', defaultGroupId: 'disabled', address }, 'admin'), { code: 'failed-precondition' })
+})
+
+test('disabled masters reject stale edits and reenable only their state without replacing legacy fields',async()=>{
+  const db=database(),address={prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1'}
+  for(const [kind,collection,action,fields] of [
+    ['company','constructionCompanies','saveCompany',{defaultGroupId:'g',address}],
+    ['branch','companyBranches','saveBranch',{constructionCompanyId:'match-0'}],
+    ['group','warrantyGroups','saveGroup',{prefix:'INACTIVE',fiscalStartMonth:1}],
+  ]){
+    const key='disabled-'+kind,original={name:'Original',enabled:false,...fields,legacyOnly:'preserved'}
+    db.records.set(`${collection}/${key}`,original)
+    for(const enabled of [false,true])await assert.rejects(propertyPrototypeOperation({},db,{action,id:key,name:'Changed',...fields,enabled},'admin'),/先に有効化/)
+    assert.deepEqual(db.records.get(`${collection}/${key}`),original)
+    await assert.rejects(propertyPrototypeOperation({},db,{action:'reenableMaster',kind,id:key,name:'Changed'},'admin'),/別々/)
+    await propertyPrototypeOperation({},db,{action:'reenableMaster',kind,id:key,runtimeGeneration:1,runtimeProtocol:2},'admin')
+    const {updatedAt,...result}=db.records.get(`${collection}/${key}`)
+    assert.deepEqual(result,{...original,enabled:true})
+    assert.ok(updatedAt)
+    await propertyPrototypeOperation({},db,{action,id:key,name:'Changed',...fields},'admin')
+    assert.equal(db.records.get(`${collection}/${key}`).name,'Changed')
+  }
 })

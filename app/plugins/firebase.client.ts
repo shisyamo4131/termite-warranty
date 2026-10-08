@@ -1,3 +1,5 @@
+import { createMeasuredFirestore, startFirestoreMetrics } from '../utils/firestoreMetrics.ts'
+const { getDoc, onSnapshot } = createMeasuredFirestore('recovery')
 import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   browserSessionPersistence,
@@ -5,9 +7,9 @@ import {
   getAuth,
   setPersistence,
 } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore, doc, onSnapshot } from 'firebase/firestore'
+import { connectFirestoreEmulator, getFirestore, doc } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
-import { getDoc } from 'firebase/firestore'
+
 import { fixedRuntimeState } from '../../src/domain/fixed-recovery.mjs'
 import { initializeRecovery, recoveryRuntime, recoveryProblem, type RecoveryRuntime } from '../utils/recoveryClient'
 import { LOCAL_RUNTIME, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
@@ -59,6 +61,8 @@ export default defineNuxtPlugin(async () => {
     emulatorState.__termiteWarrantyEmulatorsConnected = true
   }
   await setPersistence(auth, browserSessionPersistence)
+  const stopMetrics = startFirestoreMetrics(auth, functions)
+  if (import.meta.hot) import.meta.hot.dispose(stopMetrics)
   try {
     const result = fixedRuntimeState((await getDoc(doc(firestore, '_recovery/access'))).data()) as RecoveryRuntime
     initializeRecovery(result)

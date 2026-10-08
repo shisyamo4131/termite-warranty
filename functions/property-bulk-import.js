@@ -67,9 +67,12 @@ export async function propertyBulkImportOperation(db, input, uid) {
       return { count: parsed.rows.length, externalKeyLabel: keyLabel, rows: [], errors, previewHash: hash(JSON.stringify({ digest, errors })) }
     }
     const branches = new Map()
+    // Read this company's branches once and compare complete codes, including long values.
+    const companyBranches = (await tx.get(db.collection('companyBranches').where('constructionCompanyId', '==', companyId))).docs
     for (const code of new Set(parsed.rows.map(row => row.branchCode))) {
-      const result = await tx.get(db.collection('companyBranches').where('constructionCompanyId', '==', companyId).where('branchCode', '==', code).limit(2))
-      if (result.docs.length === 1 && result.docs[0].data().enabled !== false) branches.set(code, { ...result.docs[0].data(), id: result.docs[0].id })
+      const active = companyBranches.filter(row => row.data().branchCode === code && row.data().enabled !== false)
+      const reservation = (await tx.get(db.doc(`branchCodeReservations/${hash(companyId + '\0' + code)}`))).data()
+      if (active.length === 1 && reservation?.constructionCompanyId === companyId && reservation.branchCode === code && reservation.branchId === active[0].id) branches.set(code, { ...active[0].data(), id: active[0].id })
     }
     const keys = new Map()
     for (const row of parsed.rows) {
@@ -78,7 +81,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
       const existing = await tx.get(db.collection('propertyWarranties').where('externalKey', '==', row.externalKey).limit(1))
       keys.set(row.externalKey, keyRef)
       if (reserved.exists || !existing.empty) errors.push(reason(row, keyLabel, `${keyLabel}は既に登録されています。`))
-      if (!branches.has(row.branchCode)) errors.push(reason(row, '支店コード', '指定工務店の有効な支店コードが一意に登録されていません。'))
+      if (!branches.has(row.branchCode)) errors.push(reason(row, '本支店コード', '指定工務店の有効な本支店コードが一意に登録されていません。'))
     }
     const now = Timestamp.now(), today = japanDate(now.toDate())
     const plans = [], counters = new Map()
@@ -115,7 +118,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
     const preview = { count: parsed.rows.length, externalKeyLabel:keyLabel, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchCode: plan.row.branchCode, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
     if (!commit) return preview
     if (errors.length) fail('failed-precondition', '入力に問題があるため全件を棄却しました。', errors, true)
-    if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に所属・支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)
+    if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に所属・本支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)
     const sources = plans.map(plan => ({ propertyId: plan.ref.id, externalKey: plan.row.externalKey, requestId, format, values: plan.row.sourceValues, createdAt: now }))
     const ids = plans.map(plan => plan.ref.id)
     const receipt = { uid, digest, previewHash, count: plans.length, ids, createdAt: now }

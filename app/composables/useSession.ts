@@ -1,3 +1,5 @@
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { getDoc, onSnapshot } = createMeasuredFirestore('session')
 import {
   browserSessionPersistence,
   onAuthStateChanged,
@@ -7,7 +9,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import { doc, getDoc, onSnapshot, type Unsubscribe } from 'firebase/firestore'
+import { doc, type Unsubscribe } from 'firebase/firestore'
 import type { SessionProfile } from '../types/company-portal.ts'
 
 const currentUser = shallowRef<User | null>(null)

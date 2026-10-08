@@ -76,6 +76,14 @@ test('House Solution administrator manages only general-staff account lifecycle'
   await call('setStaffAccountEnabled', { uid: created.uid, enabled: false })
   assert.equal((await adminAuth.getUser(created.uid)).disabled, true)
   assert.equal((await adminDb.doc(`staffAccounts/${created.uid}`).get()).data()?.enabled, false)
+  const disabled=(await adminDb.doc(`staffAccounts/${created.uid}`).get()).data()
+  await assert.rejects(call('updateStaffAccount',{uid:created.uid,email:'blocked-disabled@example.invalid',displayName:'変更不可'}),error=>error.code==='functions/failed-precondition')
+  assert.deepEqual((await adminDb.doc(`staffAccounts/${created.uid}`).get()).data(),disabled)
+  assert.equal((await adminAuth.getUser(created.uid)).email,'updated-general@example.invalid')
+  assert.equal((await adminDb.doc(`accountMutationLocks/${created.uid}`).get()).exists,false)
+  await call('setStaffAccountEnabled',{uid:created.uid,enabled:true})
+  await call('updateStaffAccount',{uid:created.uid,email:'updated-general@example.invalid',displayName:'再有効化後の編集'})
+  assert.equal((await adminAuth.getUser(created.uid)).displayName,'再有効化後の編集')
 })
 
 test('developer manages administrators while administrator and general staff cannot cross the boundary', async () => {

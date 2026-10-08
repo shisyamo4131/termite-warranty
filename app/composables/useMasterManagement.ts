@@ -1,4 +1,6 @@
-import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { getDoc, getDocs, onSnapshot, setDoc, updateDoc } = createMeasuredFirestore('masterManagement')
+import { collection, collectionGroup, deleteField, doc, documentId, increment, limit, orderBy, query, serverTimestamp, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
 import { directRecoveryMetadata } from '../utils/recoveryClient.ts'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'

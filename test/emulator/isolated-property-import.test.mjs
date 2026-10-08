@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import {createHash} from 'node:crypto'
 import {after,test} from 'node:test'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
 import {getFirestore as adminFirestore} from 'firebase-admin/firestore'
@@ -43,8 +44,27 @@ test('manual external keys and CSV share reservations, immutable settings and re
   await assert.rejects(invoke('save',request('manual','other',1)),/変更できません/)
   await assert.rejects(invoke('save',request('manual','',1)),/変更できません/)
   await invoke('register',request('manual',undefined,1)) // Older clients preserve the saved key.
-  const csv=(key)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>'"'+String({'外部キー':key,'支店コード':'0001','物件名':'架空取込物件','申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'なし','住所':'東京都架空市1-1'}[header.replace('（＊）','')]??'').replaceAll('"','""')+'"').join(',')
+  const csv=(key)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>'"'+String({'外部キー':key,'支店コード':'0001','物件名':'架空取込物件','申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'なし','住所':'東京都架空市1-1'}[header.replace('（＊）','').replace('本支店コード','支店コード')]??'').replaceAll('"','""')+'"').join(',')
   const bulk=(action,key,extra={})=>propertyBulkImportOperation(target,{action,groupId:'G',companyId:'C',format:'common',csv:csv(key),requestId:'bulk-key-'+Buffer.from(key).toString('hex'),...extra},'key-admin')
+  // More than two disabled matches must not hide the sole active (including legacy) branch.
+  for(const id of ['disabled-a','disabled-b','disabled-c'])await invoke('saveBranch',{id,name:'無効支店',constructionCompanyId:'C',branchCode:'0001',enabled:false})
+  const branchRef=target.doc('companyBranches/B'),branch=(await branchRef.get()).data()
+  const {enabled,...legacyBranch}=branch
+  await branchRef.set(legacyBranch)
+  assert.deepEqual((await bulk('preview','branch-probe')).errors,[])
+  const reservationRef=target.doc('branchCodeReservations/'+createHash('sha256').update('C\0'+'0001').digest('hex'))
+  const reservation=(await reservationRef.get()).data()
+  await reservationRef.delete()
+  assert.ok((await bulk('preview','branch-probe')).errors.some(e=>e.field==='本支店コード'))
+  await reservationRef.set({...reservation,branchId:'disabled-a'})
+  assert.ok((await bulk('preview','branch-probe')).errors.some(e=>e.field==='本支店コード'))
+  await reservationRef.set(reservation)
+  await target.doc('companyBranches/direct-duplicate').set({...legacyBranch,name:'不正な直接重複'})
+  const ambiguous=await bulk('preview','branch-probe')
+  assert.ok(ambiguous.errors.some(e=>e.field==='本支店コード'))
+  await assert.rejects(bulk('commit','branch-probe',{confirmed:true,previewHash:ambiguous.previewHash}))
+  await target.doc('companyBranches/direct-duplicate').delete()
+  assert.equal((await target.collection('propertyImportReceipts').get()).size,0)
   for(const character of ['\t','\n','\r','\u007f']) {
     const key=`invalid${character}key`
     const roots=['propertyWarranties','externalKeyReservations','propertyImportSources','propertyImportReceipts','warrantyCounters']
@@ -91,6 +111,27 @@ test('manual external keys and CSV share reservations, immutable settings and re
   assert.ok(refused.errors.some(e=>/外部キー必須/.test(e.message)))
   await assert.rejects(propertyBulkImportOperation(target,{...denied,action:'commit',confirmed:true,previewHash:refused.previewHash},'key-admin'),/全件/)
   assert.equal((await target.doc('propertyImportReceipts/optional-bulk').get()).exists,false)
+  const beforeReuse=await bulk('preview','reuse-code')
+  await invoke('saveBranch',{id:'B',name:'旧支店',constructionCompanyId:'C',enabled:false})
+  const inactive=await bulk('preview','inactive-code')
+  assert.ok(inactive.errors.some(e=>e.field==='本支店コード'))
+  await assert.rejects(bulk('commit','inactive-code',{confirmed:true,previewHash:inactive.previewHash}))
+  await invoke('saveBranch',{id:'replacement',name:'再利用先',constructionCompanyId:'C',branchCode:'0001'})
+  await assert.rejects(bulk('commit','reuse-code',{confirmed:true,previewHash:beforeReuse.previewHash}),e=>e.code==='aborted')
+  const afterReuse=await bulk('preview','reuse-code')
+  const reused=await bulk('commit','reuse-code',{confirmed:true,previewHash:afterReuse.previewHash})
+  assert.equal((await target.doc('propertyWarranties/'+reused.ids[0]).get()).data().branchId,'replacement')
+  assert.equal((await target.doc('propertyWarranties/manual').get()).data().branchId,'B')
+  const longCode='0'+'長'.repeat(2200)
+  await invoke('saveBranch',{id:'long-code',name:'長いコード',constructionCompanyId:'C',branchCode:longCode})
+  await invoke('saveBranch',{id:'long-near-match',name:'末尾だけ異なるコード',constructionCompanyId:'C',branchCode:longCode+'1'})
+  await assert.rejects(invoke('saveBranch',{id:'long-duplicate',name:'重複',constructionCompanyId:'C',branchCode:longCode}),e=>e.code==='already-exists')
+  const longInput={action:'preview',groupId:'G',companyId:'C',csv:csv('long-code-import').replace('"0001"','"'+longCode+'"'),requestId:'long-code-import'}
+  const longPreview=await propertyBulkImportOperation(target,longInput,'key-admin')
+  assert.deepEqual(longPreview.errors,[])
+  const longResult=await propertyBulkImportOperation(target,{...longInput,action:'commit',confirmed:true,previewHash:longPreview.previewHash},'key-admin')
+  assert.equal((await target.doc('propertyWarranties/'+longResult.ids[0]).get()).data().branchId,'long-code')
+  await inspectBusinessIntegrity(target)
 })
 
 test('real Firestore bulk transaction commits 279 rows atomically and recovery verifies identities',async()=>{
@@ -102,7 +143,7 @@ test('real Firestore bulk transaction commits 279 rows atomically and recovery v
   await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'import-admin')
   const makeCsv=(count,offset=0)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+Array.from({length:count},(_,i)=>{
     const row={'外部キー':`fictional-${offset+i}`,'支店コード':'0001','物件名':`架空物件${i}`,'申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'あり'}
-    return CSV_TEMPLATE_HEADERS.map(key=>row[key.replace('（＊）','')]??'').join(',')
+    return CSV_TEMPLATE_HEADERS.map(key=>row[key.replace('（＊）','').replace('本支店コード','支店コード')]??'').join(',')
   }).join('\r\n')
   const input={groupId:'G',companyId:'C',format:'common',csv:makeCsv(279),requestId:'volume-279'}
   const preview=await propertyBulkImportOperation(imported,{...input,action:'preview'},'import-admin')

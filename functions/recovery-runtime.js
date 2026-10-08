@@ -5,12 +5,13 @@ import { HttpsError } from 'firebase-functions/v2/https'
 import { ACCESS_PATH, RUNTIME_PATH, RECOVERY_ROLES } from './domain/recovery.mjs'
 import { fixedRuntimeState, assertFixedRequest, sameFixedEpoch } from './domain/fixed-recovery.mjs'
 import { resolveProjectId } from './local-runtime.js'
+import { observedFirestore } from './firestore-metrics.js'
 
 // Explicit fictional fixture configuration, never a live missing-config fallback.
 const fixtureControl = process.env.FUNCTIONS_EMULATOR === 'true' && resolveProjectId() === 'demo-termite-warranty'
   && process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:28080' ? 'test-fixed-control' : ''
 const controlDatabase = defineString('RECOVERY_CONTROL_DATABASE', { default: fixtureControl })
-const db = id => id === '(default)' ? getFirestore() : getFirestore(id)
+const db = id => observedFirestore(id === '(default)' ? getFirestore() : getFirestore(id), id === '(default)' ? 'business' : 'control', 'recovery')
 export async function resolveRecovery() {
   const configured = controlDatabase.value() || fixtureControl
   if (!configured || configured === '(default)') throw new HttpsError('failed-precondition', '復旧制御の設定を確認してください。')
@@ -30,7 +31,7 @@ export async function withRecovery(request, mutation, operation, { accountMutati
   try { assertFixedRequest(state, request.data?.runtimeGeneration, request.data?.runtimeProtocol, mutation, administrator) }
   catch (error) { throw new HttpsError(error.code, error.message) }
   if (!mutation) {
-    const result = await operation(firestore)
+    const result = await operation(observedFirestore(firestore))
     const current = fixedRuntimeState((await firestore.doc(ACCESS_PATH).get()).data())
     const latestActor = current.phase === 'verification' ? (await firestore.doc(`staffAccounts/${request.auth.uid}`).get()).data() : null
     assertFixedRequest(current, request.data?.runtimeGeneration, request.data?.runtimeProtocol, false, latestActor?.enabled === true && RECOVERY_ROLES.includes(latestActor.role))
@@ -52,7 +53,7 @@ export async function withRecovery(request, mutation, operation, { accountMutati
     }
   })
   let completed = false
-  try { const result = await operation(firestore); completed = true; return result }
+  try { const result = await operation(observedFirestore(firestore)); completed = true; return result }
   finally {
     await lease.delete()
     if (accountMutation && completed) {

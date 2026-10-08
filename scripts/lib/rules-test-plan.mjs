@@ -5,6 +5,7 @@ import {resolve} from 'node:path'
 export const rulesWorkers = Object.freeze([
   Object.freeze({id:'shared',files:Object.freeze([
     'test/firestore-rules.test.mjs','test/firestore-control-rules.test.mjs',
+    'test/emulator/firestore-metrics.test.mjs','test/emulator/reference-store.test.mjs',
     'test/emulator/bounded-list.test.mjs','test/emulator/registration.test.mjs',
     'test/emulator/callable-profile-registration.test.mjs','test/emulator/case-edit.test.mjs',
     'test/emulator/callable-applied-warranty.test.mjs','test/emulator/company-portal.test.mjs',

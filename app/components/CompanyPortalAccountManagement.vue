@@ -57,7 +57,10 @@
 </template>
 
 <script setup lang="ts">
-import { collection, documentId, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('portalAccounts')
+
+import { collection, documentId, limit, orderBy, query } from 'firebase/firestore'
 
 interface AccountRow { id: string; constructionCompanyId: string; companyName: string; email: string; enabled: boolean }
 interface CompanyRow { id: string; name: string; active: boolean }

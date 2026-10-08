@@ -1,12 +1,6 @@
-import {
-  collection,
-  doc,
-  documentId,
-  onSnapshot,
-  query,
-  where,
-  type Firestore,
-} from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('caseQuery')
+import { collection, doc, documentId, query, where, type Firestore } from 'firebase/firestore'
 import type { ListCursor, MasterCollection, QueryDocument } from '../types/prototype-data.ts'
 import { createBoundedListQuery, createOrderedListQuery, REFERENCE_QUERY_CHUNK_SIZE } from './boundedListQuery.ts'
 import { documentsFromSnapshot } from './masterCatalogRepository.ts'

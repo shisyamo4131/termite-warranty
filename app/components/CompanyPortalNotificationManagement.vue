@@ -89,7 +89,10 @@
 </template>
 
 <script setup lang="ts">
-import { collection, documentId, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('portalNotifications')
+
+import { collection, documentId, limit, orderBy, query } from 'firebase/firestore'
 import type { CompanyCaseWorkItem } from '../types/company-portal.ts'
 
 interface CompanyRow { id: string; name: string; active: boolean }

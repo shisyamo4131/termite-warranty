@@ -1,6 +1,7 @@
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { createHash } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from './domain/external-key.mjs'
+import { normalizeBranchCode } from './domain/branch-code.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
@@ -19,7 +20,7 @@ async function actor(db, uid) {
 }
 function manager(a) { if (!a.staff || !['developer_superuser', 'house_solution_administrator'].includes(a.role)) fail('permission-denied', '管理者のみ操作できます。') }
 function owner(a, value) {
-  if (!a.staff && (a.constructionCompanyId !== value.constructionCompanyId || (a.scope === 'branch' && a.branchId !== value.branchId))) fail('permission-denied', 'この工務店・支店の物件は操作できません。')
+  if (!a.staff && (a.constructionCompanyId !== value.constructionCompanyId || (a.scope === 'branch' && a.branchId !== value.branchId))) fail('permission-denied', 'この工務店・本支店の物件は操作できません。')
 }
 // Legacy trial rows remain readable, but are not silently promoted to reportable insurance data.
 const withInsurance = row => ({ ...row, insuranceStartDate: row.insuranceStartDate ?? row.handoverDate ?? '', insuranceExpiryDate: row.insuranceExpiryDate ?? insuranceExpiryDate(row.handoverDate || ''), insuranceNeedsReview: !row.insuranceRenewalMonth, warrantyNotified: row.warrantyNotified === true })
@@ -37,13 +38,35 @@ async function catalog(db, a, search = '', groupId = '', companyId = '', purpose
   if (!a.staff) branches = branches.where('constructionCompanyId', '==', a.constructionCompanyId)
   if (!a.staff && a.scope === 'branch') branches = branches.where(FieldPath.documentId(), '==', a.branchId)
   branches = branches.orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
-  if (!search && !companyId) branches = branches.limit(20)
+  if (!search && !companyId && purpose !== 'referenceStore') branches = branches.limit(20)
   const matching = items => search ? items.filter(row => row.name.includes(search)) : items
   return {
     companies: matching(rows(companies)).filter(row => !groupId || row.defaultGroupId === groupId),
     branches: matching(purpose === 'companyOptions' ? [] : rows(await branches.get())).filter(row => !companyId || row.constructionCompanyId === companyId),
-    groups: rows(await db.collection('warrantyGroups').get()),
+    groups: a.staff ? rows(await db.collection('warrantyGroups').get()) : await (async()=>{const groupId=companies.docs[0]?.data()?.defaultGroupId;if(!groupId)return [];const group=await db.doc(`warrantyGroups/${groupId}`).get();return group.exists ? [{...group.data(),id:group.id}] : []})(),
   }
+}
+
+async function reserveBranchCode(db, tx, ref, old, value) {
+  const reservation = code => db.doc('branchCodeReservations/' + createHash('sha256').update(value.constructionCompanyId + '\0' + code).digest('hex'))
+  const previousCode = String(old?.branchCode ?? '').trim()
+  // Reservation ownership follows the branch's own enabled state, not its parent.
+  const newRef = value.enabled && value.branchCode ? reservation(value.branchCode) : null
+  const previousRef = previousCode ? reservation(previousCode) : null
+  const held = newRef ? (await tx.get(newRef)).data() : null
+  const previous = previousRef ? (newRef?.path === previousRef.path ? held : (await tx.get(previousRef)).data()) : null
+  const ownsPrevious = previous && previous.branchId === ref.id && previous.branchCode === previousCode && previous.constructionCompanyId === value.constructionCompanyId
+  // Missing/corrupt active reservations need explicit repair, not silent release.
+  if (previousCode && old?.enabled !== false && !ownsPrevious) fail('failed-precondition', '本支店コードの管理情報を確認してください。')
+  if (held && (held.branchId !== ref.id || held.branchCode !== value.branchCode || held.constructionCompanyId !== value.constructionCompanyId)) fail('already-exists', '同じ工務店内で本支店コードが重複しています。')
+  if (newRef) {
+    // Compare full codes in the company scope; indexed values may truncate long codes.
+    const matching = await tx.get(db.collection('companyBranches').where('constructionCompanyId','==',value.constructionCompanyId))
+    if (matching.docs.some(row => row.id !== ref.id && row.data().enabled !== false && row.data().branchCode === value.branchCode)) fail('already-exists', '同じ工務店内で本支店コードが重複しています。')
+  }
+  // Editing an inactive branch must never delete another branch's reservation.
+  if (ownsPrevious && previousRef.path !== newRef?.path) tx.delete(previousRef)
+  if (newRef) tx.set(newRef, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:ref.id })
 }
 
 export async function propertyPrototypeOperation(auth, db, input, uid) {
@@ -83,6 +106,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (f.reportMonth) result = result.map(row => { const kind = row.insuranceNeedsReview && row.status === 'active' ? 'review' : insuranceReportKind(row, f.reportMonth); const reportTarget = kind && kind !== 'review' ? insuranceReportTarget(row, f.reportMonth) : null; return {...row, reportTarget, reportKind: kind && !reportTarget ? 'review' : kind} }).filter(row => row.reportKind)
     if (f.billingMonth) result = billingRows(result, f.billingMonth)
     if (f.from || f.to) result = reportRows(result, f.from, f.to, f.includeCancelled === true)
+    if (a.staff && input.omitReferenceLabels === true) return { rows: result, limited: !filtered }
     // Resolve labels for the displayed result without unbounded master reads or child listeners.
     const paths = [...new Set(result.flatMap(row => [`constructionCompanies/${row.constructionCompanyId}`, ...(row.branchId ? [`companyBranches/${row.branchId}`] : [])]))]
     const names = new Map()
@@ -95,9 +119,36 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (!snapshot.exists) fail('not-found', '物件が見つかりません。')
     owner(a, snapshot.data())
     const value = snapshot.data()
+    if (a.staff && input.omitReferenceLabels === true) return withInsurance({...value,id:snapshot.id})
     const company = (await db.doc(`constructionCompanies/${value.constructionCompanyId}`).get()).data()
     const branch = value.branchId ? (await db.doc(`companyBranches/${value.branchId}`).get()).data() : null
     return withInsurance({ ...value, id: snapshot.id, companyLabel: company?.name ?? value.constructionCompanyId, branchLabel: branch?.name ?? (value.branchId || '本店') })
+  }
+  if (action === 'reenableMaster') {
+    if (!a.staff) fail('permission-denied', 'HS担当者のみ設定できます。')
+    // Recovery admission validates these transport fields before dispatching this operation.
+    if (!['company','branch','group'].includes(input.kind) || Object.keys(input).some(key => !['action','kind','id','runtimeGeneration','runtimeProtocol'].includes(key))) fail('invalid-argument', '有効化と内容の編集は別々に行ってください。')
+    const collection = { company: 'constructionCompanies', branch: 'companyBranches', group: 'warrantyGroups' }[input.kind]
+    const ref = db.doc(`${collection}/${id(input.id)}`)
+    await db.runTransaction(async tx => {
+      const old = (await tx.get(ref)).data()
+      if (!old) fail('not-found', '対象が見つかりません。')
+      if (old.enabled !== false) fail('failed-precondition', '現在の状態を取得し直してください。')
+      if (input.kind === 'company' && !(await tx.get(db.doc(`warrantyGroups/${id(old.defaultGroupId)}`))).exists) fail('not-found', '保証グループが見つかりません。')
+      if (input.kind === 'group') {
+        const all = await tx.get(db.collection('warrantyGroups'))
+        if (all.docs.some(row => row.id !== ref.id && normalizeWarrantyPrefix(row.data().prefix) === normalizeWarrantyPrefix(old.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
+      }
+      if (input.kind === 'branch') {
+        if (!(await tx.get(db.doc(`constructionCompanies/${id(old.constructionCompanyId)}`))).exists) fail('not-found', '工務店が見つかりません。')
+        let branchCode
+        try { branchCode = normalizeBranchCode(old.branchCode) } catch (error) { fail('failed-precondition', error.message) }
+        if (branchCode !== (old.branchCode ?? '')) fail('failed-precondition', '本支店コードの管理情報を確認してください。')
+        await reserveBranchCode(db, tx, ref, old, { ...old, branchCode, enabled: true })
+      }
+      tx.set(ref, { enabled: true, updatedAt: Timestamp.now() }, { merge: true })
+    })
+    return { id: ref.id }
   }
   if (['saveCompany', 'saveBranch', 'saveGroup'].includes(action)) {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ設定できます。')
@@ -110,7 +161,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       for (const k of ['telephone', 'fax', 'contactPerson', 'notes']) value[k] = String(input[k] ?? '').trim()
     } else if (action === 'saveBranch') {
       value.constructionCompanyId = id(input.constructionCompanyId)
-      if (input.groupId) fail('invalid-argument', '支店独自の保証グループは設定できません。所属工務店のグループを使用します。')
+      if (input.groupId) fail('invalid-argument', '本支店独自の保証グループは設定できません。所属工務店のグループを使用します。')
       for (const k of ['telephone','fax']) value[k] = String(input[k] ?? '').trim()
     } else {
       value.prefix = normalizeWarrantyPrefix(input.prefix)
@@ -127,27 +178,16 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const ref = input.id ? db.doc(`${collection}/${id(input.id)}`) : db.collection(collection).doc()
     await db.runTransaction(async tx => {
       const old = (await tx.get(ref)).data()
+      if (old?.enabled === false) fail('failed-precondition', '無効なマスタは編集できません。先に有効化してください。')
       value.enabled = input.enabled ?? old?.enabled ?? true
-      if (old && action === 'saveBranch' && old.constructionCompanyId !== value.constructionCompanyId) fail('failed-precondition', '登録済み支店の工務店は変更できません。')
+      if (old && action === 'saveCompany' && old.defaultGroupId !== value.defaultGroupId) fail('failed-precondition', '登録済み工務店の所属保証グループは変更できません。')
+      if (old && action === 'saveBranch' && old.constructionCompanyId !== value.constructionCompanyId) fail('failed-precondition', '登録済み本支店の工務店は変更できません。')
       if (action === 'saveBranch' && !(await tx.get(db.doc(`constructionCompanies/${value.constructionCompanyId}`))).exists) fail('not-found', '工務店が見つかりません。')
       if (action === 'saveBranch') {
         // Older clients omit the field; they must not erase a configured code.
-        value.branchCode = String(input.branchCode ?? old?.branchCode ?? '').trim()
-        if (value.branchCode.length > 200 || /[\u0000-\u001f\u007f]/.test(value.branchCode)) fail('invalid-argument', '支店コードは200文字以内で入力してください。')
-        const reservation = code => db.doc('branchCodeReservations/' + createHash('sha256').update(value.constructionCompanyId + '\0' + code).digest('hex'))
-        const previousCode = String(old?.branchCode ?? '').trim()
-        const newRef = value.branchCode ? reservation(value.branchCode) : null
-        const previousRef = previousCode ? reservation(previousCode) : null
-        const held = newRef ? (await tx.get(newRef)).data() : null
-        const previous = previousRef && previousCode !== value.branchCode ? (await tx.get(previousRef)).data() : null
-        if (held && (held.branchId !== ref.id || held.branchCode !== value.branchCode || held.constructionCompanyId !== value.constructionCompanyId)) fail('already-exists', '同じ工務店内で支店コードが重複しています。')
-        if (value.branchCode) {
-          const matching = await tx.get(db.collection('companyBranches').where('constructionCompanyId','==',value.constructionCompanyId).where('branchCode','==',value.branchCode).limit(2))
-          if (matching.docs.some(row => row.id !== ref.id)) fail('already-exists', '同じ工務店内で支店コードが重複しています。')
-        }
-        if (previous && (previous.branchId !== ref.id || previous.branchCode !== previousCode || previous.constructionCompanyId !== value.constructionCompanyId)) fail('failed-precondition', '支店コードの管理情報を確認してください。')
-        if (previousRef && previousCode !== value.branchCode && previous) tx.delete(previousRef)
-        if (newRef) tx.set(newRef, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:ref.id })
+        try { value.branchCode = normalizeBranchCode(input.branchCode ?? old?.branchCode ?? '') }
+        catch (error) { fail('invalid-argument', error.message) }
+        await reserveBranchCode(db, tx, ref, old, value)
       }
       // Reserve numbering settings and prefixes from creation, even while disabled.
       if (action === 'saveGroup') {
@@ -192,7 +232,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (!company) fail('not-found', '工務店が見つかりません。')
     if (!['company', 'branch'].includes(input.scope)) fail('invalid-argument', '閲覧範囲を指定してください。')
     const branchId = input.scope === 'branch' ? id(input.branchId) : ''
-    if (branchId && (await db.doc(`companyBranches/${branchId}`).get()).data()?.constructionCompanyId !== constructionCompanyId) fail('invalid-argument', '所属支店が不正です。')
+    if (branchId && (await db.doc(`companyBranches/${branchId}`).get()).data()?.constructionCompanyId !== constructionCompanyId) fail('invalid-argument', '所属本支店が不正です。')
     const email = text(input.email, 'メールアドレス').toLowerCase()
     const displayName = text(input.displayName, '担当者名')
     let user
@@ -292,15 +332,15 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       const fields = normalizeProperty(supplied, false)
       if (old?.groupName?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
       if (old?.status === 'active' && fields.applicationDate !== old.applicationDate) fail('failed-precondition', '本登録後の申込日は変更できません。')
-      if (old?.status === 'active' && (supplied.constructionCompanyId !== old.constructionCompanyId || (supplied.branchId || '') !== old.branchId)) fail('failed-precondition','本登録後の工務店・支店は変更できません。誤登録は取消後に再登録してください。')
+      if (old?.status === 'active' && (supplied.constructionCompanyId !== old.constructionCompanyId || (supplied.branchId || '') !== old.branchId)) fail('failed-precondition','本登録後の工務店・本支店は変更できません。誤登録は取消後に再登録してください。')
       if ((old?.years ?? 0) > fields.maxYears) fail('failed-precondition', '既に延長した期間より短い上限にはできません。')
       const constructionCompanyId = old?.status === 'active' ? old.constructionCompanyId : id(input.fields.constructionCompanyId)
       const branchId = old?.status === 'active' ? old.branchId : (input.fields.branchId ? id(input.fields.branchId) : '')
       owner(a, { constructionCompanyId, branchId })
       const company = (await tx.get(db.doc(`constructionCompanies/${constructionCompanyId}`))).data()
       const branch = branchId ? (await tx.get(db.doc(`companyBranches/${branchId}`))).data() : null
-      if (!company || (branchId && branch?.constructionCompanyId !== constructionCompanyId)) fail('invalid-argument', '工務店・支店を確認してください。')
-      if ((!old || action === 'register') && (company.enabled === false || branch?.enabled === false)) fail('failed-precondition', '無効な工務店・支店では新規登録できません。既存の保証は引き続き処理できます。')
+      if (!company || (branchId && branch?.constructionCompanyId !== constructionCompanyId)) fail('invalid-argument', '工務店・本支店を確認してください。')
+      if ((!old || action === 'register') && (company.enabled === false || branch?.enabled === false)) fail('failed-precondition', '無効な工務店・本支店では新規登録できません。既存の保証は引き続き処理できます。')
       // Issued records retain their group even after a company's reassignment.
       const keyGroupId = old?.status === 'active' ? old.groupId : company.defaultGroupId
       const keyGroup = keyGroupId ? (await tx.get(db.doc(`warrantyGroups/${id(keyGroupId)}`))).data() : null

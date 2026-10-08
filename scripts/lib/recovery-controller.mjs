@@ -169,7 +169,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   const codeBranches = new Map()
   for (const row of (await db.collection('companyBranches').get()).docs) {
     const value = row.data()
-    if (!value.branchCode) continue
+    if (!value.branchCode || value.enabled === false) continue
     const codeId = createHash('sha256').update(value.constructionCompanyId + '\0' + value.branchCode).digest('hex')
     if (codeBranches.has(codeId)) throw new RecoveryError('Duplicate branch code.')
     codeBranches.set(codeId, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:row.id })

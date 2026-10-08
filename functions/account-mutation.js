@@ -19,6 +19,7 @@ export async function mutateAccount(auth, db, { uid, targetPath, actorUid, autho
     authorize(actor.data(), target.exists ? target.data() : null)
     if (lock.exists) blocked()
     if (!target.exists) throw new AccountMutationError('not-found', 'アカウントが見つかりません。')
+    if (kind === 'profile' && target.data().enabled !== true) throw new AccountMutationError('failed-precondition', '無効なアカウントは編集できません。先に有効化してください。')
     tx.create(lockRef, { operationId, targetPath, actorUid, kind, desired, status: 'running', createdAt: FieldValue.serverTimestamp() })
     // Fail closed before both enable and disable operations touch Auth.
     if (kind === 'enabled') tx.update(targetRef, { enabled: false, updatedAt: FieldValue.serverTimestamp() })

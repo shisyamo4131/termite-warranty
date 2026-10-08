@@ -1,4 +1,6 @@
-import { collection, getDocs, type DocumentData, type Firestore } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { getDocs } = createMeasuredFirestore('masterCatalog')
+import { collection, type DocumentData, type Firestore } from 'firebase/firestore'
 import { selectActiveMasterCatalog } from '../../src/domain/case-filters.mjs'
 import type { MasterCatalog, MasterCollection, MasterOption, QueryDocument } from '../types/prototype-data.ts'
 

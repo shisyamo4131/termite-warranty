@@ -1,9 +1,33 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
+import { normalizeBranchCode } from '../src/domain/branch-code.mjs'
 import { CSV_TEMPLATE_HEADERS, createBulkImportTemplate, parseBulkImportCsv, prepareBulkImportRows } from '../src/domain/property-bulk-import.mjs'
 
 const sample = { '外部キー': 'source-000001', '支店コード': '0001', '物件名': '架空施主', '申込日': '2026-10-01', '引渡日': '2026-10-05', '上棟日': '', '最長保証期間': '20', '現在保証年数': '10', '建築面積': '99.25', '住所': '東京都架空市1-1', '郵便番号': '0010001', '建物名': '', '断熱材あり': 'あり', '資材名': '架空資材', '施主電話番号': '', '既存保証番号': '', '備考': '' }
-const csv = (...records) => createBulkImportTemplate() + records.map(record => CSV_TEMPLATE_HEADERS.map(key => `"${String(record[key.replace('（＊）','')] ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n') + '\r\n'
+const csv = (...records) => createBulkImportTemplate() + records.map(record => CSV_TEMPLATE_HEADERS.map(key => `"${String(record[key.replace('（＊）','').replace('本支店コード','支店コード')] ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n') + '\r\n'
+
+test('branch codes have no 200 or 2000 character limit and reject controls before trimming',()=>{
+  for(const code of ['0001','0'.repeat(201),'0'+'長'.repeat(2200)]){
+    assert.equal(normalizeBranchCode(' '+code+' '),code)
+    const prepared=prepareBulkImportRows(csv({...sample,'支店コード':' '+code+' '}))
+    assert.deepEqual(prepared.errors,[])
+    assert.equal(prepared.rows[0].branchCode,code)
+  }
+  assert.equal(normalizeBranchCode('  '),'')
+  for(const control of ['\0','\t','\n','\r','\u001f','\u007f']){
+    assert.throws(()=>normalizeBranchCode(control+'0001'),/制御文字/)
+    assert.match(prepareBulkImportRows(csv({...sample,'支店コード':'0001'+control})).errors[0].message,/制御文字/)
+  }
+})
+
+test('new branch header and legacy branch header retain the same internal source keys',()=>{
+  assert.equal(CSV_TEMPLATE_HEADERS[1],'本支店コード（＊）')
+  const current=csv(sample), legacy=current.replace('本支店コード（＊）','支店コード（＊）')
+  assert.deepEqual(parseBulkImportCsv(legacy),parseBulkImportCsv(current))
+  assert.equal(prepareBulkImportRows(legacy).rows[0].sourceValues['支店コード'],'0001')
+  assert.throws(()=>parseBulkImportCsv(current.replace('本支店コード（＊）','本支店コード')),/見出し/)
+})
 
 test('CSV preserves leading zeros, quoted comma/newline/quotes and Unicode', () => {
   const value = { ...sample, '物件名': '架空,施主\n"二行"' }
@@ -132,11 +156,30 @@ function fakeDb(seed = {}) {
   } }
   return db
 }
-const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_staff' }, 'staffAccounts/other': { enabled: true, role: 'general_staff' }, 'constructionCompanies/company': { name: '架空会社', enabled: true, defaultGroupId: 'HSC' }, 'warrantyGroups/HSC': { name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, enabled: true, externalKeyRequired: true }, 'companyBranches/branch': { name: '架空支店', constructionCompanyId: 'company', branchCode: '0001', enabled: true } })
+const branchReservationPath = 'branchCodeReservations/' + createHash('sha256').update('company\0' + '0001').digest('hex')
+const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_staff' }, 'staffAccounts/other': { enabled: true, role: 'general_staff' }, 'constructionCompanies/company': { name: '架空会社', enabled: true, defaultGroupId: 'HSC' }, 'warrantyGroups/HSC': { name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, enabled: true, externalKeyRequired: true }, 'companyBranches/branch': { name: '架空支店', constructionCompanyId: 'company', branchCode: '0001', enabled: true }, [branchReservationPath]: { constructionCompanyId: 'company', branchCode: '0001', branchId: 'branch' } })
 
 // Functions use the generated deployment domain; test preparation is explicit.
 const server = () => import('../functions/property-bulk-import.js')
 const request = (records = [sample], extra = {}) => ({ action: 'preview', groupId: 'HSC', companyId: 'company', csv: csv(...records), format: 'common', requestId: 'request-1', ...extra })
+
+test('long branch codes compare full values and legacy header commits replay without rewriting its digest',async()=>{
+  const {propertyBulkImportOperation:operation}=await server()
+  const code='0'+'長'.repeat(2200), data=seed()
+  data['companyBranches/branch'].branchCode=code
+  delete data[branchReservationPath]
+  data['branchCodeReservations/'+createHash('sha256').update('company\0'+code).digest('hex')]={constructionCompanyId:'company',branchCode:code,branchId:'branch'}
+  data['companyBranches/near-match']={constructionCompanyId:'company',branchCode:code+'different',enabled:true}
+  const db=fakeDb(data),input=request([{...sample,'支店コード':code}])
+  input.csv=input.csv.replace('本支店コード（＊）','支店コード（＊）')
+  const preview=await operation(db,input,'staff')
+  assert.deepEqual(preview.errors,[])
+  assert.equal(preview.rows[0].branchId,'branch')
+  const commit={...input,action:'commit',confirmed:true,previewHash:preview.previewHash}
+  await operation(db,commit,'staff')
+  assert.equal((await operation(db,commit,'staff')).replayed,true)
+  await assert.rejects(operation(db,{...commit,csv:input.csv.replace('支店コード（＊）','本支店コード（＊）')},'staff'),/再利用/)
+})
 test('one invalid quoted key rejects the entire file without writes', async () => {
   const { propertyBulkImportOperation: operation } = await server()
   for (const character of ['\t', '\n', '\r', '\u007f']) {
@@ -187,7 +230,7 @@ test('preview preserves known and unknown branch codes; blank code never registe
   assert.equal(unknown.rows[0].branchCode, '0999')
   assert.equal(unknown.rows[0].branchId, '')
   assert.equal(unknown.rows[0].branchLabel, '')
-  assert.equal(unknown.errors[0].field, '支店コード')
+  assert.equal(unknown.errors[0].field, '本支店コード')
   await assert.rejects(operation(db, { ...input, action: 'commit', confirmed: true, previewHash: unknown.previewHash }, 'staff'), /全件/)
   const blankInput = request([{ ...sample, '支店コード': '' }])
   const blank = await operation(db, blankInput, 'staff')
@@ -201,6 +244,7 @@ test('branch remapping after preview blocks commit, then concurrent duplicate im
   const db = fakeDb(seed()), input = request(), preview = await operation(db, input, 'staff')
   const branch = db.documents.get('companyBranches/branch')
   db.documents.delete('companyBranches/branch'); db.documents.set('companyBranches/newbranch', branch)
+  db.documents.set(branchReservationPath, { constructionCompanyId: 'company', branchCode: '0001', branchId: 'newbranch' })
   await assert.rejects(operation(db, { ...input, action: 'commit', confirmed: true, previewHash: preview.previewHash }, 'staff'), /再度プレビュー/)
   assert.equal(db.stats.writes.length, 0)
   const fresh = await operation(db, input, 'staff')

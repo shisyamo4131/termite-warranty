@@ -1,5 +1,7 @@
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { runTransaction } = createMeasuredFirestore('caseCommand')
 import { withRuntimeGeneration, directRecoveryMetadata } from '../utils/recoveryClient.ts'
-import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore'
+import { doc, serverTimestamp, type Firestore } from 'firebase/firestore'
 import { httpsCallable, type Functions } from 'firebase/functions'
 import { matchesCaseUpdateBaseline } from '../../src/domain/case-rows.mjs'
 import type {
