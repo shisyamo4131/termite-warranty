@@ -2,6 +2,8 @@
 
 ## 認証失敗の調査
 
+2026-10-08、`f29f4a3`のFunctions21件・HostingをDevへ配備、正式照合10項目pass。実画面での通信エラー再発と合成再送試験の両方をFunctionsログで受信済み。元のエラー原因は未解明。
+
 ブラウザ診断の受付は`reportAuthDiagnostics`、Functionsログの検索条件は`jsonPayload.event="auth_client_failure"`。発生時刻at、stage/code、online、事象IDを照合する。クライアント申告であり、online=trueは接続成功を意味しない。個人情報や資格情報を補ってログに出さない。[送信・上限・消失条件](design/reference-store-metrics.md#認証失敗の診断経路)、[実行結果](design/evidence/prod-readiness-2026-10-08.md)を参照。
 
 Devの認証サービス側activity loggingはIdentity Platformが必要として拒否され、未有効。サービス変更は未実施。元の通信エラー原因も未特定で[HSC-041](requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)に集約する。新規管理者アカウントなしで診断経路を検証する。

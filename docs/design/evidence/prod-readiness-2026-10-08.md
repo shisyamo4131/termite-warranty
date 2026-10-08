@@ -150,3 +150,20 @@ Functions構造化ログを19:46:44〜20:04:13 JSTで取得。119件＝server_ob
 ### 認証サービス側ログの制約
 
 `node tmp/enable-dev-auth-logging.mjs --apply-dev` はexit1。Dev実設定GETと対象照合の後、`monitoring.requestLogging.enabled` だけのPATCHを試したがHTTP400、`OPERATION_NOT_ALLOWED : activity logging can only be enabled in GCIP.`。設定は未有効。Identity Platformへの変更は未実施・別判断。管理者アカウント作成も未実行。元の通信障害原因とサービス側ログの扱いはHSC-041に残す。ブラウザ診断の追加を元の障害解消と扱わない。
+
+### Dev配備・ログ受信
+
+実装commit `f29f4a3f8de2787d3542801598c5758bc0795614`、primary/main、pushなし。以下の各コマンドはexit 0。
+
+- `npm run build:recovery-release -- --revision f29f4a3f8de2787d3542801598c5758bc0795614`：正式成果物生成。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --only functions --project termite-warranty-dev --non-interactive`：21 Functions配備。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --only hosting --project termite-warranty-dev --non-interactive`：Hosting配備。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision f29f4a3f8de2787d3542801598c5758bc0795614 --source '(default)' --generation 10 --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/8af453d43f6b7c34 --dev-inspect`：全10項目pass、Functions原本21・Hosting991ファイル一致。inspectのready=falseは変更非許可モード。現行Hosting版は`sites/termite-warranty-dev/versions/094afc5f70ae874c`。
+- `node tmp/auth-diagnostics-retry-dev.mjs`：実装済みキューへ通信不能を模擬し、初回送信の失敗後に再送、Dev受付成功。実ブラウザのネットワーク遮断試験とは区別する。
+- `node tmp/auth-diagnostics-dev-check.mjs logs 2026-10-08T14:02:00Z`：Functions診断2件受信。14:03:03 UTCが合成再送、14:03:48 UTCが実ブラウザの再発。出力項目はat/code/event/id/message/online/schemaVersion/source/stageのみ、messageは固定値。メール・パスワード・UID・自由文エラーなし。
+- `node tmp/store-backup-postcheck.mjs`：21 Functionsのautomation=false、Scheduler PAUSED、PITR無効、backupSchedules0・backups0を維持。
+- `node tmp/read-auth-log-config.mjs`：requestLogging={}。サービス側ログの有効化は成立していないことを再確認。
+
+実画面は専用のin-app browserタブを使い、未登録の架空アドレスでログインを1回試行。`auth/network-request-failed`が表示され、その失敗が上記ログへ到達した。新規アカウント・業務データの作成／変更なし。実在者の資格情報は使用していない。画面証拠はignored `tmp/auth-diagnostics-dev-error.png`。正常ログイン確認・実ブラウザの通信遮断／回復操作・改修後300件プレビュー時間の再測定は未実施。元の通信障害原因も未特定。
+
+AUTH-OBS-02の独立delta reviewは阻害指摘なし。変更ファイルは実装commitの25ファイル：appのuseSession・firebase plugin・authDiagnostics、functionsのindex・auth-diagnostics・property-bulk-import、src/domainのauth-diagnostics mjs/d.mts、package.json、testのauth-diagnostics・emulator/firestore-metrics・property-bulk-import・property-warranty、CHANGELOGと本記録・specification・operations・reference-store-metrics・property-bulk-import・ADR0037・technical-remediation・user-explanation-items・未解決事項索引とHSC023/HSC041。後続文書差分は実受信結果を反映する。Rules・依存版・IAM・managed governance・業務データ形状を変えていないためデータ契約の改版・マイグレーションは不要。全体進捗の加点なし。最終文書検査とGit差分検査を別途実行する。

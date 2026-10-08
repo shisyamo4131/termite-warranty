@@ -14,7 +14,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
-| HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | 原因未特定。ブラウザ診断改修中。認証サービス側ログはIdentity Platformが必要で未有効 | Project owner / Project |
+| HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | ブラウザ診断はDev実受信済み。通信失敗は再発・原因未特定。サービス側ログはIdentity Platformが必要で未有効 | Project owner / Project |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 月次自動取得・検証・公開・失敗通知を検討。方式未採用／設定未実行 | Project owner |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 延長後の保証開始月を2026-10-05採用、ローカル実装・機能検証済み、Dev未反映。未請求抽出・請求先単位・合算は確認待ち | House Solution |
 | HSC-001 | [Case, applied-warranty, and referenced-master data retention](house-solution-confirmations/HSC-001-data-retention-policy.md) | 終了分のCSV保管後削除・開発側復元は確定。取消済みもCSVをHS保管後に削除可（2026-10-05）、後発実装。トリガー・詳細は未確定 | House Solution |

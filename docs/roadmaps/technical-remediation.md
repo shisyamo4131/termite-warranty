@@ -2,9 +2,9 @@
 
 ## 2026-10-08 追加調査と採用範囲
 
-CSV重複検索のin・30値チャンク方式を実装、検証・Dev反映中。予約文書のgetAll一括取得と並列化は未採用。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではなく、対象月をDBへ指定する取得改修の残件。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
+CSV重複検索のin・30値チャンク方式は実装・全7ゲート・Dev配備完了。改修後のDev300件所要時間は未計測。予約文書のgetAll一括取得と並列化は未採用。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではなく、対象月をDBへ指定する取得改修の残件。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
 
-ログイン障害は当該時間帯の認証／エラーログ0件、元の原因未特定。ブラウザ診断と接続回復後のFunctions送信を実装・検証中。認証サービス側ログはDevで有効化を試したが、Identity Platformが必要としてAPIに拒否され未有効。サービス変更は未実施。[HSC-041](../requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)を未解決事項の正本とし、[検証記録](../design/evidence/prod-readiness-2026-10-08.md)に結果を集約する。
+ログイン障害は当初の時間帯の認証／エラーログ0件。改修後のDev実画面でも通信失敗が再発したが、追加した診断をFunctionsログで受信できた。接続回復後の再送は合成試験でもDev実受信済み。元の原因は未特定。認証サービス側ログはIdentity Platformが必要としてAPIに拒否され未有効。サービス変更は未実施。[HSC-041](../requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)を未解決事項の正本とし、[検証記録](../design/evidence/prod-readiness-2026-10-08.md)に結果を集約する。
 
 ## 2026-10-08 Prod準備の現在地
 
