@@ -215,11 +215,11 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "insuranceQueryStart",
+          "fieldPath": "insuranceQueryEnd",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "insuranceQueryEnd",
+          "fieldPath": "insuranceQueryStart",
           "order": "ASCENDING"
         }
       ]
