@@ -2,11 +2,11 @@
 
 ## 2026-10-08 月別取得・getAllの実装
 
-追加指示で両方を採用。2026-10-09 JSTにDev反映・307件補完、6か月12条件のDB対象一致と取得数、読取単体の中央値6272→111msを確認。復旧状態変更時の中断も実装・試験済み。既存Chrome管理者で2026-10保険の画面・CSV・Functions物件取得305件一致を確認。新規管理者不要。操作接続は復帰し、download待機のみの失敗を再現。認証付き再取得は成功。別月・請求CSV・300件プレビュー全体は未完了。[設計・検証状態](../design/monthly-queries.md)。環境設定・権限は[仕様](../requirements/environment-configuration.md)へ整理。全作業完了とは扱わない。
+追加指示で両方を採用。2026-10-09 JSTにDev反映・307件補完、6か月12条件のDB対象一致と取得数、読取単体の中央値6272→111msを確認。復旧状態変更時の中断も実装・試験済み。既存Chrome管理者で2026-10保険の画面・CSV・Functions物件取得305件一致を確認。新規管理者不要。操作接続は復帰し、download待機のみの失敗を再現。認証付き再取得は成功。300件プレビュー3回・全300行照合を完了し、Functions中央値18,248→1,031ms（in30＋getAll合算）を確認。別月・請求CSVの実画面検証は未完了。[設計・検証状態](../design/monthly-queries.md)。環境設定・権限は[仕様](../requirements/environment-configuration.md)へ整理。全作業完了とは扱わない。
 
 ## 2026-10-08 追加調査と採用範囲
 
-CSV重複検索のin・30値チャンク方式は実装・全7ゲート・Dev配備完了。追加採用のgetAllと月別取得は上記の実装記録へ集約する。プレビュー全体のDev300件所要時間は追加測定待ち。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではない。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
+CSV重複検索のin・30値チャンク方式は実装・全7ゲート・Dev配備完了。追加採用のgetAllと月別取得は上記の実装記録へ集約する。プレビュー全体のDev300件所要時間は中央値1,031msを確認済み。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではない。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
 
 ログイン障害は当初の時間帯の認証／エラーログ0件。改修後のDev実画面でも通信失敗が再発したが、追加した診断をFunctionsログで受信できた。接続回復後の再送は合成試験でもDev実受信済み。元の原因は未特定。認証サービス側ログはIdentity Platformが必要としてAPIに拒否され未有効。サービス変更は未実施。[HSC-041](../requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)を未解決事項の正本とし、[検証記録](../design/evidence/prod-readiness-2026-10-08.md)に結果を集約する。
 
