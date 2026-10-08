@@ -42,6 +42,34 @@ test('UH max warranty is exactly 10; common max 20 and 30 are preserved', () => 
     assert.equal(common.rows[0].fields.maxYears, Number(maxYears))
   }
 })
+
+test('Excel year-first slash dates normalize while received source values stay unchanged', () => {
+  for (const [application, handover, expectedApplication, expectedHandover] of [
+    ['2018/4/1','2018/6/30','2018-04-01','2018-06-30'],
+    ['2026/01/08','2026/10/8','2026-01-08','2026-10-08'],
+    ['2024/2/29','2024-03-01','2024-02-29','2024-03-01'],
+  ]) {
+    const input={...sample,'申込日':application,'引渡日':handover}
+    const result=prepareBulkImportRows(csv(input))
+    assert.deepEqual(result.errors,[])
+    assert.equal(result.rows[0].fields.applicationDate,expectedApplication)
+    assert.equal(result.rows[0].fields.handoverDate,expectedHandover)
+    assert.equal(result.rows[0].sourceValues['申込日'],application)
+    assert.equal(result.rows[0].sourceValues['引渡日'],handover)
+    assert.equal(result.rows[0].branchCode,'0001')
+  }
+})
+
+test('Excel date support rejects impossible, incomplete, ambiguous and serial values with row and field', () => {
+  for (const value of ['2026/2/29','2026/2/30','2026/13/1','2026/0/1','2026/1/0','2026/1/32','2026/10','10/8/2026','26/10/8','20261008','46303','2026/10-08','2026-1-8','2026/10/8 00:00:00','']) {
+    for (const field of ['申込日','引渡日']) {
+      const result=prepareBulkImportRows(csv(sample,{...sample,'外部キー':'bad-date',[field]:value}))
+      assert.equal(result.errors.length,1,value)
+      assert.equal(result.errors[0].line,3)
+      assert.ok(result.errors[0].message.includes(field))
+    }
+  }
+})
 test('whole file errors include duplicate keys, malformed last row and no silent skips', () => {
   assert.ok(prepareBulkImportRows(csv(sample, sample)).errors.some(error => error.message.includes('外部キーが重複')))
   const result = prepareBulkImportRows(csv(sample, { ...sample, '外部キー': 'second', '申込日': '2026-02-30' }))

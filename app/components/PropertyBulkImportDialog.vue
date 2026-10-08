@@ -17,7 +17,7 @@
         </v-form>
         <v-file-input v-if="locked && pendingRecord && !csv && !result && !rejected" v-model="file" accept=".csv,text/csv" label="前回と同じCSVファイルを選択" :rules="[fileRule]" :disabled="busy" show-size @update:model-value="readFile" />
         <v-btn variant="outlined" class="mb-3" @click="$emit('downloadTemplate')">共通テンプレートをダウンロード</v-btn>
-        <p class="text-body-2 mb-3">共通CSVの「外部キー」列には{{ keyLabel }}を入力してください。</p><p class="text-body-2 mb-3">（＊）の列は入力必須です。外部キー・支店コード・郵便番号は文字列として扱い、先頭の0を保持してください。申込日・引渡日は担当者が整えたYYYY-MM-DDで入力します。全件、引渡日起算の初回10年で登録し、保証番号を新規採番します。最長保証期間は将来の延長上限です。</p>
+        <p class="text-body-2 mb-3">共通CSVの「外部キー」列には{{ keyLabel }}を入力してください。</p><p class="text-body-2 mb-3">（＊）の列は入力必須です。外部キー・支店コード・郵便番号は文字列として扱い、先頭の0を保持してください。申込日・引渡日はExcelの日付で入力できます。CSV保存後の「2026/10/8」「2026/01/08」「2026-10-08」に対応します。年月日をすべて入力し、CSV UTF-8で保存してください。全件、引渡日起算の初回10年で登録し、保証番号を新規採番します。最長保証期間は将来の延長上限です。</p>
         <p v-if="groupId" class="text-body-2 mb-3">住所：{{ selectedGroup?.addressRequired ? '入力必須' : '任意（空欄のまま保存）' }}。断熱材ありの場合の資材名：{{ selectedGroup?.insulationMaterialsRequired ? '入力必須' : '任意（空欄のまま保存）' }}。</p><p v-if="uhGroup" class="text-body-2 mb-3">UHの最長保証期間は10年です。支店コードは契約Noの先頭4桁とは別に照合します。</p>
         <v-progress-linear v-if="busy" indeterminate class="mb-3" />
         <template v-if="preview">

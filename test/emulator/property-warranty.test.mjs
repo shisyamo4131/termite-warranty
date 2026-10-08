@@ -145,6 +145,52 @@ test('branch codes reserve per company, retain existing property references and 
   await assert.rejects(call('save',command('old-address-client',0,{fields:legacyFields})),/住所|入力/)
 })
 
+test('Excel CSV dates preview and persist as ISO while source dates and atomic rejection stay intact',async()=>{
+  const target=getFirestore(app,'test-import-excel-dates')
+  for(const root of await target.listCollections())await target.recursiveDelete(root)
+  await target.doc('staffAccounts/excel-admin').set({enabled:true,role:'house_solution_administrator'})
+  await target.doc('warrantyGroups/U').set({name:'UH',prefix:'',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
+  await target.doc('constructionCompanies/C').set({name:'架空Excel検証会社',defaultGroupId:'U',enabled:true})
+  await propertyPrototypeOperation(auth,target,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'excel-admin')
+  const dates=[['2018/4/1','2018/6/30'],['2018/9/1','2018/11/30'],['2018/10/1','2018/12/30']]
+  const makeCsv=values=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+values.map(([application,handover],index)=>{
+    const row={'外部キー':`0001-202690${index+1}`,'支店コード':'0001','物件名':`架空Excel物件${index+1}`,'申込日':application,'引渡日':handover,'最長保証期間':'10','建築面積':'200','断熱材あり':'あり'}
+    return CSV_TEMPLATE_HEADERS.map(header=>row[header.replace('（＊）','')]??'').join(',')
+  }).join('\r\n')
+  const base={groupId:'U',companyId:'C',format:'common',requestId:'excel-dates',csv:makeCsv(dates)}
+  const bad={...base,requestId:'excel-invalid',csv:makeCsv([dates[0],['2018/9/1','2018/11/31']])}
+  const rejected=await propertyBulkImportOperation(target,{...bad,action:'preview'},'excel-admin')
+  assert.ok(rejected.errors.some(error=>error.line===3 && /引渡日/.test(error.message)))
+  await assert.rejects(propertyBulkImportOperation(target,{...bad,action:'commit',confirmed:true,previewHash:rejected.previewHash},'excel-admin'),error=>error.details?.safeToDiscard===true)
+  for(const root of ['propertyWarranties','propertyImportSources','propertyImportReceipts','externalKeyReservations','warrantyCounters'])assert.equal((await target.collection(root).get()).size,0)
+  const unknown={...base,requestId:'excel-unknown-branch',csv:base.csv.replaceAll(',0001,',',0999,')}
+  const unknownPreview=await propertyBulkImportOperation(target,{...unknown,action:'preview'},'excel-admin')
+  assert.equal(unknownPreview.errors.length,3)
+  assert.ok(unknownPreview.errors.every(error=>error.field==='支店コード'))
+  assert.equal(unknownPreview.rows[0].applicationDate,'2018-04-01')
+  await assert.rejects(propertyBulkImportOperation(target,{...unknown,action:'commit',confirmed:true,previewHash:unknownPreview.previewHash},'excel-admin'),error=>error.details?.safeToDiscard===true)
+  for(const root of ['propertyWarranties','propertyImportSources','propertyImportReceipts','externalKeyReservations','warrantyCounters'])assert.equal((await target.collection(root).get()).size,0)
+  const preview=await propertyBulkImportOperation(target,{...base,action:'preview'},'excel-admin')
+  assert.deepEqual(preview.errors,[])
+  assert.deepEqual(preview.rows.map(row=>[row.applicationDate,row.handoverDate]),[['2018-04-01','2018-06-30'],['2018-09-01','2018-11-30'],['2018-10-01','2018-12-30']])
+  const confirm={...base,action:'commit',confirmed:true,previewHash:preview.previewHash}
+  const result=await propertyBulkImportOperation(target,confirm,'excel-admin')
+  assert.equal(result.count,3)
+  for(let index=0;index<result.ids.length;index++) {
+    const property=(await target.doc('propertyWarranties/'+result.ids[index]).get()).data()
+    const source=(await target.doc('propertyImportSources/'+result.ids[index]).get()).data()
+    assert.equal(property.applicationDate,preview.rows[index].applicationDate)
+    assert.equal(property.handoverDate,preview.rows[index].handoverDate)
+    assert.equal(property.startDate,property.handoverDate)
+    assert.equal(property.fiscalYear,2018)
+    assert.equal(property.address,'');assert.equal(property.insulationMaterials,'')
+    assert.equal(source.values['申込日'],dates[index][0]);assert.equal(source.values['引渡日'],dates[index][1])
+  }
+  assert.equal((await target.doc('warrantyCounters/U_2018').get()).data().lastValue,3)
+  assert.equal((await propertyBulkImportOperation(target,confirm,'excel-admin')).replayed,true)
+  await inspectBusinessIntegrity(target)
+})
+
 test('real Firestore bulk transaction commits 279 rows atomically and recovery verifies identities',async()=>{
   const imported=getFirestore(app,'test-import-volume')
   for(const root of await imported.listCollections())await imported.recursiveDelete(root)

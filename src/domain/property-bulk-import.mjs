@@ -10,7 +10,7 @@ export const CSV_TEMPLATE_HEADERS = Object.freeze(CSV_FIELDS.map(name => name + 
 const quote = value => `"${String(value).replaceAll('"', '""')}"`
 export function createBulkImportTemplate() { return '\uFEFF' + CSV_TEMPLATE_HEADERS.map(quote).join(',') + '\r\n' }
 
-// No spreadsheet expressions or automatic numeric/date coercion are evaluated.
+// No spreadsheet expressions or locale-dependent numeric/date guesses are evaluated.
 export function parseBulkImportCsv(csv) {
   if (typeof csv !== 'string' || new TextEncoder().encode(csv).length > BULK_IMPORT_MAX_BYTES) throw new Error('CSVはUTF-8で1MB以内にしてください。')
   const source = csv.replace(/^\uFEFF/, '')
@@ -49,20 +49,21 @@ const required = (value, label, max = 2000) => {
   return value
 }
 function date(value, label) {
-  try { calculateExpiryDate(value, 1) } catch { throw new Error(`${label}は有効な年月日（YYYY-MM-DD）で入力してください。`) }
-  return value
+  const slash = /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(value)
+  const normalized = slash ? `${slash[1]}-${slash[2].padStart(2, '0')}-${slash[3].padStart(2, '0')}` : value
+  try { calculateExpiryDate(normalized, 1) } catch { throw new Error(`${label}は有効な年月日（YYYY/M/D または YYYY-MM-DD）で入力してください。`) }
+  return normalized
 }
 function prepareRow(record, group) {
   const v = record.values
   const externalKey = normalizeExternalKey(v['外部キー'])
   if (!externalKey) throw new Error('外部キーを正しく入力してください。')
   const branchCode = required(v['支店コード'], '支店コード', 200)
-  const applicationDate = v['申込日'], handoverDate = v['引渡日']
+  const applicationDate = date(v['申込日'], '申込日'), handoverDate = date(v['引渡日'], '引渡日')
   const isUh = String(group.name ?? '').trim().toUpperCase() === 'UH'
   if (isUh) {
     if (!/^\d{4}-\d{7}$/.test(externalKey)) throw new Error('UHの外部キーはお施主様契約No（4桁-7桁）を入力してください。')
   }
-  date(applicationDate, '申込日'); date(handoverDate, '引渡日')
   if (!/^(10|20|30)$/.test(v['最長保証期間'])) throw new Error('最長保証期間は10・20・30を入力してください。')
   const years = 10, maxYears = Number(v['最長保証期間'])
   if (isUh && maxYears !== 10) throw new Error('UHの最長保証期間は10年です。')
