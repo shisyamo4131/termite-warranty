@@ -2,8 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CSV_TEMPLATE_HEADERS, createBulkImportTemplate, parseBulkImportCsv, prepareBulkImportRows } from '../src/domain/property-bulk-import.mjs'
 
-const sample = { '外部キー': 'source-000001', '支店コード': '0001', '物件名': '架空施主', '申込日': '2026-10-01', '引渡日': '2026-10-05', '上棟日': '', '最長保証期間': '20', '現在保証年数': '10', '建築面積': '99.25', '住所': '', '郵便番号': '0010001', '建物名': '', '断熱材あり': 'あり', '資材名': '', '施主電話番号': '', '既存保証番号': '', '備考': '' }
-const csv = (...records) => createBulkImportTemplate() + records.map(record => CSV_TEMPLATE_HEADERS.map(key => `"${String(record[key] ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n') + '\r\n'
+const sample = { '外部キー': 'source-000001', '支店コード': '0001', '物件名': '架空施主', '申込日': '2026-10-01', '引渡日': '2026-10-05', '上棟日': '', '最長保証期間': '20', '現在保証年数': '10', '建築面積': '99.25', '住所': '東京都架空市1-1', '郵便番号': '0010001', '建物名': '', '断熱材あり': 'あり', '資材名': '架空資材', '施主電話番号': '', '既存保証番号': '', '備考': '' }
+const csv = (...records) => createBulkImportTemplate() + records.map(record => CSV_TEMPLATE_HEADERS.map(key => `"${String(record[key.replace('（＊）','')] ?? '').replaceAll('"', '""')}"`).join(',')).join('\r\n') + '\r\n'
 
 test('CSV preserves leading zeros, quoted comma/newline/quotes and Unicode', () => {
   const value = { ...sample, '物件名': '架空,施主\n"二行"' }
@@ -13,29 +13,30 @@ test('CSV preserves leading zeros, quoted comma/newline/quotes and Unicode', () 
   assert.equal(rows[0].values['郵便番号'], '0010001')
   assert.equal(rows[0].values['物件名'], value['物件名'])
 })
-test('generic import fills only missing address and material when insulation exists', () => {
-  const result = prepareBulkImportRows(csv(sample))
-  assert.deepEqual(result.errors, [])
-  assert.equal(result.rows[0].fields.address, '不明')
-  assert.equal(result.rows[0].fields.insulationMaterials, '不明')
-  assert.equal(result.rows[0].fields.name, sample['物件名']); assert.equal(Object.hasOwn(result.rows[0].fields,'ownerName'),false)
-  const absent = prepareBulkImportRows(csv({ ...sample, '断熱材あり': 'なし' }))
-  assert.equal(absent.rows[0].fields.insulationMaterials, '')
-  assert.ok(prepareBulkImportRows(csv({ ...sample, '建築面積': '' })).errors.length)
+test('group policy controls missing address and insulation material without bypassing required fields', () => {
+  const empty={...sample,'住所':'','資材名':''};
+  const result=prepareBulkImportRows(csv(empty),{group:{addressRequired:false,insulationMaterialsRequired:false}});
+  assert.deepEqual(result.errors,[]);assert.equal(result.rows[0].fields.address,'');assert.equal(result.rows[0].fields.insulationMaterials,'');
+  assert.ok(prepareBulkImportRows(csv(empty)).errors.length);
+  assert.ok(prepareBulkImportRows(csv({...sample,'資材名':''})).errors.length);
+  assert.deepEqual(prepareBulkImportRows(csv({...sample,'断熱材あり':'なし','資材名':''})).errors,[]);
+  assert.ok(prepareBulkImportRows(csv({...sample,'建築面積':''})).errors.length);
+  assert.equal(Object.hasOwn(result.rows[0].fields,'ownerName'),false);
 })
-test('UH uses month first day and exactly 92 days without prefix matching', () => {
-  const value = { ...sample, '外部キー': '0123-2026001', '支店コード': '9999', '申込日': '2026-01', '上棟日': '2026-01-31', '引渡日': '', '最長保証期間': '10' }
-  const result = prepareBulkImportRows(csv(value), { format: 'uh' })
-  assert.deepEqual(result.errors, [])
-  assert.equal(result.rows[0].fields.applicationDate, '2026-01-01')
-  assert.equal(result.rows[0].fields.handoverDate, '2026-05-03')
-  assert.ok(prepareBulkImportRows(csv({ ...value, '引渡日': '2026-05-02' }), { format: 'uh' }).errors.length)
+test('UH takes complete staff-prepared dates without calculating or matching branch prefix', () => {
+  const value={...sample,'外部キー':'0123-2026001','支店コード':'9999','申込日':'2026-01-01','引渡日':'2026-05-02','最長保証期間':'10'};
+  const options={group:{name:'UH'}};const result=prepareBulkImportRows(csv(value),options);
+  assert.deepEqual(result.errors,[]);assert.equal(result.rows[0].fields.handoverDate,'2026-05-02');
+  assert.equal(result.rows[0].years,10);
+  assert.ok(prepareBulkImportRows(csv({...value,'申込日':'2026-01'}),options).errors.length);
+  assert.ok(prepareBulkImportRows(csv({...value,'引渡日':''}),options).errors.length);
+  assert.ok(prepareBulkImportRows(csv(value),{format:'uh',...options}).errors.length);
 })
 test('UH max warranty is exactly 10; common max 20 and 30 are preserved', () => {
-  const value = { ...sample, '外部キー': '0123-2026001', '申込日': '2026-01', '上棟日': '2026-01-31', '引渡日': '', '最長保証期間': '10' }
-  assert.deepEqual(prepareBulkImportRows(csv(value), { format: 'uh' }).errors, [])
+  const value = { ...sample, '外部キー': '0123-2026001', '申込日': '2026-01-01', '引渡日': '2026-05-03', '最長保証期間': '10' }
+  assert.deepEqual(prepareBulkImportRows(csv(value), { group: {name:'UH'} }).errors, [])
   for (const maxYears of ['20', '30']) {
-    assert.ok(prepareBulkImportRows(csv({ ...value, '最長保証期間': maxYears }), { format: 'uh' }).errors.some(error => error.message === 'UHの最長保証期間は10年です。'))
+    assert.ok(prepareBulkImportRows(csv({ ...value, '最長保証期間': maxYears }), { group: {name:'UH'} }).errors.some(error => error.message === 'UHの最長保証期間は10年です。'))
     const common = prepareBulkImportRows(csv({ ...sample, '最長保証期間': maxYears }))
     assert.deepEqual(common.errors, [])
     assert.equal(common.rows[0].fields.maxYears, Number(maxYears))
@@ -103,7 +104,7 @@ function fakeDb(seed = {}) {
   } }
   return db
 }
-const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_staff' }, 'staffAccounts/other': { enabled: true, role: 'general_staff' }, 'constructionCompanies/company': { name: '架空会社', enabled: true, defaultGroupId: 'HSC' }, 'warrantyGroups/HSC': { name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, enabled: true }, 'companyBranches/branch': { name: '架空支店', constructionCompanyId: 'company', branchCode: '0001', enabled: true } })
+const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_staff' }, 'staffAccounts/other': { enabled: true, role: 'general_staff' }, 'constructionCompanies/company': { name: '架空会社', enabled: true, defaultGroupId: 'HSC' }, 'warrantyGroups/HSC': { name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, enabled: true, externalKeyRequired: true }, 'companyBranches/branch': { name: '架空支店', constructionCompanyId: 'company', branchCode: '0001', enabled: true } })
 
 // Functions use the generated deployment domain; test preparation is explicit.
 const server = () => import('../functions/property-bulk-import.js')
@@ -134,7 +135,7 @@ test('transaction success, exact replay, new request duplicate and changed conte
   await assert.rejects(operation(db, { ...commit, requestId: 'request-2' }, 'staff'), error => error.details.safeToDiscard === true)
   await assert.rejects(operation(db, { ...commit, csv: csv({ ...sample, '物件名': 'changed' }) }, 'staff'), error => /再利用/.test(error.message) && error.details?.safeToDiscard !== true)
   await assert.rejects(operation(db, commit, 'other'), /再利用/)
-  assert.equal(db.documents.get(`propertyWarranties/${result.ids[0]}`).address, '不明')
+  assert.equal(db.documents.get(`propertyWarranties/${result.ids[0]}`).address, sample['住所'])
   assert.equal(db.documents.get('warrantyCounters/HSC_2026').lastValue, 1)
 })
 test('late row failure and unknown branch cause zero writes including numbering', async () => {
@@ -160,14 +161,12 @@ test('branch remapping after preview blocks commit, then concurrent duplicate im
   assert.equal(results.filter(result => result.status === 'fulfilled').length, 1)
   assert.equal([...db.documents.keys()].filter(path => path.startsWith('propertyWarranties/')).length, 1)
 })
-test('imported existing number advances high water and cannot collide with new allocations', async () => {
-  const { propertyBulkImportOperation: operation } = await server()
-  const db = fakeDb(seed()), input = request([{ ...sample, '既存保証番号': 'HSC-26-099' }, { ...sample, '外部キー': 'second' }])
-  const preview = await operation(db, input, 'staff')
-  assert.deepEqual(preview.errors, [])
-  assert.deepEqual(preview.rows.map(row => row.warrantyNumber), ['HSC-26-099', 'HSC-26-100'])
-  await operation(db, { ...input, action: 'commit', confirmed: true, previewHash: preview.previewHash }, 'staff')
-  assert.equal(db.documents.get('warrantyCounters/HSC_2026').lastValue, 100)
+test('increment import allocates all numbers after the existing high water mark', async () => {
+  const {propertyBulkImportOperation:operation}=await server();const data=seed();data['warrantyCounters/HSC_2026']={lastValue:99};
+  const db=fakeDb(data),input=request([sample,{...sample,'外部キー':'second'}]),preview=await operation(db,input,'staff');
+  assert.deepEqual(preview.errors,[]);assert.deepEqual(preview.rows.map(row=>row.warrantyNumber),['HSC-26-100','HSC-26-101']);
+  await operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff');
+  assert.equal(db.documents.get('warrantyCounters/HSC_2026').lastValue,101);
 })
 test('staged write exception leaves properties, keys, receipts, source and counter untouched', async () => {
   const { propertyBulkImportOperation: operation } = await server()
@@ -201,36 +200,24 @@ test('nonstaff, disabled account, existing direct key and ended guarantee cannot
   assert.ok((await operation(db, past, 'staff')).errors.some(error => error.field === '保証期間'))
   assert.equal(db.stats.writes.length, 0)
 })
-test('UH canonical name works for generated group ID and rejects mismatched group', async () => {
-  const { propertyBulkImportOperation: operation } = await server()
-  const value = { ...sample, '外部キー': '0123-2026001', '申込日': '2026-01', '上棟日': '2026-01-31', '引渡日': '', '最長保証期間': '10' }
-  const data = seed()
-  data['warrantyGroups/generated-id'] = { ...data['warrantyGroups/HSC'], name: 'UH', prefix: '' }
-  data['constructionCompanies/company'].defaultGroupId = 'generated-id'
-  const db = fakeDb(data), input = request([value], { format: 'uh', groupId: 'generated-id' })
-  assert.deepEqual((await operation(db, input, 'staff')).errors, [])
-  assert.ok((await operation(db, { ...input, format: 'common', csv: csv(sample) }, 'staff')).errors.some(error => error.field === '形式'))
-  assert.ok((await operation(fakeDb(seed()), request([value], { format: 'uh' }), 'staff')).errors.some(error => error.field === '形式'))
+test('actual group policy chooses UH validation even with a generated ID and common format', async () => {
+  const {propertyBulkImportOperation:operation}=await server();const data=seed();
+  data['warrantyGroups/generated-id']={...data['warrantyGroups/HSC'],name:'UH',prefix:'',addressRequired:false,insulationMaterialsRequired:false};
+  data['constructionCompanies/company'].defaultGroupId='generated-id';
+  const db=fakeDb(data),input=request([{...sample,'外部キー':'0123-2026001','最長保証期間':'10','住所':'','資材名':''}],{groupId:'generated-id'});
+  const preview=await operation(db,input,'staff');assert.deepEqual(preview.errors,[]);assert.equal(preview.rows[0].address,'');
+  assert.ok((await operation(db,{...input,format:'uh'},'staff')).errors.some(error=>error.field==='形式'));
 })
-test('extended past imports preserve all periods and unknown billing without extension history', async () => {
-  const { propertyBulkImportOperation: operation } = await server()
-  const { warrantyTransactions, insuranceReportTarget, extensionUndoPreview } = await import('../src/domain/property-warranty.mjs')
-  const db = fakeDb(seed()), input = request([{ ...sample, '外部キー': 'past-20', '申込日': '2015-01-01', '引渡日': '2015-01-01', '現在保証年数': '20', '既存保証番号': 'HSC-15-001' }, { ...sample, '外部キー': 'past-30', '申込日': '2005-01-01', '引渡日': '2005-01-01', '現在保証年数': '30', '最長保証期間': '30', '既存保証番号': 'HSC-05-001' }])
-  const preview = await operation(db, input, 'staff')
-  assert.deepEqual(preview.errors, [])
-  const result = await operation(db, { ...input, action: 'commit', confirmed: true, previewHash: preview.previewHash }, 'staff')
-  for (let i = 0; i < result.ids.length; i++) {
-    const value = db.documents.get(`propertyWarranties/${result.ids[i]}`)
-    assert.equal(value.years, i ? 30 : 20)
-    assert.equal(value.periods.length, i ? 3 : 2)
-    assert.equal(value.importedWarrantyPeriods.length, value.periods.length)
-    assert.ok(warrantyTransactions(value).every(period => period.identifiable && period.billingState === 'unknown'))
-    assert.equal(value.history.filter(event => event.kind === 'extend').length, 0)
-    assert.equal(extensionUndoPreview(value), null)
-    assert.equal(value.insuranceReported, false)
-    assert.equal(value.insuranceEvents.length, 0)
-    assert.ok(insuranceReportTarget(value, '2026-10')?.warrantyPeriodId.startsWith(`import-${result.ids[i]}-`))
-  }
+test('increment import is always initial 10 years and rejects expired initial warranty despite a 30-year cap', async () => {
+  const {propertyBulkImportOperation:operation}=await server();const db=fakeDb(seed()),input=request([{...sample,'最長保証期間':'30'}]);
+  const preview=await operation(db,input,'staff');assert.deepEqual(preview.errors,[]);
+  const result=await operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff');
+  const value=db.documents.get('propertyWarranties/'+result.ids[0]);assert.equal(value.years,10);assert.equal(value.periods.length,1);
+  assert.deepEqual(value.billingItems,[{id:'initial',...value.periods[0],state:'pending'}]);
+  assert.equal(value.importedWarrantyPeriods,undefined);assert.equal(value.framingDate,undefined);assert.equal(value.insuranceReported,false);
+  const past=request([{...sample,'外部キー':'old','申込日':'2000-01-01','引渡日':'2000-01-01','最長保証期間':'30'}],{requestId:'expired'});
+  const expired=await operation(db,past,'staff');assert.ok(expired.errors.some(error=>error.field==='保証期間'));
+  const before=[...db.documents];await assert.rejects(operation(db,{...past,action:'commit',confirmed:true,previewHash:expired.previewHash},'staff'),/全件/);assert.deepEqual([...db.documents],before);
 })
 test('status allows only same enabled staff, receipt absence stays unknown', async () => {
   const { propertyBulkImportOperation: operation } = await server()
@@ -246,3 +233,20 @@ test('status allows only same enabled staff, receipt absence stays unknown', asy
   db.documents.get(`propertyImportReceipts/${input.requestId}`).ids = []
   await assert.rejects(operation(db, status, 'staff'), /記録/)
 })
+
+test('optional-key groups cannot import and destination rejection uses only three reads',async()=>{
+ const {propertyBulkImportOperation:operation}=await server();const data=seed();delete data['warrantyGroups/HSC'].externalKeyRequired;
+ const db=fakeDb(data),input=request(),preview=await operation(db,input,'staff');
+ assert.ok(preview.errors.some(error=>/外部キー必須/.test(error.message)));assert.equal(db.stats.reads.length,3);
+ await assert.rejects(operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff'),/全件/);assert.equal(db.stats.writes.length,0);
+});
+test('required markers and the 14-column contract reject old and unmarked headers',()=>{
+ assert.equal(CSV_TEMPLATE_HEADERS.length,14);assert.equal(CSV_TEMPLATE_HEADERS.filter(key=>key.endsWith('（＊）')).length,8);
+ for(const name of ['上棟日','現在保証年数','既存保証番号'])assert.equal(CSV_TEMPLATE_HEADERS.includes(name),false);
+ assert.throws(()=>parseBulkImportCsv(csv(sample).replace('外部キー（＊）','外部キー')),/見出し/);
+});
+test('group policy changes after preview invalidate commit without partial writes',async()=>{
+ const {propertyBulkImportOperation:operation}=await server();const db=fakeDb(seed()),input=request(),preview=await operation(db,input,'staff');
+ db.documents.get('warrantyGroups/HSC').addressRequired=false;
+ await assert.rejects(operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff'),/再度プレビュー/);assert.equal(db.stats.writes.length,0);
+});

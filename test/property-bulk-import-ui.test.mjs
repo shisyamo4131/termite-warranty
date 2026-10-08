@@ -13,12 +13,12 @@ function storageForTest() {
   return {map,getItem:key=>map.get(key) ?? null,setItem:(key,value)=>map.set(key,value),removeItem:key=>map.delete(key)}
 }
 function viewForTest(storage,invoke,identity=scope) {
-  const props=vue.reactive({...identity,groups:[{id:'fictional-group',name:'HSC'}],fetchCompanies:async()=>[],invoke})
+  const props=vue.reactive({...identity,groups:[{id:'fictional-group',name:'架空取込みグループ',externalKeyRequired:true}],fetchCompanies:async()=>[],invoke})
   const open=vue.ref(false),mounted=[],unmount=[],events=[]
   const source=readFileSync(new URL('../app/components/PropertyBulkImportDialog.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
   const env={...pending,requiredRules,BULK_IMPORT_MAX_BYTES,window:{sessionStorage:storage,addEventListener:()=>{},removeEventListener:()=>{}},defineProps:()=>props,defineModel:()=>open,defineEmits:()=>((...args)=>events.push(args)),ref:vue.ref,computed:vue.computed,watch:vue.watch,onMounted:fn=>mounted.push(fn),onBeforeUnmount:fn=>unmount.push(fn)}
-  const view=new Function(...Object.keys(env),code+'\nreturn {groupId,companyId,csv,format,file,preview,confirmed,requestId,pendingRecord,locked,rejected,result,problem,discardConfirmation,commitFile,checkStatus,readFile,discardRejected,restorePending};')(...Object.values(env))
+  const view=new Function(...Object.keys(env),code+'\nreturn {activeGroups,selectedGroup,groupId,companyId,csv,format,file,preview,confirmed,requestId,pendingRecord,locked,rejected,result,problem,discardConfirmation,commitFile,checkStatus,readFile,discardRejected,restorePending,previewFile,importForm};')(...Object.values(env))
   return {...view,props,open,events,mount:()=>mounted.forEach(fn=>fn()),unmount:()=>unmount.forEach(fn=>fn())}
 }
 const csvFile=csv=>({size:new TextEncoder().encode(csv).length,arrayBuffer:async()=>new TextEncoder().encode(csv).buffer})
@@ -123,3 +123,18 @@ test('unmount during submission preserves recovery metadata and suppresses late 
   assert.equal(view.events.length,0)
   assert.ok(pending.loadPendingImport(storage,scope))
 })
+
+test('only enabled required-key groups can be selected, and an invalidated selection is cleared',async()=>{
+ const view=viewForTest(storageForTest(),async()=>({}));view.props.groups=[{id:'HSC',name:'HSC',externalKeyRequired:false},{id:'UH',name:'UH',externalKeyRequired:true},{id:'disabled',name:'架空停止',externalKeyRequired:true,enabled:false}];
+ assert.deepEqual(view.activeGroups.value.map(g=>g.id),['UH']);view.groupId.value='UH';assert.equal(view.format.value,'common');
+ view.props.groups[1].externalKeyRequired=false;await settle();assert.equal(view.groupId.value,'');assert.equal(view.activeGroups.value.length,0);view.unmount();
+});
+
+test('a safely rejected legacy UH request can switch to the new template without changing groups',async()=>{
+ const storage=storageForTest(),oldCsv='obsolete CSV';const saved={requestId:'legacy-uh',groupId:'fictional-group',companyId:'fictional-company',format:'uh',csvHash:await pending.hashImportCsv(oldCsv),previewHash:'a'.repeat(64)};
+ pending.savePendingImport(storage,scope,saved);const calls=[];
+ const view=viewForTest(storage,async payload=>{calls.push(payload);if(payload.action==='commit')throw Object.assign(new Error('old format'),{details:{safeToDiscard:true}});return {count:1,rows:[],errors:[],previewHash:'b'.repeat(64)}});
+ view.restorePending();await view.readFile(csvFile(oldCsv));await view.commitFile();assert.equal(view.rejected.value,true);
+ view.discardConfirmation.value=true;view.discardRejected();assert.equal(view.locked.value,false);assert.equal(view.format.value,'common');assert.equal(view.csv.value,'');assert.equal(view.groupId.value,'fictional-group');
+ view.importForm.value={validate:async()=>({valid:true})};await view.readFile(csvFile('new template'));await view.previewFile();assert.equal(calls.at(-1).action,'preview');assert.equal(calls.at(-1).format,'common');assert.equal(view.preview.value.errors.length,0);view.unmount();
+});

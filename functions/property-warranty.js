@@ -1,6 +1,7 @@
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { createHash } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from './domain/external-key.mjs'
+import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { warrantyTransactions, activeInsuranceReports, latestInsuranceReport, insuranceReportTarget, handoverChangeBlockers } from './domain/property-warranty.mjs'
@@ -158,6 +159,14 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (previous && settings.required !== previous.required) fail('failed-precondition', '登録済みグループの外部キー必須設定は変更できません。')
         value.externalKeyRequired = settings.required
         value.externalKeyLabel = settings.label
+        try {
+          const previousFields = old ? propertyFieldRequirements(old) : null
+          const fieldSettings = propertyFieldRequirements({ name: value.name,
+            addressRequired: input.addressRequired === undefined ? previousFields?.addressRequired : input.addressRequired,
+            insulationMaterialsRequired: input.insulationMaterialsRequired === undefined ? previousFields?.insulationMaterialsRequired : input.insulationMaterialsRequired })
+          if (previousFields && Object.keys(previousFields).some(key => previousFields[key] !== fieldSettings[key])) fail('failed-precondition', '登録済みグループの住所・資材名の必須設定は変更できません。')
+          Object.assign(value, fieldSettings)
+        } catch (error) { if (error instanceof HttpsError) throw error; fail('invalid-argument', error.message) }
         if (old && (normalizeWarrantyPrefix(old.prefix) !== normalizeWarrantyPrefix(value.prefix) || old.fiscalStartMonth !== value.fiscalStartMonth)) fail('failed-precondition', '登録済みグループの接頭辞・年度開始月は変更できません。')
         const all = await tx.get(db.collection('warrantyGroups'))
         if (all.docs.some(d => d.id !== ref.id && normalizeWarrantyPrefix(d.data().prefix) === normalizeWarrantyPrefix(value.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
@@ -301,6 +310,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         externalKey = normalizeExternalKey(Object.hasOwn(supplied,'externalKey') ? supplied.externalKey : old?.externalKey, keySettings.label)
       } catch (error) { fail('invalid-argument', error.message) }
       if (old?.externalKey && externalKey !== old.externalKey) fail('failed-precondition', `${keySettings.label}は登録後に変更できません。`)
+      if (!keySettings.required && externalKey && !old?.externalKey) fail('invalid-argument', 'この保証グループでは外部キーを入力できません。画面を再読込してください。')
       if (keySettings.required && !externalKey) fail('invalid-argument', `${keySettings.label}を入力してください。`)
       if (externalKey) {
         const keyRef = db.doc('externalKeyReservations/' + createHash('sha256').update(externalKey).digest('hex'))
@@ -310,7 +320,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (old?.externalKey && !held) fail('failed-precondition', '外部キーの管理情報を開発側へ確認してください。')
         if (!held) newKeyReservation = {ref:keyRef,value:{externalKey,propertyId:ref.id,createdAt:now}}
       }
-      normalizeProperty(supplied, action === 'register' || old?.status === 'active')
+      normalizeProperty(supplied, action === 'register' || old?.status === 'active', keyGroup ?? {})
       if (old?.status === 'active' && old.handoverDate && !fields.handoverDate) fail('failed-precondition', '確定済みの引渡日は空欄に戻せません。')
       next = { ...next, ...fields, constructionCompanyId, branchId, status: old?.status ?? 'draft', years: old?.years ?? 0 }
       if (externalKey) next.externalKey = externalKey

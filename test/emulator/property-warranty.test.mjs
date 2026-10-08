@@ -56,9 +56,12 @@ test('manual external keys and CSV share reservations, immutable settings and re
   const invoke=(action,input={})=>propertyPrototypeOperation(auth,target,{action,...input},'key-admin')
   const group={id:'G',name:'架空キー必須',prefix:'KEY',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'架空契約No'}
   await invoke('saveGroup',group)
+  await assert.rejects(invoke('saveGroup',{...group,addressRequired:false}),/変更できません/)
+  await assert.rejects(invoke('saveGroup',{...group,insulationMaterialsRequired:false}),/変更できません/)
+  await assert.rejects(invoke('saveGroup',{...group,addressRequired:'true'}),/不正/)
   await assert.rejects(invoke('saveGroup',{...group,externalKeyRequired:false}),/変更できません/)
   await invoke('saveGroup',{...group,externalKeyLabel:'改訂表示名'})
-  await invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:false})
+  await invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:false,addressRequired:false,insulationMaterialsRequired:false})
   await assert.rejects(invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'契約番号'}),/変更できません/)
   await assert.rejects(invoke('saveGroup',{id:'X',name:'UH',prefix:'U',fiscalStartMonth:1,externalKeyRequired:false}))
   await invoke('saveGroup',{id:'U',name:'UH',prefix:'U',fiscalStartMonth:1})
@@ -75,7 +78,7 @@ test('manual external keys and CSV share reservations, immutable settings and re
   await assert.rejects(invoke('save',request('manual','other',1)),/変更できません/)
   await assert.rejects(invoke('save',request('manual','',1)),/変更できません/)
   await invoke('register',request('manual',undefined,1)) // Older clients preserve the saved key.
-  const csv=(key)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>'"'+String({'外部キー':key,'支店コード':'0001','物件名':'架空取込物件','申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'なし'}[header]??'').replaceAll('"','""')+'"').join(',')
+  const csv=(key)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>'"'+String({'外部キー':key,'支店コード':'0001','物件名':'架空取込物件','申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'なし','住所':'東京都架空市1-1'}[header.replace('（＊）','')]??'').replaceAll('"','""')+'"').join(',')
   const bulk=(action,key,extra={})=>propertyBulkImportOperation(target,{action,groupId:'G',companyId:'C',format:'common',csv:csv(key),requestId:'bulk-key-'+Buffer.from(key).toString('hex'),...extra},'key-admin')
   for(const character of ['\t','\n','\r','\u007f']) {
     const key=`invalid${character}key`
@@ -112,6 +115,17 @@ test('manual external keys and CSV share reservations, immutable settings and re
   await assert.rejects(invoke('save',{...request('uh-missing'),fields:uhFields}),/お施主様契約No/)
   await invoke('register',{...request('uh-registered'),fields:{...uhFields,externalKey:'fictional-uh-key'}})
   await inspectBusinessIntegrity(target)
+  await target.doc('constructionCompanies/FC').set({name:'架空任意会社',defaultGroupId:'F',enabled:true})
+  const optionalFields={...inputFields,constructionCompanyId:'FC',branchId:'',address:'',foundationInsulation:true,insulationMaterials:''}
+  await invoke('register',{...request('optional-fields'),fields:optionalFields})
+  await assert.rejects(invoke('save',{...request('optional-key'),fields:{...optionalFields,externalKey:'forbidden-key'}}),/入力できません/)
+  await assert.rejects(invoke('register',{...request('required-address','required-address-key'),fields:{...inputFields,externalKey:'required-address-key',address:''}}),/住所/)
+  await assert.rejects(invoke('register',{...request('required-material','required-material-key'),fields:{...inputFields,externalKey:'required-material-key',foundationInsulation:true,insulationMaterials:''}}),/資材/)
+  const denied={action:'preview',groupId:'F',companyId:'FC',csv:csv('optional-group-key'),requestId:'optional-bulk'}
+  const refused=await propertyBulkImportOperation(target,denied,'key-admin')
+  assert.ok(refused.errors.some(e=>/外部キー必須/.test(e.message)))
+  await assert.rejects(propertyBulkImportOperation(target,{...denied,action:'commit',confirmed:true,previewHash:refused.previewHash},'key-admin'),/全件/)
+  assert.equal((await target.doc('propertyImportReceipts/optional-bulk').get()).exists,false)
 })
 
 test('branch codes reserve per company, retain existing property references and preserve omitted code',async()=>{
@@ -135,12 +149,12 @@ test('real Firestore bulk transaction commits 279 rows atomically and recovery v
   const imported=getFirestore(app,'test-import-volume')
   for(const root of await imported.listCollections())await imported.recursiveDelete(root)
   await imported.doc('staffAccounts/import-admin').set({enabled:true,role:'house_solution_administrator'})
-  await imported.doc('warrantyGroups/G').set({name:'HSC',prefix:'QA',fiscalStartMonth:1,enabled:true})
+  await imported.doc('warrantyGroups/G').set({name:'架空取込み',prefix:'QA',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
   await imported.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
   await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'import-admin')
   const makeCsv=(count,offset=0)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+Array.from({length:count},(_,i)=>{
     const row={'外部キー':`fictional-${offset+i}`,'支店コード':'0001','物件名':`架空物件${i}`,'申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'あり'}
-    return CSV_TEMPLATE_HEADERS.map(key=>row[key]??'').join(',')
+    return CSV_TEMPLATE_HEADERS.map(key=>row[key.replace('（＊）','')]??'').join(',')
   }).join('\r\n')
   const input={groupId:'G',companyId:'C',format:'common',csv:makeCsv(279),requestId:'volume-279'}
   const preview=await propertyBulkImportOperation(imported,{...input,action:'preview'},'import-admin')
@@ -150,7 +164,7 @@ test('real Firestore bulk transaction commits 279 rows atomically and recovery v
   const result=await propertyBulkImportOperation(imported,confirm,'import-admin')
   assert.equal(result.count,279);assert.equal((await imported.collection('propertyWarranties').get()).size,279)
   const row=(await imported.doc('propertyWarranties/'+result.ids[0]).get()).data()
-  assert.equal(row.address,'不明');assert.equal(row.insulationMaterials,'不明');assert.equal(row.status,'active')
+  assert.equal(row.address,'');assert.equal(row.insulationMaterials,'');assert.equal(row.status,'active')
   assert.equal((await propertyBulkImportOperation(imported,confirm,'import-admin')).replayed,true)
   await assert.rejects(propertyBulkImportOperation(imported,{...confirm,requestId:'duplicate-file'},'import-admin'),e=>e.details?.safeToDiscard===true)
   assert.equal((await imported.collection('propertyWarranties').get()).size,279)

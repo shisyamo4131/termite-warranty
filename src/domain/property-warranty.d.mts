@@ -5,7 +5,7 @@ export function normalizeWarrantyPrefix(value:unknown):string
 export function warrantyNumber(group:{prefix:string;fiscalStartMonth:number},date:string,sequence:number):string
 export function coveragePeriods(start:string,years:number):Array<{startDate:string;expiryDate:string}>
 export function importedWarrantyPeriods(start:string,years:number,sourceRecordId:string):Array<{startDate:string;expiryDate:string;index:number;sourceRecordId:string;id:string}>
-export function normalizeProperty(input:Record<string,unknown>,formal:boolean):Record<string,unknown>
+export function normalizeProperty(input:Record<string,unknown>,formal:boolean,group?:Record<string,unknown>):Record<string,unknown>
 export function propertyAddress(input?:Record<string,unknown>):string
 export function matchesProperty(row:Record<string,any>,filter?:Record<string,any>):boolean
 export function reportRows(rows:Array<Record<string,any>>,from:string,to:string,includeCancelled?:boolean):Array<Record<string,any>>

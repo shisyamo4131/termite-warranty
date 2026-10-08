@@ -1,5 +1,6 @@
 import { calculateExpiryDate, calculateExtensionStartDate } from './warranty.mjs'
 import { createSearchPlan, generateSearchTokens } from './search-tokens.mjs'
+import { propertyFieldRequirements } from './property-field-requirements.mjs'
 
 export const initialGroups = [
   { id: 'HSC', name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
@@ -38,7 +39,8 @@ export function propertyAddress(input = {}) {
   if (Object.hasOwn(input, 'address')) return String(input.address ?? '').trim()
   return ['prefecture', 'municipality', 'streetTownAndNumber'].map(key => String(input[key] ?? '').trim()).join('')
 }
-export function normalizeProperty(input, formal) {
+export function normalizeProperty(input, formal, group = {}) {
+  const requirements = propertyFieldRequirements(group)
   const result = {}
   if (Object.hasOwn(input, 'ownerName')) throw new Error('名称項目が変更されました。画面を再読込してください。')
   for (const key of ['name', 'ownerTelephone', 'postalCode', 'buildingName', 'handoverDate', 'applicationDate', 'notes', 'insulationMaterials']) {
@@ -52,7 +54,7 @@ export function normalizeProperty(input, formal) {
   result.maxYears = Number(input.maxYears ?? 20)
   result.foundationInsulation = input.foundationInsulation === true
   if (input.foundationInsulation != null && typeof input.foundationInsulation !== 'boolean') throw new Error('基礎断熱材の有無を選択してください。')
-  if (formal && result.foundationInsulation && !result.insulationMaterials) throw new Error('基礎断熱材が有の場合は使用資材を入力してください。')
+  if (formal && requirements.insulationMaterialsRequired && result.foundationInsulation && !result.insulationMaterials) throw new Error('基礎断熱材が有の場合は使用資材を入力してください。')
   if (result.postalCode && !/^\d{7}$/.test(result.postalCode)) throw new Error('郵便番号は7桁で入力してください。空欄でも登録できます。')
   if (![10, 20, 30].includes(result.maxYears)) throw new Error('最長保証期間は10年・20年・30年です。')
   if (!result.name) throw new Error('物件名を入力してください。')
@@ -62,7 +64,8 @@ export function normalizeProperty(input, formal) {
   if (formal && !result.handoverDate) throw new Error('本登録には引渡日が必要です。')
   if (result.buildingArea !== null && (!Number.isFinite(result.buildingArea) || result.buildingArea <= 0)) throw new Error('建築面積は正の数で入力してください。')
   if (result.buildingArea !== null && Math.abs(result.buildingArea * 100 - Math.round(result.buildingArea * 100)) > 0.000001) throw new Error('建築面積は小数2桁までです。')
-  if (formal && (!result.address || result.buildingArea === null)) throw new Error('本登録には住所・建築面積が必要です。')
+  if (formal && requirements.addressRequired && !result.address) throw new Error('本登録には住所が必要です。')
+  if (formal && result.buildingArea === null) throw new Error('本登録には建築面積が必要です。')
   return result
 }
 export function matchesProperty(row, filter = {}) {
