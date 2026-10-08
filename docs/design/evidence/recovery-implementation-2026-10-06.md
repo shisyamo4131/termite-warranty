@@ -1,5 +1,9 @@
 # バックアップ・復旧のLocal実装・検証
 
+## 2026-10-07 Dev保護停止の実測（後続の現在地）
+
+オーナー承認のDev限定停止・取得済み像削除を実施。`node tmp/dev-backup-lifecycle.mjs apply` exit 0、別のread-only `verify` exit 0。actual API再取得はnormal／世代7、Scheduler PAUSED、PITR DISABLED、バックアップ予定0、Firestore取得像0、Authスナップショット0、Auth設定等の非スナップショットオブジェクト1保持。変更前はFirestore像1／Auth像1で各1削除。既存18 Functionsの環境フラグfalseを再取得確認。業務文書／アカウント／権限／Hostingは不変。実行補助と識別情報は無視領域の私有記録、汎用運用CLI完成とはしない。[停止中の復旧制約とProd開始条件](../../runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)。下の過去実行状態やバックアップ成功数を現在の復元可能性に使わない。
+
 ## Dev切り戻し実行（2026-10-06、進行中）
 
 オーナーは具体的な実行範囲の提示後、「どんどん進めてくださいと指示したはずです。私の作業が必要な場面で手順を示してください」と続行を指示。この回答を、直前に提示したDev一時停止・最新像保全・18 Functions／Hosting／Rules／indexes再配備・停止後0差分の場合だけ(default)へ移行・開発側検証・HS確認待ちで停止する範囲の実行承認として扱う。通常再開は別了承後。差分発生時の業務反映、Auth変更、IAM変更、旧DB削除は追加しない。
@@ -620,3 +624,31 @@ Local修正はfunctions/recovery-backups.jsにrecordBackupFailure（固定safe E
 未反映範囲：新通知修正のDev Functions/対応Hosting配備。具体的には同Devの既存18 Functions（同一source証明の維持のため全18件）と新commit専用profile Hostingだけを更新する。IAM/実行アカウント/env値/予定/Rules/index/業務/Authを変えず、メンテナンスや復元は行わない。事前actual18件/Invoker policy/通常7を照合、更新後全5配備proof・runtime・業務hash・scheduleとIAM不変を確認。失敗時は実配備を読取り、直前b89af5eのFunctions artifactと今回成功版Hostingへ復帰し、未知応答を盲再送しない。Hosting-only承認とは別の対象なので、完成した修正と検証を提示してこの追加配備の承認を得る。
 
 影響範囲は上記Functions2/test1とrunbook、技術台帳、changelog、本記録。仕様/業務data contract/ADR/版/managed governance/verification policy/全体進捗は既存確定方針へ戻すbugfixで変更不要。新文書なしで既存indexの到達性維持。docs/README.mdとdocs/operations.mdの所有外差分を保持。実Dev A–D再予行、managedbackup取得と実復元、実Auth、control障害のDev緊急閉鎖、Prod、全fault/volume/costを完了扱いにしない。現Devは停止していない。
+
+### INCIDENT-POSTDEV 通知修正版の追加Dev配備完了
+
+レビュー・Local検証済み7ファイルはcommit `0b1a287eb74804051818c792ef186ed89d6af32a` に保存。pushなし、所有外README/operationsは未stageのまま保持。専用profileビルド `node scripts/build-recovery-release.mjs --revision 0b1a287eb74804051818c792ef186ed89d6af32a` exit0、artifact latest.idは同commit/timestamp0。正式observeもsource-clean/HEAD pass、control/marker normal7一致・lease/Authlock/未完了処理なし、exit0。
+
+オーナーは具体質問へ「修正版のDev反映を承認する」と回答。実対象の既存18 Functions/17公開callable/1private scheduled、環境・実行アカウント・build環境・Invoker policy・JST10時監視予定をGETで照合し、非秘密の比較用hashだけをignored tmpへ保存（`inspect-notification-deploy-fences.mjs` exit0、raw env/principals保存なし）。停止・データ/Auth/IAM/Rules/indexの変更を承認に含めない。
+
+初回deployはignored tmp設定のpredeploy起動がWindows cross-spawnでENOENT、exit1。prepare起動より先でFunctions更新/Hosting upload未開始。失敗を成功と記録せず、プロジェクト直下のignored `firebase-incident-notification.local` を用いて、既存firebase.jsonと同じFunctions source/predeploy・Hostingの相対pathと明示siteへ戻した。check-ignore確認とactual HEAD/source-cleanを照合。`firebase deploy --project termite-warranty-dev --only functions,hosting --config firebase-incident-notification.local --non-interactive` は実exit0、18 Functions各Successful update、Hosting release complete。専用configの改善はtracked配備設定の変更ではない。
+
+実新公開版は `sites/termite-warranty-dev/versions/1a5a04c8a8c9ea03`。正式preflightは一度Hostingだけblockedだったが、GET-only全993/config診断は一致。同じAPI configを5回比較して値とkey順も不変で、key順が原因という推測は確認できなかった。変更なしの正式preflight再取得では全10checks pass（18 Functions/18 pinned source archives、default/control Rules、READY索引11/exemption30、993全公開ファイル/設定）、exit0、cloudWrites false。原因未確認の途中blockedを無視して実行許可したり、期待hashの自己採用/path除外で通したりしていない。未完了状態からの公表/reopenは引き続きfail-closed。
+
+追加配備後の独立に観測したcommand exit：
+
+| Command | Actual result | Exit |
+| --- | --- | --- |
+| 正式 `default-recovery.mjs preflight`（同revision/source default/generation7/provider旧版） | 全10checks pass、Hosting993、Functions18/archive18 | 0 |
+| `node tmp/inspect-notification-deploy-fences.mjs after` | 18処理の環境/実行アカウント/build環境/IAM/監視予定hash不変 | 0 |
+| `node tmp/inspect-dev-after-db-cleanup.mjs` | 18:59:56 JSTにnormal7/業務54件typedhash不変/private前像54/metadata2/lease0/lockなし | 0 |
+| `node tmp/check-dev-normal-runtime.mjs` | default protocol2 normal7、未認証2callable401 | 0 |
+| `node tmp/inspect-incident-backup-status.mjs` | 18:59:55 JSTにPITR・automation/monitor・private Auth3件存在・取得状態不変 | 0 |
+| 正式 `recovery.mjs backups`（同revision） | default daily30日維持、managedbackup0件 | 0 |
+| `node tmp/inspect-incident-hosting-full.mjs` | 993全path/hash/config/ACTIVE/live一致、修正版1a5a04c8a8c9ea03 | 0 |
+
+新Dev停止/復元/HS再受入/メール送信試験/Auth取込を実施していない。Local通知2P2は修正済みで同ソースが実18archiveへ配備済みだが、実アカウント変更失敗を人工的に起こしたメール到達試験は未実施。初回managedbackup/その実復元、実Auth復元/login/partial回復/参照generation固定、control異常時の実Dev緊急閉鎖、Prod、全fault/volume/costは未完了。通常の障害通知入口・Local fixed A–Dと、これらの未検証範囲を区別する。
+
+この配備後の記録追記は未commitで保存。実配備と公表用profileを0b1a287へ束縛しており、この区切りで文書commitのために新HEADを作ると、専用profile/正式release証明が再度不一致になるためHEADを維持する。runtime sourceはclean、所有外2文書を含むworktreeはcleanではない。影響する記録・台帳・changelogを更新し、無関係なspec/ADR/schema/運用所有外文書は変更しない。最後の文書governance/diff gateとサブエージェントのclosing reviewは次に確認し、終了前に実結果だけを追記する。
+
+Closing：BACKUP-POSTDEV-03／INCIDENT-POSTDEV-03とも実HEAD 0b1a287を独立照合し、source/runbook/記録/未完了範囲の最終read-only reviewに新P1/P2なし、運用P3残件なし。編集・試験・API・Git操作なしをroot実測と区別。上記配備後記録を保存した状態でrootの `./scripts/check-governance.ps1` と `git diff --check` は各actual exit0。初期ページの未認証GETも200、公開index本文byte hashとlatest build ID/timestamp0が専用profileに一致（actual exit0）。このclosing追記後も文書2ゲートを再実行し、失敗時は最終報告を保留する。コード・配備・仕様・許可に追加変更なし。オーナーの追加検証操作は今回不要。初回managedbackup未取得等の残件は前述のまま。

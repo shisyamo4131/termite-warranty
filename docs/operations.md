@@ -1,5 +1,60 @@
 # Operations
 
+## 2026-10-08 PM（白蟻）-08への交代・次の作業
+
+オーナーがPM（白蟻）-07から新しい非forkタスクPM（白蟻）-08への交代を指示。Astra・推論Medium、同じ主リポジトリを使用する。**以降のDev反映は毎回の明示指示まで行わない。Local改修・検証後に報告する。過去の配備承認を新しい改修へ流用しない。** 交代元は文書・既存差分の統合だけを行い、新しい製品改修・配備・データ変更は行わない。
+
+- Dev直近確認は709fec5、通常(default)／normal世代10。16物件・採番・権限・取込記録は一致、支店マスタだけ1件→2件となり3204は登録済み。こちらで支店変更は実行していない。交代時のCloud再照合はしない。[実測](design/evidence/increment-import-2026-10-08.md#支店未登録時の誤表示修正2026-10-08)。実HS資料取込み・追加ユーザー受入・300件のDev容量試験は未完了。
+- 検証ツールの安全な対象試験、配信設定のキー順比較、非秘密診断、fixture効率化と専用DB2試験の分離はGOVERNANCE-MANAGERでLocal実装・検証済み、Dev未反映。完了ターン01a119dd-5aa4-7ee1-8b96-b490da6b1537の実行出力を交代元が直接読み取り、全7コマンドの独立したexit0を確認（npm test 311成功／既存2skip、Rules132成功、型検査・build・構文2件・governance）。差分も確認し統合する。交代で追加する変更は文書のみ、既存6製品ゲートの失効条件には非該当のため証拠を再利用し、文書用governance・差分検査は実行する。検証の入口と安全条件は本書の検証節を参照。
+- 統合時の補足：検証ツールは989ea67へ保存。staged diff検査でランナー末尾の空行を検出し、その1行だけ整えて再検査exit0。動作・準備／終了条件は無変更。交代元でnpm testを再実行し311成功／既存2skip・exit0を確認した。型検査・build・Rules・Functions／seedの5ゲートはその入力・試験本体・設定への変更がなく既存証拠を再利用し、文書検査は最終記録に対して再実行する。新しい業務コードの検証を代替する証拠ではない。
+- Devバックアップ／PITRは停止中。基盤は保持するが、取得済み像を削除済みのため復元元があるとは扱わない。Prod提供前の取得開始・互換性・通知確認は残件。[運用例外](runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)。
+
+新タスクへの指示（未実装・未検証）：
+
+1. CSV支店コード必須を維持し、HS向け制約資料へ反映する。取込み可能グループでは通常の物件／保証管理の支店選択も必須にすべきか、サブエージェントでUI・サーバー・既存文書への影響を検証して提案する。現行の取込み可否はexternalKeyRequired=trueによる。独立の一括取込みフラグを実装済みと推測しない。
+2. 取込み可能グループの配下工務店で、支店登録時の支店コードも必須にすべきか検討する（現行は任意）。既存空欄・所属変更・コード変更・無効化との整合を含め、検討を採用済みや実装済みに読み替えない。
+3. 共通テンプレートダウンロードボタンの下の説明文をすべて削除する。共通機能をUH専用として扱わない。検証結果・エラー理由は保持する。
+4. 画面内カードの対象一覧とvisualizeによる「影なし・elevationなし・グレー枠線」のサンプルを先に提示する。ダイアログ内レイアウト用カードは維持し、ユーザー確認前に外観を変更しない。Vuetifyの枠線設定は実装を確認する。
+5. 一括取込みのファイル指定アイコンをappend-innerへ配置する。現行のプロパティ・既定位置を確認し、入力欄内の配置で検証する。
+
+台帳には古い状態表示（HSC-015の「不明」補完、HSC-036の10年保留・配備状態等）が残る。現行契約は[共通設計](design/property-bulk-import.md)と[仕様書](specification.md)の2026-10-08節。既存台帳差分は保全して統合し、新タスクは同時編集がないことを確認して各事項と対応行だけを最新の決定へ整合する。
+
+## 2026-10-08 CSV検証結果の支店コード表示
+
+709fec5の支店コード誤表示修正を全7Local検証後、Devの既存19 FunctionsとHostingへ反映し正式照合全10項目を通過。未登録支店を「本店」にせず、入力コードを表示する。空欄は引き続き必須エラー。配備前後で支店が1件→2件となり3204は現在登録済みだが、こちらからマスタ変更は行っていない。物件16件・採番・権限・取込記録など他9rootと制御状態は一致。表示のユーザー再確認は未実施。[検証・配備とデータ差異の記録](design/evidence/increment-import-2026-10-08.md#支店未登録時の誤表示修正2026-10-08)。
+
+## 2026-10-08 Excel編集CSVの日付対応
+
+オーナー承認の359b14cを全7Local検証・独立レビュー後、Dev19 Functions／Hostingへ反映し正式照合全10項目pass。Excelの日付表示YYYY/M/Dを受け付け、物件保存とプレビューをISOへ統一し受領値は保持する。Local通常テスト292成功／既存2skip、Firestore132成功、各exit0。初回試験準備の失敗と修正後の全体再実行、初回Hosting照合未確定と最終通過は[実行記録](design/evidence/increment-import-2026-10-08.md#excel編集csvの日付対応2026-10-08)を参照。既存16物件を含む10コレクション不変、normal世代10・ロックなし、自動バックアップ／PITR停止維持。支店3204はエラー検証のため未登録のまま、添付CSVのCloud本登録なし。ユーザー受入は日付エラーなし／未登録支店による全件棄却を確認する。Excelでの操作・ユーザー受入は未実施。
+
+## 2026-10-08 増分CSV改修の現在地
+
+オーナー承認の改修a9e90e4を、全7Local検証・独立レビュー後にDev19 FunctionsとHostingへ反映。正式照合は全10項目pass、Functions19原本と配信993ファイルを確認。14列、初回10年・新規採番、外部キー必須グループ限定、通常キー非表示、住所／資材名の作成後不変設定を実装した。任意の住所・資材名は空欄のまま保存し、「不明」を補完しない。既存16物件を含む10コレクションが配備前後で一致し、normal世代10・ロックなし、自動バックアップ／PITR停止を維持。停止・Auth／IAM／Rules／索引変更・HS原資料取込みなし。旧UH pendingの入力見直し不具合も修正し実Vue回帰を追加。[実行記録と残件](design/evidence/increment-import-2026-10-08.md)、[現行設計](design/property-bulk-import.md)、[R2架空CSV10本と受入手順](../deliverables/dev-import-acceptance-2026-10-08/README.md)。ユーザーのDev受入・300件のDev容量試験は未実施。
+
+## 2026-10-08 物件名統合の現在地
+
+6b2573dの全7Local検証・独立レビュー後、Dev19 Functions／Hosting反映・正式全項目照合と16件の名称移行を完了。16件すべて厳密な完成像hash一致、nameと全その他項目不変、root ownerName0、旧名称履歴8件保持。normal／世代10・ロックなし。バックアップ停止・Auth／IAM／Rulesは維持。[実行記録](design/evidence/property-name-unification-2026-10-08.md)、[移行と中断回復](runbooks/property-name-migration.md)、[架空CSV7本・ユーザー受入](../deliverables/dev-import-acceptance-2026-10-08/README.md)。ユーザー実画面／CSV受入・任意300件のDev実行は未完了、HS実資料の投入は回答まで保留。
+
+
+## 2026-10-07 外部キー改修のDev配備・受入待ち
+
+オーナーの住所確認・別再開了承後に通常Devを再開。追加cbb5859を19 FunctionsとHostingへ反映し、provider原本19件／配信993件・runtime normal10／(default)・未認証拒否を確認した。UHの外部キー必須trueと名称「お施主様契約No」を実文書へ保存・readback済み。バックアップ自動取得／PITRは停止維持。正確な13ファイル・各コマンドexit・初回不一致／最終通過・残件は[実行記録](design/evidence/common-import-address-2026-10-07.md#2026-10-07-外部キー改修のdev反映通常再開)、オーナーの次の作業は[受入手順](design/evidence/common-import-address-2026-10-07.md#外部キー改修の受入手順と残件)。HS追加受入・実Cloud容量／障害試験・原UH資料取込みは未完了。以下の住所確認待ちは再開前の記録。
+
+
+## 現在地と参照先
+
+本書の日付付き記録から、対象作業の実行結果・配備・受入・残件を確認する。各記録の「現在」「未配備」「次の作業」はその時点の記述であり、同日を含む後続記録も照合する。過去の操作承認を再利用しない。
+
+確定要件は[仕様書](specification.md)、進行・完了条件は[納品ロードマップ](roadmaps/2026-initial-delivery.md)と[技術改修台帳](roadmaps/technical-remediation.md)、未決事項は[台帳](requirements/house-solution-confirmations.md)を参照する。個別の検証結果は各運用記録からリンクし、この入口には特定版の状態を重複記載しない。
+
+## 2026-10-07 共通CSV・物件住所とDevバックアップ停止
+
+Devの保護停止・取得済み像の削除は[現行例外](runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)の範囲で実行／再確認済み。バックアップ停止自体は通常業務normal・世代7を維持した。Cloud変更・verifyは各exit 0。現時点でバックアップ／PITRを用いた復元元はない。
+
+共通CSV、支店コード、単一住所、移行／差戻しはLocal実装・全7ゲート／独立レビュー済み。オーナーの具体計画承認後、f9c275bを19 FunctionsとHostingへ反映し、停止・更新収束・全体54文書の事前保全後に、計画hashが不変の16件を住所限定で移行。全体・権限・採番・参照の照合と実配備照合を通過し、現在は(default)の**HS確認待ち／世代9**。移行・publish・observe・statusは各exit0、運用ロックなし。通常業務の更新は停止を維持し、HS管理者の閲覧と非更新CSVのみ許可。[コマンド別結果・正確なファイルと残件](design/evidence/common-import-address-2026-10-07.md)。[設計と具体計画](design/property-bulk-import.md)、[提供前作業](runbooks/production-bootstrap-review.md#提供前の必須保護ゲート2026-10-07追加)。
+
+追加照合で見つかった住所移行後のHS確認待ちへの操作不足を、専用公開計画で補った。最終domainは277件中275成功／既存2skip、Rules／emulatorは125成功、各exit0。実装不変のLocal証拠はpolicyに照合して再利用。Devでは19 Functionsの実ソース19archive、Hosting993path、Rules双方、必要索引11・除外30の正式照合が全pass。全19件の自動取得false、Scheduler PAUSED、PITR無効も維持。HS実画面確認・別再開了承、実Cloudの合成容量試験、原UHデータ取込みは未完了。後続で採用したグループ別外部キー必須設定・名称設定は追加Local改修で、f9c275bの配備には含まれない。[現在の追加改修と検証](design/evidence/common-import-address-2026-10-07.md#2026-10-07-追加local改修外部キー必須設定表示名)。
+
 ## 2026-10-05 アカウント排他制御・参照キャッシュの運用
 
 同日、Local全7ゲートと独立レビュー後に下記Dev配備を完了。索引READY・公開24参照ファイル一致・専用合成データの8群とcleanup成功、各検証コマンドexit 0。既存業務データは試験更新せず、合成データは残存なし。詳細は[実測記録](design/account-concurrency-read-efficiency-2026-10-05.md)。
@@ -183,12 +238,6 @@ Dev機能検証はCodex、想定業務一巡のUI/UX確認はオーナーが担�
 
 [Dev受入手順](runbooks/local-acceptance-2026-10-03.md)は全34項目に結果列を追加し、A04までの操作報告と修正4項目の再確認を分離。ブラウザ再読み込み後に修正版を確認する。手動受入完了は未確認。旧版へ戻す場合は画面／Functionsを揃え、新しい支店住所と接頭辞書式への影響を調べる。データ削除・巻戻しは別承認。
 
-## 現在地と参照先
-
-最新の実行記録は[0.1.105 年月選択・物件一覧](design/evidence/ux-105-2026-10-05.md)。次の作業は過去データを使った本登録を含むDev動作確認。[Dev受入手順](runbooks/local-acceptance-2026-10-03.md)先頭を参照する。以前のUX確認用物件は今回の承認で削除済み。初期化の再実行は承認されていない。
-
-以下の過去のチェックポイントにある「未配備」「Local受入」「任意の引渡日」等は、その時点の記録。現在の要件は[仕様書](specification.md)、現在の配備・受入状況は上記の実行記録を参照し、過去の操作承認を再利用しない。
-
 ## 2026-10-03 Local Hierarchy Checkpoint — Historical, Before Deployment
 
 The hierarchy and company/branch disable changes are local only; see the [contract](design/meeting-prototype-2026-10-03.md) and [verification evidence](design/evidence/meeting-prototype-2026-10-01.md#2026-10-03-hierarchy-management-checkpoint). No hosted data/account changes or deployment were performed. Existing branch group overrides remain stored but the new command ignores them; company `defaultGroupId` remains the storage key. Do not deploy or migrate these changes as part of requirements Q&A. Finish Q&A first; rollback constraints are recorded in the contract.
@@ -270,7 +319,7 @@ For this initial mixed implementation, run each selected verification command se
 
 ## Verification Matrix
 
-`governance/verification-policy.json` is the machine-readable source for class selection, stable gate IDs, stages, inclusion, invalidation, comprehensive fallback, and omission destinations. This document explains the same policy for humans. Classify all applicable rows before implementation. Mixed changes use the union of selected gates. Unknown or unbounded impact uses the comprehensive project suite. Replace the JSON template placeholders with verified project commands and triggers; do not assume every project has the same fast checks.
+`governance/verification-policy.json` is the machine-readable source for class selection, stable gate IDs, stages, inclusion, invalidation, comprehensive fallback, and omission destinations. This document explains the same policy for humans. Classify all applicable rows before implementation. Mixed changes use the union of selected gates. Unknown or unbounded impact uses the comprehensive project suite. Use the commands and triggers already defined in the current JSON to select checks for the affected scope.
 
 The same JSON is the sole runtime-profile authority for compatibility-sensitive migration work. Declare platform, PowerShell edition, executable, a non-exact version rule, required status, and support status; do not infer that an untested platform is supported.
 
@@ -311,55 +360,109 @@ The exact marker-bounded summary immediately above is the generated gate catalog
 
 The inclusion graph must be acyclic and may not reference an unknown gate. When a selected parent gate preserves an included child's named result and exit status and fails when the child fails, do not invoke that child again as an unconditional separate command. A diagnostic run never satisfies a completion gate.
 
+### 検証の進め方
+
+全体試験の入口は従来どおり `npm run test:rules`。共有DB・Auth・Rulesを扱う試験群は直列とし、専用DBのみを使う一括取込みの2試験だけを別プロセスで重ねる。分離した試験は `(default)` など共有DBの取得とAuth操作を拒否する。準備・後始末の独立処理は最大4件ずつ実行し、失敗時も開始済み処理の終了を待つ。業務操作、競合試験、判定条件は並べ替えたり省略したりしない。
+
+実行対象は `scripts/lib/rules-test-plan.mjs` で割り当て、`test/emulator/*.test.mjs` と `test/firestore*.test.mjs` の実ファイル一覧との欠落・重複を起動前に拒否する。両プロセスのexit 0、全対象ファイルでの実試験成功、skip・失敗・対象外実行なしを確認してから全体成功とする。片方の失敗でも他方の終了を待ってEmulatorを終了し、ポート解放を確認する。起動とFunctions生成同期は1回で、稼働中Emulatorへの接続を拒否し、一時CLI設定だけを使う。切り分け用の `npm run test:rules -- --serial` は同じ試験群を直列で実行し、自動再試行や失敗の成功扱いはしない。
+
+以下は[共通契約の段階検証](../governance/common-governance.md#verification-selection-and-staging)を日常作業へ適用する手順。ゲートの選定・失効条件は上記の生成要約と[検証方針JSON](../governance/verification-policy.json)を正とし、必須検証や配備時の全体検証を減らすものではない。
+
+1. 実際の変更面から該当クラスの和集合を選び、対象の試験・最終ゲート・再利用候補の証拠を確認する。小変更という理由だけでゲートを省かない。
+2. 反復中は変更箇所の試験を先に実行する。保存・Callable・復旧整合を触る試験なら、純粋な入力変換の単体試験だけでなく、その追加／変更した結合試験と試験データ準備を対象にする。既存の安全な単独実行経路を確認して使い、なければ経路未整備として影響範囲の既存検証を使う。実データや稼働中Localを初期化して代用しない。
+3. 対象試験の通過後に影響範囲の回帰検証、最終適用差分で選定された完了ゲートへ進む。対象試験は全体ゲートの代替ではない。失敗後は原因を直し、対象試験から確認して失効したゲートへ戻る。
+4. 実行中は実行ツールの完了通知・状態を使い、通常は結果要約を確認する。詳細ログは失敗・停滞・判断に必要な差分がある場合に読む。ログ末尾の成功表示だけで完了とせず、各コマンドの終了コードを確認する。
+
+対象試験の入口は `npm run test:rules:focused -- excel-dates`。現時点の許可対象はExcel日付の保存・受領値保持・全件棄却の結合試験1件で、自由なファイル名／試験名は受け付けない。Functions生成同期後、既定の専用ポートが未使用であることを確認して架空demoのEmulatorを新規起動する。利用統計を無効にした一時CLI設定を使い、終了時に削除する。ユーザーのFirebase設定は変更しない。稼働中Localや既存Emulatorへの接続・停止、データのimport/exportは行わない。ポート使用中・設定不一致は作業者へ報告し、既存プロセスを終了させて通さない。
+
+子試験のexitに加え、対象ファイル・完全一致の試験名・成功1件・対象skipなし・当該実行の結果であること、Emulator終了後のポート解放を検査する。対象0件や異常終了は失敗。除外された他試験のskipは通常の絞込みとして区別する。この結果は反復中の証拠で、選定された全体の `npm run test:rules` を代替しない。対象追加時は独立した準備・後始末を確認し、兄弟試験に依存する場合は既存のファイル単位／全体検証へ戻す。
+
+Dev配備の正式照合では、失敗時の `diagnostic.stage`／`reasonCode`、HTTP失敗時の数値 `httpStatus` を確認する。設定のオブジェクトキー順だけは同値として扱うが、項目・値・型・配列順の差、来歴・hash不一致、途中の版変更は引き続き拒否する。未知例外はunknown／blockedのまま。生の例外文・URL・設定値・認証情報は診断へ出さず、blockedを自動再試行して成功扱いにしない。今回の診断追加だけでは過去のHosting初回失敗の原因は確定しない。
+
 ### Evidence Validity and Retry
 
-- Record passing counts, acceptance, and completion evidence only after the command completes with exit status 0.
-- Bind evidence to the applicable revision or worktree state and impact classification.
-- After failure or a later edit, rerun the failed gates and any gates invalidated by the changed paths, configuration, dependencies, generated artifacts, or environment. Unaffected successful evidence may be reused only when the matrix proves it remains valid.
-- Record omitted gates and matrix-based reasons in [task callback, completion report, or durable release evidence]. Never omit a gate merely to avoid a known failure.
-- Preserve comprehensive validation for scaffold creation, governance migration, managed sync, common-contract changes, permission/agent-policy changes, and release/deploy operations.
+- 成功・件数は実行終了とexit 0を確認してから記録する。コマンドがexit 0でも個別判定がblocked／failedなら通過扱いにしない。
+- 証拠は対象revisionまたは作業差分、変更分類、コマンド、結果・終了コードに結び付ける。再利用時は「証拠取得後の変更」とゲートの`invalidatedBy`を照合し、非該当の根拠を同じ完了報告に記す。変更範囲・環境が不明なら再利用しない。
+- 後続変更で失効した証拠と失敗ゲートを再取得し、影響しない成功証拠は再利用する。例えば文書のみの追記はアプリ検証の失効条件に該当しなければ再実行を要しないが、文書用の最終governance-checkは確認する。テスト・生成物・依存・設定の変更は文書だけの変更として扱わない。
+- 現行のゲート包含関係は生成要約の`includes`で確認する。似たコマンドや内部で同じ処理を呼ぶという理由だけで、別ゲートを満たしたとは扱わない。再利用・非選択の理由は記録し、既知の失敗を避けるためには省略しない。
+- scaffold作成・governance移行・managed sync・共通契約／権限／agent-policy変更・release/deployの全体検証は維持する。
+
+### 検証結果と文書の記録先
+
+既存の作業別検証記録、またはタスク完了報告を詳細結果の記録先として選ぶ。コマンド別の結果・exit、対象差分、失敗と修正後の結果、再利用／非選択理由、未検証・残件をそこへまとめ、証拠だけの新しい台帳を増やさない。
+
+仕様・保存契約は要求やデータ契約が変わった場合、ADRは永続的な判断が変わった場合、運用手順は操作や承認境界が変わった場合に更新する。ロードマップは範囲・完成条件・残件・検証済み進捗の変化と証拠リンク、changelogは利用者に見える変更を記す。索引や運用の現在地には必要な要約と詳細記録へのリンクを置き、同じコマンド表・件数・hashを各文書に転記しない。影響する正本の更新は省かず、無変更の文書を一律に更新しない。
 
 ## Migration Orchestration
 
-[Use existing specification and roadmap facts for migration scope, progress, and next work. Select checks from the project verification policy and report actual results.]
+範囲・進行は[仕様書](specification.md)と[ロードマップ](roadmaps/2026-initial-delivery.md)、実施条件は[共通契約のMigration Work](../governance/common-governance.md#migration-work)、検証は[Verification Matrix](#verification-matrix)を参照する。
 
 ## Git Integration
 
-[Require every project task to use the repository in the user-configured primary working directory. Prohibit task-specific linked worktrees and alternate repository copies unless the user explicitly approves a stated reason, path, branch, owner, integration method, lifetime, and cleanup plan. If an unapproved separate worktree is discovered, preserve it and stop state-changing work there pending user direction. Prefer delegated tasks to edit and validate owned files, then report exact files, diff, tests, unverified items, and worktree state. Record that the coordinator reviews the result, stages only accepted owned files, creates the commit, and performs integration. Reuse reviewed task commits rather than duplicating them. When project-local permission profiles and auto-review are used, record the selected settings, external-write restrictions, file-scoped Git procedure, and failure behavior.]
+主リポジトリ、別worktreeの事前承認、差分保全、担当範囲の統合・外部操作の境界は[Git and Worktree Integrity](../governance/common-governance.md#git-and-worktree-integrity)と[プロジェクト規則](../governance/project-rules.md#project-specific-approval-and-safety-boundaries)に従う。
 
 ## Project Management Task Loop
 
-[For ongoing coordinated work, prefer event-driven task-to-task chat. Record coordinator and task IDs/hosts as routing metadata, worktree, checkpoint contract, user-defined ending condition, callback destination, ordinary delegated-task no-change callback, one-shot notification behavior, coordinator verification and Git integration, next-instruction rule, final summary, immediate-report exceptions, and callback/abrupt-shutdown recovery. Coordinator replacement routes to `references/task-turnover-contract.md`. Keep routine task traffic out of user-facing reports. If callbacks are unavailable or the user explicitly chooses scheduled polling, record cadence, targets, silent delta-only behavior, stop condition, and recovery as a fallback.]
+委任範囲・終了条件・結果の統合は[Multi-agent Coordination](../governance/common-governance.md#multi-agent-coordination)、通知・待機・通知失敗時の停止は[Event-driven Checkpoints](../governance/common-governance.md#event-driven-checkpoints)を参照する。交代は[Task Replacement契約](../references/task-turnover-contract.md)に従う。
 
 ## Critical Identifier Preflight
 
-[Name the project-local authoritative sources and deterministic commands for package name/version/integrity, repository and Git references, environment/project/database IDs, deploy targets, and data targets. Require verification in the current turn before presenting an identifier as confirmed in a delegation and again by the delegated task before state change. Permit read-only discovery of explicitly unconfirmed values. Treat prompts and agent reports as leads only. Stop on missing or contradictory metadata without an application diff. For published artifacts, compare source or tag manifest, release or registry evidence, and consumer manifest or lock name, version, resolved location, and integrity; leave unapproved remote verification explicitly unverified.]
+[識別子の照合手順](runbooks/project-coordination.md#evidence-bound-identifier-gate)を参照する。パッケージ・環境・配備・データ等の識別子は、当該作業の正本または実対象で確認し、未確認・矛盾時は同手順の停止条件に従う。
 
 ## Governance Updates and Task Turnover
 
-[Managed sync refreshes the common contract, generated instructions, validators, lock, and policy summary. A user-requested replacement follows the two-step procedure in references/task-turnover-contract.md; every new task uses ordinary repository startup.]
+管理対象の所有・同期は[Instruction Ownership](../governance/common-governance.md#instruction-ownership)に従う。直接編集しない。ユーザー指示による交代は[Task Replacement契約](../references/task-turnover-contract.md)、通常起動は[Project Coordination Runbook](runbooks/project-coordination.md)を参照する。
 
 ## Coordinator Session Lifecycle
 
-[Use ordinary repository startup for every task, including manual creation and recovery when the previous task is unavailable. On user-requested replacement, first update authoritative facts and next work and commit sensible groups to a clean primary repository; then create a fresh non-fork task with the same base name and next sequence. Keep ordinary delegated callbacks separate. Capacity measurement uses the route below.]
-
-Route `容量チェック`, `タスク容量確認`, `セッション容量確認`, and `session size / handoff threshold確認` through `docs/runbooks/project-coordination.md`. Require the current task ID, the project-local `scripts/check-codex-session-size.ps1`, the default 300 MiB handoff threshold, the 10 GiB Codex-wide warning threshold, standard report fields, and the stop/error contract. Do not confuse task/session storage with model token or context-window capacity.
+通常起動・手動復旧・交代は[Project Coordination Runbook](runbooks/project-coordination.md)を参照する。`容量チェック`／`タスク容量確認`／`セッション容量確認`／`session size / handoff threshold確認`は同書の[Session Capacity Routing](runbooks/project-coordination.md#session-capacity-routing)へ進み、対象タスクID・測定コマンド・閾値・報告・停止条件に従う。モデルのトークン容量とは区別する。
 
 ## Outputs
 
-[Where results appear and how success is confirmed.]
+結果の報告内容は[Completion Gate](../governance/common-governance.md#completion-gate)、検証証拠の記録先は[検証ポリシー](../governance/verification-policy.json)を参照する。
+
+## 2026-10-07 保証満了案内の上限判定修正
+
+対象はオーナーが今回指示した保証満了案内の不具合だけ。`expiryAlertEligible`で保証の場合だけ現在年数＜最長年数を要求し、20/20・30/30を除外。10/20・10/30・20/30、案内開始境界／期限超過、有効状態／未案内を維持。保険判定・案内取消操作は変更しない。最長年数10は選択肢にも保存許可値にも追加せず、UH管理確定まで保留。改修はLocalのみで、Dev／Prod配備・実データの更新／移行なし。
+
+### 変更ファイルと整合範囲
+
+- 実装：`src/domain/property-warranty.mjs`。
+- 試験：`test/property-warranty.test.mjs`、`test/emulator/property-warranty.test.mjs`。後者は実一覧取得から上限到達・取消・案内済みが除かれることと、読取で文書を更新しないことを架空データで検証。
+- 文書：`docs/specification.md`、`docs/requirements/alerts-and-dashboard.md`、`docs/requirements/case-warranties.md`、HSC-036本体と台帳の対応行、`docs/design/meeting-prototype-2026-10-03.md`、`docs/design/uh-integration-proposal-2026-10-06.md`、`docs/design/README.md`、`docs/decisions/0033-permanent-property-warranty.md`とADR索引、`docs/roadmaps/technical-remediation.md`、`CHANGELOG.md`、本書。
+- UH内部IDの関連付けだけを仕様・要件・既存ADRへ部分採用として記録。実取込・物理スキーマ・契約番号の一意性・原本保持期間・全訂正前データ保存は未確定。保存形状・API・移行を変えないため、新規データ契約や実データ移行なし。UI・権限・復旧手順・初期納品ロードマップ・ガバナンス設定は無変更で、進捗加点なし。
+- 作業開始時から存在したバックアップ関連差分、HSC-015・受領資料・ルート文書索引等の差分は保持。新規UH検討資料も既存の未追跡状態を維持。今回Gitのstage／commit／pushは行わない。
+
+### Local検証結果
+
+分類はapplication-logic＋documentation-only。検証ポリシーの完了ゲート6件を選択。app-buildはUI・配備／ビルド設定の変更がなく、配備を実施しないため選択外。独立サブエージェント検証は今回の指示に含まれず実施しない。
+
+| コマンド | 結果 | 独立した終了コード |
+| --- | --- | --- |
+| `node --test test/property-warranty.test.mjs` | 42成功 | 0 |
+| `npm test` | 243件中241成功、既存Windows symlink制約による2スキップ、失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run test:rules`（下記のLocal環境指定） | 111成功、失敗0。追加の実一覧取得試験を含む | 0 |
+| `node scripts/check-functions-syntax.mjs` | 28モジュールの構文検査成功。生成domainも同期 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `git diff --check` | 成功 | 0 |
+
+Rules試験の初回はFirebase CLIの通常configへのアクセス拒否で開始前にexit 1。既存運用指示に沿って`XDG_CONFIG_HOME`をプロジェクト内`tmp/firebase-config-notice`へ隔離し、`CI=true`で再実行。2回目は110成功／1失敗・exit 1で、既存バックアップ通知試験がGoogle環境検出のstderr警告をJSONとして解釈した環境依存失敗。試験・本体コードを変えず、インストール済み`gcp-metadata`の実装で確認した`METADATA_SERVER_DETECTION=none`をLocalコマンド環境にだけ追加し、最終3回目は111成功・exit 0。実アカウント設定・認証情報・外部サービス設定は変更しない。最終成功後、Emulator停止も確認済み。
+
+差戻しは今回の上限判定1行を戻し、通常のFunctions準備コマンドで生成domainを再同期する。実データ変更がないためデータ復元は不要。Dev反映には今回修正のFunctionsと画面配信の対象を示した別の配備承認・配備ゲートが必要。Dev実画面確認、UH実装／実取込、訂正前受領値を省く方式の実装検証は未実施。
 
 ## Errors and Recovery
 
-[Failure categories, safe retry rules, rollback, and escalation.]
+検証失敗・後続変更による再検証は[Evidence Validity and Retry](#evidence-validity-and-retry)に従う。実環境の復旧・差戻しは対象機能の日付付き運用記録を参照し、過去の実行記録を新たな操作承認として扱わない。
 
 ## Backup and Retention
 
-[Project-specific rules.]
+保存・削除の判断記録は[HSC-001](requirements/house-solution-confirmations/HSC-001-data-retention-policy.md)、バックアップ／リストアの実装済み範囲は[モックの準備記録](design/evidence/current-implementation-audit-2026-10-05.md)を参照する。モックを実データの復旧検証と扱わない。
 
 ## Sensitive Information
 
-[How secrets and private data are handled.]
+[プロジェクトの安全・承認境界](../governance/project-rules.md#project-specific-approval-and-safety-boundaries)と[Safety and Sensitive Information](../governance/common-governance.md#safety-and-sensitive-information)を参照する。
 
 
 ## 2026-10-01 デモ確認後のローカル改修

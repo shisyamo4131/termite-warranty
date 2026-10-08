@@ -1,5 +1,9 @@
 # 0032 Production Firebase Environment and Operations
 
+## 2026-10-07 開発期間のバックアップ停止
+
+オーナーはDevの自動取得・PITR停止と取得済み像の削除を採用。意図は変更後のアプリと古い像の復元互換性への懸念であり、バックアップ自体を書換える処理ではない。復旧基盤と私有Auth設定は保持し、Prod提供前に自動取得・PITRを有効化して実取得・互換性・通知を確認する。実Prod設定は未実施。[運用例外](../runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)。
+
 ## 2026-10-06 Incident entry amendment
 
 The owner explicitly instructed that a real incident report in this Codex project should immediately start developer-operated maintenance/recovery. Persist that report as the maintenance-entry instruction for the currently configured Dev target, verify actual identities/state and proceed without reasking whether to stop. A preparedness discussion is not an incident. Preserve the adopted external recovery-point approval and separate HS reopening approval, fixed `(default)` restoration, independent Auth repair and separately authorized cleanup. This makes the existing developer recovery responsibility actionable across tasks; it does not provision or authorize the unconfigured Prod target. [Formal incident route](../runbooks/backup-recovery.md#障害通知からの開始2026-10-06採用). Local implementation and verification are distinct from new live recovery/deployment acceptance.

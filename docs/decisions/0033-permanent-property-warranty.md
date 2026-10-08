@@ -1,5 +1,23 @@
 # 0033 One Permanent Warranty per Property
 
+## 2026-10-07 通常登録と取込みの外部識別を統一（Accepted・Dev反映済み、受入待ち）
+
+オーナーの改修指示に基づき、外部キーの全物件一意予約を通常登録にも適用する。グループの必須設定は作成後不変とし、表示名の変更は保存値・内部ID・保証番号へ影響させない。保存済みキーは取消でも保持する。通常登録をCSV受領文書に偽装せず、内部IDと外部値、受領履歴を分離したまま復旧検証する。[確定仕様](../specification.md#2026-10-07-通常登録の外部キー必須設定表示名)、[設計](../design/property-bulk-import.md)。旧の「取込み専用」記録はこの範囲で置換し、cbb5859をDevへ反映し、UHグループ設定書込み・readbackと通常再開／世代10を完了。HS追加受入は未完了。[実測](../design/evidence/common-import-address-2026-10-07.md#2026-10-07-外部キー改修のdev反映通常再開)。
+
+## 2026-10-07 外部キーによる新規取込識別を追加
+
+オーナーがUH一括取込みを確定し、物件／保証へ将来の他提供元にも使える外部キーを保持することを指示。全UHで一意な契約Noを外部識別へ用い、既取込みキーがあるファイルは全件棄却する。通常編集で物件を訂正する。契約No先頭と支店コードの不一致は許容する。これは外部入力の重複防止に用いる識別で、既決の物件／受領文書の固定内部IDや恒久保証番号を置き換えない。
+
+下の「UH管理自体が未確定」は以前の状態。今回の採用後も別コレクションの物理形状・全原本履歴の保持・外部キーの解放／訂正／復旧時の扱いを勝手に確定しない。[現在の要件](../specification.md#2026-10-07-uh一括取込みの実装を確定)、[準備設計](../design/uh-integration-import.md)。設計記録のみ、実装・移行・実取込なし。
+
+## 2026-10-07 UH受領データとの内部IDによる関連付け
+
+状態：内部識別の方針だけAccepted、実装なし。根拠は2026-10-07の本Codex会話でオーナーが「契約番号に頼らずシステム内部で取込文書と物件／保証文書を紐づける案は採用」と明示したこと。
+
+UH受領文書と既存の恒久的な物件／保証との関連はシステム内部の固定IDで維持する。未確認の契約番号の一意性・再利用へ依存せず、番号訂正だけで関連を失ったり、新しい保証を作ったりしない。契約番号は外部の受領情報として別に扱う。外部番号そのものへ内部の関連を固定する案は選ばない。
+
+この決定はUH管理・別コレクションの具体的な形状・取込方法・再送Excelの照合方式・全受領履歴の保存・10年選択肢を承認しない。UHの採用自体が未確定のためスキーマと移行を実行せず、既存データの変更や番号の再発行もない。詳細設計では関連の一貫性、番号訂正、再取込・部分失敗、取消維持を架空データで検証する。下記の恒久保証と1物件1保証の方針を維持する。[現在の仕様](../specification.md#2026-10-07-追加指示判定だけ修正uh内部idの関連付け)、[検討と未決](../design/uh-integration-proposal-2026-10-06.md)。
+
 > 2026-10-01 follow-up: implementation is authorized by the [meeting prototype contract](../design/meeting-prototype-2026-10-03.md). Individual operator scope, group numbering, period changes and reasoned HS restoration follow the 27 adopted decisions. The owner authorized disposal of prior test data instead of conversion; this does not authorize production-data migration. Earlier “implementation pending / no deletion authorized” paragraphs describe the previous checkpoint. Verification and deployment are separate gates.
 
 - Date: 2026-09-29

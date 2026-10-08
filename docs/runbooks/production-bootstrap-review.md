@@ -1,5 +1,9 @@
 # Prod環境の初期構築・権限引渡し手順案
 
+## 提供前の必須保護ゲート（2026-10-07追加）
+
+Dev停止をProdの保護不要と解釈しない。Prod提供前に日次30日保持、PITR、Auth自動退避、開発側失敗通知を有効化し、初回READY・私有readback・通知受信と現行スキーマ／版での復元互換性を確認する。実Prod設定・開始は未実施。[開始条件](backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)。
+
 - 作成日：2026-10-02
 - 状態：手順確認用。未実行。ProdプロジェクトID・HSアカウント・請求先・IAMの実値は未確認。
 - 根拠：[ADR 0032](../decisions/0032-production-firebase-operations.md)、[HSC-020](../requirements/house-solution-confirmations/HSC-020-production-firebase-operations.md)。本書は既決定を具体化する案であり、追加権限・費用・作成を承認するものではない。

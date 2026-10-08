@@ -1,10 +1,20 @@
 # Design Index
 
-- [(default)固定の全体復旧設計](default-database-recovery.md)：2026-10-06確定方式、Cの完全同期と失敗回復、Read/Write見積、未実装境界、現在Devの読取確認とデータを失わない移行計画。
+- [共通CSV一括取込み・物件住所統合](property-bulk-import.md)：14列の増分初回10年登録、外部キー必須グループ限定、任意の住所・資材名の空欄保存、単一住所への移行・差戻しの設計。
+- [増分取込みとグループ入力条件の検証記録](evidence/increment-import-2026-10-08.md)：最終Local検証、独立レビュー、Dev配備照合と受入の残件。
+- [共通取込み・住所統合の検証／Dev実行記録](evidence/common-import-address-2026-10-07.md)：適用版別の検証結果、配備・移行・再開の記録、オーナー受入手順と残件。
 
-- [バックアップ・復旧の実装設計](backup-recovery-implementation.md)：採用済み運用の実装開始、管理状態と復元データの分離、外部コマンド、Local検証と未実施の実設定／Dev予行。
-- [バックアップ・復旧操作手順](../runbooks/backup-recovery.md)：導入設定、外部コマンド、限定補正、途中失敗の再開、通常Devの停止予行と未実装のAuth取込。
-- [バックアップ・復旧のLocal検証](evidence/recovery-implementation-2026-10-06.md)：最終ゲート、独立レビュー、画面確認、未コミット差分と実運用前の残作業。
+- [UH併載の検討資料・入口](uh-integration-proposal-2026-10-06.md)：UH新規一括取込み・全件本登録・通常編集・任意支店コードを確定。後続の共通CSVと任意項目の空欄保存は上記共通設計を優先し、資料修正は依頼中。6問フォーム原文は履歴として維持。
+- [UHの所属・請求先・施工加盟店](uh-integration-organization.md)：工務店＝ユニバーサルホーム、加盟店＝支店とコード保持の要件、回答待ち条件、請求先・出力・ポータルとの区別。
+- [UH一括取込みの設計・実装準備](uh-integration-import.md)：外部キー、新規専用全件確定、支店コード変更、通常編集、再送・復旧・取得効率、実装単位と未実施の検証。
+- [UHの日付・帳票・確認順序](uh-integration-dates-and-outputs.md)：従前の申込月初日・上棟日＋92日の経緯と出力条件。現行CSVは担当者が用意した申込日・引渡日を取り込む。手作業での日付準備についてHSへ打診中。
+- [UHの2026-10-06当初案・質問文](uh-integration-initial-proposal-2026-10-06.md)：履歴のみ。現在の推奨・仕様・送付文面として使わない。
+
+- [(default)固定の全体復旧設計](default-database-recovery.md)：Cの完全同期と失敗回復、Read/Write見積、採用時点の実装境界とDev移行計画。後続の実行結果は下記の検証／実行記録を参照。
+
+- [バックアップ・復旧の実装設計](backup-recovery-implementation.md)：管理状態と復元データの分離、外部コマンド、Auth別復旧の実装と検証範囲。
+- [バックアップ・復旧操作手順](../runbooks/backup-recovery.md)：現在のDev例外、実行対象・承認境界、外部コマンド、失敗回復と通常再開の手順。
+- [バックアップ・復旧の検証／実行記録](evidence/recovery-implementation-2026-10-06.md)：Local／Devの実測、適用版・実行時点ごとの成功／失敗、Auth等の未検証範囲。現在の運用状態は上記の操作手順を参照。
 
 - [アカウント競合と取得効率改善](account-concurrency-read-efficiency-2026-10-05.md)：承認された改修と5分参照キャッシュ、Local／Dev検証・復旧境界。
 
@@ -53,3 +63,5 @@
 - [入力通知・Autocomplete・重複判定廃止の検証](evidence/autocomplete-validation-2026-10-04.md): 2026-10-04の追加指示、ローカル実装、Dev未配備。
 
 - [延長取消とDev機能受入](evidence/extension-undo-dev-2026-10-04.md)：0.1.96の実装・自動検証とDev実画面結果。
+
+- [物件名・施主名の統合](property-name-unification.md)：現在名称の契約、限定移行・競合・差戻し。[Local・Dev実行記録](evidence/property-name-unification-2026-10-08.md)、[ユーザー受入とCSV7本](../../deliverables/dev-import-acceptance-2026-10-08/README.md)。

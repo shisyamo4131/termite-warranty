@@ -6,6 +6,12 @@
 
 ## Project and Governance Entry Points
 
+- [増分CSV・保証グループ入力条件](design/property-bulk-import.md)：現行14列と任意項目の空欄保存。[検証／Dev反映記録](design/evidence/increment-import-2026-10-08.md)、[R2架空CSVと受入手順](../deliverables/dev-import-acceptance-2026-10-08/README.md)。
+
+- [物件名統合・Dev移行](design/property-name-unification.md)：現在名称一項目の実装契約。 [移行手順](runbooks/property-name-migration.md)、[一括取込みのDev受入手順・架空CSV](../deliverables/dev-import-acceptance-2026-10-08/README.md)。
+
+- [UH運用ルール確認フォーム・6問の文面](../deliverables/hs-uh-questions-2026-10-07/README.md)：2026-10-07のオーナー指定範囲。追加の不足事項は後発。編集用リンクと公開／送信状態を記録。
+
 - [HS共有用・10月末本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：2026-10-05起点の目標日程案。遅延時の納期後ろ倒しを明記。
 
 - [Project governance index](../governance/README.md): project-specific governance, approval boundaries, and document routing.
@@ -59,11 +65,12 @@ For project-specific verification or operations, select the applicable procedure
 | Work type | Required documents | Additional implementation or evidence |
 | --- | --- | --- |
 | Delegate or act on package, repository, environment, deploy, or data identifiers | Authoritative specification, manifest, data contract, release evidence, or operations source | Verify exact source/location/command and value in the current turn; stop on mismatch before state change |
-| Select validation for a daily change | `governance/verification-policy.json` plus `docs/operations.md` verification matrix or its indexed testing document | Classify all change/impact surfaces; select iteration, targeted, completion, and release-only gate IDs; record omissions and invalidated evidence |
+| Select validation for a daily change | [検証方針JSON](../governance/verification-policy.json)、[検証の進め方](operations.md#検証の進め方)と同書の検証マトリクス | 変更箇所の試験から全体検証へ進み、[証拠の有効性](operations.md#evidence-validity-and-retry)で再利用を判断。[記録先](operations.md#検証結果と文書の記録先)に結果と省略理由をまとめる |
 | Plan or report the 2026 delivery | `docs/specification.md`, `docs/requirements/delivery-and-technology.md`, and `docs/roadmaps/2026-initial-delivery.md` | Record only verified progress; revise milestone scope, evidence, and risks together when the plan changes |
+| バックアップ・復旧の作業／残件確認 | [操作手順](runbooks/backup-recovery.md)の現在の例外と該当手順、[検証／実行記録](design/evidence/recovery-implementation-2026-10-06.md)の対象版・実行分 | 設計変更時は[設計索引](design/README.md)から該当設計・仕様へ進む。過去の成功記録と現在の復元可能性を区別する |
+| 共通CSV取込み・住所統合・外部キーの作業／受入確認 | [共通設計](design/property-bulk-import.md)、[検証／Dev実行記録](design/evidence/common-import-address-2026-10-07.md)の該当箇所 | 資料の再照合は[受領資料台帳](requirements/source-materials.md)の既存結果と資料の更新を確認。UH固有の検討は[入口](design/uh-integration-proposal-2026-10-06.md)から該当論点へ進む |
 | Author or integrate a user-designed UI component | `docs/runbooks/custom-ui-component-collaboration.md` and the component file under `docs/design/ui-component-contracts/` | User authors JavaScript only under ignored `/.user-ui-workbench/`; coordinator reviews, adapts, integrates, and validates the tracked implementation |
 | `容量チェック` / `タスク容量確認` / `セッション容量確認` / `session size / handoff threshold確認` | `docs/runbooks/project-coordination.md` | `scripts/check-codex-session-size.ps1`; use the current task ID and never infer the newest session |
-| [Work type] | [Specification section, roadmap, ADR, design links] | [Code, tests, acceptance, or operations links] |
 
 ## Document Authority
 

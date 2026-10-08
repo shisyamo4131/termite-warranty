@@ -1,5 +1,11 @@
 # Construction-Company Submission Options
 
+## 2026-10-07 UHの工務店ポータル除外を確定
+
+オーナーが、HSからUHの工務店ポータル利用を計画に含めないことの了承を得たと報告し、確定事項として記録するよう指示。UHは工務店・各加盟店のマスタ登録の有無にかかわらず、工務店ポータルの提供対象に含めない。HSの管理者・担当者は既存の権限に従いUH業務を扱い、HS利用を回答者一人に限定しない。HSC/SHSの延期中ポータル計画は維持する。
+
+根拠：[オーナー採用記録](source-materials.md#2026-10-07-uh回答に対するオーナーの仕様確定と再確認連絡)。除外を守るアカウント発行・閲覧・更新の具体的な設計と実装検証は未実施。これは要件確定であり、認証・権限設定・アカウント・Devを変更した記録ではない。以下の全般的な旧候補説明をUHへの提供承認と解釈しない。
+
 ## Status
 
 One shared partner account per construction company has been selected as a provisional proposal-prototype direction. House Solution has not accepted it as a production requirement. Earlier alternatives remain comparison context.

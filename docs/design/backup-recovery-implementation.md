@@ -1,5 +1,13 @@
 # Backup and Recovery Implementation
 
+## 2026-10-07 Dev保護停止とProd提供前ゲート
+
+オーナー承認でDevの自動取得・PITR・Auth自動退避を停止し、取得済み像を削除した。取得／監視コードとAuthハッシュ設定は保持。controlのbackupHealthはmonitoring/authBackupをpaused、lastFirestoreSuccessTimeをnullとし、lastAuthBackup参照を除去。backupHistoryは監査履歴。新状態画面のpaused「停止中」はDev配備済み。Prod提供前の初回取得・PITR開始・互換性・通知ゲートは[現在の例外](../runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)を参照。
+
+共通取込みのexternalKeyReservations／branchCodeReservations／propertyImportSources／propertyImportReceiptsを業務復旧対象へ追加する変更。予約・物件・受領・実行結果の双方向対応を検証し、欠落・重複・不正な実行記録では開放しない。予約は業務復旧時点へ揃える。現在権限と発行済み番号の独立保全は従来通り維持する。2026-10-07後続の追加Local改修では、通常登録にも外部キー予約を使い、全キー付き物件の予約を照合する。受領行／成功記録は取込由来の物件だけを対象とし、通常登録へ捏造しない。保証グループの必須設定・名称と外部キー文字列も共通検証する。追加分cbb5859はDev19 Functions／Hostingへ反映・正式照合済み。通常10、取得停止は維持。HS追加受入・実Cloud容量／復旧障害試験は未完了。
+
+住所統合の稼働中データ移行はバックアップからの復元とは別操作。移行前baselineと完了したprivate住所journalから全体不変を照合する公開専用plan-addressをLocal実装・検証・独立レビュー済み。source/targetはともに(default)だがデータ反映applyとDB廃止を実行しない。既存publish/reopenによる配備確認・HS読み取り確認・別再開了承は維持する。正式な障害A–Dに一時DBなしの復元経路を加える変更ではない。
+
 ## 2026-10-06 Incident preparation increment
 
 The owner requires a real incident report in the project to start reviewed Dev maintenance rather than a new readiness discussion. The entry and consent checkpoints are in [the runbook](../runbooks/backup-recovery.md#障害通知からの開始2026-10-06採用). The formal CLI now includes bounded no-build observation and provider initialization provenance; current application data/Rules/schema are unaffected.
@@ -53,6 +61,9 @@ These are new operational metadata, not a change to the property/warranty schema
 | Control `recovery/runtime` | Public document get only: phase, generation and business/control DB IDs; no document list or client writes |
 | Control `recoveryOperations` / `recovery/operatorLock` | Mutation leases and interrupted operator intent/ownership; private, never expire automatically |
 | Control `recoveryBaselines`, `recoveryTargets`, `recoveryReconciliations`, `recoveryVerifications`, `recoveryAudit` | Private authorization/high-water baseline, submitted restore provenance, sealed original/reconciled hashes, transition evidence and non-secret external approval references |
+| Control protocol2 `recoveryBaselines/<id>.typedHash` | 移行前の全業務文書を型・参照先DB・日時精度込みで照合するhash。追加の停止中走査で取得。住所公開計画はこの値のない旧baselineを拒否する |
+| Control `defaultRecoveryPlans/<id>` kind=`address-migration`, publicationOnly=true | 完了住所journal／checkpointと移行前baselineのhash、移行後期待像、停止世代・revision・公開了承を封印。source/authoritySource/targetは(default)、migration=false・total=0、通常apply/resume不可。現行復元計画とは区別 |
+| Control `addressMigrations/<id>/preimage` と business `_recovery/addressMigration` | 住所だけの変更前値・全対象文書の変更前後hashと、同じtransactionの適用完了印。通信断照合／差戻し／公表検証のため保持し、無断削除しない |
 | Control `recovery/backupHealth`, `backupHistory`, Auth export lock/epoch/request/last-success docs | Private backup status/provenance and export fencing; administrator Callable returns only sanitized status/time/history, never storage paths, account bodies or hashes |
 
 Status preserves separate last-success times even when more than 20 newer failures exist. History is a bounded 20-row view, not a retention/deletion policy. Retention of private incident evidence and old DBs remains a later operational decision; no automatic cleanup is implemented. Evidence and authority snapshots remain outside all business restore targets.

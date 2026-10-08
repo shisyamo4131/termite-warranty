@@ -48,7 +48,7 @@
 | [0031](0031-japan-post-postal-data.md) | Japan Post postal data for postal-code lookup | Accepted | 2026-09-17 |
 | [0032](0032-production-firebase-operations.md) | Production Firebase environment and operations | Accepted | 2026-09-17 |
 
-| [0033](0033-permanent-property-warranty.md) | One permanent warranty per property with retained period history | Accepted; implementation pending | 2026-09-29 |
+| [0033](0033-permanent-property-warranty.md) | One permanent warranty per property; 2026-10-07 UH receipt linkage by internal ID | Accepted; UH linkage implementation pending | 2026-09-29; amendment 2026-10-07 |
 
 ## Template
 
