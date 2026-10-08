@@ -1,5 +1,10 @@
 # Documentation Map
 
+- [Prod準備・Dev容量／検索／CSV実測（2026-10-08）](design/evidence/prod-readiness-2026-10-08.md)
+
+
+- [共有参照Store・処理別計測](design/reference-store-metrics.md)：有効／無効購読、Functionsログ、計測の限界と検証。
+
 - Status: Active
 - Last verified: 2026-10-03 (post-presentation documentation routing)
 - Authority: Navigation only. `docs/specification.md` is authoritative for confirmed requirements and `docs/roadmaps/` for verified progress.

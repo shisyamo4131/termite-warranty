@@ -1,5 +1,94 @@
 # Business Workflow
 
+## 2026-10-08 初期出力とDev容量試験の現在地
+
+初期提供はCSVまでとし、保証書出力・印刷品質検証は後発。保証書CSVは現行画面で無効のため別途実装が残る。初期投入はオーナー準備データの提供まで保留。[Dev実測](../design/evidence/prod-readiness-2026-10-08.md)で300件取込・301件拒否・保険報告／請求CSVを検証済み。全取込・初期投入・保証書CSVの完成を意味しない。
+
+
+## 2026-10-08 HS業務フローとDev検証
+
+これは現行確定仕様から整理した初期HS業務の想定手順であり、HS実務担当者による受入完了ではない。初期はHSが入力し、ポータルは利用延期。オーナーが改修後Dev配備、物件／保証初期化、Devデータ作成・変更・無効化とフローの実行を承認。最初はCallable直接検証だけを行ったが、オーナーの「実画面でやらないと意味がない」との指摘に従い、続いてDevブラウザの入力・ボタン操作・実CSVダウンロードで再検証した。以下のAPI証拠と実画面証拠を区別する。実メール・保険会社提出・請求書発行・入金は行わない。
+
+| 順序 | HS業務 | システム操作・確認 | Dev API検証結果（画面検証は次表） |
+| --- | --- | --- | --- |
+| 1 | 受付先・商品分類の準備 | 保証グループ→工務店→本店／支店を登録。所属固定、有効コードの重複防止 | 成功。架空2グループ・2工務店・3本支店作成。所属変更・重複コードは拒否 |
+| 2 | 申込情報の受付 | 物件名・工務店・本支店を指定して下書き。未指定は保存拒否、本店も明示選択 | 成功。未指定の下書き／本登録を拒否。本店指定の下書きは未採番 |
+| 3 | 本登録 | 日付・面積等を揃え確認後に採番。番号完全一致検索、訂正、二重送信の抑止 | 成功。確認なし拒否、採番、同一要求再送で改訂増加なし、完全一致検索、名称訂正、所属変更拒否 |
+| 4 | CSVによる受付 | 取込み対象グループ・工務店を選択し本支店コード照合。プレビュー→全件確定、同じ操作の再送確認 | 成功。1行取込み、本店IDへの照合、初回10年、同一要求再送は既存結果を返却 |
+| 5 | 保険会社への月次報告準備 | 対象月抽出・7列CSV出力、選択分を報告済みに更新。誤報告の取消・再報告 | 成功。新規報告と取消・再報告、保険満了一覧、5年更新と取消・再報告を実行 |
+| 6 | 請求管理 | 申込／延長基準の月次一覧・CSV出力、対象保証区間の請求済み／取消 | 成功。11列CSV、初回請求済み→取消→再設定、延長区間の請求済み→取消 |
+| 7 | 満了対応・延長 | 満了対象抽出、外部連絡後の案内済み記録、10年延長、誤延長取消 | 成功。案内済みで未案内一覧から除外、延長で未案内へ戻る。10→20年・延長取消10年・再延長を確認 |
+| 8 | 誤登録・誤取消への対応 | 理由付き取消、取消中操作拒否、理由付き復元、番号・期間・保険状態の保持 | 成功。取消中の延長拒否、復元後の番号・保証満了・保険満了の一致 |
+| 9 | マスタの利用停止・再開 | 本支店無効化で新規停止、既存保証と名称保持、無効中編集拒否、再有効化 | 成功。無効本店への新規登録と改名拒否、既存保証の訂正・名称維持、再有効化 |
+
+業務上の未実装・未確定も分けて報告する。正式保証書用CSVはWordひな型への対応が未完了で、見本PDFを正式発行とみなさない。終了保証の退避CSV・削除／復元運用は別の未完成機能。実提出・請求金額計算・請求書出力・入金・自動通知は今回のシステム検証対象外。これらはDevで成功した業務に含めない。本支店コードのグループ条件付き必須化は後続の `b5bcb354` で実装・Dev配備・実画面検証済み（[結果](../design/property-bulk-import.md#branch-code-required-01-条件付き必須)）。新規データに存在しない旧請求状態「要確認」の解消、アカウント管理・システム設定・復旧運用は今回の通常業務フローの実行対象外。
+
+### 2026-10-08 Dev実画面での再検証
+
+Dev Hostingに専用架空HS管理者でログインし、画面に表示された項目・確認ダイアログを操作した。通常業務の状態変更にAPI直呼びを代用しなかった。APIで作成済みの架空マスタ／過去日付の物件は一部の事前データとして利用した。検証用認証アカウントの準備・後片付け、事後の整合性／Functionsログ取得だけは開発用スクリプトで行った。
+
+| 順序 | 実画面で実施した操作 | 確認した結果 |
+| --- | --- | --- |
+| 1 | 保証グループ「実画面検証保証」→「実画面検証工務店」→本店を登録 | 階層ごとの一覧へ遷移。本支店の所属工務店／工務店の所属保証グループは登録後の編集画面で変更不可 |
+| 2 | 工務店だけ指定して下書き保存→本店選択→保存 | 本支店未指定は「入力・選択してください。」で停止。明示選択後に未採番の下書きとして保存 |
+| 3 | 下書きを開き日付・面積・住所を入力→確認チェック→本登録→名称訂正 | 確認前の実行ボタンは無効。`QA85F17F-26-002` を採番し「実画面検証・訂正済み」へ変更 |
+| 4 | テンプレートをダウンロード→架空CSVをファイル選択→内容検証→確認チェック→全件本登録 | 本支店コード001のプレビューと1件本登録成功を表示。`QI85F17F-26-002`／「実画面検証・CSV物件」は本店に所属。番号完全一致検索で1件表示 |
+| 5 | 保険報告一覧で1件選択→CSV実ダウンロード→報告済み→取消。過去の更新物件で更新取消→保険満了一覧→再報告 | 7列CSVの選択行・値を確認。新規報告後に一覧から除外、取消で未報告へ。更新取消は満了2031-10-07→2026-10-07、再報告で2026-10-08〜2031-10-07へ |
+| 6 | 初回保証を請求済み→理由付き取消。請求用一覧で番号検索・1件選択→CSV実ダウンロード | 請求済み／未請求の表示切替、11列CSVに本店・保証番号・期間・未請求を確認。延長分の請求切替はAPI検証のみ |
+| 7 | 10年間延長→理由付き取消。過去物件の延長取消→未案内へ戻す→保証満了一覧で案内済み | 保証番号を保ち10→20→10年、満了2036→2046→2036。未案内で1件表示、案内済みで0件。延長後の案内リセットはAPI検証のみ |
+| 8 | 理由・確認チェック付き物件取消→理由付き復元 | 取消済みで入力欄が無効、保存／延長不可。同じ番号・期間で復元 |
+| 9 | 本支店コード重複→本店無効化→無効本店と同コードの支店登録→本店再有効化→重複解消→再有効化。工務店無効化／再有効化 | 有効同士の登録・再有効化は409で拒否。無効コードの再利用は成功、支店をUI02に変更すると本店UI01の再有効化成功。無効本支店・工務店は全欄閲覧専用、保存ボタンなし |
+| 10 | 新規物件で工務店を絞込み→本店選択→工務店クリア・別工務店選択→ログアウト | 新規マスタが候補に反映。旧本支店選択が消え、候補が別工務店の本店001だけに変更。ログアウトで業務画面が消えログイン画面へ |
+
+実ダウンロードは保険報告CSV・請求CSV・取込みテンプレート。架空データだけを使用。画面証拠はローカルの `tmp/ui-branch-required.png`、`tmp/ui-branch-reactivation-rejected.png`、`tmp/ui-csv-import-completed.png`、`tmp/ui-import-property-search.png`。これらは作業用画像であり追跡対象には追加していない。
+
+初回ログインはnetwork-request-failed、同じ正規ログイン操作の再実行で成功した。処理中に物件リンクを操作すると開かなかった場面は処理完了後に成功しており、恒常的な読込不具合とは判定していない。CSV確定処理中には結果未確認の案内が一時表示され、その後1件成功へ遷移した。これらの一時表示・操作感はUI/UX上の継続確認事項。
+
+`node tmp/ui-workflow-postcheck.mjs` は通常Local権限でexit0。18:09:17〜18:27:07 JSTのログ窓でFunctions計測132件（server_observed 115、client_reported 17）を受信。実画面操作のsave/register/bill/undoBill/extend/undoExtend/cancel/restore/report/undoReport/notify/saveGroup/saveCompany/saveBranch/reenableMaster/preview/commitを含む。ログにUIDは含めないため、この時間窓の全件を専用ユーザーだけのものと断定しない。6物件すべて本支店あり・会社所属一致、normal世代10。UIでログアウト後、専用アカウントとプロフィールは所有照合して削除、一時認証ファイルも削除した。最初のsandbox実行は通常ユーザーのTempと異なるためENOENT・exit1で、Cloud処理前に停止した。
+
+上表にない全画面・全分岐の網羅試験、実利用者のUI/UX受入、外部提出は未実施。無効本支店を参照する既存保証の継続編集・名称保持と二重送信はAPI／Local回帰の証拠であり、今回の実画面成功へ水増ししない。
+
+### 2026-10-08 実行証拠と配備状態
+
+配備版は `1800e018e98a91b759e143be67e7c3cc90ae5a14`（primary/main、pushなし）。変更したruntime/testは `app/components/MeetingPrototype.vue`、`functions/property-warranty.js`、`test/property-warranty.test.mjs`、`test/emulator/property-warranty.test.mjs`、`test/emulator/isolated-property-import.test.mjs` の5ファイル。本支店必須の画面・サーバー判定、旧空欄の「未指定」表示、明示本店fixtureと拒否回帰を追加した。共有Store・レイアウト・既存データの無効所属の扱いは維持。対象はUI・application-logic・保存契約・文書・deployで全7ゲート、省略なし。独立レビューの旧fixture／範囲拡張指摘を解消し、既存draftの無効所属保存ルールは拡張せず維持した。
+
+| 検証コマンド | 最終実測 | exit |
+| --- | --- | --- |
+| `npm test` | 350件中348成功、既存symlink制約2skip、失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 139成功、Emulator停止済み | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功。結果記入後も再検査 | 0 |
+| `git diff --cached --check` | commit前成功 | 0 |
+| `npm run build:recovery-release -- --revision 1800e018e98a91b759e143be67e7c3cc90ae5a14` | 正式配信物生成 | 0 |
+| `node node_modules/firebase-tools/lib/bin/firebase.js deploy --only functions --project termite-warranty-dev --non-interactive` | 20 Functions配備 | 0 |
+| `node node_modules/firebase-tools/lib/bin/firebase.js deploy --only hosting --project termite-warranty-dev --non-interactive` | Hosting配備 | 0 |
+
+初回単体はsandbox一時領域のrename EPERMで7失敗（exit1）、同じ試験を通常Local権限で実行して成功。初回Emulatorは旧空本店fixtureと新規旧draft fixtureのyears欠落により2失敗（exit1）。fixtureを契約に合わせ、最終全体139件を再実行。正式build初回はsandbox内でexit1、同じ版を通常権限で再実行してexit0。失敗した検証を省略していない。
+
+正式照合：`node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 1800e018e98a91b759e143be67e7c3cc90ae5a14 --source '(default)' --generation 10 --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/1d80f052d9f2b352 --dev-inspect`。初回はexit0だがHostingファイルidentity-mismatchでblockedのため不合格。再配備なしで同じ照合を実行し、全10項目pass・exit0（Functions原本20、Hosting991ファイル）。初回差異の詳細原因は未確定。inspectのready=falseと全checksの結果を混同しない。
+
+初期化：レビュー済み `node tmp/reset-property-fixtures.mjs inspect dev`／`apply dev` は各exit0。Dev物件19、操作receipt24、採番counter2、外部キー予約3、取込みsource3、取込みreceipt1の計52文書を、事前hash再照合付き単一transactionで削除。直後は6root全件0、保持7root直下文書hash一致。Auth操作・マスタ削除なし。保持rootの子collectionやAuthの全フィールド同一性まで照合したとは扱わない。Localは永続import/exportを指定しない専用Emulatorを新規起動して回帰後に停止、試験データを破棄。`node --input-type=module -e "import {assertEmulatorPortsFree} from './scripts/lib/test-emulators.mjs'; await assertEmulatorPortsFree(); console.log('Local emulator ports free; no running local data process')"` はexit0。継続稼働中のLocal DBや移行対象はなかった。
+
+業務検証：`node tmp/hs-dev-workflow.mjs termite-warranty-dev` はexit0、12シナリオ成功。DevのFirebase Authで架空HS管理者としてログインし、実Callableを呼び出した。保険／請求CSVは実コンポーネントのexportCsv関数をDev取得行で実行しBlobを検証、DOMとダウンロード操作は代替した。ブラウザ操作やUI/UX受入の完了とは区別する。専用Auth／staffプロフィールは所有確認して削除済み。作成前run別journal、結果不明時の掃除保留、個別cleanupを独立レビューした。架空業務データはオーナーが画面で確認できるよう残した。
+
+事後照合：`node tmp/hs-dev-postcheck.mjs` はexit0。4物件すべて本支店IDあり・会社所属一致、従前のマスタ／アカウント直下文書は検証用追加分を除いてhash一致。normal世代10、実行中operation0、運用ロックなし。Functionsログに今回の処理別計測80エントリを実受信（拒否試験はfailureとして記録）。`node tmp/store-backup-postcheck.mjs` はexit0、20 Functions自動取得false、Scheduler PAUSED、PITR無効、予定・Firestoreバックアップ0を維持。
+
+Devに残した確認用物件（全件有効・本店を明示選択）：
+
+| 物件名 | 保証番号 | 現在保証年数 |
+| --- | --- | --- |
+| 業務検証・既存保証継続 | QA85F17F-26-001 | 20年 |
+| 業務検証・満了案内 | QA85F17F-16-001 | 10年（実画面で延長取消後、案内済み） |
+| 業務検証・保険更新 | QA85F17F-21-001 | 10年 |
+| 業務検証・CSV登録 | QI85F17F-26-001 | 10年 |
+| 実画面検証・訂正済み | QA85F17F-26-002 | 10年 |
+| 実画面検証・CSV物件 | QI85F17F-26-002 | 10年 |
+
+仕様・branches-and-addresses・実演データ契約・operations・技術改修台帳・CHANGELOGを今回の状態へ整合。新しいADR・全体進捗加点・Rules/IAM/依存版/ガバナンス変更はない。既存文書差分と今回記録は未コミットで保全、runtimeは上記commitに固定済み。コードの差戻しだけで削除したデモデータは復元しない。次のユーザー作業は実施結果と既知残件の確認。開発側の実画面検証は上記のとおり実施済みで、利用者のUI/UX受入を代替するとは扱わない。
+
 > 2026-10-03全体整理：現行の確定事項は[仕様書0.1.90](../specification.md)に業務別に統合しました。本書の日時付き節は判断の根拠を含み、後の決定で置き換えられた記述があります。旧試作説明・当時の未決欄を現行の実装指示にしないでください。未決管理は[台帳](house-solution-confirmations.md)、配布資料は[資料索引](../../deliverables/meeting-2026-10-03/README.md)を参照します。
 
 ## 2026-10-03 初期案内状態と取消（仕様書0.1.84）

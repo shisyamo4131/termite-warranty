@@ -1,5 +1,9 @@
 # Environments and Authentication Email
 
+## 2026-10-08 オーナー決定による現在の状態
+
+本番DBはFirestore確定。HS所有・Dev分離・東京リージョンを維持。Prod workflowは構築情報が揃ってから、PITR等は構築後に設定。HS管理者のメールは受領、正式氏名確定は資料台帳に記録済み。開発者はHS管理者と同等の権限、通知先はオーナーGoogleアカウント。Firebaseへの管理者メール紐付け後に請求登録、予算設定は後発。[構築情報の不足一覧](../operations.md#2026-10-08-prod構築前の整理)。旧条件付きFirestore・最小権限のみという記述はこの決定で置換する。Prodの実識別子・IAM・課金・通知設定はまだ未実施。
+
 ## Confirmed Environment Requirements
 
 - Provide the mid-September 2026 prototype in a development environment.

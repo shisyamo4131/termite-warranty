@@ -1,5 +1,10 @@
 # Design Index
 
+- [Prod準備・Dev容量／検索／CSV実測（2026-10-08）](evidence/prod-readiness-2026-10-08.md)
+
+
+- [共有参照Store・処理別計測](reference-store-metrics.md)：初期方式②と操作別ログ。
+
 - [共通CSV一括取込み・物件住所統合](property-bulk-import.md)：14列の増分初回10年登録、外部キー必須グループ限定、任意の住所・資材名の空欄保存、単一住所への移行・差戻しの設計。
 - [増分取込みとグループ入力条件の検証記録](evidence/increment-import-2026-10-08.md)：最終Local検証、独立レビュー、Dev配備照合と受入の残件。
 - [共通取込み・住所統合の検証／Dev実行記録](evidence/common-import-address-2026-10-07.md)：適用版別の検証結果、配備・移行・再開の記録、オーナー受入手順と残件。

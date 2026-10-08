@@ -1,8 +1,36 @@
 # Technical Remediation Backlog
 
+## 2026-10-08 Prod準備の現在地
+
+Firestore採用確定。Dev実画面でCSV300件取込、301件拒否、2種類CSVの300件照合、旧不具合再確認を実施。Functionsログ119件を照合し、月別一覧の全件取得と300件取込約20秒を改善候補として記録。[実測と限界](../design/evidence/prod-readiness-2026-10-08.md)。保証書CSVは未実装の残作業、印刷は後発。Prod情報棚卸しは[operations](../operations.md#2026-10-08-prod構築前の整理)。初期データはオーナー準備待ち。以下の日付付き作業履歴中の未実施記述は当該時点の状態であり現在の残件一覧ではない。
+
+
+## 2026-10-08 BRANCH-CODE-REQUIRED-01（Dev反映・実画面検証済み）
+
+オーナー指示で画面・保存・再有効化を修正。`b5bcb354` は全7ゲート・独立レビュー後Dev配備、正式照合全10項目pass。対象グループの新規／編集空欄拒否、コード入力後保存・再有効化、対象外空欄保存を実画面確認。Functionsログ両source受信、一時アカウント削除済み。既存文書差分は保持。[コマンド・結果・境界](../design/property-bulk-import.md#branch-code-required-01-条件付き必須)。以下の旧時点の条件付き必須残件はこの実装で解消。全体進捗加点なし。
+
+## 2026-10-08 物件／保証の本支店必須・HS業務フロー検証
+
+承認済みの下書き／本登録の工務店・本支店必須を画面・サーバーで修正し、`1800e018` を全7ゲート・独立レビュー後にDev配備、正式照合全10項目pass。Dev物件／保証関連52文書を承認範囲で初期化した。API検証後、オーナー指摘によりHS主要業務を実画面で再実行。マスタ登録、下書き／本登録、CSV取込み／出力、報告／請求、延長／取消復元、満了案内と本支店コード有効重複・無効編集禁止を確認。[フロー・個別証拠・未実施分](../requirements/workflow.md#2026-10-08-dev実画面での再検証)。本支店コードの保証グループ条件付き必須化は残件。網羅的UI受入や正式保証書・終了保証退避の完成とは扱わず、全体進捗加点なし。
+
+## 2026-10-08 STORE-02／METRICS-01（Dev反映・実受信済み）
+
+レイアウト完了後のオーナー指示で `ebd9c45` をDevに配備し、正式照合全10項目・機能9項目・Functionsログ両source受信を確認。最終単体347成功／既存2skip、Rules138成功、全7Localゲート成功。既存データ不変・バックアップ停止維持。下記Local時点の「Devは別」は後続配備で解消。[実測と残件](../design/reference-store-metrics.md#2026-10-08-dev配備と実受信)。UI/UXユーザー受入・実課金比較・①切替は未実施。全体進捗加点なし。
+
+②有効／無効全件の共有Storeを初期採用し、Functions構造化ログに操作別のアプリ観測件数を記録する実装を承認。以前の「Read／Write計測案（未採用）」はこの範囲で採用へ更新。請求一致は求めず、リリース前後の見直し判断に用いる。①への切替は計測後の判断とし今回の同時実装を要求しない。[契約](../design/reference-store-metrics.md)、[ADR](../decisions/0037-reference-store-observability.md)。完了条件：全7Localゲート、名称／候補／所属・寿命境界、再試行と成功件数、計測送信失敗・非秘密ログの回帰、独立レビュー。全7Localゲート成功、独立レビュー指摘解消。単体343成功／既存2skip、Rules138成功。[詳細実測](../design/reference-store-metrics.md#2026-10-08-local検証結果)。Dev配備・Cloudログ実受信は別。全体進捗加点なし。
+
+
+## 2026-10-08 BRANCH-05・DISABLED-01
+
+本支店用語統一・コード桁数制限撤廃に加え、無効状態のマスタ／スタッフプロフィール編集をバグとして修正。無効マスタの再有効化は状態操作へ分離。旧CSV互換、長いコード、状態変更競合、予約整合、Auth副作用なしを全7ゲートと独立レビューで確認する。[契約](../design/property-bulk-import.md#branch-05-本支店の用語とコード長)、[共通無効ルール](../requirements/master-management.md#2026-10-08-無効データの編集を禁止)。共有Storeの全件購読と購読外5分TTLは採用済み・詳細設計中。通常本支店必須／コード条件必須とStore実装、Dev反映は後続。既存納品進捗の加点なし。
+
+## 2026-10-08 BRANCH-03
+
+オーナーがCSV照合、有効本支店間のコード一意性と無効化／再有効化の統合、工務店所属グループ固定を改修開始と指示。Local実装後の独立レビュー・全7ゲートで判定する。[範囲と互換性](../design/property-bulk-import.md#branch-03-有効コードと会社所属固定)、[検証記録](../design/evidence/increment-import-2026-10-08.md#branch-03-local改修)。AutocompleteのN-Gram検索と共有Storeは検討。通常物件本支店必須・コード条件必須・用語／桁数は後続作業。Dev配備／初期化は今回未実施。納品全体の進捗加点なし。
+
 ## 2026-10-08 交代後のLocal改修・確認事項
 
-以降のDev配備は毎回の明示指示まで行わず、Local改修／検証→報告→配備指示の運用。次の範囲は[交代指示](../operations.md#2026-10-08-pm白蟻-08への交代次の作業)を正とする。CSV支店コード必須を維持しHS向け資料へ記録、通常登録の支店選択と支店登録のコード必須条件をサブエージェントで検討、テンプレート下説明文削除、ファイル指定アイコンの欄内配置をLocalで進める。画面内カードは対象一覧とvisualizeサンプルの確認を先に行い、ダイアログ内カードは維持。新タスクで未着手、進捗加点なし。台帳の古い状態表示の整合も統合後の残作業とする。
+以降のDev配備は毎回の明示指示まで行わず、Local改修／検証→報告→配備指示の運用。[交代指示](../operations.md#2026-10-08-pm白蟻-08への交代次の作業)の説明文削除・ファイル指定アイコン欄内配置はLocal実装し、型・build・UI回帰・架空描画は各exit0。[検証と残件](../design/evidence/increment-import-2026-10-08.md#pm-08-local表示修正と検討)。CSV支店必須のHS向け説明文案を作成、HSC-015／HSC-036の現在表示を整合。資料全体の完成・提供は未完了。通常支店／支店コード必須化はサブエージェントと静的調査し未承認案を提示。カード対象11宣言とvisualizeサンプルは確認待ちで、製品の外観変更なし。Dev未反映、進捗加点なし。
 
 ## 2026-10-08 Excel編集CSVの日付対応
 
@@ -342,44 +370,9 @@ This backlog records approved implementation work. It does not turn unresolved p
 - External documentation checked for TR-002: [Firebase Manage functions](https://firebase.google.com/docs/functions/manage-functions) documents that the CLI deploys Functions from the default/configured Functions source, and [Organize multiple functions](https://firebase.google.com/docs/functions/organize-functions) documents codebases and multiple source packages. These sources support the identified packaging purpose but do not by themselves validate a local workspace-package solution.
 
 
-## TR-010: Presentation-Day Defect Record (2026-10-03)
+## TR-010: 現行での再発確認（2026-10-08）
 
-- Status: Owner requested recording only; no implementation or deployment on presentation day. No completion credit.
-- Evidence: static review of local commit `b45382f6ef92e9ab897cee59b1164766375aaa70` and current uncommitted prototype. Runtime reproduction and current hosted-version matching are unverified. Source: owner's review/deferral instruction in this Codex task.
-- Scope boundary: current `app/app.vue` routes to `MeetingPrototype`; the legacy account/master/case screens below are not on the normal current route. Confirm future usage before repairing or retiring legacy code.
-
-| Priority / scope | Finding | Later completion condition |
-| --- | --- | --- |
-| 1 / current shared login | `useSession.ts` does not catch rejection of initial account reads; loading remains true and no retry/subscription is established. | Release loading on failure, provide safe recovery, retain enabled checks and generation/race protection. Test failed read, recovery and sign-out/account-switch races. |
-| 2 / legacy account UI and current selector review | Legacy `CompanyPortalAccountManagement.vue` limits companies and accounts to 20 with no search/paging. Current company/branch selectors also initially load 20 but settings search can reload candidates. | Make eligible companies/branches beyond 20 reachable; verify 21+ candidates, affiliation, existing accounts and account list access. Do not equate current UI with the unreachable legacy workflow. |
-| 3 / legacy warranty-service properties | `useMasterManagement.ts` limits active warranties to 20 before filtering inactive cases/properties, without replenishing from later matches. | No false empty result when a qualifying property follows 20 rejected candidates; test cancellation, inactive property and duplicate references. |
-| Follow-up / legacy detail | Only warranties are watched; parent cases/properties are read once. Parent-only changes do not refresh the result. | Adopt and test required refresh behaviour without prohibited per-row subscriptions. |
-| Follow-up / legacy case edit | `CaseEditDialog.vue` applies new property ID/defaults against the stale catalog; `CaseDetail.vue` reloads only when opening dialogs. | Refresh/merge created property before applying defaults; verify label, homeowner and company immediately after creation. |
-
-Presentation workaround: owner plans browser reload if login stalls. Code inspection supports reinitialization and retry on reload if communication has recovered, not a guaranteed cure; persistent connection/permission failures can recur. No runtime workaround verification was performed.
-
-Later priority for current prototype: login recovery, company/branch selection, then list completeness. Persistent pagination under HSC-008 is a separate proposal and does not itself correct missing candidates or filtering after a limit. Implementation gates must be selected from the actual UI/application/data impact plus the regressions above. This record is documentation-only; no code, deploy or app test changes.
-
-### 2026-10-03 プレゼン中にオーナーが観測した追加2件（後続対応）
-
-両件とも本Codex会話でのユーザー報告に基づく。開発側での再現、ログ・送信内容確認、原因特定、稼働版照合は未実施。後発作業として記録する指示であり、今は改修・配備しない。以前の静的レビュー結果とは証拠を分ける。
-
-| ID | 観測された手順と結果 | 後続の再現・改修完了条件 |
-| --- | --- | --- |
-| TR-010-06 | 物件／保証新規登録で物件名・住所等を入力し本登録。面積が未入力で「物件名、住所、建面積を入力してください」と表示。面積を追加入力して再度本登録しても同じエラー。ダイアログ終了・リロード・再登録で成功。 | 同じダイアログ内で不足項目を訂正後、最新入力値で本登録できること。フォーム値・保存済み下書き・送信内容・サーバー検証の各時点を比較し、エラー前後の部分保存の有無と再試行での重複登録・二重採番も確認。正常完了までリロード不要を実行検証する。 |
-| TR-010-07 | 保証グループが存在しない状態で工務店登録を開くと「HSC」が選択済み。登録で「指定された保証グループが存在しない」旨のエラー。HSCを作成後も工務店登録が同じエラーになり、リロード・再登録で成功。 | グループ0件で存在しない候補を既定選択しない。実在する有効なグループを作成後、リロードなしで候補と選択IDが更新され、工務店を登録できること。同名再作成時の旧ID残存、削除・無効化後の選択、空データ時の初期値とキャッシュ更新を確認する。 |
-
-原因候補（未確認）：入力値と保存・送信データのずれ、エラー後のフォーム再送状態、グループ候補・選択IDの更新不足。リロードによる解消だけで共通原因とは断定しない。実装時は変更範囲の検証ゲートに加え、上記の失敗→訂正／マスタ作成→再試行を同一画面で検証する。現在の記録変更は文書のみ。
-
-
-### 2026-10-03 独立先行実装への追加承認
-
-後続の「独立先行できる作業を開始」「Local受入はまとめて」により通常経路の改修を実施。前記の「記録のみ」は過去チェックポイント。共有ログインに読込失敗解除・15秒打切り・再試行、最新アカウント世代のみ採用する処理を追加。通常画面の会社選択に明示検索・選択会社の全支店取得を追加し、21件以降を到達可能にする。保証グループ作成後の再取得と実在ID選択を維持し、物件送信時は最新フォーム値を複製する。
-
-TR-010-06は面積未入力→訂正→同じ要求ID再送をサーバー／HTTP Callableで回帰検証。画面での当初現象の原因特定や手動再現完了とは扱わない。TR-010-07の実画面受入も残る。通常経路外の旧画面3件（関連一覧欠落・追従不足・新規物件選択）と旧アカウントUIは今回変更しない。現行から利用する必要性の判断を待ち、解決済みにしない。
-
-[実測](../design/evidence/independent-implementation-2026-10-03.md)／[Local受入](../runbooks/local-acceptance-2026-10-03.md)。配備・既存データ初期化は行わない。
-
+現在残す観測はDevログイン時のauth/network-request-failed（原因未特定、リロード後成功）。旧読込停止・面積訂正後再保存・20件外候補選択・新設グループ反映は今回再発せず、現行不具合一覧から外した。グループ0件・同名再作成条件と通常経路外の旧画面は未実施であり、修正済みとはしない。[手順・結果・検証限界](../design/evidence/prod-readiness-2026-10-08.md)。旧静的指摘と当時の履歴はGitへ委ねる。
 
 ## 2026-10-06 Dev最新実施状態（通常再開済み）
 

@@ -10,37 +10,31 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 ## Unresolved Matters
 
-2026-10-04更新：未解決は14大項目。前回13から、ユーザーのU04指摘によりHSC-010の請求先単位を後発確認として再開。初期の金額管理除外の決定は維持する。
-
-- HS確認・資料待ち・運用準備を含む8項目：HSC-001/002/015/025/034/035/036/037。1項目に技術準備や将来対応が併存する場合もある。
-- 開発側の技術判断2項目：HSC-022/023。HSにDB製品や実装方式の選択を求めない。
-- 初期範囲から外した将来対応4項目：HSC-010/013/030/038。HSC-010の請求先単位は今回の要望によりHS確認待ち。
-
-この件数は質問数ではない。HS向けの質問・依頼への編集結果は[整理済み資料索引](../../deliverables/meeting-2026-10-03/README.md)を参照。唯一の未決管理は本台帳を維持する。
+2026-10-08整理：Firestore採用と名称統合は解決済みへ移動。初期投入はオーナー準備待ち。初期保証書CSVは未完了、印刷・予算設定・利用説明資料は後発。件数集計は重複管理せず、以下の各行を現在の索引とする。
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 月次自動取得・検証・公開・失敗通知を検討。方式未採用／設定未実行 | Project owner |
-| HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-05追加。物件名＝施主名か、別名称として管理するかをHS確認待ち。仕様・実装変更なし | House Solution |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 延長後の保証開始月を2026-10-05採用、ローカル実装・機能検証済み、Dev未反映。未請求抽出・請求先単位・合算は確認待ち | House Solution |
 | HSC-001 | [Case, applied-warranty, and referenced-master data retention](house-solution-confirmations/HSC-001-data-retention-policy.md) | 終了分のCSV保管後削除・開発側復元は確定。取消済みもCSVをHS保管後に削除可（2026-10-05）、後発実装。トリガー・詳細は未確定 | House Solution |
 | HSC-002 | [Initial-release acceptance scope](house-solution-confirmations/HSC-002-release-acceptance-scope.md) | HS operators verify, HS president approves launch, AriLabo coordinates confirmed; actual launch date undecided, final acceptance preparation remains | House Solution |
-| HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | Open; evaluation criteria clarified 2026-10-02 | Project, with House Solution input |
-| HSC-023 | [Firestore N-Gram query and consistency design](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | 物件／保証一覧は保証番号完全一致のみ確定。その他の検索軸は業務仕様確定を先行、マスタ検索・本番取得設計は未決 | Project / HS business decision |
-| HSC-025 | [Production service and risk requirements](house-solution-confirmations/HSC-025-production-service-requirements.md) | HS→AriLabo→developer confirmed; response hours/cost cap undecided; owner communicated rough hundreds-of-yen monthly estimate, not independently verified or guaranteed | House Solution |
+| HSC-023 | [Firestore取得・検索設計](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | 完全一致・最新20件・共有マスタ全件購読は確定。300件Dev実測済み。月別一覧の全件取得と実初期規模検証が残る | Project / HS business decision |
+| HSC-025 | [Production service and risk requirements](house-solution-confirmations/HSC-025-production-service-requirements.md) | 通知先はオーナーGoogleアカウント、予算設定は後発。運用窓口は確定、対応時間等の残条件は詳細参照 | House Solution |
 | HSC-030 | [Custom authentication-email sender](house-solution-confirmations/HSC-030-custom-auth-email-sender.md) | Deferred | House Solution, if requested |
 | HSC-034 | [Deterioration countermeasure grade and warranty limit](house-solution-confirmations/HSC-034-deterioration-countermeasure-grade.md) | Manual cap selection and later HS edits confirmed; no reduction below granted 30 years; business eligibility remains outside automation | House Solution |
 | HSC-035 | [Case cancellation and invalidation criteria](house-solution-confirmations/HSC-035-case-cancellation-invalidation-criteria.md) | 2026-10-05全体取消の事前保険報告取消は不要と再確認。外部減少報告はHS。個別の情報補正・旧データ対応は残る | House Solution |
-| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-07保証満了案内の上限到達除外はLocal修正、検証結果は運用記録参照・Dev未反映。10年追加保留。UHの前月報告・起算日訂正・過去保険区間は共通。保険満了一覧の用途等は残件。初回対象月・月内終了もHS選択は既決 | House Solution |
-| HSC-037 | [Warranty Groups and Certificate Templates](house-solution-confirmations/HSC-037-warranty-groups.md) | Selected-property CSV uses original start and extended expiry; print history deferred unless requested; Word mapping pending; later HS group-correction details open | House Solution |
+| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-08：上限到達の保証案内除外・最長10年対応はDev反映済み。UHも共通保険ルール。保険満了一覧の用途等・HS受入は残件。初回対象月・月内終了のHS選択は既決。現在のCSVは日付自動補完なし | House Solution |
+| HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | 初期CSVまで、保証書出力は後発。グループ訂正機能も後発 | House Solution |
 | HSC-038 | [Construction-company Branches and Document Recipients](house-solution-confirmations/HSC-038-company-branches-recipients.md) | Initial dispatch/recipient management excluded; address-label CSV not adopted; hierarchy confirmed, remaining portal effects deferred | House Solution |
-| HSC-015 | [Migration scope and data cleaning](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 2026-10-07 共通CSV・不足住所／資材名「不明」・単一物件住所を確定。全件棄却・支店コード・通常編集・本登録は維持。過去番号修正とSHS67行目は回答待ち。Local全7ゲート・独立レビュー済み、Dev未配備・実資料未取込 | House Solution, then project |
+| HSC-015 | [初期データ登録準備](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 資料は揃ったとの報告。オーナーの投入準備データ提供まで保留。旧訂正依頼を繰り返さない | House Solution, then project |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS confirmed; company functionality retained, rollout deferred | House Solution, then project |
 
 ## Resolved Matters
 
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
+| HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-07 | House Solution / Project owner | 物件名に統合、6b2573dでDev反映・移行済み |
+| HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | 2026-10-08 | Project owner | Firestore採用確定。ADR0038。Dev計測は別作業 |
 | HSC-032 | [Case-list year/month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) | 2026-10-03 | Project owner | Existing answers reconciled: insurance handover/expiry months; billing application/extension-procedure months; ordinary search optional |
 | HSC-004 | [Production case-number rules](house-solution-confirmations/HSC-004-case-number-rules.md) | 2026-10-03 | Project owner | Full-number exact search without inferred prefix/year; numbering/lifecycle business rules confirmed; import HSC-015 and technical verification remain |
 | HSC-008 | [Master-list behavior](house-solution-confirmations/HSC-008-master-list-behavior.md) | 2026-10-03 | Project owner | Prototype-based initial columns and confirmed hierarchy/status; no personalized columns or bulk editing; technical query decisions in HSC-023/022, implementation pending |

@@ -12,9 +12,11 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
+| [0038](0038-production-firestore.md) | 本番DBはFirestore | Accepted | 2026-10-08 |
+| [0037](0037-reference-store-observability.md) | 共有参照Storeと使用量の観測 | Accepted | 2026-10-08 |
 | [0036](0036-account-mutation-serialization.md) | アカウント更新の直列化と結果不明時の復旧 | Accepted | 2026-10-05 |
 | [0035](0035-warranty-interval-lifecycle.md) | 保証区間に紐づく請求・保険報告と逆順取消 | Accepted | 2026-10-04 |
-| [0034](0034-company-registration-without-hs-review.md) | 工務店による承認待ちなしの新規登録・延長 | Accepted; implementation pending | 2026-10-01 |
+| [0034](0034-company-registration-without-hs-review.md) | 工務店による承認待ちなしの新規登録・延長（所属保証グループ変更の部分は2026-10-08訂正） | Accepted; implementation pending | 2026-10-01 |
 | [0001](0001-provisional-access-control-posture.md) | Provisional access-control posture | Provisional | 2026-09-10 |
 | [0002](0002-prototype-stack-and-search.md) | Prototype stack and free-text search | Accepted | 2026-09-10 |
 | [0003](0003-firebase-authentication-and-account-lifecycle.md) | Firebase Authentication and account lifecycle | Accepted | 2026-09-10 |

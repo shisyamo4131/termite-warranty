@@ -1,5 +1,82 @@
 # 増分一括取込み・保証グループ入力条件の改修
 
+## BRANCH-05・DISABLED-01 Local改修
+
+2026-10-08、開始HEAD dd80a12721d9c0e627d29434acc3bb61a8f21149、前作業の未ステージ26ファイル差分を保全。ユーザーの番号5採用により本支店用語・コード桁数チェック撤廃を実装し、後続の「無効のまま編集可能はバグ」という指示で3マスタ／無効スタッフプロフィールの編集禁止を追加した。共有Storeは全件購読・標準Autocomplete filter・購読外5分TTLを採用済み、詳細設計までで実装はしていない。
+
+通常保存は最新無効状態を拒否し、再有効化は状態だけを更新する専用操作へ分離。本支店コード重複検査は同じtransaction、スタッフprofileはAuth操作・ロック作成前に拒否する。旧unused master composableは現行画面からの呼出なし・旧Callable廃止済みで今回変更しない。保証の取消／復元、無効親を参照する既存保証の処理は維持する。
+
+CSVの新見出しだけ本支店コードへ変更し、旧見出し・元CSV再送・保存済みsourceValuesのキーを保全。コード文字数上限なし、制御文字拒否とCSV全体制限は維持。コードの完全比較に会社範囲の取得を使い、会社内の本支店件数によってReadが増え得る。実データ移行・Dev配備／初期化・Cloud操作なし。
+
+分類はUI・logic・data contract・docsに、採用された参照Store購読例外のproject-rules変更を加えた和集合。全7ゲートを選択、省略なし。最終コード固定後の独立レビューと各コマンドの結果は確定後に記録する。通常本支店必須／コード条件必須・Store実装は後続。既存HSC台帳・納品進捗は今回未変更。
+
+最終結果：コード固定後の全7ゲート成功、独立再レビュー指摘なし。BRANCH-05とDISABLED-01のLocal実装・検証を完了。既存差分を含めtracked34変更＋新規2ファイル、未ステージ・未コミット、pushなし。最終文書追記後のgovernanceとdiff確認はタスク終了報告でも結果を確定する。
+
+今回の製品／試験差分：app/components/MeetingPrototype.vue、PropertyBulkImportDialog.vue、WarrantyOrganizationManagement.vue、StaffAccountManagement.vue；functions/property-warranty.js、property-bulk-import.js、account-mutation.js；src/domain/property-bulk-import.mjs、新規branch-code.mjs／branch-code.d.mts；test/property-bulk-import.test.mjs、catalog-efficiency.test.mjs、account-mutation.test.mjs、emulator/property-warranty.test.mjs、emulator/isolated-property-import.test.mjs、emulator/staff-account-management.test.mjs。functions/domainは正規prepareで33 entriesを生成、直接編集なし。
+
+文書はspecification、master-management、branches-and-addresses、meeting-prototype、property-bulk-import、operations、technical-remediation、user-explanation-items、CHANGELOG、本記録、配布CSVのREADMEとgovernance/project-rulesを更新。新規文書なしで既存索引から到達可能。ADRの直列化方式、Rules／物理schema／依存／配備設定は変更せず、managed AGENTSは不変。旧配布CSV／ZIPは旧見出し互換の履歴資料として保全。
+
+独立レビューはUIとサーバーを分離。サーバーでreenableMasterが正規runtimeGeneration／runtimeProtocolを拒否するP1を検出し、許可項目を修正。Web SDK→実Callableで3種再有効化・編集混入拒否・旧世代拒否・内容保全を追加した。再レビューは追加指摘なし。最初の結合試験は実行中にこの修正を行ったため最終証拠には再利用せず、固定後に再実行する。
+
+| コマンド | 最終結果 | exit |
+| --- | --- | --- |
+| npm test | 317成功、失敗0、既存symlink権限制限2skip | 0 |
+| npm run typecheck | 型検査成功 | 0 |
+| npm run build | SPA9経路生成成功、既存Nitro警告あり | 0 |
+| npm run test:rules | 最終コード固定後132成功、失敗／skipなし、専用エミュレータ停止確認 | 0 |
+| ./scripts/check-governance.ps1 | 管理成果物・購読例外・検証方針の整合成功 | 0 |
+| node scripts/check-functions-syntax.mjs | 通信情報修正後のFunctions構文成功 | 0 |
+| node --check scripts/seed-emulator.mjs | seed構文成功 | 0 |
+| node tmp/disabled-ui/verify.mjs | 実コンポーネント／抽出ダイアログの6チェック成功、browser errors 0 | 0 |
+
+上表のbuild／型／seed後の変更はサーバーの通信項目検査・対象試験・文書だけで、各証拠の失効条件に非該当。Local実装の差分と全ゲートの結果を報告し、Dev適用と実データ検証を完了とは扱わない。
+
+ブラウザ補足：実WarrantyOrganizationManagement.vueで無効3種の編集なし・表示と有効化イベントを確認。実MeetingPrototypeのdialogテンプレートを機械抽出し実MasterAddressFieldsと組み合わせ、無効group8／company11／branch11入力がすべてdisabled、保存なし、新規無効／有効既存では編集と保存ありを検証。状態と保存関数は架空fixtureで、全画面openSettingからAPI保存までの一巡試験ではない。初回sandboxのEdge起動はexit1、同じLocal専用scriptを制限外で実行しexit0。127.0.0.1以外のpage要求は遮断、専用EdgeとViteを終了。setup.mjsもexit0。ignored tmp/disabled-uiに結果を保持し、製品差分は追加していない。
+
+最終ログはignored branch-05-final.local.log、branch-05-build.local.log、branch-05-rules-final.local.log。初回の結合結果（132成功exit0）は途中修正のため参考値に留め、最終固定版の132成功exit0だけを完了証拠に使う。
+
+## BRANCH-03 Local改修
+
+2026-10-08、開始HEAD dd80a12721d9c0e627d29434acc3bb61a8f21149。オーナーの番号1〜3の指示で、CSV有効コード照合、無効化／再有効化と重複防止、会社所属グループ固定を改修。番号4はN-Gram候補と共有キャッシュ／listenerの検討、番号5は既存の名称／200文字制限の説明。Dev配備・実データ変更なし。既存13ファイル差分を保全した。
+
+今回の製品・試験対象はapp/components/MeetingPrototype.vue、functions/property-warranty.js、functions/property-bulk-import.js、scripts/lib/recovery-controller.mjs、test/default-recovery.test.mjs、test/property-bulk-import.test.mjs、test/catalog-efficiency.test.mjs、test/emulator/property-warranty.test.mjs、test/emulator/isolated-property-import.test.mjs。文書は仕様、branches-and-addresses、master-management、meeting-prototype、共通取込設計、ADR0034と索引、operations、technical-remediation、user-explanation-items、CHANGELOG、本記録へ反映。物理フィールド／Rules／依存／設定／ガバナンスは不変。未決台帳・納品全体の進捗・HS説明資料全体は今回変更対象外。
+
+分類はUI・application logic・data contract・documentationの和集合。全7ゲートを選定、除外なし。独立レビューで旧CSV単体fixtureの予約不足を発見し修正、catalog試験も新規会社のID衝突を修正。再レビューは指摘なし。初回npm testはexit1。fixture修正後もsandboxのTEMP rename EPERMで7失敗・3skipだったが、同じLocal試験を制限外で再実行して312成功・失敗0・既存symlink権限制限2skip、exit0。sandbox内Rules起動はLocalポート待機のtimeoutでexit1となり、専用Localエミュレータで再試行した。実データの予約整合は未実施で、将来適用前に必要。通常物件本支店必須・コード条件必須・名称／桁数変更・Autocomplete実装は後続作業。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| npm test | 312成功、失敗0、既存2skip | 0 |
+| npm run typecheck | 型検査成功 | 0 |
+| npm run build | SPA9経路生成成功。Nitro既存構成の警告あり | 0 |
+| npm run test:rules | 132成功、失敗／skipなし。専用エミュレータ停止確認 | 0 |
+| ./scripts/check-governance.ps1 | 管理成果物・検証方針の整合成功 | 0 |
+| node scripts/check-functions-syntax.mjs | Functions構文成功 | 0 |
+| node --check scripts/seed-emulator.mjs | seed構文成功 | 0 |
+
+製品コード確定後の追加変更はunit fixtureと文書だけで、型／build／Functions／seedの証拠を失効させない。全7ゲートexit0を確認し、番号1〜3のLocal実装・検証を完了。Rulesはshared130件＋isolated-import2件で、同時再有効化・無効同コード複数・CSVプレビュー後の対応先変更も含む。検証ログはignoredのbranch-03-final.local.log。未ステージの共有26ファイル差分を保全、コミット／pushなし。最終文書追記後のgovernance／diff確認はタスク終了報告で確定する。
+
+## PM-08 Local表示修正と検討
+
+2026-10-08、開始HEADをdd80a12721d9c0e627d29434acc3bb61a8f21149、主リポジトリの変更なしを実測。引継ぎの指示範囲でPropertyBulkImportDialog.vueだけ製品変更した。テンプレート下の説明4段落を削除し、通常／再送のファイル入力をprepend-icon=""・append-inner-icon="$file"へ変更。不要になったUH説明用computedを削除。保存・再送制御・検証表・エラー理由・共通アラート設定は不変。Dev配備・push・データ変更・バックアップ操作なし。
+
+文書は仕様、共通設計、支店要件、HS説明事項、HSC-015／HSC-036と索引の該当2行、Clear Skyの未採用カード案、technical-remediation、operations、CHANGELOGと本記録を更新。台帳は編集前に変更なしを確認し、履歴・IDを保全。HS支店指定の説明文案は作成済み・未提供で、資料全体の完成とはしない。カード11宣言の対象候補とサンプルは確認待ち。通常物件／支店マスタ必須化はBRANCH-01の静的読取調査とコーディネータ確認に基づく提案で、業務実装なし。
+
+分類はui-css-layout＋documentation-only。選定完了ゲートはgovernance-check・app-typecheck・app-build。domain／Rules／Functions・seed構文はロジック、永続化、データ契約、依存、権限、配備を変更していないため選択外であり、過去の全7ゲートを今回のUI検証の代わりには使わない。既存UI回帰8件と架空Local描画を補足実施した。型・build後の追加は文書／製品非依存のサンプルだけで、両ゲートを失効させない。最終governanceとdiffチェックの独立終了結果は本タスク最終報告に記す。
+
+| 実行コマンド | 確認結果 | exit |
+| --- | --- | --- |
+| npm run typecheck | 型検査成功 | 0 |
+| npm run build | SPA・9経路生成成功。既存構成に関するNitro import等の警告あり | 0 |
+| node --test test/property-bulk-import-ui.test.mjs | 8成功、失敗・skipなし。未確認結果の保全と再送を含む | 0 |
+| node tmp/pm08-ui/verify.mjs | 実コンポーネント＋架空props、幅1280／390。アイコンが欄内、クリックで選択開始、ファイル選択・クリア、再送用選択、エラー／結果の2表、横はみ出しなし。ブラウザ例外0 | 0 |
+| node tmp/pm08-ui/preview-visual.mjs | カード案の736／320幅、3カード、横はみ出しなし。736幅の画像を目視確認 | 0 |
+
+Local描画はインストール済みEdgeを専用一時プロファイルで使用し、127.0.0.1以外へのページ通信を遮断。CompanyAutocompleteだけfixtureへ置換し、認証・実DB・Cloudに接続していない。既存Local／Emulatorの停止・初期化なし。検証終了時に専用ブラウザとサーバーを終了した。実業務一巡・HS受入の代替ではない。検証用コードと画像はignored tmp/pm08-ui、サンプルはタスク専用visualizations内に保存。
+
+初回はPlaywright既定ブラウザが見つからずexit1、既存Edgeのsandbox内起動もexit1。制約外でのLocal実行では提案カードのelevation=0が「none」ではなく寸法0のshadow値だったため検証停止exit1。製品CSSは変更せず、検証用提案をflat＋対象限定のshadow:noneへ整えて最終exit0。border=true単独は現行共通CSSの影0 3px 12px・枠#DDE7F0が残り、提案はshadow:none・枠#C7CBD1になることを測定した。
+
+互換性：データ／API変更なし、移行不要。差戻しは上記コンポーネントの表示差分のみ。データ契約・ADR・ガバナンス／構成・バックアップ運用・納品全体の進捗は変更対象外。実資料取込み・追加受入・300件Dev試験・HS説明資料全体は未完了。新しいDev反映、支店必須化、カード外観の製品適用はオーナー指示を待つ。
+
 ## 対象と承認
 
 2026-10-08のオーナーが14列のテンプレート、増分の初回10年登録、保証グループの最長期間、必須マーク、外部キー必須グループだけの取込みを採用し、文書整理・実装・Dev反映を指示。同日追加訂正で任意の住所・資材名は空欄のまま保存し、「不明」の補完を撤回した。既存の「不明」は書き換えない。HS原資料の取込み、健康なDevの停止、Auth／IAM／Rules／索引／バックアップ設定変更は範囲外。

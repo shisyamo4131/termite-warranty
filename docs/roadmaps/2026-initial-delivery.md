@@ -1,8 +1,17 @@
 # 2026 Initial-Delivery Roadmap
 
-## 2026-10-08 納品前作業：HS向け制限説明資料
+## Dev実測の反映（2026-10-08）
 
-オーナー指示により、保証グループの接頭辞の重複禁止・登録後変更不可など、システムの制限と運用上の注意点を説明するHS向け資料を納品前に作成・提供する。[説明対象と完了条件](../requirements/user-explanation-items.md#2026-10-08-納品前作業hs向け運用上の制限説明資料)。納品時点の仕様・実装・実画面に照合し、理由、日常業務での対応、誤設定時の相談方法を分かりやすく示す。オーナーの内容確認とHSへの提供記録までを納品前の完了条件とする。**作業登録済み、資料作成・内容確認・提供は未完了**。既存マイルストーンの配点・進捗は変更しない。
+[300件容量・検索・CSV実測](../design/evidence/prod-readiness-2026-10-08.md)を実施済み。以下の日付付き過去記録の「300件未実施」はこの範囲で置換。実初期規模／複数利用者の同時更新、保証書CSV、Prod準備、投入準備データ受領、HS最終受入は残る。全マイルストーン完成ではなく進捗加点なし。
+
+
+## 2026-10-08 オーナー決定による現在の状態
+
+本番DB選定はFirestoreで解決。現在の開発側作業はDev架空データ容量・検索・CSV検証、Functionsログ計測、現行での不具合再発確認、文書整合。Prod workflowは環境情報が揃ってから、PITR等はProd構築後に設定する。初期登録はオーナーの投入準備データ待ちで保留。保証書出力・印刷品質確認、予算設定、HS向けシステム利用説明資料は後発。以下の旧マイルストーン中、DB再選定・Word印刷互換・説明資料納品前必須を現在のゲートに用いない。実装・検証の実績は技術改修台帳とoperationsへ集約し、全体進捗加点なし。
+
+## 2026-10-08 後発作業：HS向けシステム利用説明資料
+
+資料は後発へ変更。名称はHS向けシステム利用説明資料。[対象と執筆材料](../requirements/user-explanation-items.md)。資料作成・内容確認・提供は未完了。納品前必須とは扱わない。
 
 ## 2026-10-08 増分CSVの追加改修
 
@@ -32,7 +41,7 @@ Dev取得停止・PITR無効化・取得済み像の削除は[運用記録](../r
 UX-R01/R06はオーナーOK、日付数値入力もOK。0.1.98でカレンダー配色・報告/請求のカード表示・延長ボタン位置を修正しDev反映・開発側確認済み。[差分受入手順](../runbooks/local-acceptance-2026-10-03.md)、[証跡](../design/evidence/ux-098-2026-10-04.md)。請求年月/未請求管理はHSC-010、保険満了一覧用途はHSC-036で確認。全体進捗の加点なし。
 
 - Status: Active
-- Last reconciled: 2026-10-03
+- Last reconciled: 2026-10-08
 - Scope: HS-operated initial release for the new warranty service; target end of October 2026. Exact start date is undecided.
 - Progress: 0% — no complete milestone has earned credit. Verified partial work remains recorded below.
 - Progress method: Milestone weights total 100%. No partial credit. Documentation consolidation does not earn implementation, deployment, or acceptance credit.
@@ -49,7 +58,7 @@ The [specification 0.1.90](../specification.md) consolidates the already-approve
 
 - Initial operators are HS staff. Company portal capability is retained but rollout deferred. HS branches, separate legacy case/product/owner screens and per-submission HS approval are not initial workflow requirements.
 - Property/one permanent warranty, group→company→branch, application-date annual numbering, mandatory handover, 10-year extensions and manual 20/30-year cap, notifications, reasoned cancellation/restoration and reporting are confirmed in the specification.
-- Outputs are CSV: HS Word for certificates, HS Excel for invoices and insurance preparation. No initial direct certificate PDF, invoice calculation, premium management or dispatch workflow.
+- Initial outputs are CSV. Certificate printing/output is deferred; the dedicated warranty CSV remains unfinished. Invoice calculation, premium management and dispatch remain outside initial scope.
 - Initial new-service warranty data is registered by development, then reconciled and approved by HS. This is distinct from excluded legacy FileMaker migration. Used numbers remain reserved, including numbers from excluded ended/cancelled records.
 - Existing postal-code, authentication and prototype evidence is retained in [operations](../operations.md), [postal design/evidence](../design/tr-009-japan-post-postal-data.md), and the [prototype evidence](../design/evidence/meeting-prototype-2026-10-01.md). Evidence of partial features is not full initial-release acceptance.
 - The independent changes were deployed to Dev and its demo data reset to two retained administrators after explicit approval. Public artifact/auth-boundary verification passed; user acceptance remains pending. See [release/reset evidence](../operations.md#2026-10-03-dev受入用配備と空データ初期化).
@@ -63,25 +72,25 @@ The [specification 0.1.90](../specification.md) consolidates the already-approve
 | M1 | Development prototype aligned to confirmed scope | Prototype phase, revised after presentation | 25% | HS workflow, permanent warranty and numbering, hierarchy, required input, lists, postal lookup and account operations verified locally and available in Dev for review. Deferred portal rollout is not required for credit. Postal maintenance/freshness requirements must be verified, not assumed from lookup availability. | Partial prototype/Dev evidence in operations and linked records; current confirmed scope not fully implemented, no credit |
 | M2 | Feedback and defect corrections | After first presentation | 15% | Accepted changes and relevant known defects in the technical-remediation register corrected and verified; no false-empty lists or stale retry flows. | Pending full evidence |
 | M3 | Production readiness and release rehearsal | Before production preparation | 25% | Confirmed insurance reporting/undo, guarantee notifications/CSV, initial-import checks, retained-number handling, archive/recovery, role boundaries and selected regression gates verified; complete release rehearsal. | Design/implementation/evidence pending |
-| M4 | Production preparation | Before HS start approval | 15% | HS-owned environment and developer access, DB/search decision, backup/recovery and operations configuration verified; HS-provided initial data reconciled and approved; necessary Word/CSV compatibility checked. | Not completed |
+| M4 | Production preparation | Before HS start approval | 15% | HS-owned environment and developer access, Firestore configuration and query validation, backup/recovery and operations configuration verified; HS-provided initial data reconciled and approved; initial CSV output compatibility checked; certificate printing deferred. | Not completed |
 | M5 | Official production release | End of October 2026 target; exact date pending | 20% | HS operators verify agreed flows and data/results; HS president approves start; rollout/rollback/incident procedure verified; normal registration starts after initial-data acceptance. No legacy FileMaker cutover. | Not completed |
 
 Weights and progress remain 100% total and 0% earned; criteria have been reconciled to prior Q&A approvals, not relaxed to award partial credit. Earlier schedule labels are planning history, not claims of on-time completion.
 
 ## Next Work and Completion Boundary
 
-1. Use the [consolidated HS brief](../../deliverables/meeting-2026-10-03/README.md) to confirm remaining business issues, collect Word/data and coordinate dates. Do not re-ask approved items.
-2. Resolve technical decisions HSC-022/023 using measured volume, correctness, response and cost; finalize affected data contracts, compatibility, archive recovery and insurance boundary handling before implementation.
+1. Wait for owner-prepared initial data. Do not re-request already received administrator information or deferred Word printing material.
+2. Use the [Dev measurement](../design/evidence/prod-readiness-2026-10-08.md) to refine HSC-023 acquisition work. Firestore selection HSC-022 is resolved; prepare Prod workflow after actual environment identifiers are available.
 3. Implement confirmed requirements and [technical remediation](technical-remediation.md), with scoped verification under the project policy. Select explicit file ownership and preserve existing worktree changes.
 4. Obtain required deployment/data authorizations, verify Dev behavior and then rehearse production preparation. Existing approvals for earlier Dev actions are not a blanket authorization for new destructive work.
 5. HS verifies, then the president approves start. Record exact release evidence and only then award applicable milestone credit.
 
 ## Unresolved Dependencies
 
-The [sole register](../requirements/house-solution-confirmations.md) now holds 13 matters: eight with HS confirmation/materials/operating preparation, two technical decisions, and three deferred areas. HSC-032 was answered and is now resolved; this count change is not implementation progress.
+The [sole register](../requirements/house-solution-confirmations.md) contains the current unresolved items. Do not reuse historical counts or resolved DB/name questions.
 
-- HS: insurance removal reporting, cancelled-data retention/deletion, manual 30-year eligibility, initial files and counts/dates, Word merge material, acceptance/start timing, service hours/cost and saved-CSV operations.
-- Development: DB/search, result and export completeness, default-active versus latest-20 behavior, numbering concurrency, insurance cycle boundary/date edge cases, retained undo state, archived-CSV recovery and legacy prototype compatibility.
+- HS: insurance removal reporting, cancelled-data retention/deletion, manual 30-year eligibility, initial files and counts/dates, acceptance/start timing, service hours/cost and saved-CSV operations.
+- Development: query efficiency, result and export completeness, default-active versus latest-20 behavior, numbering concurrency, insurance cycle boundary/date edge cases, retained undo state, archived-CSV recovery and legacy prototype compatibility.
 - Future: portal reopening and its access implications, custom email sender and document recipients/dispatch. Requested later HS group-correction tooling remains a separate requirement; its timing and safe conditions are not fixed.
 - Operating cost estimates communicated to HS are not verified budgets or guarantees. Approximate annual 200+ and two concurrent users are owner-supplied planning inputs, not usage caps; cumulative data count must come from the actual initial source.
 

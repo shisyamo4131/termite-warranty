@@ -1,5 +1,9 @@
 # 0032 Production Firebase Environment and Operations
 
+## 2026-10-08 オーナー決定による現在の状態
+
+本番Firestore採用は[ADR0038](0038-production-firestore.md)で確定。開発者へHS管理者と同等の権限を付与する方針に変更し、従前の必要権限のみ／プロジェクト削除不可の保守方針を置換する。実IAMは構築時照合。通知先はオーナーGoogleアカウント、管理者メール紐付け後に請求登録。Prod workflowは情報が揃ってから、PITR等は構築後、予算設定は後発。バックアップ初回取得・通知・復元互換性の提供前確認は維持。今回は文書のみでProd・IAM・課金変更なし。
+
 ## 2026-10-07 開発期間のバックアップ停止
 
 オーナーはDevの自動取得・PITR停止と取得済み像の削除を採用。意図は変更後のアプリと古い像の復元互換性への懸念であり、バックアップ自体を書換える処理ではない。復旧基盤と私有Auth設定は保持し、Prod提供前に自動取得・PITRを有効化して実取得・互換性・通知を確認する。実Prod設定は未実施。[運用例外](../runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)。
@@ -58,7 +62,7 @@ This assigns production control to the operating business, preserves development
 
 ## Impact
 
-HSC-020 is resolved. Specification, environment, delivery, security, and operations documents record the decision. Production provisioning, IAM, billing, monitoring, backup, Auth export, deployment workflow, and rollback remain implementation/setup work. HSC-022 and HSC-025 remain open.
+HSC-020 is resolved. Specification, environment, delivery, security, and operations documents record the decision. Production provisioning, IAM, billing, monitoring, backup, Auth export, deployment workflow, and rollback remain implementation/setup work. HSC-022 was resolved by ADR0038 on 2026-10-08. HSC-025 retains its remaining operating questions; budget configuration is deferred.
 
 ## Migration / Rollout
 
@@ -66,4 +70,4 @@ No production migration is authorized. Provision the separate project, record it
 
 ## Reconsideration Trigger
 
-Reconsider if HSC-022 selects another production database, HSC-025 establishes incompatible service/risk targets, Firebase CLI/WIF verification fails, or House Solution changes ownership, recovery, region, retention, or cost requirements.
+Reconsider through a new decision if the adopted Firestore architecture no longer meets measured requirements, HSC-025 establishes incompatible service/risk targets, Firebase CLI/WIF verification fails, or House Solution changes ownership, recovery, region, retention, or cost requirements.
