@@ -50,6 +50,8 @@ DevとProdは別プロジェクト。Dev例外（自動退避停止等）をProd
 
 ## 未完了の棚卸し
 
+復旧パラメータの正確な設定キーは`RECOVERY_CONTROL_DATABASE`、`RECOVERY_BACKUP_AUTOMATION`、`RECOVERY_AUTH_BACKUP_BUCKET`、`RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE`、`RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE`。`functions/recovery-runtime.js`／`functions/recovery-backups.js`を正本とし、Prodで証拠と設定を新規に対応付ける。Devの証拠文字列をコピーしてProdの検証済みと扱わない。
+
 プロジェクトIAM・Auth・Functions・DB・Rules releases・有効API・Billing・alert件数・APIキー制限をAPIで確認済み。ページ続きなし。14:37 UTCに追加確認：実行SAへのserviceAccountUser bindingあり。Auth退避bucketは東京・uniform有効・publicAccessPrevention enforced、実行SAへobjectCreatorと専用metadata reader、開発者へstorage.admin。hash読取用独自roleは`firebaseauth.configs.getHashConfig`のみ。Cloud Loggingの_Defaultは30日保持、除外0件。
 
 SA個別IAMは一部がHTTP404のため全主体照合は未完了。次は配備主体が現行かどうか、通知先の実受信、組織の継承IAM・制約、GitHub environment保護を構築時に確認する。プロジェクトIAM一覧だけでは保証できない。これらの不足を残したまま「Prodで同一設定を再現済み」とは扱わない。
