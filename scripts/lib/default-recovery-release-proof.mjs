@@ -6,9 +6,10 @@ import {join} from 'node:path'
 import {assertFunctionsDomainSynchronized} from '../functions-domain.mjs'
 import {assertFreshBuild} from './default-recovery-build.mjs'
 import {bindProviderInitialization} from './default-recovery-provider-init.mjs'
+import {proofFailure,proofDiagnostic} from './default-recovery-diagnostics.mjs'
 
 export const ARCHIVE_LIMIT=64*1024*1024
-const fail=()=>{throw Error('Release proof unavailable or inconsistent.')}
+const fail=()=>{throw proofFailure('release-proof','artifact-mismatch')}
 export function crc32(buffer) {let crc=0xffffffff;for(const byte of buffer){crc^=byte;for(let i=0;i<8;i++)crc=crc&1?(crc>>>1)^0xedb88320:crc>>>1}return (crc^0xffffffff)>>>0}
 function safePath(name) {return typeof name==='string'&&name.length>0&&name.length<512&&!name.includes('\\')&&!name.includes('\0')&&!name.startsWith('/')&&!name.includes(':')&&!name.split('/').some(p=>p==='.'||p==='..'||p==='')}
 export function readSourceZip(buffer) {
@@ -120,31 +121,37 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
   return {functions:names.length,sourceArchives:archives.size}
 }
 export async function hostingReleaseProof({project,projectNumber,site,request,inputs}) {
+  let stage='hosting-site'
+  const fail=(reason='identity-mismatch')=>{throw proofFailure(stage,reason)}
   if(typeof site!=='string'||!/^[-a-z0-9]+$/.test(site))fail()
   const description=await request(`https://firebasehosting.googleapis.com/v1beta1/projects/${project}/sites/${site}`)
   if(![`projects/${project}/sites/${site}`,`projects/${projectNumber}/sites/${site}`].includes(description.name))fail()
   const channelURL=`https://firebasehosting.googleapis.com/v1beta1/sites/${site}/channels/live`,channel=await request(channelURL),name=channel.release?.version?.name
   if(channel.name!==`sites/${site}/channels/live`||channel.release?.type!=='DEPLOY'||typeof name!=='string'||!new RegExp(`^sites/${site}/versions/[-a-zA-Z0-9]+$`).test(name))fail()
-  if(inputs.providerLiveVersion!==undefined&&inputs.providerLiveVersion!==name)fail()
+  if(inputs.providerLiveVersion!==undefined&&inputs.providerLiveVersion!==name)fail('snapshot-changed')
+  stage='hosting-version'
   const version=await request(`https://firebasehosting.googleapis.com/v1beta1/${name}`)
-  if(version.name!==name||version.status!=='FINALIZED'||canonical(normalizedConfig(version.config))!==canonical(inputs.servingConfig))fail()
+  if(version.name!==name||version.status!=='FINALIZED')fail()
+  if(canonical(normalizedConfig(version.config))!==canonical(inputs.servingConfig))fail('configuration-mismatch')
+  stage='hosting-files'
   const files=await paged(request,`https://firebasehosting.googleapis.com/v1beta1/${name}/files`,'files'),seen=new Set()
-  for(const file of files){if(file.status!=='ACTIVE'||typeof file.path!=='string'||seen.has(file.path)||inputs.hostingFiles.get(file.path)!==file.hash)fail();seen.add(file.path)}
+  for(const file of files){if(file.status!=='ACTIVE'||typeof file.path!=='string'||seen.has(file.path))fail();if(inputs.hostingFiles.get(file.path)!==file.hash)fail('hash-mismatch');seen.add(file.path)}
   if(seen.size!==inputs.hostingFiles.size||String(version.fileCount)!==String(seen.size))fail()
+  stage='hosting-stability'
   const latest=await request(channelURL)
-  if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail()
+  if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail('snapshot-changed')
   return {files:seen.size}
 }
 export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic}) {
   const checks=[]
   let projectNumber
-  try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch{return ['functions-release-proof','hosting-release-proof'].map(id=>({id,status:'blocked'}))}
+  try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch(error){return ['functions-release-proof','hosting-release-proof'].map(id=>({id,status:'blocked',diagnostic:proofDiagnostic(error,'project-metadata')}))}
   const hosting=async()=>{
     const expected=providerVersion?await bindProviderInitialization({project,projectNumber,site,priorVersion:providerVersion,request,readPublic,inputs}):inputs
     return hostingReleaseProof({project,projectNumber,site,request,inputs:expected})
   }
   for(const [id,run] of [['functions-release-proof',()=>functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs})],['hosting-release-proof',hosting]]) {
-    try{checks.push({id,status:'pass',summary:await run()})}catch{checks.push({id,status:'blocked'})}
+    try{checks.push({id,status:'pass',summary:await run()})}catch(error){checks.push({id,status:'blocked',diagnostic:proofDiagnostic(error,id==='functions-release-proof'?'functions-proof':'hosting-proof')})}
   }
   return checks
 }

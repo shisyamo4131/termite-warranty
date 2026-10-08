@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {deflateRawSync} from 'node:zlib'
 import {crc32,readSourceZip,hostingHash,hostingConfig,releaseProof,hostingReleaseProof} from '../scripts/lib/default-recovery-release-proof.mjs'
+import {proofFailure,proofDiagnostic,proofFetch} from '../scripts/lib/default-recovery-diagnostics.mjs'
 
 function zip(files) {
   const locals=[],central=[];let offset=0
@@ -94,4 +95,49 @@ test('unpublished, foreign and future provider baselines never enable publicatio
   if(mode==='history-loop'){history.releases=[];history.nextPageToken='loop';f.values.set(url+'?pageToken=loop',history)}
   await assert.rejects(()=>bindProviderInitialization(f))
  }
+})
+
+test('provider stability ignores object key order but preserves every field, type and array order',async()=>{
+ const reverse=value=>Array.isArray(value)?value.map(reverse):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([k,v])=>[k,reverse(v)])):value
+ const f=providerFixture();f.config.extra={nested:{one:1,two:2},array:[1,2]}
+ const original=f.request;let count=0
+ f.request=async url=>{const value=await original(url);return url.endsWith('/config')&&++count===2?reverse(value):value}
+ assert.equal((await bindProviderInitialization(f)).hostingFiles.size,3)
+ for(const change of [c=>{c.apiKey='other'},c=>{c.messagingSenderId=123456},c=>{delete c.extra},c=>{c.newField=true},c=>{c.extra.array.reverse()},c=>{c.extra.nested.one=2}]) {
+  const g=providerFixture();g.config.extra={nested:{one:1,two:2},array:[1,2]}
+  const read=g.request;let reads=0
+  g.request=async url=>{const value=await read(url);if(url.endsWith('/config')&&++reads===2)change(value);return value}
+  await assert.rejects(()=>bindProviderInitialization(g),error=>{
+   assert.deepEqual(proofDiagnostic(error),{stage:'provider-stability',reasonCode:'configuration-mismatch'});return true
+  })
+ }
+})
+
+test('release diagnostics separate hash, configuration, live changes and unknown errors without leaking values',async()=>{
+ const f=fixture();f.values.get(`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1/files`).files[0].hash='secret-hash-canary'
+ assert.deepEqual((await releaseProof(f))[1].diagnostic,{stage:'hosting-files',reasonCode:'hash-mismatch'})
+ const g=fixture();g.values.get(`https://firebasehosting.googleapis.com/v1beta1/sites/${g.site}/versions/version1`).config={secret:'configuration-canary'}
+ assert.deepEqual((await releaseProof(g))[1].diagnostic,{stage:'hosting-version',reasonCode:'configuration-mismatch'})
+ const h=fixture(),request=h.request;let reads=0
+ h.request=async url=>{const value=await request(url);if(url.endsWith('/channels/live')&&++reads===2)value.release.name='secret-live-canary';return value}
+ assert.deepEqual((await releaseProof(h))[1].diagnostic,{stage:'hosting-stability',reasonCode:'snapshot-changed'})
+ const unknown=fixture();unknown.request=async()=>{throw Object.assign(Error('token-canary'),{stage:'secret-stage',reasonCode:'secret-reason',status:403,cause:'private-body'})}
+ const result=await releaseProof(unknown)
+ assert.ok(result.every(row=>row.status==='blocked'&&row.diagnostic.reasonCode==='unknown'))
+ assert.ok(!/canary|private-body|secret-stage|secret-reason/.test(JSON.stringify(result)))
+})
+
+test('read transport diagnostics preserve numeric HTTP status only and never auto-retry',async()=>{
+ for(const status of [401,403,429,503]) {
+  let calls=0
+  await assert.rejects(()=>proofFetch(async()=>{calls++;return {ok:false,status,text:()=>{throw Error('body must not be read')}}},'https://secret.invalid/token',{},'api-read'),error=>{
+   assert.deepEqual(proofDiagnostic(error),{stage:'api-read',reasonCode:'http-error',httpStatus:status});return true
+  })
+  assert.equal(calls,1)
+ }
+ await assert.rejects(()=>proofFetch(async()=>{throw Error('private token and URL')},'secret',{},'public-config-read'),error=>{
+  assert.deepEqual(proofDiagnostic(error),{stage:'public-config-read',reasonCode:'transport-error'});assert.ok(!String(error).includes('private'));return true
+ })
+ const response={ok:true};assert.equal(await proofFetch(async()=>response,'unused',{},'api-read'),response)
+ assert.deepEqual(proofDiagnostic(proofFailure('secret-stage','secret-reason','secret-status')),{stage:'release-proof',reasonCode:'unknown'})
 })

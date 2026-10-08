@@ -7,12 +7,19 @@ import { defaultRecovery,documentImage,imageHash } from '../../scripts/lib/defau
 import { authorizationDigest,scanDatabase,recoveryController } from '../../scripts/lib/recovery-controller.mjs'
 import { LOCAL_RUNTIME,localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { inspectPropertyAddresses,applyPropertyAddresses,rollbackPropertyAddresses } from '../../scripts/lib/property-address-migration.mjs'
+import {fixtureTasks} from '../helpers/fixture-tasks.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'default-sync-test'),auth=getAuth(app),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)
 const target=database('(default)'),source=database('test-sync-source'),control=database('test-sync-control'),revision='b'.repeat(40)
 const api=defaultRecovery({database,auth,controlId:'test-sync-control',revision})
 after(async()=>deleteApp(app))
-async function clean(){for(const db of [target,source,control])for(const root of await db.listCollections())await db.recursiveDelete(root);let token;do{const p=await auth.listUsers(1000,token);for(const u of p.users)await auth.deleteUser(u.uid);token=p.pageToken}while(token)}
+async function clean(){
+ const tasks=[]
+ for(const db of [target,source,control])for(const root of await db.listCollections())tasks.push(()=>db.recursiveDelete(root))
+ await fixtureTasks(tasks)
+ let token
+ do{const p=await auth.listUsers(1000,token);await fixtureTasks(p.users.map(u=>()=>auth.deleteUser(u.uid)));token=p.pageToken}while(token)
+}
 async function evidence(gen,id){
  const authority=await authorizationDigest(target,auth)
  await control.doc(`recoveryBaselines/${id}`).set({generation:gen,revision,authorizationHash:authority,highWater:{year:9}})
@@ -332,12 +339,14 @@ test('publication before-marker failure retains closed access and resumes after 
 
 async function addressPublicationFixture(){
  await clean();await auth.createUser({uid:'address-admin',email:'address@example.invalid',password:'Fictional-only-123'})
- await target.doc('staffAccounts/address-admin').set({email:'address@example.invalid',role:'house_solution_administrator',enabled:true})
- await target.doc('constructionCompanies/address-company').set({name:'fictional company',defaultGroupId:'address-group'})
- await target.doc('warrantyGroups/address-group').set({name:'fictional group',prefix:'ADDR',fiscalStartMonth:1})
- await target.doc('warrantyCounters/address-group_2026').set({lastValue:7})
- await target.doc('propertyWarranties/address-property').set({name:'fictional property',status:'active',constructionCompanyId:'address-company',branchId:'',groupId:'address-group',warrantyNumber:'ADDR-26-007',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-1',postalCode:'1000001',buildingName:'fictional building',revision:2,history:[{kind:'register'}]})
- await target.doc('properties/unrelated').set({stamp:new Timestamp(3,321000),bytes:Buffer.from([1,2,3]),link:target.doc('properties/unrelated')})
+ const fixture=target.batch()
+ fixture.set(target.doc('staffAccounts/address-admin'),{email:'address@example.invalid',role:'house_solution_administrator',enabled:true})
+ fixture.set(target.doc('constructionCompanies/address-company'),{name:'fictional company',defaultGroupId:'address-group'})
+ fixture.set(target.doc('warrantyGroups/address-group'),{name:'fictional group',prefix:'ADDR',fiscalStartMonth:1})
+ fixture.set(target.doc('warrantyCounters/address-group_2026'),{lastValue:7})
+ fixture.set(target.doc('propertyWarranties/address-property'),{name:'fictional property',status:'active',constructionCompanyId:'address-company',branchId:'',groupId:'address-group',warrantyNumber:'ADDR-26-007',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-1',postalCode:'1000001',buildingName:'fictional building',revision:2,history:[{kind:'register'}]})
+ fixture.set(target.doc('properties/unrelated'),{stamp:new Timestamp(3,321000),bytes:Buffer.from([1,2,3]),link:target.doc('properties/unrelated')})
+ await fixture.commit()
  await api.initialize()
  const normal={protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:control.databaseId}
  await target.doc('_recovery/access').set(normal);await control.doc('recovery/runtime').set(normal)

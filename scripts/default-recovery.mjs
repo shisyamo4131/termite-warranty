@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { releaseProof, localReleaseInputs, ARCHIVE_LIMIT } from './lib/default-recovery-release-proof.mjs'
 import {buildReleaseArtifacts} from './lib/default-recovery-build.mjs'
 import {observeFixedRecovery} from './lib/default-recovery-observation.mjs'
+import {proofFetch} from './lib/default-recovery-diagnostics.mjs'
 
 export function options(args) {
   const command=args.shift(),allowed=new Set(['initialize','observe','status','preflight','enter','plan','plan-address','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
@@ -67,8 +68,7 @@ async function inspectDev(o) {
     const storage=verifiedProjectNumber&&target.origin==='https://storage.googleapis.com'&&new RegExp(`^/storage/v1/b/gcf-v2-(sources|uploads)-${verifiedProjectNumber}-asia-northeast1/o/[^/]+$`).test(target.pathname)&&/^[1-9]\d*$/.test(target.searchParams.get('generation')??'')
     if(target.username||target.password||!(scopedV1||management||functions||run||hosting||storage))throw Error('Unapproved read-only API scope.')
     const token=await auth.getAccessToken(account.tokens.refresh_token,['https://www.googleapis.com/auth/cloud-platform','https://www.googleapis.com/auth/firebase'])
-    const response=await fetch(url,{method:'GET',redirect:'error',headers:{Authorization:`Bearer ${token.access_token}`},signal:AbortSignal.timeout(60000)})
-    if(!response.ok)throw Error('Read-only API unavailable.')
+    const response=await proofFetch(fetch,url,{method:'GET',redirect:'error',headers:{Authorization:`Bearer ${token.access_token}`},signal:AbortSignal.timeout(60000)},'api-read')
     return response
   }
   const request=async url=>{
@@ -93,8 +93,7 @@ async function inspectDev(o) {
     let receipt
     const readPublic=async url=>{
       if(url!==`https://${o.site}.web.app/__/firebase/init.json`)throw Error('Unapproved public configuration scope.')
-      const response=await fetch(url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)})
-      if(!response.ok)throw Error('Public configuration unavailable.')
+      const response=await proofFetch(fetch,url,{method:'GET',redirect:'error',signal:AbortSignal.timeout(15000)},'public-config-read')
       const chunks=[];let size=0
       for await(const chunk of response.body){size+=chunk.length;if(size>16384)throw Error('Public configuration budget exceeded.');chunks.push(Buffer.from(chunk))}
       return Buffer.concat(chunks,size).toString('utf8')

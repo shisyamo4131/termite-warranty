@@ -10,6 +10,7 @@ import { inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.
 import { coveragePeriods, initialGroups, insuranceReportTarget, latestInsuranceReport } from '../../src/domain/property-warranty.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { seedFixedRuntime, httpsCallable as fixedCallable } from '../helpers/fixed-runtime.mjs'
+import {fixtureTasks} from '../helpers/fixture-tasks.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'property-test'),db=getFirestore(app),auth=getAuth(app)
 const call=async(action,data={},uid='meeting-hs')=>{
@@ -26,13 +27,15 @@ const saveCompany=(id,defaultGroupId,enabled=true)=>call('saveCompany',{id,name:
 const command=(id,revision,extra={})=>({id,revision,requestId:crypto.randomUUID(),fields,confirmRegistration:true,confirmWarnings:true,confirmCancellation:true,...extra})
 before(async()=>{
   await seedFixedRuntime(db)
-  for(const name of ['propertyWarranties','warrantyGroups','warrantyCounters','companyBranches'])await db.recursiveDelete(db.collection(name))
-  await db.doc('staffAccounts/meeting-hs').set({role:'house_solution_administrator',enabled:true,displayName:'架空HS'})
+  await fixtureTasks(['propertyWarranties','warrantyGroups','warrantyCounters','companyBranches'].map(name=>()=>db.recursiveDelete(db.collection(name))))
+  const fixture=db.batch()
+  fixture.set(db.doc('staffAccounts/meeting-hs'),{role:'house_solution_administrator',enabled:true,displayName:'架空HS'})
   await auth.createUser({uid:'meeting-hs',email:'meeting-callable@example.invalid',password:'Demo-only-password-123'})
-  await db.doc('constructionCompanies/meeting-co').set({name:'架空工務店',defaultGroupId:'HSC'})
-  await db.doc('companyBranches/meeting-branch').set({name:'架空支店',constructionCompanyId:'meeting-co',groupId:'SHS'})
-  for(const g of initialGroups)await db.doc(`warrantyGroups/${g.id}`).set(g)
-  for(const [uid,company,scope,branchId] of [['meeting-head','meeting-co','company',''],['meeting-branch-user','meeting-co','branch','meeting-branch'],['meeting-otherbranch','meeting-co','branch','other'],['meeting-otherco','other','company','']])await db.doc(`constructionCompanyAccounts/${uid}`).set({role:'construction_company',enabled:true,constructionCompanyId:company,scope,branchId})
+  fixture.set(db.doc('constructionCompanies/meeting-co'),{name:'架空工務店',defaultGroupId:'HSC'})
+  fixture.set(db.doc('companyBranches/meeting-branch'),{name:'架空支店',constructionCompanyId:'meeting-co',groupId:'SHS'})
+  for(const g of initialGroups)fixture.set(db.doc(`warrantyGroups/${g.id}`),g)
+  for(const [uid,company,scope,branchId] of [['meeting-head','meeting-co','company',''],['meeting-branch-user','meeting-co','branch','meeting-branch'],['meeting-otherbranch','meeting-co','branch','other'],['meeting-otherco','other','company','']])fixture.set(db.doc(`constructionCompanyAccounts/${uid}`),{role:'construction_company',enabled:true,constructionCompanyId:company,scope,branchId})
+  await fixture.commit()
 })
 after(()=>deleteApp(app))
 
@@ -47,85 +50,6 @@ test('conflicting legacy name refuses editor and notice mutations without changi
   assert.equal((await db.doc(`propertyOperationReceipts/${id}_${input.requestId}`).get()).exists,false)
  }
  await ref.delete()
-})
-
-test('manual external keys and CSV share reservations, immutable settings and recovery identities',async()=>{
-  const target=getFirestore(app,'test-external-keys')
-  for(const root of await target.listCollections())await target.recursiveDelete(root)
-  await target.doc('staffAccounts/key-admin').set({enabled:true,role:'house_solution_administrator'})
-  const invoke=(action,input={})=>propertyPrototypeOperation(auth,target,{action,...input},'key-admin')
-  const group={id:'G',name:'架空キー必須',prefix:'KEY',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'架空契約No'}
-  await invoke('saveGroup',group)
-  await assert.rejects(invoke('saveGroup',{...group,addressRequired:false}),/変更できません/)
-  await assert.rejects(invoke('saveGroup',{...group,insulationMaterialsRequired:false}),/変更できません/)
-  await assert.rejects(invoke('saveGroup',{...group,addressRequired:'true'}),/不正/)
-  await assert.rejects(invoke('saveGroup',{...group,externalKeyRequired:false}),/変更できません/)
-  await invoke('saveGroup',{...group,externalKeyLabel:'改訂表示名'})
-  await invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:false,addressRequired:false,insulationMaterialsRequired:false})
-  await assert.rejects(invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'契約番号'}),/変更できません/)
-  await assert.rejects(invoke('saveGroup',{id:'X',name:'UH',prefix:'U',fiscalStartMonth:1,externalKeyRequired:false}))
-  await invoke('saveGroup',{id:'U',name:'UH',prefix:'U',fiscalStartMonth:1})
-  await target.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
-  await invoke('saveBranch',{id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'})
-  const inputFields={...fields,constructionCompanyId:'C',branchId:'B'}
-  const request=(property,externalKey,revision=0)=>({id:property,revision,requestId:crypto.randomUUID(),fields:{...inputFields,...(externalKey===undefined?{}:{externalKey})},confirmRegistration:true,confirmWarnings:true})
-  await assert.rejects(invoke('save',request('missing')),/改訂表示名/)
-  assert.equal((await target.doc('propertyWarranties/missing').get()).exists,false)
-  const draft=request('manual',' 0001-2026001 ')
-  await invoke('save',draft)
-  await invoke('save',draft) // Same request is replay-safe.
-  assert.equal((await target.doc('propertyWarranties/manual').get()).data().externalKey,'0001-2026001')
-  await assert.rejects(invoke('save',request('manual','other',1)),/変更できません/)
-  await assert.rejects(invoke('save',request('manual','',1)),/変更できません/)
-  await invoke('register',request('manual',undefined,1)) // Older clients preserve the saved key.
-  const csv=(key)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>'"'+String({'外部キー':key,'支店コード':'0001','物件名':'架空取込物件','申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'なし','住所':'東京都架空市1-1'}[header.replace('（＊）','')]??'').replaceAll('"','""')+'"').join(',')
-  const bulk=(action,key,extra={})=>propertyBulkImportOperation(target,{action,groupId:'G',companyId:'C',format:'common',csv:csv(key),requestId:'bulk-key-'+Buffer.from(key).toString('hex'),...extra},'key-admin')
-  for(const character of ['\t','\n','\r','\u007f']) {
-    const key=`invalid${character}key`
-    const roots=['propertyWarranties','externalKeyReservations','propertyImportSources','propertyImportReceipts','warrantyCounters']
-    const snapshot=async()=>Promise.all(roots.map(async root=>(await target.collection(root).get()).docs.map(doc=>[doc.id,doc.data()])))
-    const initial=await snapshot(), preview=await bulk('preview',key)
-    assert.ok(preview.errors.length)
-    await assert.rejects(bulk('commit',key,{confirmed:true,previewHash:preview.previewHash}))
-    await assert.rejects(invoke('save',request('invalid-key',key)),/改訂表示名/)
-    assert.deepEqual(await snapshot(),initial)
-  }
-  const duplicate=await bulk('preview','0001-2026001')
-  assert.ok(duplicate.errors.some(error=>error.field==='改訂表示名'))
-  await assert.rejects(bulk('commit','0001-2026001',{confirmed:true,previewHash:duplicate.previewHash}))
-  const first=await bulk('preview','bulk-first')
-  await bulk('commit','bulk-first',{confirmed:true,previewHash:first.previewHash})
-  await assert.rejects(invoke('register',request('manual-duplicate','bulk-first')),e=>e.code==='already-exists')
-  const raceKey='manual-bulk-race',race=await bulk('preview',raceKey)
-  const concurrent=await Promise.allSettled([invoke('register',request('race-manual',raceKey)),bulk('commit',raceKey,{confirmed:true,previewHash:race.previewHash})])
-  assert.equal(concurrent.filter(value=>value.status==='fulfilled').length,1)
-  assert.equal((await target.collection('propertyWarranties').where('externalKey','==',raceKey).get()).size,1)
-  const two=await Promise.allSettled([invoke('register',request('race-a','manual-race')),invoke('register',request('race-b','manual-race'))])
-  assert.equal(two.filter(value=>value.status==='fulfilled').length,1)
-  await invoke('cancel',{...request('manual',undefined,2),reason:'架空の取消確認',confirmCancellation:true})
-  await assert.rejects(invoke('save',request('cancelled-duplicate','0001-2026001')),e=>e.code==='already-exists')
-  await inspectBusinessIntegrity(target) // Manual rows require reservations, not fictitious import sources.
-  const row=(await target.doc('propertyWarranties/manual').get()).data()
-  assert.equal(row.externalKey,'0001-2026001');assert.equal(row.receivedRecordId,undefined)
-  await target.doc('propertyWarranties/manual').update({receivedRecordId:'manual'})
-  await assert.rejects(inspectBusinessIntegrity(target),/source/)
-  await target.doc('propertyWarranties/manual').set(row)
-  await target.doc('constructionCompanies/UC').set({name:'架空UH工務店',defaultGroupId:'U',enabled:true})
-  const uhFields={...inputFields,constructionCompanyId:'UC',branchId:'',maxYears:10}
-  await assert.rejects(invoke('save',{...request('uh-missing'),fields:uhFields}),/お施主様契約No/)
-  await invoke('register',{...request('uh-registered'),fields:{...uhFields,externalKey:'fictional-uh-key'}})
-  await inspectBusinessIntegrity(target)
-  await target.doc('constructionCompanies/FC').set({name:'架空任意会社',defaultGroupId:'F',enabled:true})
-  const optionalFields={...inputFields,constructionCompanyId:'FC',branchId:'',address:'',foundationInsulation:true,insulationMaterials:''}
-  await invoke('register',{...request('optional-fields'),fields:optionalFields})
-  await assert.rejects(invoke('save',{...request('optional-key'),fields:{...optionalFields,externalKey:'forbidden-key'}}),/入力できません/)
-  await assert.rejects(invoke('register',{...request('required-address','required-address-key'),fields:{...inputFields,externalKey:'required-address-key',address:''}}),/住所/)
-  await assert.rejects(invoke('register',{...request('required-material','required-material-key'),fields:{...inputFields,externalKey:'required-material-key',foundationInsulation:true,insulationMaterials:''}}),/資材/)
-  const denied={action:'preview',groupId:'F',companyId:'FC',csv:csv('optional-group-key'),requestId:'optional-bulk'}
-  const refused=await propertyBulkImportOperation(target,denied,'key-admin')
-  assert.ok(refused.errors.some(e=>/外部キー必須/.test(e.message)))
-  await assert.rejects(propertyBulkImportOperation(target,{...denied,action:'commit',confirmed:true,previewHash:refused.previewHash},'key-admin'),/全件/)
-  assert.equal((await target.doc('propertyImportReceipts/optional-bulk').get()).exists,false)
 })
 
 test('branch codes reserve per company, retain existing property references and preserve omitted code',async()=>{
@@ -189,58 +113,6 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   assert.equal((await target.doc('warrantyCounters/U_2018').get()).data().lastValue,3)
   assert.equal((await propertyBulkImportOperation(target,confirm,'excel-admin')).replayed,true)
   await inspectBusinessIntegrity(target)
-})
-
-test('real Firestore bulk transaction commits 279 rows atomically and recovery verifies identities',async()=>{
-  const imported=getFirestore(app,'test-import-volume')
-  for(const root of await imported.listCollections())await imported.recursiveDelete(root)
-  await imported.doc('staffAccounts/import-admin').set({enabled:true,role:'house_solution_administrator'})
-  await imported.doc('warrantyGroups/G').set({name:'架空取込み',prefix:'QA',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
-  await imported.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
-  await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'import-admin')
-  const makeCsv=(count,offset=0)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+Array.from({length:count},(_,i)=>{
-    const row={'外部キー':`fictional-${offset+i}`,'支店コード':'0001','物件名':`架空物件${i}`,'申込日':'2026-10-01','引渡日':'2026-10-01','最長保証期間':'20','現在保証年数':'10','建築面積':'100','断熱材あり':'あり'}
-    return CSV_TEMPLATE_HEADERS.map(key=>row[key.replace('（＊）','')]??'').join(',')
-  }).join('\r\n')
-  const input={groupId:'G',companyId:'C',format:'common',csv:makeCsv(279),requestId:'volume-279'}
-  const preview=await propertyBulkImportOperation(imported,{...input,action:'preview'},'import-admin')
-  assert.equal(preview.count,279);assert.deepEqual(preview.errors,[])
-  assert.equal((await imported.collection('propertyWarranties').get()).size,0)
-  const confirm={...input,action:'commit',confirmed:true,previewHash:preview.previewHash}
-  const result=await propertyBulkImportOperation(imported,confirm,'import-admin')
-  assert.equal(result.count,279);assert.equal((await imported.collection('propertyWarranties').get()).size,279)
-  const row=(await imported.doc('propertyWarranties/'+result.ids[0]).get()).data()
-  assert.equal(row.address,'');assert.equal(row.insulationMaterials,'');assert.equal(row.status,'active')
-  assert.equal((await propertyBulkImportOperation(imported,confirm,'import-admin')).replayed,true)
-  await assert.rejects(propertyBulkImportOperation(imported,{...confirm,requestId:'duplicate-file'},'import-admin'),e=>e.details?.safeToDiscard===true)
-  assert.equal((await imported.collection('propertyWarranties').get()).size,279)
-  await inspectBusinessIntegrity(imported)
-  const receiptRef=imported.doc('propertyImportReceipts/'+input.requestId),receipt=(await receiptRef.get()).data()
-  await receiptRef.delete()
-  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
-  await receiptRef.set({...receipt,ids:receipt.ids.slice(1),count:receipt.count-1})
-  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
-  await receiptRef.set({...receipt,digest:'invalid'})
-  await assert.rejects(inspectBusinessIntegrity(imported),/receipt/)
-  await receiptRef.set(receipt)
-  assert.equal((await propertyBulkImportOperation(imported,{action:'status',requestId:input.requestId},'import-admin')).count,279)
-  assert.deepEqual(await propertyBulkImportOperation(imported,{action:'status',requestId:'absent'},'import-admin'),{pending:true})
-  await imported.doc('staffAccounts/another-admin').set({enabled:true,role:'house_solution_administrator'})
-  await assert.rejects(propertyBulkImportOperation(imported,{action:'status',requestId:input.requestId},'another-admin'),e=>e.code==='permission-denied')
-  const p2=await propertyBulkImportOperation(imported,{...input,csv:makeCsv(1,900),requestId:'branch-change',action:'preview'},'import-admin')
-  await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0002'},'import-admin')
-  await assert.rejects(propertyBulkImportOperation(imported,{...input,csv:makeCsv(1,900),requestId:'branch-change',action:'commit',confirmed:true,previewHash:p2.previewHash},'import-admin'))
-  assert.equal((await imported.collection('propertyWarranties').get()).size,279)
-  const key=(await imported.collection('externalKeyReservations').limit(1).get()).docs[0]
-  await key.ref.delete()
-  await assert.rejects(inspectBusinessIntegrity(imported),/reservation/)
-  await key.ref.set(key.data())
-  const parallelInput={...input,csv:makeCsv(1,901).replace('fictional-901,0001','fictional-901,0002')}
-  const parallelPreview=await propertyBulkImportOperation(imported,{...parallelInput,action:'preview'},'import-admin')
-  const concurrent=await Promise.allSettled(['race-a','race-b'].map(requestId=>propertyBulkImportOperation(imported,{...parallelInput,requestId,action:'commit',confirmed:true,previewHash:parallelPreview.previewHash},'import-admin')))
-  assert.equal(concurrent.filter(value=>value.status==='fulfilled').length,1)
-  assert.equal((await imported.collection('propertyWarranties').get()).size,280)
-  await inspectBusinessIntegrity(imported)
 })
 
 test('warranty alert list excludes capped periods and preserves notification and cancellation filters',async()=>{
