@@ -47,6 +47,16 @@ async function catalog(db, a, search = '', groupId = '', companyId = '', purpose
   }
 }
 
+async function requireBranchCode(db, tx, companyId, branchCode) {
+  const company = (await tx.get(db.doc(`constructionCompanies/${id(companyId)}`))).data()
+  if (!company) fail('not-found', '工務店が見つかりません。')
+  const group = (await tx.get(db.doc(`warrantyGroups/${id(company.defaultGroupId)}`))).data()
+  if (!group) fail('not-found', '保証グループが見つかりません。')
+  let required
+  try { required = externalKeySettings(group).required } catch (error) { fail('failed-precondition', error.message) }
+  if (required && !branchCode) fail('invalid-argument', '一括取込み対象の保証グループでは本支店コードを入力してください。')
+}
+
 async function reserveBranchCode(db, tx, ref, old, value) {
   const reservation = code => db.doc('branchCodeReservations/' + createHash('sha256').update(value.constructionCompanyId + '\0' + code).digest('hex'))
   const previousCode = String(old?.branchCode ?? '').trim()
@@ -140,10 +150,10 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (all.docs.some(row => row.id !== ref.id && normalizeWarrantyPrefix(row.data().prefix) === normalizeWarrantyPrefix(old.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
       }
       if (input.kind === 'branch') {
-        if (!(await tx.get(db.doc(`constructionCompanies/${id(old.constructionCompanyId)}`))).exists) fail('not-found', '工務店が見つかりません。')
         let branchCode
         try { branchCode = normalizeBranchCode(old.branchCode) } catch (error) { fail('failed-precondition', error.message) }
         if (branchCode !== (old.branchCode ?? '')) fail('failed-precondition', '本支店コードの管理情報を確認してください。')
+        await requireBranchCode(db, tx, old.constructionCompanyId, branchCode)
         await reserveBranchCode(db, tx, ref, old, { ...old, branchCode, enabled: true })
       }
       tx.set(ref, { enabled: true, updatedAt: Timestamp.now() }, { merge: true })
@@ -182,11 +192,11 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       value.enabled = input.enabled ?? old?.enabled ?? true
       if (old && action === 'saveCompany' && old.defaultGroupId !== value.defaultGroupId) fail('failed-precondition', '登録済み工務店の所属保証グループは変更できません。')
       if (old && action === 'saveBranch' && old.constructionCompanyId !== value.constructionCompanyId) fail('failed-precondition', '登録済み本支店の工務店は変更できません。')
-      if (action === 'saveBranch' && !(await tx.get(db.doc(`constructionCompanies/${value.constructionCompanyId}`))).exists) fail('not-found', '工務店が見つかりません。')
       if (action === 'saveBranch') {
         // Older clients omit the field; they must not erase a configured code.
         try { value.branchCode = normalizeBranchCode(input.branchCode ?? old?.branchCode ?? '') }
         catch (error) { fail('invalid-argument', error.message) }
+        await requireBranchCode(db, tx, value.constructionCompanyId, value.branchCode)
         await reserveBranchCode(db, tx, ref, old, value)
       }
       // Reserve numbering settings and prefixes from creation, even while disabled.

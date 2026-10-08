@@ -74,11 +74,52 @@ test('conflicting legacy name refuses editor and notice mutations without changi
  await ref.delete()
 })
 
+test('import-group branch codes are required on create, update and reactivation without partial writes',async()=>{
+  const target=getFirestore(app,'test-required-branch-code')
+  for(const root of await target.listCollections())await target.recursiveDelete(root)
+  await target.doc('staffAccounts/required-hs').set({enabled:true,role:'house_solution_administrator'})
+  const invoke=(action,data)=>propertyPrototypeOperation(auth,target,{action,...data},'required-hs')
+  for(const [key,group] of [['required',{name:'取込み対象',externalKeyRequired:true}],['optional',{name:'通常',externalKeyRequired:false}],['legacy-uh',{name:'UH'}],['disabled',{name:'停止中',externalKeyRequired:true,enabled:false}]]){
+    await target.doc('warrantyGroups/'+key).set(group)
+    await target.doc('constructionCompanies/'+key).set({name:'架空工務店',defaultGroupId:key})
+  }
+  const save=(key,company,extra={})=>invoke('saveBranch',{id:key,name:'架空本店',constructionCompanyId:company,...extra})
+  for(const company of ['required','legacy-uh','disabled']){
+    for(const [index,branchCode] of [undefined,'','  '].entries()){
+      const key=company+'-'+index
+      await assert.rejects(save(key,company,{branchCode}),/本支店コードを入力/)
+      assert.equal((await target.doc('companyBranches/'+key).get()).exists,false)
+    }
+    await assert.rejects(save(company+'-inactive',company,{enabled:false}),/本支店コードを入力/)
+  }
+  assert.equal((await target.collection('branchCodeReservations').get()).size,0)
+  await save('optional-blank','optional')
+  await save('coded','required',{branchCode:' 001 '})
+  const ref=target.doc('companyBranches/coded'),reservation=target.doc('branchCodeReservations/'+createHash('sha256').update('required\0'+'001').digest('hex'))
+  assert.equal((await ref.get()).data().branchCode,'001')
+  await save('coded','required',{name:'コード省略でも保持'})
+  assert.equal((await ref.get()).data().branchCode,'001')
+  const previous=(await ref.get()).data(),held=(await reservation.get()).data()
+  await assert.rejects(save('coded','required',{branchCode:' '}),/本支店コードを入力/)
+  assert.deepEqual((await ref.get()).data(),previous)
+  assert.deepEqual((await reservation.get()).data(),held)
+  await save('coded','required',{enabled:false})
+  await invoke('reenableMaster',{kind:'branch',id:'coded'})
+  assert.equal((await ref.get()).data().enabled,true)
+  await target.doc('companyBranches/legacy-blank').set({name:'旧無効',constructionCompanyId:'required',branchCode:'',enabled:false})
+  await assert.rejects(invoke('reenableMaster',{kind:'branch',id:'legacy-blank'}),/本支店コードを入力/)
+  assert.equal((await target.doc('companyBranches/legacy-blank').get()).data().enabled,false)
+  await target.doc('constructionCompanies/missing-group').set({name:'孤立会社',defaultGroupId:'absent'})
+  await assert.rejects(save('orphan','missing-group',{branchCode:'001'}),e=>e.code==='not-found')
+  assert.equal((await target.doc('companyBranches/orphan').get()).exists,false)
+})
+
 test('branch codes reserve per company, retain existing property references and preserve omitted code',async()=>{
   const codeDb=getFirestore(app,'test-branch-codes')
   for(const root of await codeDb.listCollections())await codeDb.recursiveDelete(root)
   await codeDb.doc('staffAccounts/meeting-hs').set({enabled:true,role:'house_solution_administrator'})
-  await codeDb.doc('constructionCompanies/meeting-co').set({name:'架空工務店'})
+  await codeDb.doc('warrantyGroups/code-optional').set({name:'任意',externalKeyRequired:false})
+  await codeDb.doc('constructionCompanies/meeting-co').set({name:'架空工務店',defaultGroupId:'code-optional'})
   const codeCall=(action,data)=>propertyPrototypeOperation(auth,codeDb,{action,...data},'meeting-hs')
   const first=await codeCall('saveBranch',{id:'code-a',name:'架空コード支店',constructionCompanyId:'meeting-co',branchCode:'0001'})
   assert.equal(first.id,'code-a')
@@ -130,7 +171,7 @@ test('branch codes reserve per company, retain existing property references and 
   await save('stale-inactive','stale',false)
   assert.equal((await reserved('stale').get()).exists,false)
   await save('blank-a','');await save('blank-b','')
-  await codeDb.doc('constructionCompanies/another').set({name:'別工務店'})
+  await codeDb.doc('constructionCompanies/another').set({name:'別工務店',defaultGroupId:'code-optional'})
   await codeCall('saveBranch',{id:'another-code',name:'別工務店支店',constructionCompanyId:'another',branchCode:'0002'})
   await assert.rejects(codeCall('saveBranch',{id:winner,name:'移動不可',constructionCompanyId:'another',branchCode:'0002'}),/変更できません/)
   await inspectBusinessIntegrity(codeDb)
