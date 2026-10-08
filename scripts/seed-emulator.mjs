@@ -3,6 +3,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { generateSearchTokens } from '../src/domain/search-tokens.mjs'
 import { buildCaseListProjection } from '../src/domain/case-list-projection.mjs'
+import { migrateMonthlyQueries } from './lib/monthly-query-migration.mjs'
 import { LOCAL_RUNTIME, resolveDedicatedEmulatorHost } from '../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -30,6 +31,7 @@ const firestore = getFirestore(app)
 const fixedRuntime = { protocol: 2, generation: 1, phase: 'normal', databaseId: '(default)', controlDatabaseId: 'test-fixed-control' }
 await getFirestore(app, 'test-fixed-control').doc('recovery/runtime').set(fixedRuntime)
 await firestore.doc('_recovery/access').set(fixedRuntime)
+await migrateMonthlyQueries(firestore, { apply: true })
 
 let user
 try {

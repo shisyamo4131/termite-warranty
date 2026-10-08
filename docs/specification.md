@@ -4,6 +4,8 @@
 
 ## 2026-10-08 Prod準備の確定・保留範囲
 
+同日の追加採用：保険／請求一覧は対象年月をFirestoreクエリへ渡して月候補だけ取得する。保険の過月未報告・旧要確認、延長請求を維持する。CSVの既知ID読取りは同じtransaction内の`getAll`へまとめる。Devで対象一致・読取数・処理時間を検証する。[設計・移行](design/monthly-queries.md)。認証サービスは切り替えず実装済み診断で観測を続ける。Dev／Prodの設定・権限を[環境仕様](requirements/environment-configuration.md)に集約し、実設定の照合を構築完了条件とする。
+
 同日の追加指示：ログイン通信失敗を事後調査できるように、認証失敗の最小診断を接続回復後にFunctionsログへ保存する。個人情報・認証情報・自由文エラーは保存しない。既存Read/Write計測とは分離する。[診断契約](design/reference-store-metrics.md#認証失敗の診断経路)。元の障害原因・認証サービス側ログの未有効は[HSC-041](requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)で管理する。
 
 オーナー指示により本番DBはFirestoreで確定（[ADR0038](decisions/0038-production-firestore.md)）。容量・検索・CSVはDevの架空データで開発側が検証し、Functionsログのアプリ観測件数を計測する。現行で再発した不具合のみを有効な不具合一覧に残し、未検証を解決済みと扱わない。

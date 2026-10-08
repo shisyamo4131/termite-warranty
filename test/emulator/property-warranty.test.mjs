@@ -12,6 +12,10 @@ import { coveragePeriods, initialGroups, insuranceReportTarget, latestInsuranceR
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
 import { seedFixedRuntime, httpsCallable as fixedCallable } from '../helpers/fixed-runtime.mjs'
 import {fixtureTasks} from '../helpers/fixture-tasks.mjs'
+import {monthlyQueryProjection,monthlyProjectionMatches,withInsuranceDefaults} from '../../src/domain/monthly-query.mjs'
+import {migrateMonthlyQueries} from '../../scripts/lib/monthly-query-migration.mjs'
+import {insuranceReportKind,billingRows,initialInsurance} from '../../src/domain/property-warranty.mjs'
+import {measureFirestoreOperation,observedFirestore} from '../../functions/firestore-metrics.js'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'property-test'),db=getFirestore(app),auth=getAuth(app)
 const call=async(action,data={},uid='meeting-hs')=>{
@@ -32,6 +36,7 @@ before(async()=>{
   await seedFixedRuntime(db)
   await fixtureTasks(['propertyWarranties','warrantyGroups','warrantyCounters','companyBranches'].map(name=>()=>db.recursiveDelete(db.collection(name))))
   const fixture=db.batch()
+  fixture.set(db.doc('prototypeSettings/monthlyQueries'),{version:1})
   fixture.set(db.doc('staffAccounts/meeting-hs'),{role:'house_solution_administrator',enabled:true,displayName:'架空HS'})
   await auth.createUser({uid:'meeting-hs',email:'meeting-callable@example.invalid',password:'Demo-only-password-123'})
   fixture.set(db.doc('constructionCompanies/meeting-co'),{name:'架空工務店',defaultGroupId:'HSC'})
@@ -41,6 +46,59 @@ before(async()=>{
   await fixture.commit()
 })
 after(()=>deleteApp(app))
+
+test('monthly migration is idempotent, preserves business fields and queries only eligible property documents',async()=>{
+  const target=getFirestore(app,'monthly-query-test')
+  await target.doc('staffAccounts/monthly-hs').set({role:'house_solution_administrator',enabled:true})
+  const fixtures=[]
+  for(const [id,date,patch] of [['oct','2026-10-05',{}],['sep','2026-09-05',{}],['future','2026-11-05',{}],['reported','2026-10-05',{insuranceReported:true}],['cancelled','2026-10-05',{status:'cancelled'}],['review','2026-10-05',{insuranceRenewalMonth:''}]]){
+    const row={...fields,status:'active',years:10,history:[],revision:2,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
+    fixtures.push({id,...row});await target.doc('propertyWarranties/'+id).set(row)
+  }
+  const invoke=filter=>propertyPrototypeOperation(auth,observedFirestore(target),{action:'list',filter,omitReferenceLabels:true},'monthly-hs')
+  await assert.rejects(invoke({reportMonth:'2026-10'}),e=>e.code==='failed-precondition')
+  assert.deepEqual(await migrateMonthlyQueries(target),{scanned:6,changed:6,applied:false})
+  assert.equal((await target.doc('prototypeSettings/monthlyQueries').get()).exists,false)
+  assert.equal((await migrateMonthlyQueries(target,{apply:true})).changed,6)
+  assert.equal((await migrateMonthlyQueries(target,{apply:true})).changed,0)
+  for(const {id,...row} of fixtures){
+    const saved=(await target.doc('propertyWarranties/'+id).get()).data()
+    assert.deepEqual(saved,{...row,...monthlyQueryProjection(row)})
+  }
+  for(const month of ['2026-08','2026-09','2026-10','2026-11','2031-10','2036-10','2036-11'])for(const type of ['reportMonth','billingMonth']){
+    let metrics
+    const result=await measureFirestoreOperation('propertyPrototype','list',()=>invoke({[type]:month}),record=>{metrics=record})
+    const oldRows=fixtures.map(withInsuranceDefaults)
+    const expected=type==='reportMonth'?oldRows.filter(row=>row.status==='active'&&(row.insuranceNeedsReview||insuranceReportKind(row,month))):billingRows(oldRows,month)
+    assert.deepEqual(result.rows.map(row=>row.id).sort(),expected.map(row=>row.id).sort())
+    const property=metrics.rows.find(row=>row.collection==='propertyWarranties')
+    assert.equal(property.counters.returnedDocuments??0,new Set(expected.map(row=>row.id)).size)
+  }
+  await target.doc('prototypeSettings/monthlyQueries').set({version:0})
+  await assert.rejects(invoke({billingMonth:'2026-10'}),e=>e.code==='failed-precondition')
+  for(const change of [{phase:'recovery-in-progress',generation:1},{phase:'normal',generation:2}]){
+    await target.doc('_recovery/access').set({phase:'normal',generation:1,databaseId:'(default)'})
+    await target.doc('propertyWarranties/oct').update({monthlyQueryVersion:0})
+    let transactions=0
+    const interrupted={doc:path=>target.doc(path),collection:path=>target.collection(path),runTransaction:async callback=>{
+      if(++transactions===2)await target.doc('_recovery/access').update(change)
+      return target.runTransaction(callback)
+    }}
+    await assert.rejects(migrateMonthlyQueries(interrupted,{apply:true,generation:1}),/Recovery state changed/)
+    assert.equal((await target.doc('propertyWarranties/oct').get()).data().monthlyQueryVersion,0)
+    assert.equal((await target.doc('prototypeSettings/monthlyQueries').get()).data().version,0)
+  }
+  await migrateMonthlyQueries(target,{apply:true})
+  await target.doc('_recovery/access').set({phase:'normal',generation:1,databaseId:'(default)'})
+  let publications=0
+  const changedBeforePublication={doc:path=>target.doc(path),collection:path=>target.collection(path),runTransaction:async callback=>{
+    if(++publications===2)await target.doc('_recovery/access').update({generation:2})
+    return target.runTransaction(callback)
+  }}
+  await assert.rejects(migrateMonthlyQueries(changedBeforePublication,{apply:true,generation:1}),/Recovery state changed/)
+  assert.equal((await target.doc('prototypeSettings/monthlyQueries').get()).data().version,0)
+  await target.recursiveDelete(target.collection('propertyWarranties'))
+})
 
 test('property drafts and registration require an explicit owned branch without side effects',async()=>{
   for(const action of ['save','register'])for(const branchId of ['',undefined,null,' ','missing-branch']){

@@ -137,6 +137,7 @@ function fakeDb(seed = {}) {
   const db = { doc, collection, stats, documents, runTransaction: callback => {
     const run = last.then(async () => {
       const staged = [], tx = {
+        getAll: async (...refs) => Promise.all(refs.map(ref => tx.get(ref))),
         get: async ref => {
           if (staged.length) throw new Error('read after write')
           stats.reads.push(ref.path)
@@ -165,6 +166,19 @@ const seed = () => ({ 'staffAccounts/staff': { enabled: true, role: 'general_sta
 
 // Functions use the generated deployment domain; test preparation is explicit.
 const server = () => import('../functions/property-bulk-import.js')
+
+test('getAll chunks preserve path identity including missing documents and batch boundaries',async()=>{
+  const {readImportDocuments}=await server()
+  for(const size of [0,1,100,101,300]){
+    const refs=Array.from({length:size},(_,i)=>({path:`reservations/${i}`})),calls=[]
+    const tx={getAll:async(...batch)=>{calls.push(batch.length);return batch.map((ref,i)=>({ref,exists:i%2===0})).reverse()}}
+    const result=await readImportDocuments(tx,refs)
+    assert.equal(result.size,size)
+    assert.equal(calls.length,Math.ceil(size/100))
+    assert.ok(calls.every(n=>n<=100))
+    for(const ref of refs)assert.equal(result.get(ref.path).ref,ref)
+  }
+})
 const request = (records = [sample], extra = {}) => ({ action: 'preview', groupId: 'HSC', companyId: 'company', csv: csv(...records), format: 'common', requestId: 'request-1', ...extra })
 
 test('long branch codes compare full values and legacy header commits replay without rewriting its digest',async()=>{

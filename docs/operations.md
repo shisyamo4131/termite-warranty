@@ -1,5 +1,9 @@
 # Operations
 
+## 月別取得・環境設定の照合
+
+月別取得とgetAllは改修・検証中。[移行と検証状態](design/monthly-queries.md)。Dev／Prodの設定・権限は[環境設定仕様](requirements/environment-configuration.md)を照合表とする。Prod構築は未実施。認証サービスは変更せず実装済み診断で観測を続ける。
+
 ## 認証失敗の調査
 
 2026-10-08、`f29f4a3`のFunctions21件・HostingをDevへ配備、正式照合10項目pass。実画面での通信エラー再発と合成再送試験の両方をFunctionsログで受信済み。元のエラー原因は未解明。

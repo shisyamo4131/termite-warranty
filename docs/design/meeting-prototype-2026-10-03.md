@@ -1,5 +1,9 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-08 月別検索の保存契約
+
+`propertyWarranties`に`monthlyQueryVersion`、`insuranceQueryStart`、`insuranceQueryEnd`、`billingQueryMonths`を追加する。全業務command／CSVの同transactionで派生値を更新。`prototypeSettings/monthlyQueries.version`で既存値の補完完了を確認して月別一覧を公開する。[型・導入・復旧互換性](monthly-queries.md)。Dev反映と実測は実施記録で区別する。
+
 ## 2026-10-08 本支店コードの保存条件
 
 一括取込み対象グループの配下は、本支店マスタ登録・編集・再有効化時のコード空欄を拒否する。対象条件はexternalKeySettings(group).required。物理フィールド・予約形式は維持し、コード省略更新は既存値保持、対象外は空欄可。コードなしの旧無効本支店の補正は通常編集では行わない。[設計](property-bulk-import.md#branch-code-required-01-条件付き必須)。

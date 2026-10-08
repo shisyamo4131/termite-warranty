@@ -12,7 +12,7 @@ test('business integrity reserves only branch-local active codes and detects sta
  const reservation={constructionCompanyId:'C',branchCode:'0001',branchId:'active'}
  const data={constructionCompanies:{C:{name:'fictional company',enabled:false}},companyBranches:branches,branchCodeReservations:{[codeId]:reservation}}
  // Read-only in-memory collection adapter; no SDK/environment access.
- const db={collection(name){const query={orderBy:()=>query,limit:()=>query,get:async()=>{const docs=Object.entries(data[name]??{}).map(([id,value])=>({id,data:()=>value}));return {docs,size:docs.length}}};return query}}
+ const db={doc(path){const [collection,id]=path.split('/');return {get:async()=>({data:()=>data[collection]?.[id]})}},collection(name){const query={orderBy:()=>query,limit:()=>query,get:async()=>{const docs=Object.entries(data[name]??{}).map(([id,value])=>({id,data:()=>value}));return {docs,size:docs.length}}};return query}}
  assert.deepEqual(await inspectBusinessIntegrity(db),{})
  branches.duplicate={constructionCompanyId:'C',branchCode:'0001',enabled:true}
  await assert.rejects(inspectBusinessIntegrity(db),/Duplicate branch code/)

@@ -3,6 +3,7 @@ import { externalKeySettings } from './domain/external-key.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
 import { Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
+import { monthlyQueryProjection } from './domain/monthly-query.mjs'
 import { prepareBulkImportRows } from './domain/property-bulk-import.mjs'
 import { coveragePeriods, fiscalYear, initialInsurance, initialInsurancePeriodAt, japanDate, warrantyNumber } from './domain/property-warranty.mjs'
 
@@ -11,6 +12,14 @@ const fail = (code, message, errors, safeToDiscard = false) => { throw new Https
 const identifier = value => typeof value === 'string' && /^[\w-]{1,128}$/.test(value) ? value : fail('invalid-argument', '識別子が不正です。')
 const staffRoles = ['developer_superuser', 'house_solution_administrator', 'general_staff']
 const reason = (row, field, message) => ({ line: row?.line ?? 0, field, message })
+
+export async function readImportDocuments(tx, refs) {
+  const snapshots = new Map()
+  for (let offset = 0; offset < refs.length; offset += 100) {
+    for (const snapshot of await tx.getAll(...refs.slice(offset, offset + 100))) snapshots.set(snapshot.ref.path, snapshot)
+  }
+  return snapshots
+}
 
 // Do not limit a chunk to one document: every matching value must be rejected.
 export async function existingImportValues(tx, collection, field, values) {
@@ -54,8 +63,9 @@ export async function propertyBulkImportOperation(db, input, uid) {
         return { count: receipt.count, ids: receipt.ids, replayed: true }
       }
     }
-    const company = (await tx.get(db.doc(`constructionCompanies/${companyId}`))).data()
-    const group = (await tx.get(db.doc(`warrantyGroups/${groupId}`))).data()
+    const destinations = await readImportDocuments(tx, [db.doc(`constructionCompanies/${companyId}`), db.doc(`warrantyGroups/${groupId}`)])
+    const company = destinations.get(`constructionCompanies/${companyId}`).data()
+    const group = destinations.get(`warrantyGroups/${groupId}`).data()
     const parsed = prepareBulkImportRows(input.csv, { format, group: group ?? {} })
     refs ??= []
     while (refs.length < parsed.rows.length) refs.push(db.collection('propertyWarranties').doc())
@@ -79,16 +89,19 @@ export async function propertyBulkImportOperation(db, input, uid) {
     const branches = new Map()
     // Read this company's branches once and compare complete codes, including long values.
     const companyBranches = (await tx.get(db.collection('companyBranches').where('constructionCompanyId', '==', companyId))).docs
-    for (const code of new Set(parsed.rows.map(row => row.branchCode))) {
+    const codes = [...new Set(parsed.rows.map(row => row.branchCode))]
+    const reservations = await readImportDocuments(tx, codes.map(code => db.doc(`branchCodeReservations/${hash(companyId + '\0' + code)}`)))
+    for (const code of codes) {
       const active = companyBranches.filter(row => row.data().branchCode === code && row.data().enabled !== false)
-      const reservation = (await tx.get(db.doc(`branchCodeReservations/${hash(companyId + '\0' + code)}`))).data()
+      const reservation = reservations.get(`branchCodeReservations/${hash(companyId + '\0' + code)}`).data()
       if (active.length === 1 && reservation?.constructionCompanyId === companyId && reservation.branchCode === code && reservation.branchId === active[0].id) branches.set(code, { ...active[0].data(), id: active[0].id })
     }
     const keys = new Map()
+    const keyReservations = await readImportDocuments(tx, [...new Set(parsed.rows.map(row => row.externalKey))].map(key => db.doc(`externalKeyReservations/${hash(key)}`)))
     const existingKeys = await existingImportValues(tx, db.collection('propertyWarranties'), 'externalKey', parsed.rows.map(row => row.externalKey))
     for (const row of parsed.rows) {
       const keyRef = db.doc(`externalKeyReservations/${hash(row.externalKey)}`)
-      const reserved = await tx.get(keyRef)
+      const reserved = keyReservations.get(keyRef.path)
       keys.set(row.externalKey, keyRef)
       if (reserved.exists || existingKeys.has(row.externalKey)) errors.push(reason(row, keyLabel, `${keyLabel}は既に登録されています。`))
       if (!branches.has(row.branchCode)) errors.push(reason(row, '本支店コード', '指定工務店の有効な本支店コードが一意に登録されていません。'))
@@ -96,11 +109,13 @@ export async function propertyBulkImportOperation(db, input, uid) {
     const now = Timestamp.now(), today = japanDate(now.toDate())
     const plans = [], counters = new Map()
     if (group && Number.isInteger(group.fiscalStartMonth) && group.fiscalStartMonth >= 1 && group.fiscalStartMonth <= 12) {
-      const legacy = await tx.get(db.doc(`warrantyCounters/${groupId}`))
+      const years = [...new Set(parsed.rows.map(row => fiscalYear(row.fields.applicationDate, group.fiscalStartMonth)))]
+      const savedCounters = await readImportDocuments(tx, [db.doc(`warrantyCounters/${groupId}`), ...years.map(year => db.doc(`warrantyCounters/${groupId}_${year}`))])
+      const legacy = savedCounters.get(`warrantyCounters/${groupId}`)
       if (legacy.exists) errors.push(reason(null, '採番', '旧採番カウンターの年度別移行が必要です。'))
-      for (const year of new Set(parsed.rows.map(row => fiscalYear(row.fields.applicationDate, group.fiscalStartMonth)))) {
+      for (const year of years) {
         const ref = db.doc(`warrantyCounters/${groupId}_${year}`)
-        const value = (await tx.get(ref)).data()?.lastValue ?? 0
+        const value = savedCounters.get(ref.path).data()?.lastValue ?? 0
         if (!Number.isSafeInteger(value) || value < 0) errors.push(reason(null, '採番', '年度別採番値が不正です。'))
         counters.set(year, { ref, original: value, value: Number.isSafeInteger(value) && value >= 0 ? value : 0 })
       }
@@ -119,6 +134,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
         const value = { ...row.fields, constructionCompanyId: companyId, branchId: branch?.id ?? '', groupId, groupName: group.name, fiscalYear: year, warrantyNumber: number, externalKey: row.externalKey, receivedRecordId: refs[index].id, status: 'active', years: 10, periods, startDate: row.fields.handoverDate, expiryDate: periods[0].expiryDate, ...initialInsurance(row.fields.handoverDate), warrantyNotified: false, insuranceEvents: [], insuranceHistoryIncomplete: false, billingItems: [{ id: 'initial', ...periods[0], state: 'pending' }], history: [{ kind: 'register', requestId: `${requestId}_${index}`, date: today, at: now.toDate().toISOString(), actorUid: uid, actorName: account.displayName ?? '', reason: 'CSV一括取込み', before: null }], revision: 1, createdAt: now, updatedAt: now }
         const insurance = initialInsurancePeriodAt(value, today)
         if (insurance) Object.assign(value, insurance)
+        Object.assign(value, monthlyQueryProjection(value))
         plans.push({ row, ref: refs[index], branchLabel: branch ? `${branch.name}（${row.branchCode}）` : '', value })
       }
     }

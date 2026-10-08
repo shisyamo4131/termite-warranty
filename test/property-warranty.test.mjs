@@ -2,6 +2,24 @@ import { nextInsuranceReportLabel } from '../app/utils/insuranceReportDisplay.mj
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { externalKeySettings, normalizeExternalKey } from '../src/domain/external-key.mjs'
+import { monthlyQueryProjection, withInsuranceDefaults, monthlyProjectionMatches } from '../src/domain/monthly-query.mjs'
+import { initialInsurance, insuranceReportKind, billingRows } from '../src/domain/property-warranty.mjs'
+
+test('monthly query ranges equal existing insurance and billing rules across boundaries and legacy states',()=>{
+  for(const handoverDate of ['2016-10-01','2016-10-06','2020-02-29','2026-12-31'])for(const years of [10,20,30]){
+    const base={status:'active',handoverDate,applicationDate:'2016-09-30',years,expiryDate:coveragePeriods(handoverDate,years).at(-1).expiryDate,...initialInsurance(handoverDate)}
+    for(const patch of [{},{status:'cancelled'},{status:'draft'},{insuranceReported:true},{insuranceHistoryIncomplete:true},{insuranceRenewalMonth:''},{expiryDate:'2026-11-15'},{insuranceEvents:[{kind:'report',requestId:'legacy'}]},{handoverDate:''}]){
+      const row=withInsuranceDefaults({...base,...patch}),projection=monthlyQueryProjection(row)
+      assert.equal(monthlyProjectionMatches({...row,...projection}),true)
+      for(let year=2015;year<=2057;year++)for(let n=1;n<=12;n++){
+        const month=`${year}-${String(n).padStart(2,'0')}`
+        const expected=row.status==='active'&&!!(row.insuranceNeedsReview||insuranceReportKind(row,month))
+        assert.equal(!!projection.insuranceQueryStart&&projection.insuranceQueryStart<=month&&projection.insuranceQueryEnd>=month,expected,JSON.stringify({handoverDate,years,patch,month}))
+        assert.equal(projection.billingQueryMonths.includes(month),billingRows([row],month).length>0)
+      }
+    }
+  }
+})
 
 test('external key settings preserve optional legacy groups and require labelled UH keys',()=>{
   assert.deepEqual(externalKeySettings({name:'HSC'}),{required:false,label:'外部キー'})

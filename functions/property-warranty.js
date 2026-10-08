@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from './domain/external-key.mjs'
 import { normalizeBranchCode } from './domain/branch-code.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
+import { monthlyQueryProjection, validMonth, withInsuranceDefaults } from './domain/monthly-query.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { warrantyTransactions, activeInsuranceReports, latestInsuranceReport, insuranceReportTarget, handoverChangeBlockers } from './domain/property-warranty.mjs'
@@ -23,7 +24,7 @@ function owner(a, value) {
   if (!a.staff && (a.constructionCompanyId !== value.constructionCompanyId || (a.scope === 'branch' && a.branchId !== value.branchId))) fail('permission-denied', 'この工務店・本支店の物件は操作できません。')
 }
 // Legacy trial rows remain readable, but are not silently promoted to reportable insurance data.
-const withInsurance = row => ({ ...row, insuranceStartDate: row.insuranceStartDate ?? row.handoverDate ?? '', insuranceExpiryDate: row.insuranceExpiryDate ?? insuranceExpiryDate(row.handoverDate || ''), insuranceNeedsReview: !row.insuranceRenewalMonth, warrantyNotified: row.warrantyNotified === true })
+const withInsurance = withInsuranceDefaults
 const rows = snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
 async function catalog(db, a, search = '', groupId = '', companyId = '', purpose = '') {
   if ((groupId || companyId) && !a.staff) fail('permission-denied', '階層の管理はHS担当者のみ利用できます。')
@@ -102,12 +103,20 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (!a.staff) query = query.where('constructionCompanyId', '==', a.constructionCompanyId)
     if (!a.staff && a.scope === 'branch') query = query.where('branchId', '==', a.branchId)
     if (f.warrantyNumber?.trim()) query = query.where('warrantyNumber', '==', f.warrantyNumber.trim())
-    query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
     if ((f.reportMonth || f.billingMonth) && !a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
+    const monthly = !!(f.reportMonth || f.billingMonth)
+    if (monthly) {
+      if (f.reportMonth && f.billingMonth || !validMonth(f.reportMonth || f.billingMonth)) fail('invalid-argument', '対象年月を指定してください。')
+      if ((await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version !== 1) fail('failed-precondition', '月別検索の準備中です。開発側へ確認してください。')
+      query = f.reportMonth
+        ? query.where('insuranceQueryStart', '<=', f.reportMonth).where('insuranceQueryEnd', '>=', f.reportMonth)
+        : query.where('billingQueryMonths', 'array-contains', f.billingMonth)
+    } else query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
     const filtered = ['reportMonth','billingMonth','warrantyNumber','handoverMissing', 'alertKind', 'search', 'companyId', 'branchId', 'groupId', 'fiscalYear', 'status', 'expiryBefore', 'from', 'to','applicationFrom','applicationTo','handoverFrom','handoverTo'].some(k => typeof f[k] === 'string' && f[k].trim())
     for (const key of ['application','handover']) if (f[`${key}From`] && f[`${key}To`] && f[`${key}From`] > f[`${key}To`]) fail('invalid-argument','日付の開始・終了を確認してください。')
     if (!filtered) query = query.limit(20)
     let result = rows(await query.get()).map(withInsurance).filter(row => matchesProperty(row, f))
+    if (monthly) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     if (f.alertKind) {
       const settings = normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())
       result = result.filter(row => expiryAlertEligible(row, f.alertKind, japanDate(), settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
@@ -454,6 +463,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     next.updatedAt = now
     next.createdAt = old?.createdAt ?? now
     delete next.ownerName
+    Object.assign(next, monthlyQueryProjection(next))
     tx.set(ref, next)
     return { id: ref.id }
   })

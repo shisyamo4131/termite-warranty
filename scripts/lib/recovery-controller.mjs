@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from '../../src/domain/external-key.mjs'
+import { monthlyProjectionMatches } from '../../src/domain/monthly-query.mjs'
 import { FieldPath } from 'firebase-admin/firestore'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RecoveryError, databaseId, runtimeState, assertTransition } from '../../src/domain/recovery.mjs'
 
@@ -125,6 +126,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     if (!companies.has(company) || !account || account.constructionCompanyId !== company || account.scope !== undefined) throw new RecoveryError('Restored legacy account binding requires manual reconciliation.')
   }
   const externalProperties = new Map(), importedProperties = new Map()
+  const monthlyReady = (await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version === 1
   let cursor
   do {
     let query = db.collection('propertyWarranties').orderBy(FieldPath.documentId()).limit(200)
@@ -132,6 +134,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     const page = await query.get()
     for (const row of page.docs) {
       const value = row.data()
+      if (monthlyReady && !monthlyProjectionMatches(value)) throw new RecoveryError('Monthly query projections require reconciliation before recovery publication.')
       if (!['draft','active','cancelled'].includes(value.status) || !companies.has(value.constructionCompanyId)
         || value.branchId && branches.get(value.branchId) !== value.constructionCompanyId || value.warrantyNumber && !groups.has(value.groupId)) throw new RecoveryError('Restored property references or lifecycle require verification.')
       if (value.warrantyNumber) { if (numbers.has(value.warrantyNumber)) throw new RecoveryError('Duplicate warranty numbers.'); numbers.add(value.warrantyNumber) }

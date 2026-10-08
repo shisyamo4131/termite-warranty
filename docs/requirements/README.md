@@ -4,6 +4,7 @@ These records support the current [specification](../specification.md). They are
 
 | Record | Confirmed content | Unresolved-matter routing |
 | --- | --- | --- |
+| [Dev／Prod環境設定・権限](environment-configuration.md) | 設定対照・権限・読戻しによる構築完了条件 | HSC-020、HSC-041 |
 | [Business context](business-context.md) | Organization, product, and domain terms | HSC-011–013, HSC-031 |
 | [Workflow](workflow.md) | Current email entry and desired provisional-registration flow | HSC-003, HSC-005, HSC-013, HSC-028 |
 | [Insurance reporting](insurance-reporting.md) | Monthly reporting frequency and basic fields; implementation on hold | HSC-002, HSC-036 |

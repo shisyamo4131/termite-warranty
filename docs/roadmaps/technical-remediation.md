@@ -1,8 +1,12 @@
 # Technical Remediation Backlog
 
+## 2026-10-08 月別取得・getAllの実装
+
+追加指示で両方を採用。検索用年月を保存時に維持し、月条件をFirestoreへ渡す方式と、予約等のID指定読取りをまとめる方式を実装。既存値補完、復旧状態変更時の中断、対象一致・取得件数試験を含める。[設計・検証状態](../design/monthly-queries.md)。Dev反映／比較まで完了としない。環境設定・権限は[仕様](../requirements/environment-configuration.md)へ整理。下記のgetAll未採用は本決定で置換する。
+
 ## 2026-10-08 追加調査と採用範囲
 
-CSV重複検索のin・30値チャンク方式は実装・全7ゲート・Dev配備完了。改修後のDev300件所要時間は未計測。予約文書のgetAll一括取得と並列化は未採用。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではなく、対象月をDBへ指定する取得改修の残件。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
+CSV重複検索のin・30値チャンク方式は実装・全7ゲート・Dev配備完了。追加採用のgetAllと月別取得は上記の実装記録へ集約する。プレビュー全体のDev300件所要時間は追加測定待ち。[設計](../design/property-bulk-import.md)。保険・請求一覧の全物件取得は仕様上必要な処理ではない。HS説明資料で許容を求める扱いは撤回し、[HSC-023](../requirements/house-solution-confirmations/HSC-023-ngram-query-consistency.md)へ整理する。
 
 ログイン障害は当初の時間帯の認証／エラーログ0件。改修後のDev実画面でも通信失敗が再発したが、追加した診断をFunctionsログで受信できた。接続回復後の再送は合成試験でもDev実受信済み。元の原因は未特定。認証サービス側ログはIdentity Platformが必要としてAPIに拒否され未有効。サービス変更は未実施。[HSC-041](../requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)を未解決事項の正本とし、[検証記録](../design/evidence/prod-readiness-2026-10-08.md)に結果を集約する。
 

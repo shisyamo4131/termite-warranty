@@ -1,5 +1,8 @@
 # Documentation Map
 
+- [Dev／Prod環境設定・権限仕様](requirements/environment-configuration.md)：実設定と構築時の照合条件。
+- [保険／請求の月別取得・移行](design/monthly-queries.md)：月条件、検索用項目、まとめ読み。
+
 - [Prod準備・Dev容量／検索／CSV実測（2026-10-08）](design/evidence/prod-readiness-2026-10-08.md)
 
 
