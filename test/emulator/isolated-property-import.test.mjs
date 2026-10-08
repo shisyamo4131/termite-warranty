@@ -96,12 +96,14 @@ test('manual external keys and CSV share reservations, immutable settings and re
   await assert.rejects(inspectBusinessIntegrity(target),/source/)
   await target.doc('propertyWarranties/manual').set(row)
   await target.doc('constructionCompanies/UC').set({name:'架空UH工務店',defaultGroupId:'U',enabled:true})
-  const uhFields={...inputFields,constructionCompanyId:'UC',branchId:'',maxYears:10}
+  await target.doc('companyBranches/UC-head').set({name:'本店',constructionCompanyId:'UC',enabled:true})
+  const uhFields={...inputFields,constructionCompanyId:'UC',branchId:'UC-head',maxYears:10}
   await assert.rejects(invoke('save',{...request('uh-missing'),fields:uhFields}),/お施主様契約No/)
   await invoke('register',{...request('uh-registered'),fields:{...uhFields,externalKey:'fictional-uh-key'}})
   await inspectBusinessIntegrity(target)
   await target.doc('constructionCompanies/FC').set({name:'架空任意会社',defaultGroupId:'F',enabled:true})
-  const optionalFields={...inputFields,constructionCompanyId:'FC',branchId:'',address:'',foundationInsulation:true,insulationMaterials:''}
+  await target.doc('companyBranches/FC-head').set({name:'本店',constructionCompanyId:'FC',enabled:true})
+  const optionalFields={...inputFields,constructionCompanyId:'FC',branchId:'FC-head',address:'',foundationInsulation:true,insulationMaterials:''}
   await invoke('register',{...request('optional-fields'),fields:optionalFields})
   await assert.rejects(invoke('save',{...request('optional-key'),fields:{...optionalFields,externalKey:'forbidden-key'}}),/入力できません/)
   await assert.rejects(invoke('register',{...request('required-address','required-address-key'),fields:{...inputFields,externalKey:'required-address-key',address:''}}),/住所/)

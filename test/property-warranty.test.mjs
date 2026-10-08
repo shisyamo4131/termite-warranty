@@ -240,6 +240,16 @@ test('warranty notices exclude the final period without changing insurance alert
   assert.equal(normalizeProperty({name:'架空物件',maxYears:10},false).maxYears,10)
 })
 import { readFileSync } from 'node:fs'
+
+test('property branch selection is required for drafts and no longer implies head office',()=>{
+  const source=readFileSync(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')
+  const input=source.match(/<v-autocomplete v-model="form.branchId"[^>]*>/)?.[0]
+  assert.ok(input)
+  assert.match(input,/:rules="requiredRules" required/)
+  assert.match(input,/label="本支店"/)
+  assert.doesNotMatch(source,/空欄は本店/)
+  assert.match(source,/下書きも物件名・工務店・本支店の指定が必要/)
+})
 import ts from 'typescript'
 
 async function propertyAddressViewForTest(provider) {

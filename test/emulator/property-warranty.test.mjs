@@ -42,6 +42,25 @@ before(async()=>{
 })
 after(()=>deleteApp(app))
 
+test('property drafts and registration require an explicit owned branch without side effects',async()=>{
+  for(const action of ['save','register'])for(const branchId of ['',undefined,null,' ','missing-branch']){
+    const key=crypto.randomUUID(),input=command(key,0,{fields:{...fields,branchId}})
+    await assert.rejects(call(action,input),e=>e.code==='invalid-argument')
+    assert.equal((await db.doc('propertyWarranties/'+key).get()).exists,false)
+    assert.equal((await db.doc(`propertyOperationReceipts/${key}_${input.requestId}`).get()).exists,false)
+  }
+  await db.doc('companyBranches/foreign-required').set({name:'本店',constructionCompanyId:'other',enabled:true})
+  await assert.rejects(call('save',command('foreign-required',0,{fields:{...fields,branchId:'foreign-required'}})),e=>e.code==='invalid-argument')
+  await db.doc('companyBranches/explicit-head').set({name:'本店',constructionCompanyId:'meeting-co',enabled:true})
+  await call('save',command('explicit-head-property',0,{fields:{...fields,branchId:'explicit-head'}}))
+  assert.equal((await call('detail',{id:'explicit-head-property'})).branchLabel,'本店')
+  await db.doc('propertyWarranties/legacy-empty-branch').set({...fields,branchId:'',status:'draft',revision:1,years:0})
+  assert.equal((await call('detail',{id:'legacy-empty-branch'})).branchLabel,'未指定')
+  await assert.rejects(call('save',command('legacy-empty-branch',1,{fields:{...fields,branchId:''}})),e=>e.code==='invalid-argument')
+  await call('save',command('legacy-empty-branch',1,{fields:{...fields,branchId:'explicit-head'}}))
+  assert.equal((await call('detail',{id:'legacy-empty-branch'})).branchId,'explicit-head')
+})
+
 test('conflicting legacy name refuses editor and notice mutations without changing data or receipts',async()=>{
  const id='fictional-name-conflict',ref=db.doc('propertyWarranties/'+id)
  const original={...fields,name:'架空物件',ownerName:'架空別名',revision:1,status:'active',history:[]}
@@ -439,6 +458,7 @@ test('company and branch disable stop only new registrations; reenable preserves
   assert.deepEqual((await db.doc(`constructionCompanies/${co}`).get()).data(),companyBefore)
   await call('saveBranch',{id:branch,name:'個別停止支店',constructionCompanyId:co})
   await call('saveBranch',{id:other,name:'継続支店',constructionCompanyId:co})
+  await call('saveBranch',{id:'hierarchy-head',name:'本店',constructionCompanyId:co})
   const commandFor=(key,revision=0,branchId=branch)=>command(key,revision,{fields:{...fields,constructionCompanyId:co,branchId}})
   await call('register',commandFor('hierarchy-existing'))
   const original=await call('detail',{id:'hierarchy-existing'})
@@ -448,11 +468,11 @@ test('company and branch disable stop only new registrations; reenable preserves
   await assert.rejects(call('save',commandFor('hierarchy-draft-blocked')),e=>e.code==='failed-precondition')
   await assert.rejects(call('register',commandFor('hierarchy-draft',1)),e=>e.code==='failed-precondition')
   await call('save',commandFor('hierarchy-draft',1)) // Preserve an existing draft without issuing coverage.
-  await call('register',commandFor('hierarchy-head-office',0,''))
+  await call('register',commandFor('hierarchy-head-office',0,'hierarchy-head'))
   await call('register',commandFor('hierarchy-other-branch',0,other))
   await saveCompany(co,'HSC',false)
   await assert.rejects(call('register',commandFor('hierarchy-parent-blocked',0,other)),e=>e.code==='failed-precondition')
-  await assert.rejects(call('register',commandFor('hierarchy-parent-head-blocked',0,'')),e=>e.code==='failed-precondition')
+  await assert.rejects(call('register',commandFor('hierarchy-parent-head-blocked',0,'hierarchy-head')),e=>e.code==='failed-precondition')
   await call('save',commandFor(original.id,1))
   await call('extend',commandFor(original.id,2))
   const extended=await call('detail',{id:original.id})
@@ -627,7 +647,8 @@ test('HTTP Callable preserves account authentication and latest registration pay
 test('formal registration requires explicit confirmation even with no warnings; rejection does not allocate a number',async()=>{
   const group=(await call('saveGroup',{name:'確認必須検証',prefix:'ACK',fiscalStartMonth:1})).id
   await saveCompany('ack-company',group)
-  const data={...fields,name:'確認必須の架空物件',constructionCompanyId:'ack-company',branchId:'',applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
+  await call('saveBranch',{id:'ack-head',name:'本店',constructionCompanyId:'ack-company'})
+  const data={...fields,name:'確認必須の架空物件',constructionCompanyId:'ack-company',branchId:'ack-head',applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
   const req=command('ack-property',0,{fields:data,confirmRegistration:false,confirmWarnings:false})
   for(const value of [false,undefined]){
     await assert.rejects(call('register',{...req,confirmRegistration:value}),/確認チェック/)
@@ -659,7 +680,8 @@ test('legacy trailing dash prefix remains immutable, reserves canonical equivale
   for(const prefix of ['LEGACY','LEGACY-'])await assert.rejects(call('saveGroup',{name:'重複',prefix,fiscalStartMonth:1}),e=>e.code==='already-exists')
   await assert.rejects(call('saveGroup',{id:'legacy-dash',name:'改変',prefix:'OTHER',fiscalStartMonth:1}),e=>e.code==='failed-precondition')
   await saveCompany('legacy-dash-co','legacy-dash')
-  await call('register',command('legacy-dash-property',0,{fields:{...fields,constructionCompanyId:'legacy-dash-co',branchId:''}}))
+  await call('saveBranch',{id:'legacy-dash-head',name:'本店',constructionCompanyId:'legacy-dash-co'})
+  await call('register',command('legacy-dash-property',0,{fields:{...fields,constructionCompanyId:'legacy-dash-co',branchId:'legacy-dash-head'}}))
   assert.equal((await call('detail',{id:'legacy-dash-property'})).warrantyNumber,'LEGACY-26-001')
 })
 
