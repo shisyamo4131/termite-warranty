@@ -2,7 +2,7 @@
 
 ## 月別取得・環境設定の照合
 
-月別取得とgetAllはDev反映済み（最終索引／Hosting版68e2eed、Functions実体f23c2a2、正式照合全10pass）。307件補完・業務値不変・6か月12条件の実Firestore対象一致、読取単体中央値6272→111msを確認。既存Chrome管理者で2026-10の保険一覧・CSV・Functions物件取得305件一致を確認。新規アカウント不要。元タブへの操作接続が切れ、再読み込み依頼中。別月・請求CSV・300件プレビュー全体は未完了。[移行と検証状態](design/monthly-queries.md)。Dev／Prodの設定・権限は[環境設定仕様](requirements/environment-configuration.md)を照合表とする。Prod構築は未実施。認証サービスは変更せず実装済み診断で観測を続ける。
+月別取得とgetAllはDev反映済み（最終索引／Hosting版68e2eed、Functions実体f23c2a2、正式照合全10pass）。307件補完・業務値不変・6か月12条件の実Firestore対象一致、読取単体中央値6272→111msを確認。既存Chrome管理者で2026-10の保険一覧・CSV・Functions物件取得305件一致を確認。新規アカウント不要。元タブへ再接続済み。CSV保存は成功する一方で操作ツールのdownload待機だけが失敗することを再現し、認証付き再取得成功も確認。別月・請求CSV・300件プレビュー全体は未完了。[移行と検証状態](design/monthly-queries.md)。Dev／Prodの設定・権限は[環境設定仕様](requirements/environment-configuration.md)を照合表とする。Prod構築は未実施。認証サービスは変更せず実装済み診断で観測を続ける。
 
 ## 認証失敗の調査
 
