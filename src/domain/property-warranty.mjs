@@ -40,7 +40,8 @@ export function propertyAddress(input = {}) {
 }
 export function normalizeProperty(input, formal) {
   const result = {}
-  for (const key of ['name', 'ownerName', 'ownerTelephone', 'postalCode', 'buildingName', 'handoverDate', 'applicationDate', 'notes', 'insulationMaterials']) {
+  if (Object.hasOwn(input, 'ownerName')) throw new Error('名称項目が変更されました。画面を再読込してください。')
+  for (const key of ['name', 'ownerTelephone', 'postalCode', 'buildingName', 'handoverDate', 'applicationDate', 'notes', 'insulationMaterials']) {
     result[key] = String(input[key] ?? '').trim()
     if (result[key].length > 2000) throw new Error('入力内容が長すぎます。')
   }
@@ -61,7 +62,7 @@ export function normalizeProperty(input, formal) {
   if (formal && !result.handoverDate) throw new Error('本登録には引渡日が必要です。')
   if (result.buildingArea !== null && (!Number.isFinite(result.buildingArea) || result.buildingArea <= 0)) throw new Error('建築面積は正の数で入力してください。')
   if (result.buildingArea !== null && Math.abs(result.buildingArea * 100 - Math.round(result.buildingArea * 100)) > 0.000001) throw new Error('建築面積は小数2桁までです。')
-  if (formal && (!result.ownerName || !result.address || result.buildingArea === null)) throw new Error('本登録には施主名・住所・建築面積が必要です。')
+  if (formal && (!result.address || result.buildingArea === null)) throw new Error('本登録には住所・建築面積が必要です。')
   return result
 }
 export function matchesProperty(row, filter = {}) {
@@ -78,7 +79,7 @@ export function matchesProperty(row, filter = {}) {
   }
   if (filter.search) {
     const plan = createSearchPlan(filter.search)
-    const tokens = generateSearchTokens([row.name, row.ownerName, propertyAddress(row)].join(' '))
+    const tokens = generateSearchTokens([row.name, propertyAddress(row)].join(' '))
     if (!plan.requiredTwoCharacterTokens.every(token => tokens.twoCharacter.includes(token))) return false
   }
   if (filter.expiryBefore && (row.status !== 'active' || row.expiryDate > filter.expiryBefore)) return false

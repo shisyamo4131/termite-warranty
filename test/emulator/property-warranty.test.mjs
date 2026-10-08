@@ -20,7 +20,7 @@ const call=async(action,data={},uid='meeting-hs')=>{
   }
   return propertyPrototypeOperation(auth,db,{action,...data},uid)
 }
-const fields={name:'架空物件',ownerName:'架空施主',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
+const fields={name:'架空物件',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
 const companyAddress={postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1'}
 const saveCompany=(id,defaultGroupId,enabled=true)=>call('saveCompany',{id,name:'架空工務店',defaultGroupId,enabled,address:companyAddress})
 const command=(id,revision,extra={})=>({id,revision,requestId:crypto.randomUUID(),fields,confirmRegistration:true,confirmWarnings:true,confirmCancellation:true,...extra})
@@ -35,6 +35,19 @@ before(async()=>{
   for(const [uid,company,scope,branchId] of [['meeting-head','meeting-co','company',''],['meeting-branch-user','meeting-co','branch','meeting-branch'],['meeting-otherbranch','meeting-co','branch','other'],['meeting-otherco','other','company','']])await db.doc(`constructionCompanyAccounts/${uid}`).set({role:'construction_company',enabled:true,constructionCompanyId:company,scope,branchId})
 })
 after(()=>deleteApp(app))
+
+test('conflicting legacy name refuses editor and notice mutations without changing data or receipts',async()=>{
+ const id='fictional-name-conflict',ref=db.doc('propertyWarranties/'+id)
+ const original={...fields,name:'架空物件',ownerName:'架空別名',revision:1,status:'active',history:[]}
+ await ref.set(original)
+ for(const action of ['save','notify']){
+  const input=command(id,1,{notified:true})
+  await assert.rejects(call(action,input),e=>e.code==='failed-precondition')
+  assert.deepEqual((await ref.get()).data(),original)
+  assert.equal((await db.doc(`propertyOperationReceipts/${id}_${input.requestId}`).get()).exists,false)
+ }
+ await ref.delete()
+})
 
 test('manual external keys and CSV share reservations, immutable settings and recovery identities',async()=>{
   const target=getFirestore(app,'test-external-keys')
@@ -542,9 +555,9 @@ test('same name and address need no confirmation; owner/affiliation/insulation c
   await call('register',command('warning-property',0,{confirmWarnings:false}))
   await assert.rejects(call('save',command('warning-property',1,{fields:{...fields,branchId:''}})),/工務店・支店/)
   await assert.rejects(call('save',command('warning-property',1,{fields:{...fields,foundationInsulation:true}})),/使用資材/)
-  await call('save',command('warning-property',1,{fields:{...fields,ownerName:'変更後所有者',ownerTelephone:'03-0000-0000'}}))
+  await call('save',command('warning-property',1,{fields:{...fields,name:'変更後物件名',ownerTelephone:'03-0000-0000'}}))
   const row=await call('detail',{id:'warning-property'})
-  assert.equal(row.history.at(-1).before.ownerName,fields.ownerName)
+  assert.equal(row.history.at(-1).before.name,fields.name)
   assert.equal(row.history.at(-1).before.ownerTelephone,'')
   assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber}})).rows.length,1)
   assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber.slice(-3)}})).rows.length,0)
@@ -680,7 +693,7 @@ test('HS latest extension undo preserves insurance and corrections, requires rea
   await call('extend',command(key,3))
   row=await call('detail',{id:key})
   const second=row.history.at(-1).requestId,number=row.warrantyNumber
-  await call('save',command(key,4,{fields:{...fields,maxYears:30,ownerName:'訂正後'},confirmDates:true}))
+  await call('save',command(key,4,{fields:{...fields,maxYears:30,name:'訂正後'},confirmDates:true}))
   await call('report',command(key,5,{month:'2026-10'}))
   row=await call('detail',{id:key})
   const insurance=Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('insurance')))
@@ -691,7 +704,7 @@ test('HS latest extension undo preserves insurance and corrections, requires rea
   await Promise.all([call('undoExtend',undo),call('undoExtend',undo)])
   row=await call('detail',{id:key})
   assert.equal(row.revision,7);assert.equal(row.years,20);assert.equal(row.maxYears,30)
-  assert.equal(row.expiryDate,'2046-09-30');assert.equal(row.ownerName,'訂正後');assert.equal(row.warrantyNumber,number)
+  assert.equal(row.expiryDate,'2046-09-30');assert.equal(row.name,'訂正後');assert.equal(row.warrantyNumber,number)
   assert.deepEqual(Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('insurance'))),insurance)
   assert.equal(row.history.filter(h=>h.kind==='undoExtend').length,1)
   const billed=(await call('list',{filter:{billingMonth:row.periods[1]?.startDate.slice(0,7) || '2036-10'}})).rows.filter(r=>r.id===key && r.billingKind==='延長')

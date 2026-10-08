@@ -75,7 +75,7 @@ function prepareRow(record, format) {
   if (!['あり', 'なし'].includes(v['断熱材あり'])) throw new Error('断熱材ありは「あり」または「なし」を入力してください。')
   const foundationInsulation = v['断熱材あり'] === 'あり'
   if (v['建築面積'] && !/^\d+(?:\.\d{1,2})?$/.test(v['建築面積'])) throw new Error('建築面積は正の数・小数2桁までで入力してください。')
-  const fields = normalizeProperty({ name: v['物件名'], ownerName: v['物件名'], ownerTelephone: v['施主電話番号'], postalCode: v['郵便番号'], address: v['住所'] || '不明', buildingName: v['建物名'], applicationDate, handoverDate, maxYears, buildingArea: v['建築面積'], foundationInsulation, insulationMaterials: foundationInsulation ? v['資材名'] || '不明' : v['資材名'], notes: v['備考'] }, true)
+  const fields = normalizeProperty({ name: v['物件名'], ownerTelephone: v['施主電話番号'], postalCode: v['郵便番号'], address: v['住所'] || '不明', buildingName: v['建物名'], applicationDate, handoverDate, maxYears, buildingArea: v['建築面積'], foundationInsulation, insulationMaterials: foundationInsulation ? v['資材名'] || '不明' : v['資材名'], notes: v['備考'] }, true)
   if (fields.ownerTelephone && !/^[0-9-]+$/.test(fields.ownerTelephone)) throw new Error('施主電話番号は半角数字とハイフンのみ入力してください。')
   return { line: record.line, externalKey, branchCode, framingDate, existingWarrantyNumber: v['既存保証番号'], years, fields, sourceValues: v }
 }

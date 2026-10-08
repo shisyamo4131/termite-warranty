@@ -18,7 +18,7 @@ test('generic import fills only missing address and material when insulation exi
   assert.deepEqual(result.errors, [])
   assert.equal(result.rows[0].fields.address, '不明')
   assert.equal(result.rows[0].fields.insulationMaterials, '不明')
-  assert.equal(result.rows[0].fields.ownerName, sample['物件名'])
+  assert.equal(result.rows[0].fields.name, sample['物件名']); assert.equal(Object.hasOwn(result.rows[0].fields,'ownerName'),false)
   const absent = prepareBulkImportRows(csv({ ...sample, '断熱材あり': 'なし' }))
   assert.equal(absent.rows[0].fields.insulationMaterials, '')
   assert.ok(prepareBulkImportRows(csv({ ...sample, '建築面積': '' })).errors.length)

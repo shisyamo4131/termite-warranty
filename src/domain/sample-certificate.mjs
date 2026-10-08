@@ -9,7 +9,7 @@ export function sampleCertificatePdf(row, companyName, branchName, issuedDate) {
     ['白蟻保証書',24,80,765],['見本 — 打ち合わせ用',16,80,725],
     ['正式な保証書ではありません',12,80,700],
     ...[
-      ['保証番号',row.warrantyNumber],['施主名',row.ownerName],['物件名',row.name],
+      ['保証番号',row.warrantyNumber],['物件名',row.name],
       ['所在地',[propertyAddress(row),row.buildingName].join('')],
       ['工務店',companyName],['支店',branchName],['保証グループ',row.groupName],
       ['保証開始日',row.startDate],['現在の満了日',row.expiryDate],['発行日',issuedDate],

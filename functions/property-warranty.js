@@ -228,6 +228,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if ((old?.revision ?? 0) !== Number(input.revision ?? 0)) fail('aborted', '他の操作で更新されました。一覧から開き直してください。')
     if (!old && !['save', 'register'].includes(action)) fail('not-found', '物件が見つかりません。')
     const now = Timestamp.now(), date = japanDate(now.toDate())
+    if (old && Object.hasOwn(old,'ownerName') && (typeof old.name !== 'string' || !old.name.trim() || typeof old.ownerName !== 'string' || old.ownerName.trim() && old.name.trim() !== old.ownerName.trim())) fail('failed-precondition','旧名称に不一致があります。開発者へ確認してください。')
     let next = { ...old }
     let newKeyReservation = null
     let operationTarget = null
@@ -383,7 +384,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         next.status = 'cancelled'
       }
     }
-    const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, ownerName: old.ownerName, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
+    const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
     if (action !== 'notify') next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
     // Separate receipts provide replay safety without introducing a business report/notice history.
     if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
@@ -391,6 +392,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     next.revision = (old?.revision ?? 0) + 1
     next.updatedAt = now
     next.createdAt = old?.createdAt ?? now
+    delete next.ownerName
     tx.set(ref, next)
     return { id: ref.id }
   })

@@ -18,6 +18,14 @@ test('external key settings preserve optional legacy groups and require labelled
 })
 import { coveragePeriods, fiscalYear, warrantyNumber, initialGroups, japanDate, reportRows, csvCell, normalizeProperty, propertyAddress, matchesProperty } from '../src/domain/property-warranty.mjs'
 
+test('property name is the only current identity field and stale owner-name requests are refused',()=>{
+  const input={name:'架空物件',address:'架空住所',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
+  const result=normalizeProperty(input,true)
+  assert.equal(result.name,input.name);assert.equal(Object.hasOwn(result,'ownerName'),false)
+  assert.throws(()=>normalizeProperty({...input,ownerName:'架空物件'},true),/再読込/)
+  assert.throws(()=>normalizeProperty({...input,name:''},true),/物件名/)
+})
+
 test('imported warranty periods are source-bound, date-exact and subordinate to real extensions', async () => {
   const { importedWarrantyPeriods, warrantyTransactions, extensionUndoPreview } = await import('../src/domain/property-warranty.mjs')
   const row = { handoverDate: '2015-01-01', years: 30, receivedRecordId: 'source-1', importedWarrantyPeriods: importedWarrantyPeriods('2015-01-01', 30, 'source-1'), history: [] }
@@ -99,7 +107,7 @@ test('fiscal boundary and minimum three digit annual numbers', () => {
 })
 
 test('confirmed property validation: optional postal, required handover, materials and area precision',()=>{
-  const f={name:'架空',ownerName:'架空',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1',buildingArea:10.12,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
+  const f={name:'架空',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1',buildingArea:10.12,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
   assert.equal(normalizeProperty(f,true).postalCode,'')
   assert.throws(()=>normalizeProperty({...f,handoverDate:''},true))
   assert.throws(()=>normalizeProperty({...f,buildingArea:10.123},true))
@@ -189,7 +197,7 @@ test('calendar-month alerts include boundary and overdue, excluding unknown date
 })
 
 test('single property address accepts legacy input but never resurrects an explicit cleared value', () => {
-  const legacy={name:'架空',ownerName:'架空',prefecture:' 東京都 ',municipality:' 架空市 ',streetTownAndNumber:' 1-2 ',postalCode:'012-3456',buildingName:'架空ビル',buildingArea:10,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
+  const legacy={name:'架空',prefecture:' 東京都 ',municipality:' 架空市 ',streetTownAndNumber:' 1-2 ',postalCode:'012-3456',buildingName:'架空ビル',buildingArea:10,applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
   const original=structuredClone(legacy)
   assert.equal(propertyAddress(legacy),'東京都架空市1-2')
   const normalized=normalizeProperty(legacy,true)
@@ -212,7 +220,7 @@ test('single property address accepts legacy input but never resurrects an expli
 
 test('sample certificate prints single and legacy addresses consistently', async () => {
   const {sampleCertificatePdf}=await import('../src/domain/sample-certificate.mjs')
-  const legacy={name:'架空',ownerName:'架空',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-2',buildingName:'架空ビル'}
+  const legacy={name:'架空',prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'1-2',buildingName:'架空ビル'}
   const single={...legacy,address:propertyAddress(legacy)}
   assert.deepEqual(sampleCertificatePdf(legacy,'架空工務店','','2026-10-07'),sampleCertificatePdf(single,'架空工務店','','2026-10-07'))
   assert.notDeepEqual(sampleCertificatePdf(single,'架空工務店','','2026-10-07'),sampleCertificatePdf({...single,address:'不明'},'架空工務店','','2026-10-07'))
@@ -333,8 +341,24 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const inputRules=await import('../src/domain/input-rules.mjs')
   const notifications=[];const env={...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:vue.ref({accountType:'staff',role:'house_solution_administrator'}),logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  return new Function(...Object.keys(env),code+';return {groups,propertyKeySettings,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {groups,propertyKeySettings,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
+
+test('property editor discards the former name field before saving legacy documents',async()=>{
+  const calls=[]
+  const row={id:'fictional-legacy',name:'架空物件',ownerName:'架空物件',constructionCompanyId:'fictional-company',status:'draft',revision:1,address:'架空住所'}
+  const v=await prototypeViewForTest(async data=>{calls.push(data);return data.action==='detail'?row:{companies:[],branches:[],groups:[],rows:[]}})
+  await v.openProperty(row.id)
+  assert.equal(v.form.value.name,'架空物件')
+  assert.equal(Object.hasOwn(v.form.value,'ownerName'),false)
+  v.propertyForm.value={validate:async()=>({valid:true})}
+  await v.saveProperty('save')
+  const saved=calls.find(x=>x.action==='save')
+  assert.ok(saved)
+  assert.equal(saved.fields.name,'架空物件')
+  assert.equal(Object.hasOwn(saved.fields,'ownerName'),false)
+  assert.equal(Object.hasOwn(v.form.value,'ownerName'),false)
+})
 
 test('dialog company search preserves background catalog and selected company; branch fetch has local loading',async()=>{
   let resolve
