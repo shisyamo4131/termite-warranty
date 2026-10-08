@@ -4,6 +4,7 @@ import { getAuth } from 'firebase-admin/auth'
 import { HttpsError, onCall as nativeOnCall } from 'firebase-functions/v2/https'
 import { measureFirestoreOperation, observedFirestore } from './firestore-metrics.js'
 import { reportClientMetrics } from './client-metrics.js'
+import { createAuthDiagnosticReceiver } from './auth-diagnostics.js'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { assertApprovedPrototypeRuntime } from './local-runtime.js'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from './recovery-runtime.js'
@@ -40,6 +41,8 @@ const onCall = (name, options, handler) => {
   return nativeOnCall(options, request => measureFirestoreOperation(name, request.data?.action, () => handler(request)))
 }
 export const reportFirestoreMetrics = onCall('reportFirestoreMetrics', request => reportClientMetrics(request, observedFirestore(getFirestore(), 'business', 'telemetry')))
+// No business-data access and no Auth requirement: failed login is the observed event.
+export const reportAuthDiagnostics = nativeOnCall({ maxInstances: 2, timeoutSeconds: 10 }, createAuthDiagnosticReceiver())
 
 export const propertyBulkImport = onCall('propertyBulkImport', { timeoutSeconds: 300 }, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')

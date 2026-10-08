@@ -12,6 +12,16 @@ const identifier = value => typeof value === 'string' && /^[\w-]{1,128}$/.test(v
 const staffRoles = ['developer_superuser', 'house_solution_administrator', 'general_staff']
 const reason = (row, field, message) => ({ line: row?.line ?? 0, field, message })
 
+// Do not limit a chunk to one document: every matching value must be rejected.
+export async function existingImportValues(tx, collection, field, values) {
+  const unique = [...new Set(values)], found = new Set()
+  for (let offset = 0; offset < unique.length; offset += 30) {
+    const snapshot = await tx.get(collection.where(field, 'in', unique.slice(offset, offset + 30)))
+    for (const doc of snapshot.docs) found.add(doc.data()[field])
+  }
+  return found
+}
+
 // Caller must use the shared recovery admission boundary for commit.
 export async function propertyBulkImportOperation(db, input, uid) {
   identifier(uid)
@@ -75,12 +85,12 @@ export async function propertyBulkImportOperation(db, input, uid) {
       if (active.length === 1 && reservation?.constructionCompanyId === companyId && reservation.branchCode === code && reservation.branchId === active[0].id) branches.set(code, { ...active[0].data(), id: active[0].id })
     }
     const keys = new Map()
+    const existingKeys = await existingImportValues(tx, db.collection('propertyWarranties'), 'externalKey', parsed.rows.map(row => row.externalKey))
     for (const row of parsed.rows) {
       const keyRef = db.doc(`externalKeyReservations/${hash(row.externalKey)}`)
       const reserved = await tx.get(keyRef)
-      const existing = await tx.get(db.collection('propertyWarranties').where('externalKey', '==', row.externalKey).limit(1))
       keys.set(row.externalKey, keyRef)
-      if (reserved.exists || !existing.empty) errors.push(reason(row, keyLabel, `${keyLabel}は既に登録されています。`))
+      if (reserved.exists || existingKeys.has(row.externalKey)) errors.push(reason(row, keyLabel, `${keyLabel}は既に登録されています。`))
       if (!branches.has(row.branchCode)) errors.push(reason(row, '本支店コード', '指定工務店の有効な本支店コードが一意に登録されていません。'))
     }
     const now = Timestamp.now(), today = japanDate(now.toDate())
@@ -104,8 +114,6 @@ export async function propertyBulkImportOperation(db, input, uid) {
         else number = warrantyNumber(group, row.fields.applicationDate, counter.value)
         if (usedNumbers.has(number)) errors.push(reason(row, '保証番号', 'ファイル内の保証番号が重複しています。'))
         usedNumbers.add(number)
-        const existing = await tx.get(db.collection('propertyWarranties').where('warrantyNumber', '==', number).limit(1))
-        if (!existing.empty) errors.push(reason(row, '保証番号', '既存の保証番号と重複しています。'))
         const periods = coveragePeriods(row.fields.handoverDate, row.years)
         if (periods[0].expiryDate < today) errors.push(reason(row, '保証期間', '初回10年の保証が終了している物件は一括取込み対象外です。個別登録で確認してください。'))
         const value = { ...row.fields, constructionCompanyId: companyId, branchId: branch?.id ?? '', groupId, groupName: group.name, fiscalYear: year, warrantyNumber: number, externalKey: row.externalKey, receivedRecordId: refs[index].id, status: 'active', years: 10, periods, startDate: row.fields.handoverDate, expiryDate: periods[0].expiryDate, ...initialInsurance(row.fields.handoverDate), warrantyNotified: false, insuranceEvents: [], insuranceHistoryIncomplete: false, billingItems: [{ id: 'initial', ...periods[0], state: 'pending' }], history: [{ kind: 'register', requestId: `${requestId}_${index}`, date: today, at: now.toDate().toISOString(), actorUid: uid, actorName: account.displayName ?? '', reason: 'CSV一括取込み', before: null }], revision: 1, createdAt: now, updatedAt: now }
@@ -116,6 +124,8 @@ export async function propertyBulkImportOperation(db, input, uid) {
     }
     const previewHash = hash(JSON.stringify({ digest, group: group ? { name: group.name, prefix: group.prefix, fiscalStartMonth: group.fiscalStartMonth, enabled: group.enabled ?? true, ...keyPolicy, ...requirements } : null, company: company ? { name: company.name, defaultGroupId: company.defaultGroupId, enabled: company.enabled ?? true } : null, branches: [...branches].map(([code, branch]) => [code, branch.id, branch.name, branch.enabled ?? true]), counters: [...counters].map(([year, counter]) => [year, counter.original, counter.value]), numbers: plans.map(plan => plan.value.warrantyNumber) }))
     const preview = { count: parsed.rows.length, externalKeyLabel:keyLabel, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchCode: plan.row.branchCode, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
+    const existingNumbers = await existingImportValues(tx, db.collection('propertyWarranties'), 'warrantyNumber', plans.map(plan => plan.value.warrantyNumber))
+    for (const plan of plans) if (existingNumbers.has(plan.value.warrantyNumber)) errors.push(reason(plan.row, '保証番号', '既存の保証番号と重複しています。'))
     if (!commit) return preview
     if (errors.length) fail('failed-precondition', '入力に問題があるため全件を棄却しました。', errors, true)
     if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に所属・本支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)

@@ -1,4 +1,5 @@
 import { createMeasuredFirestore, startFirestoreMetrics } from '../utils/firestoreMetrics.ts'
+import { startAuthDiagnostics, recordAuthFailure } from '../utils/authDiagnostics'
 const { getDoc, onSnapshot } = createMeasuredFirestore('recovery')
 import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
@@ -60,7 +61,13 @@ export default defineNuxtPlugin(async () => {
     connectFunctionsEmulator(functions, LOCAL_RUNTIME.host, LOCAL_RUNTIME.functionsPort)
     emulatorState.__termiteWarrantyEmulatorsConnected = true
   }
-  await setPersistence(auth, browserSessionPersistence)
+  const diagnosticEndpoint = isLocal
+    ? `${localRuntimeUrl(LOCAL_RUNTIME.functionsPort)}/${localProjectId}/${functionsRegion}/reportAuthDiagnostics`
+    : `https://${functionsRegion}-${developmentProjectId}.cloudfunctions.net/reportAuthDiagnostics`
+  const stopDiagnostics = startAuthDiagnostics(diagnosticEndpoint)
+  if (import.meta.hot) import.meta.hot.dispose(stopDiagnostics)
+  try { await setPersistence(auth, browserSessionPersistence) }
+  catch (error) { recordAuthFailure('persistence', error); throw error }
   const stopMetrics = startFirestoreMetrics(auth, functions)
   if (import.meta.hot) import.meta.hot.dispose(stopMetrics)
   try {

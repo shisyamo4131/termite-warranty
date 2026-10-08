@@ -86,3 +86,15 @@ test('HTTP telemetry callable accepts bounded aggregate and rejects text dimensi
   await db.doc(`staffAccounts/${uid}`).update({ enabled: false })
   await assert.rejects(call(input), { code: 'functions/permission-denied' })
 })
+
+test('auth diagnostics HTTP callable accepts anonymous failure and rejects arbitrary fields', async () => {
+  const endpoint = `${localRuntimeUrl(LOCAL_RUNTIME.functionsPort)}/demo-termite-warranty/asia-northeast1/reportAuthDiagnostics`
+  const input = { version: 1, rows: [{ id: crypto.randomUUID(), at: Date.now(), stage: 'sign_in', code: 'auth/network-request-failed', online: false }] }
+  const send = data => fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:23600' }, body: JSON.stringify({ data }) })
+  const accepted = await send(input)
+  assert.equal(accepted.status, 200)
+  assert.equal(accepted.headers.get('access-control-allow-origin'), 'http://127.0.0.1:23600')
+  assert.deepEqual(await accepted.json(), { result: { accepted: true } })
+  const rejected = await send({ ...input, message: 'must-not-log-free-text' })
+  assert.equal(rejected.status, 400)
+})

@@ -3,7 +3,19 @@
 - Status: Dev配備・機能検証・Functionsログ両source受信済み（2026-10-08）。ユーザーによる画面操作・UI/UX確認は未実施。
 - Authority: [仕様](../specification.md)、[ADR0037](../decisions/0037-reference-store-observability.md)。2026-10-08オーナーが②と計測実装を承認。
 
-## 参照方式
+## 認証失敗の診断経路
+
+2026-10-08オーナー指示による追加。Firestore件数計測とは別に、認証永続化・サインイン・アカウント初回取得／購読・パスワード再設定の失敗を`reportAuthDiagnostics`へ送る。認証失敗後にも使うため未認証で受け付けるが、業務DB・Auth管理APIにはアクセスしない。認証・権限を付与する機能ではない。
+
+許可項目は乱数事象ID、発生時刻、固定stage/code、navigator.onLineだけ。メール・パスワード・UID・URL・自由文エラー・stack・業務データを送らない。未知codeはunknownへ縮約する。生の通信原因を保存する仕組みではなく、online=trueも通信成功を保証しない。出力はFunctions構造化ログ`event=auth_client_failure`／`source=client_reported`。サーバー受信時刻とクライアント発生時刻を区別する。
+
+タブ内sessionStorageへ最大20件・24時間保持し、失敗時、起動時、online復帰時、60秒ごとに最大10件を送る。送信失敗は15秒から最大5分の待機を挟み、次の送信機会で再送する。送信中の追加を消さない。記憶領域利用不可ではメモリ内のみ、タブ終了・長期離脱・上限到達時に未送信分を失う。失敗を業務エラーへ置き換えない。認証情報を持たないためログアウト後も未送信診断は有効期限まで残す。アカウントと関連付けない。
+
+受付は1要求10件、インスタンスごとに60要求/分・送信元ごとに6要求/分、最大2インスタンス。送信元はメモリ内の制限用でログに出さない。5分以内の同じ事象IDをインスタンス内で重複除外する。分散制限・完全な重複排除・申告内容の真正性は保証しない。既存Firestore計測の認証必須・非永続キュー契約は不変。
+
+DevのIdentity Platform activity logging設定はAPIで拒否されたため未有効。サービス変更は別判断で、[HSC-041](../requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)に集約。差戻しは対応Functions／Hostingを旧版へ揃える。業務データ移行不要。匿名HTTP/CORS、再送、秘密情報除外、受付制限とCSV回帰を含む全7ゲートを実施し、Devログ到達まで確認する。結果は[既存実測記録](evidence/prod-readiness-2026-10-08.md)へ記載。
+
+## マスタ参照方式
 
 HSは保証グループ・工務店・本支店の有効／無効全件を、タブ内で共有する購読へ集約する。ID別の名称解決は無効も含め、Autocompleteには自身と親の有効性・会社所属を満たす候補だけ渡す。候補数を20件に制限せず標準filterを使う。工務店変更で本支店選択を消去する。通常の業務一覧は最新20件のまま。
 

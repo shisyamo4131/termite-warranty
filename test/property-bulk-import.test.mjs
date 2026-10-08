@@ -141,7 +141,11 @@ function fakeDb(seed = {}) {
           if (staged.length) throw new Error('read after write')
           stats.reads.push(ref.path)
           if (!ref.filters) return snapshot(ref)
-          const docs = [...documents].filter(([path, value]) => path.split('/').length === 2 && path.startsWith(ref.path + '/') && ref.filters.every(([key, op, expected]) => op === '==' && value[key] === expected)).slice(0, ref.maximum).map(([path]) => snapshot(doc(path)))
+          const docs = [...documents].filter(([path, value]) => path.split('/').length === 2 && path.startsWith(ref.path + '/') && ref.filters.every(([key, op, expected]) => {
+            if (op === '==') return value[key] === expected
+            if (op === 'in') { assert.ok(expected.length > 0 && expected.length <= 30); return expected.includes(value[key]) }
+            throw Error('unsupported query operator')
+          })).slice(0, ref.maximum).map(([path]) => snapshot(doc(path)))
           return { docs, empty: !docs.length }
         },
         create: (ref, value) => { if (db.failAtWrite === staged.length + 1) throw new Error('injected write failure'); if (documents.has(ref.path)) throw new Error('already exists'); staged.push([ref, value]) },

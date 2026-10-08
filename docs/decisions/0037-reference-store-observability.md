@@ -18,4 +18,6 @@ HSの保証グループ・工務店・本支店は有効／無効を含む全件
 
 ## Compatibility, rollback and validation
 
+2026-10-08追加承認：ログイン失敗の調査用に、認証不要・業務アクセスなしの診断受付と、接続回復後のタブ内再送を追加する。既存Firestore件数計測の認証・保存方針は変えない。匿名の最小診断で認証前の欠落を補う。Identity Platformへの変更は未採用。[追加契約](../design/reference-store-metrics.md#認証失敗の診断経路)。
+
 業務文書の移行は不要。新画面だけが名称付与省略を要求し、旧クライアントとポータルの互換性を保つ。差戻しは旧画面・対応Functionsへ揃え、計測ログは業務状態に使わない。新Callableの実配備・既存Cloudログ保持設定変更は別承認。詳細・観測の限界・試験は[設計](../design/reference-store-metrics.md)を参照。

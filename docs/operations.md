@@ -1,5 +1,11 @@
 # Operations
 
+## 認証失敗の調査
+
+ブラウザ診断の受付は`reportAuthDiagnostics`、Functionsログの検索条件は`jsonPayload.event="auth_client_failure"`。発生時刻at、stage/code、online、事象IDを照合する。クライアント申告であり、online=trueは接続成功を意味しない。個人情報や資格情報を補ってログに出さない。[送信・上限・消失条件](design/reference-store-metrics.md#認証失敗の診断経路)、[実行結果](design/evidence/prod-readiness-2026-10-08.md)を参照。
+
+Devの認証サービス側activity loggingはIdentity Platformが必要として拒否され、未有効。サービス変更は未実施。元の通信エラー原因も未特定で[HSC-041](requirements/house-solution-confirmations/HSC-041-authentication-diagnostics.md)に集約する。新規管理者アカウントなしで診断経路を検証する。
+
 ## 2026-10-08 Dev容量・検索・CSVの実測完了範囲
 
 配備基準b5bcb354の実画面で300件CSV本登録・301件拒否、保険報告／請求CSV各300件の完全性、20件外候補・面積訂正再保存・新規グループ反映を確認。最終物件307件、一時アカウント削除済み。Functionsログ119件を確認し、月別一覧の全307件取得と300件取込約20秒を改善候補として記録。[詳細・実行コマンド・限界](design/evidence/prod-readiness-2026-10-08.md)。保証書CSVは別の未完了機能。Prod作成・配備・課金設定・Git pushは実行しない。

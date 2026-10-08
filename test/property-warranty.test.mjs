@@ -323,10 +323,12 @@ test('session read failure releases loading, retry works, stale login cannot rep
   let authCallback, snapshotCallback, rejectReads=true, reads=[], auth={currentUser:{uid:'first'}}
   const api={browserSessionPersistence:{},onAuthStateChanged:(_,cb)=>{authCallback=cb},signOut:async()=>{},setPersistence:async()=>{},signInWithEmailAndPassword:async()=>{},sendPasswordResetEmail:async()=>{}}
   const firestore={doc:(_,collection,uid)=>({path:`${collection}/${uid}`}),getDoc:ref=>rejectReads ? Promise.reject(Error('offline')) : new Promise(resolve=>reads.push(()=>resolve({exists:()=>ref.path.startsWith('staffAccounts/')}))),onSnapshot:(ref,cb)=>{snapshotCallback=()=>cb({exists:()=>true,ref,data:()=>({enabled:true,role:'general_staff',displayName:ref.path})});return ()=>{}}}
-  const exports={};new Function('require','exports','shallowRef','ref','useNuxtApp',compiled)(name=>name==='firebase/auth'?api:name.includes('firestoreMetrics')?{createMeasuredFirestore:()=>firestore}:firestore,exports,value=>({value}),value=>({value}),()=>({$firebase:{auth,firestore:{}}}))
+  const diagnostics=[]
+  const exports={};new Function('require','exports','shallowRef','ref','useNuxtApp',compiled)(name=>name==='firebase/auth'?api:name.includes('authDiagnostics')?{recordAuthFailure:(stage,error)=>diagnostics.push({stage,error})}:name.includes('firestoreMetrics')?{createMeasuredFirestore:()=>firestore}:firestore,exports,value=>({value}),value=>({value}),()=>({$firebase:{auth,firestore:{}}}))
   const session=exports.useSession()
   await authCallback(auth.currentUser)
   assert.equal(session.loading.value,false);assert.match(session.errorMessage.value,/再試行/)
+  assert.equal(diagnostics[0].stage,'profile_read')
   rejectReads=false
   const stale=session.retryProfile();const staleReads=reads.splice(0)
   auth.currentUser={uid:'second'};const fresh=authCallback(auth.currentUser);reads.splice(0).forEach(r=>r());await fresh;snapshotCallback()

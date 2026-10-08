@@ -14,11 +14,12 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
+| HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | 原因未特定。ブラウザ診断改修中。認証サービス側ログはIdentity Platformが必要で未有効 | Project owner / Project |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 月次自動取得・検証・公開・失敗通知を検討。方式未採用／設定未実行 | Project owner |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 延長後の保証開始月を2026-10-05採用、ローカル実装・機能検証済み、Dev未反映。未請求抽出・請求先単位・合算は確認待ち | House Solution |
 | HSC-001 | [Case, applied-warranty, and referenced-master data retention](house-solution-confirmations/HSC-001-data-retention-policy.md) | 終了分のCSV保管後削除・開発側復元は確定。取消済みもCSVをHS保管後に削除可（2026-10-05）、後発実装。トリガー・詳細は未確定 | House Solution |
 | HSC-002 | [Initial-release acceptance scope](house-solution-confirmations/HSC-002-release-acceptance-scope.md) | HS operators verify, HS president approves launch, AriLabo coordinates confirmed; actual launch date undecided, final acceptance preparation remains | House Solution |
-| HSC-023 | [Firestore取得・検索設計](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | 完全一致・最新20件・共有マスタ全件購読は確定。300件Dev実測済み。月別一覧の全件取得と実初期規模検証が残る | Project / HS business decision |
+| HSC-023 | [Firestore取得・検索設計](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | 月別一覧は指定年月によるDB抽出が必要。保険の過月未処理・延長請求を含む取得改修と実初期規模検証が残る | Project / HS business decision |
 | HSC-025 | [Production service and risk requirements](house-solution-confirmations/HSC-025-production-service-requirements.md) | 通知先はオーナーGoogleアカウント、予算設定は後発。運用窓口は確定、対応時間等の残条件は詳細参照 | House Solution |
 | HSC-030 | [Custom authentication-email sender](house-solution-confirmations/HSC-030-custom-auth-email-sender.md) | Deferred | House Solution, if requested |
 | HSC-034 | [Deterioration countermeasure grade and warranty limit](house-solution-confirmations/HSC-034-deterioration-countermeasure-grade.md) | Manual cap selection and later HS edits confirmed; no reduction below granted 30 years; business eligibility remains outside automation | House Solution |

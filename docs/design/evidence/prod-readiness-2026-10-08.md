@@ -1,5 +1,58 @@
 # Prod準備・Dev実測（2026-10-08）
 
+## 追加のCloudログ確認と決定（2026-10-08 22:30 JST）
+
+Dev termite-warranty-devの19:30〜20:10 JST（10:30〜11:10 UTC）をCloud Logging APIで検索。identitytoolkit／securetokenの認証ログ0件、severity>=ERRORが0件、auth/network-request-failed／SignInWithPasswordの文字列検索0件。各検索は1ページで終了。これは検索範囲に記録がないという結果であり、認証サービスへ要求が届かなかったという証明ではない。
+
+`node tmp/investigate-auth-cloud.mjs`初回exit0。project IAM auditConfigs=[]（上位継承設定は未調査）。対照用metrics検索を追加した再実行はLogging API429でexit1、追加照合未完了。初回の3検索成功結果は保持。`node tmp/read-auth-log-config.mjs`は22:30:07 JSTにexit0で認証設定をGET、monitoring.requestLogging={}、enabled未設定を確認。[公式資料](https://docs.cloud.google.com/identity-platform/docs/activity-logging)ではアクティビティログは既定無効で、SignInWithPasswordが記録対象。
+
+アプリはLoginPanel.vueのcatchでerror.messageを画面表示するだけ。useSession.loginはブラウザからFirebase Authへ直接要求するため、通常の業務Functionsを通過しない。Firestore計測の送信は認証済みだけで、未ログインの認証エラーを送る機能ではない。従って現状はクラウド側の認証ログ設定とクライアント障害記録の両方が不足し、前回の通信失敗原因を事後特定できない。記録不足は確認済み、通信障害の根本原因は未特定と分ける。ネットワーク断で送信不能な失敗は認証ログ有効化だけでも捕捉できないため、改善時は接続回復後の非秘密診断送信も設計する。今回は設定・製品の変更なし。
+
+「専用アカウント承認待ち」は、既存実在者を使わず再現するための架空HS管理者1件の作成が自動安全審査で拒否された件。既存Dev操作への包括承認は受領済みだが、自動審査が個別範囲の承認を要求した。今回のCloud読取調査にはその作成は不要であり、調査全体を承認待ちにしない。新規アカウントの作成は実行していない。
+
+オーナーは重複検索のin・30値チャンク方式のみ採用。以下のgetAll一括取得と並列化はまだ提案であり、同時採用と扱わない。全307件は取得数で、対象グループ301件が返却数。毎月報告しても現行の全件読取は変わらないことをHS説明資料の作成項目に記録した。
+
+## 追加調査：一覧取得・ログイン・プレビュー（2026-10-08）
+
+オーナーの追加指示で現行コードと既存の計測原本を再確認。今回は原因調査・改善提案で、改善方式の採用や製品コード変更ではない。
+
+### 保険・請求一覧の全件取得
+
+`functions/property-warranty.js`のlistは、HSでは保証番号以外の月／グループ等をFirestoreのwhereへ渡さない。月指定によりfiltered=trueとなりlimit(20)を外し、query.get後にmatchesProperty／insuranceReportKind／billingRowsで対象を抽出する。従って測定時はDB→Functionsが307物件、Functions→クライアントが検証グループ301件。共有マスタStoreとは別の業務データ取得であり、307件という上限があるわけでもない。
+
+改善候補は工務店・本支店・グループ等の単純条件をDBへ渡すことと、月別候補をDBで抽出できる項目・索引を整えること。保険は過月未報告・更新遅延・要確認を含み、請求は初回の申込月と延長区間の開始月を扱う。単なる引渡月の等価条件に置き換えると欠落するため、現行結果との同一性を検証する必要がある。現時点では提案であり改修未実施。
+
+### 300件プレビューの内訳と改善案
+
+既存Functionsログ原本のdurationMs=18,248、readDurationMsの合計=17,955。読取が直列のため待ち時間が積み上がっている。transactionAttempts=1で、今回の遅延を再試行や画面描画に帰していない。
+
+| 確認対象 | アプリ取得呼出 | 読取所要ms |
+| --- | ---: | ---: |
+| 外部キー・保証番号の既存物件検索 | 600 queryCalls | 11,590 |
+| 外部キー予約 | 300 getCalls | 5,515 |
+| 本支店コード予約 | 25 getCalls | 545 |
+| その他（所属・採番・復旧等） | 8呼出 | 305 |
+
+推奨順序（未採用）：
+
+1. IDが分かる外部キー予約・本支店予約をtransaction.getAllでまとめて取得する。物件数分の逐次待ちを減らす。文書数がそのまま課金削減になるとは主張しない。
+2. 既存キー／予定保証番号の検索を、各値の等価検索から最大30値ごとのin検索へまとめる。300値が一意なら各10検索、合計600→20検索にできる。全体limit(1)は付けず、ヒットを各入力行へ対応させて重複を漏らさない。必要項目だけ取得する案も併用する。
+3. 上記後に残る独立した取得を、上限付きの並列処理にする。無制限の600並列化は採用案にしない。transaction初期化とsnapshot整合をSDKで検証する。
+
+最初は永続データ形状を変えない1＋2を推奨。予約だけを信じて既存物件検索を削除する案は、旧データ／初期投入／予約整合の保証が別途必要なため今回の第一案にしない。プレビュー結果の使い回しだけで確定時の再検査を省略せず、同時取込・コード再利用・採番変更・全件棄却・同一要求の再確認を維持する。高速化後の秒数は未測定。300件で結果／エラー／採番が一致することと、両操作のFunctions時間・読取呼出・競合時の挙動で評価する。
+
+API確認：[Firestoreのin／OR上限](https://firebase.google.com/docs/firestore/query-data/queries#query_limitations)、[Node Transaction.getAll](https://googleapis.dev/nodejs/firestore/latest/Transaction.html#getAll)。30は単純inの場合で、他のOR条件との組合せ上限に注意する。
+
+### ログインの切り分けと未確定事項
+
+useSession.loginはsetPersistence後にFirebase AuthのsignInWithEmailAndPasswordを呼ぶ。アカウント文書の読取失敗は別の日本語メッセージになり、今回のauth/network-request-failedと同一視しない。LoginPanelはerror.messageだけを表示し、元の例外・接続先・HTTP状態等を永続記録していない。
+
+使用中SDKの`node_modules/@firebase/auth/dist/esm/index-CvXU3_1x.js`で、fetch／応答解析の非Firebase例外とNetworkTimeoutをnetwork-request-failedへ変換することを確認。エラー名だけではDNS・通信遮断・ブラウザ経路・タイムアウト・応答解析の原因を区別できない。当時のIABタブは終了しており通信詳細なし。今回新しく開いたIABのDevログイン画面は表示成功、初期表示時のerror/warnログは0件。これはログイン成功の証拠ではない。
+
+再現用のDev架空HS管理者アカウント1件の作成は、自動承認レビューが個別の明示承認不足として実行前に拒否。オーナーへ作成・検証後削除の承認を依頼中。拒否された操作を別経路で実行していない。既存アカウント・認証設定・製品コードの変更なし。再現後は実際の認証APIの失敗詳細を記録し、復旧前に確認する。現時点では根本原因未特定で、通信エラーをアプリ不具合ともIAB固有障害とも断定しない。
+
+本追記はdocumentation-only。適用ゲートはcheck-governance、製品コード無変更のためapp／Rules／build等の再実行は対象外。検証結果と作業ツリー状態は当該調査の報告に記載する。
+
 ## 対象と境界
 
 オーナーの本番Firestore決定、Dev架空データ検証、既知不具合再確認、記録整合とコミットの指示に基づく。実装／配備基準は b5bcb354800ec89a6ca1629e1f73ebe8c0ab3390。今回の追跡差分は文書・既承認のStore例外記録のみ。アプリ／Functions／Rulesを変更・再配備せず、Prod構築・IAM・課金・通知設定も実行しない。
@@ -73,3 +126,27 @@ Functions構造化ログを19:46:44〜20:04:13 JSTで取得。119件＝server_ob
 | ./scripts/check-governance.ps1 | 管理対象hash・生成AGENTS・7ゲート／文書整合すべて成功 | 0 |
 
 文書整合と既承認governance例外の記録を含むためcomprehensive7ゲートを選択。全7ゲート成功。アプリが無変更のため後続文書修正は上記6ゲートを失効させない。差分・commitはGit、最終worktree状態は完了報告へ記載。データ形状／API変更がないためdata-contract版の変更なし。今回の進捗加点なし。Prod配備／HS受入完了は主張しない。
+
+## 認証診断・CSV30値検索の改修（2026-10-08）
+
+基準HEAD `42d69e8201825be2a73f52e3364b0dc57b8972a9` 上の作業差分。認証失敗はタブ内上限付きキューから匿名の診断専用Functionsへ送る。許可済みstage/code/時刻/online/乱数事象IDのみ。個人情報・資格情報・自由文エラーは送らず、業務データへアクセスしない。CSVは外部キー／予定番号の重複検索を30値ずつに集約。ID予約のgetAll・並列化は未採用。月別一覧のDB条件化は未改修で、HSに説明して済ませる扱いを撤回した。
+
+### Local検証
+
+変更分類：application-logic、匿名受付境界、build-release-deploy、documentation。全7ゲートを選択。最終runtime差分に対する結果（各exitを独立確認）：
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `npm test` | 355件中353成功、既存symlink制約2skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功、既存warningのみ | 0 |
+| `npm run test:rules` | 141成功、skip0、Emulator終了確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+
+最初のnpm testは2件失敗exit1。旧クエリの`==`だけを許すmockと、新しい診断依存を持たないsession harnessを修正。対象82件成功exit0後、全体を上記で再確認した。製品の判定を緩和していない。Emulatorで匿名HTTP/CORS/Callable envelope/不正payload拒否、279件取込と重複全棄却・同時commitを確認。単体で300値の10チャンク・複数重複・境界、通信回復後の送信・再読込保持・期限と上限・送信中追加・再送抑制を確認。独立read-onlyレビューAUTH-OBS-01で阻害するP1/P2指摘なし。試験mockと文書のみの後続変更は既存の型検査／build／Rules／syntaxの失効条件に該当しないため再利用。
+
+### 認証サービス側ログの制約
+
+`node tmp/enable-dev-auth-logging.mjs --apply-dev` はexit1。Dev実設定GETと対象照合の後、`monitoring.requestLogging.enabled` だけのPATCHを試したがHTTP400、`OPERATION_NOT_ALLOWED : activity logging can only be enabled in GCIP.`。設定は未有効。Identity Platformへの変更は未実施・別判断。管理者アカウント作成も未実行。元の通信障害原因とサービス側ログの扱いはHSC-041に残す。ブラウザ診断の追加を元の障害解消と扱わない。

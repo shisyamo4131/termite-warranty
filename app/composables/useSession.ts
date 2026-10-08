@@ -1,4 +1,5 @@
 import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+import { recordAuthFailure } from '../utils/authDiagnostics'
 const { getDoc, onSnapshot } = createMeasuredFirestore('session')
 import {
   browserSessionPersistence,
@@ -86,16 +87,18 @@ export function useSession() {
               }
           loading.value = false
         },
-        () => {
+        (error) => {
           if (generation !== authGeneration) return
+          recordAuthFailure('profile_listen', error)
           profile.value = null
           errorMessage.value = 'アカウントが無効化されたか、認証確認に失敗しました。'
           loading.value = false
           void signOut($firebase.auth).catch(() => {})
         },
       )
-      } catch {
+      } catch (error) {
         if (generation === authGeneration) {
+          recordAuthFailure('profile_read', error)
           profile.value = null
           errorMessage.value = 'アカウント情報を取得できませんでした。接続を確認して再試行してください。'
         }
@@ -110,14 +113,17 @@ export function useSession() {
 
   const login = async (email: string, password: string) => {
     errorMessage.value = ''
-    await setPersistence($firebase.auth, browserSessionPersistence)
-    await signInWithEmailAndPassword($firebase.auth, email, password)
+    try { await setPersistence($firebase.auth, browserSessionPersistence) }
+    catch (error) { recordAuthFailure('persistence', error); throw error }
+    try { await signInWithEmailAndPassword($firebase.auth, email, password) }
+    catch (error) { recordAuthFailure('sign_in', error); throw error }
   }
 
   const logout = () => signOut($firebase.auth)
   const resetPassword = async (email: string) => {
     $firebase.auth.languageCode = 'ja'
-    await sendPasswordResetEmail($firebase.auth, email)
+    try { await sendPasswordResetEmail($firebase.auth, email) }
+    catch (error) { recordAuthFailure('password_reset', error); throw error }
   }
 
   return { currentUser, profile, loading, errorMessage, login, logout, resetPassword, retryProfile: () => retryProfile?.() }
