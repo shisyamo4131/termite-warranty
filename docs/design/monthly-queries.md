@@ -1,5 +1,17 @@
 # 保険／請求の月別Firestore取得
 
+## 2026-10-09 請求の過月未処理抽出（改修中）
+
+現行要件は保証グループ＋対象年月で当月を含む過去未請求を抽出する。従来のbillingQueryMonthsと旧APIは互換用に維持し、新画面はbillingListを使用する。billingQueryVersion:1とbillingPendingMonth（activeかつ識別可能なpending期間の最古の請求対象月、なければ空文字）をmonthlyQueryProjectionで同時保存する。unknownをpendingへ変換しない。
+
+billingListはHSのみ。有効グループと年月を検証し、groupId一致、billingPendingMonth>空文字かつ<=指定月をFirestoreに渡す。取得後に対象の保証期間へ展開する。groupId＋billingPendingMonthの複合索引が必要。prototypeSettings/billingQueries.version=1まで公開しない。
+
+billPeriodsは1物件の選択期間（最大3）を同じtransactionで更新する。最新revision、全期間のID・日付・pending状態・対象月・グループを検証し、receiptで再送を抑止する。複数物件は順次処理し、部分成功件数を表示する。undoBillで未請求へ戻せば検索用項目も更新され、再抽出される。
+
+導入は索引READY→検証済みFunctions全配備→旧writer終了確認→`scripts/billing-query-migration.mjs`のdry-runとapply→Hosting。CLIの世代／clean revision保護は既存証書移行と同一。補完は派生値のみで業務状態、revision、updatedAtを変更しない。差戻しは旧画面へ戻し記録を保持。復旧検証はmonthlyQueries・certificateQueries・billingQueriesの各readyに対応した項目だけを照合する。未導入の旧像は新一覧を閉じたまま復旧でき、normalへ戻した後に補完・全件検査して新一覧を公開する。導入済みなのに投影が壊れている像は拒否し、開発側で別途照合する。新保証書APIはgroupId必須となるため旧画面は再読込みが必要。
+
+検証：単体の月境界・不明／取消除外、emulatorのグループ別取得件数・複数期間一括・再送・古いrevision拒否・取消再表示、全7gate、Dev実画面／Functionsログ。旧版の以下の実測を今回の成功証拠へ流用しない。
+
 2026-10-08、オーナーが月別DB取得を指示。業務上の対象判定は変更しない。2026-10-09 JST、Dev配備・307件補完・実Firestoreの12条件照合、Chromeで300件プレビュー3回と全300行照合を完了。プレビューFunctions時間の中央値は18,248→1,031ms。月切替12条件・請求CSVの実画面照合も完了。
 
 物件ごとに`monthlyQueryVersion: 1`、`insuranceQueryStart`／`insuranceQueryEnd`（YYYY-MM、対象なしは空文字）、`billingQueryMonths`（重複のないYYYY-MM配列）を持つ。全property commandとCSV登録は業務値と同じtransactionで再計算する。利用者の入力は受け付けない。
@@ -155,3 +167,24 @@ CSV待機APIは使わず、画面出力後の実保存ファイルを検査し�
 ignored証拠は`tmp/concurrent-log-verified.json`／`concurrent-db-verified.json`、画面は`tmp/concurrent-numbering-rejected.png`／`concurrent-duplicate-r2-rejected.png`／`concurrent-save-rejected.png`／`concurrent-save-history.png`。プレビュー待機・ダイアログ切替直後の要素待機・「閉じる」の複数一致で操作ツール側の失敗があり、現画面を再確認して操作を継続した。登録要求の不明な再送やアプリの認証喪失は発生していない。
 
 今回の完了範囲は2担当者・各2行CSVの採番／重複／保存競合。実初期データ規模、3人以上・長時間・300件の同時本登録などの負荷検証は未実施としてHSC-023に維持する。仕様・データ契約・ADR・runtime・IAM・配備変更なし。変更は本記録と運用／改修台帳／ロードマップ／HSC-023のみで、文書のみの必須gateは`./scripts/check-governance.ps1`。runtime各gateは変更範囲外。
+
+
+## 0.1.131 Local検証（2026-10-09）
+
+独立レビューBILL-CERT-131でP2（部分成功した請求行を未請求CSVへ再出力できる）とP1（新検索項目のない旧像の復旧拒否）を検出。成功行の除外・請求状態更新、機能別readyの独立検証で修正し再レビュー指摘なし。全7gate選択、省略なし。
+
+| コマンド | 最終結果 | exit |
+| --- | --- | --- |
+| `npm test` | 357成功・2skip・失敗0 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 145成功・264038ms、emulator終了確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+
+初回npm testは新Functions共通ファイルの生成前でmodule不足（exit1）。`npm run prepare:functions`成功後に再実行した結果が上記。最初のRules144成功後に復旧回帰試験を追加したため、145件の最終suiteで再検証。型／buildも部分成功表示修正後の結果を採用。
+
+改修対象：3画面コンポーネント、billing-output・warranty-certificate・monthly-query・recovery、property-warranty・firestore-metrics、索引、請求検索移行CLI／helper、seed、recovery-controller、domain／emulator試験。仕様0.1.131・検索／保存契約・環境仕様・HSC-037・日程／ロードマップ・運用／索引／changelogを更新。新しい耐久的アーキテクチャ判断はなくADR追加なし。Rules・IAM・governance設定は変更しない。
+
+Dev事前確認はnormal世代10、315件、Hosting `sites/termite-warranty-dev/versions/3fe35a7a90ec2bbe`。補完前業務値のハッシュをLocalのignored一時記録へ保存した。Dev配備と実画面確認は以下へ追記するまで未完了。

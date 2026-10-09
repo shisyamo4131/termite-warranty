@@ -1,6 +1,6 @@
 # Design Index
 
-- [保証書CSV・期間別発行管理](warranty-certificates.md)：月別抽出・仮5列・保存／導入契約。
+- [保証書CSV・期間別発行管理](warranty-certificates.md)：月別抽出・仮6列・保存／導入契約。
 
 - [Prod準備・Dev容量／検索／CSV実測（2026-10-08）](evidence/prod-readiness-2026-10-08.md)
 

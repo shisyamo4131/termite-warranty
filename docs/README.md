@@ -1,6 +1,6 @@
 # Documentation Map
 
-- [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮5列・保存／導入契約。
+- [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮6列・保存／導入契約。
 
 - [Dev／Prod環境設定・権限仕様](requirements/environment-configuration.md)：実設定と構築時の照合条件。
 - [保険／請求の月別取得・移行](design/monthly-queries.md)：月条件、検索用項目、まとめ読み。
@@ -22,7 +22,7 @@
 
 - [UH運用ルール確認フォーム・6問の文面](../deliverables/hs-uh-questions-2026-10-07/README.md)：2026-10-07のオーナー指定範囲。追加の不足事項は後発。編集用リンクと公開／送信状態を記録。
 
-- [HS共有用・10月末本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：2026-10-05起点の目標日程案。遅延時の納期後ろ倒しを明記。
+- [HS共有用・10月末本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：10月9日の再計画（データ投入→HS試験2日→修正・再試験→Prod構築直前確認）。旧PDFは履歴として区別。
 
 - [Project governance index](../governance/README.md): project-specific governance, approval boundaries, and document routing.
 - [Current specification](specification.md): authoritative summary of confirmed requirements and open decisions.

@@ -1,3 +1,4 @@
+import { migrateBillingQueries } from './lib/billing-query-migration.mjs'
 import { migrateCertificateQueries } from './lib/certificate-query-migration.mjs'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
@@ -33,6 +34,7 @@ const fixedRuntime = { protocol: 2, generation: 1, phase: 'normal', databaseId: 
 await getFirestore(app, 'test-fixed-control').doc('recovery/runtime').set(fixedRuntime)
 await firestore.doc('_recovery/access').set(fixedRuntime)
 await migrateMonthlyQueries(firestore, { apply: true })
+await migrateBillingQueries(firestore, { apply: true })
 await migrateCertificateQueries(firestore, { apply: true })
 
 let user

@@ -2,7 +2,7 @@
 
 ## 2026-10-09 保証書発行の保存契約
 
-保証期間ごとのcertificateItemsと検索用派生値、certificateQueries readinessを追加。[データ・互換性・移行契約](warranty-certificates.md)。既存の保険／請求項目は維持する。
+保証期間ごとのcertificateItemsと検索用派生値、certificateQueries readinessを追加。[データ・互換性・移行契約](warranty-certificates.md)。既存の保険／請求項目は維持する。0.1.131ではissued:falseによる取消を追加し、請求抽出のbillingQueryVersion・billingPendingMonthとbillingQueries readinessを追加。[検索契約](monthly-queries.md)。
 
 ## 2026-10-08 月別検索の保存契約
 

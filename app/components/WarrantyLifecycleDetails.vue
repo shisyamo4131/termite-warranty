@@ -10,6 +10,7 @@
         <div><div class="text-caption mb-1">保証満了案内</div><v-chip v-if="index===transactions.length-1" size="small" :color="row.warrantyNotified ? 'success' : 'default'">{{ row.warrantyNotified ? '案内済み' : '未案内' }}</v-chip><span v-else>—</span></div>
         <div><div class="text-caption mb-1">保証書</div><v-chip size="small" :color="period.certificateIssued ? 'success' : 'default'">{{ period.identifiable ? period.certificateIssued ? '発行済み' : '未発行' : '要確認（期間記録不足）' }}</v-chip></div>
         <div class="period-actions">
+          <v-btn v-if="allowCertificateUndo && period.certificateIssued" color="error" variant="outlined" :disabled="busy || !period.identifiable" @click="$emit('billing','undoCertificate',period)">発行済みを取り消す</v-btn>
           <template v-if="editable && showBilling">
             <v-btn v-if="period.billingState!=='billed'" variant="outlined" :disabled="busy || !period.identifiable" @click="$emit('billing','bill',period)">請求済みにする</v-btn>
             <v-btn color="error" v-else variant="outlined" :disabled="busy" @click="$emit('billing','undoBill',period)">請求済みを取り消す</v-btn>
@@ -50,7 +51,7 @@ import { certificatePeriods } from '../../src/domain/warranty-certificate.mjs'
 import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { warrantyTransactions, activeInsuranceReports, japanDate } from '../../src/domain/property-warranty.mjs'
 import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
-const props=withDefaults(defineProps<{row:Record<string,any>;editable?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
+const props=withDefaults(defineProps<{row:Record<string,any>;editable?:boolean;allowCertificateUndo?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
 defineEmits<{billing:[action:string,period:Record<string,any>]}>()
 const transactions=computed(()=>certificatePeriods(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
 const reports=computed(()=>activeInsuranceReports(props.row))

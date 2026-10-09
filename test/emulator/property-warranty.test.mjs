@@ -863,10 +863,11 @@ test('certificate month queries, migration, period issuance and concurrent updat
   const target=getFirestore(app,'certificate-query-test')
   await target.doc('staffAccounts/cert-hs').set({role:'house_solution_administrator',enabled:true})
   await target.doc('constructionCompanyAccounts/cert-portal').set({role:'construction_company',enabled:true,scope:'company',constructionCompanyId:'meeting-co'})
-  const invoke=(action,data={},uid='cert-hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,...data},uid)
+  const invoke=(action,data={},uid='cert-hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,groupId:'cert-group',...data},uid)
+  await target.doc('warrantyGroups/cert-group').set({name:'試験グループ',enabled:true})
   const fixtures=[]
   for(const [id,date,patch] of [['past','2026-09-05',{}],['current','2026-10-05',{}],['future','2026-11-05',{}],['cancelled','2026-10-05',{status:'cancelled'}],['draft','2026-10-05',{status:'draft'}],['issued','2026-09-05',{certificateItems:[{id:'initial',startDate:'2026-09-05',expiryDate:'2036-09-04',issued:true}]}]]){
-    const row={...fields,status:'active',years:10,maxYears:20,history:[],revision:1,warrantyNumber:id,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
+    const row={...fields,groupId:'cert-group',status:'active',years:10,maxYears:20,history:[],revision:1,warrantyNumber:id,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
     fixtures.push({id,...row});await target.doc('propertyWarranties/'+id).set(row)
   }
   await assert.rejects(invoke('certificateList',{month:'2026-10'}),e=>e.code==='failed-precondition')
@@ -911,4 +912,74 @@ test('certificate month queries, migration, period issuance and concurrent updat
   assert.equal(replacement.certificatePeriodId,'replacement-extension');assert.equal(replacement.certificateIssued,false)
   assert.equal((await target.doc('propertyWarranties/current').get()).data().certificateItems.find(p=>p.id==='initial').issued,true)
 
+})
+
+
+test('group-scoped billing backlog, atomic selected billing and certificate undo',async()=>{
+  const {migrateBillingQueries}=await import('../../scripts/lib/billing-query-migration.mjs')
+  const {certificatePeriods}=await import('../../src/domain/warranty-certificate.mjs')
+  const target=getFirestore(app,'billing-output-test')
+  await target.doc('staffAccounts/hs').set({role:'house_solution_administrator',enabled:true})
+  await target.doc('constructionCompanyAccounts/portal').set({role:'construction_company',enabled:true,scope:'company',constructionCompanyId:'meeting-co'})
+  for(const groupId of ['chosen','other','disabled'])await target.doc('warrantyGroups/'+groupId).set({name:groupId,enabled:groupId!=='disabled'})
+  const invoke=(action,data={},uid='hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,groupId:'chosen',...data},uid)
+  const base={...fields,groupId:'chosen',status:'active',years:20,maxYears:20,revision:1,history:[{kind:'extend',requestId:'ext',before:{years:10}}],billingItems:[{id:'initial',state:'pending'},{id:'ext',state:'pending'}],certificateItems:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30',issued:true},{id:'ext',startDate:'2036-10-01',expiryDate:'2046-09-30',issued:true}]}
+  for(const [id,patch] of [['chosen',{}],['other',{groupId:'other'}],['cancelled',{status:'cancelled'}],['unknown',{billingItems:[]}],['future',{applicationDate:'2046-11-01',billingItems:[{id:'initial',state:'pending'}]}]])await target.doc('propertyWarranties/'+id).set({...base,warrantyNumber:id,...patch})
+  await assert.rejects(invoke('billingList',{month:'2036-10'}),e=>e.code==='failed-precondition')
+  assert.equal((await migrateBillingQueries(target,{apply:true})).changed,5)
+  assert.equal((await migrateBillingQueries(target,{apply:true})).changed,0)
+  const original=(await target.doc('propertyWarranties/chosen').get()).data()
+  assert.deepEqual(original.billingItems,base.billingItems);assert.equal(original.revision,1)
+  let metrics
+  const list=await measureFirestoreOperation('propertyPrototype','billingList',()=>invoke('billingList',{month:'2036-10'}),record=>metrics=record)
+  assert.deepEqual(list.rows.map(r=>[r.id,r.billingEventId]),[['chosen','initial'],['chosen','ext']])
+  assert.equal(metrics.rows.find(r=>r.collection==='propertyWarranties').counters.returnedDocuments,1)
+  assert.equal((await invoke('billingList',{month:'2026-09'})).rows.length,0)
+  assert.equal((await invoke('billingList',{month:'2026-10'})).rows.length,1)
+  await assert.rejects(invoke('billingList',{month:'2036-10',groupId:'disabled'}),e=>e.code==='failed-precondition')
+  await assert.rejects(invoke('billingList',{month:'2036-10'},'portal'),e=>e.code==='permission-denied')
+  const payload={id:'chosen',revision:1,requestId:'bulk',month:'2036-10',periods:certificatePeriods(base).map(p=>({id:p.id,startDate:p.startDate,expiryDate:p.expiryDate}))}
+  await assert.rejects(invoke('billPeriods',{...payload,month:'2026-10'}),e=>e.code==='failed-precondition')
+  await assert.rejects(invoke('billPeriods',payload,'portal'),e=>e.code==='permission-denied')
+  await invoke('billPeriods',payload);await invoke('billPeriods',payload)
+  let saved=(await target.doc('propertyWarranties/chosen').get()).data()
+  assert.equal(saved.revision,2);assert.deepEqual(saved.billingItems.map(p=>p.state),['billed','billed'])
+  assert.equal(saved.billingPendingMonth,'');assert.equal((await invoke('billingList',{month:'2036-10'})).rows.length,0)
+  await assert.rejects(invoke('billPeriods',{...payload,requestId:'stale'}),e=>e.code==='aborted')
+  await invoke('undoBill',{id:'chosen',revision:2,requestId:'undo-bill',warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30',reason:'試験'})
+  assert.equal((await invoke('billingList',{month:'2036-10'})).rows.length,1)
+  const undo={id:'chosen',revision:3,requestId:'undo-cert',warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30',reason:'試験'}
+  await assert.rejects(invoke('undoCertificate',{...undo,reason:''}),e=>e.code==='invalid-argument')
+  await assert.rejects(invoke('undoCertificate',undo,'portal'),e=>e.code==='permission-denied')
+  await invoke('undoCertificate',undo);await invoke('undoCertificate',undo)
+  saved=(await target.doc('propertyWarranties/chosen').get()).data()
+  assert.equal(saved.revision,4);assert.deepEqual(certificatePeriods(saved).map(p=>p.certificateIssued),[false,true])
+  assert.equal(saved.certificatePendingMonth,'2026-10')
+  await assert.rejects(invoke('undoCertificate',{...undo,revision:4,requestId:'duplicate'}),e=>e.code==='failed-precondition')
+})
+
+
+test('recovery accepts pre-billing-query backup but rejects corrupt published projections independently',async()=>{
+  const target=getFirestore(app,'legacy-billing-recovery')
+  await target.doc('warrantyGroups/group').set({name:'試験',enabled:true})
+  await target.doc('constructionCompanies/company').set({name:'試験',defaultGroupId:'group'})
+  const row={status:'active',constructionCompanyId:'company',groupId:'group',years:10,handoverDate:'2026-10-01',applicationDate:'2026-10-01',billingItems:[{id:'initial',state:'pending'}],...initialInsurance('2026-10-01')}
+  const projection=monthlyQueryProjection(row)
+  const legacy={...row,...projection};delete legacy.billingQueryVersion;delete legacy.billingPendingMonth
+  await target.doc('propertyWarranties/one').set(legacy)
+  await target.doc('prototypeSettings/monthlyQueries').set({version:1})
+  await target.doc('prototypeSettings/certificateQueries').set({version:1})
+  await inspectBusinessIntegrity(target)
+  await target.doc('staffAccounts/hs').set({enabled:true,role:'general_staff'})
+  await assert.rejects(propertyPrototypeOperation(auth,target,{action:'billingList',groupId:'group',month:'2026-10'},'hs'),e=>e.code==='failed-precondition')
+  await target.doc('prototypeSettings/billingQueries').set({version:1})
+  await assert.rejects(inspectBusinessIntegrity(target),/projections/)
+  await target.doc('propertyWarranties/one').update(projection)
+  await inspectBusinessIntegrity(target)
+  await target.doc('prototypeSettings/monthlyQueries').set({version:0})
+  await target.doc('propertyWarranties/one').update({billingPendingMonth:''})
+  await assert.rejects(inspectBusinessIntegrity(target),/projections/)
+  await target.doc('propertyWarranties/one').update(projection)
+  await target.doc('propertyWarranties/one').update({certificatePendingMonth:''})
+  await assert.rejects(inspectBusinessIntegrity(target),/projections/)
 })

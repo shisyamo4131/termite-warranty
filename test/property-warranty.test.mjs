@@ -731,5 +731,18 @@ test('certificate issuance is period-specific; selected month includes earlier u
   assert.equal(certificatePeriods({...row,handoverDate:'2026-10-07'})[0].certificateIssued,false)
   const old={...row,certificateItems:[]};assert.equal(certificateRows([old],'2036-10').length,2)
   assert.equal(certificateProjection({...row,status:'cancelled'}).certificatePendingMonth,'')
-  assert.equal(certificateCsv([{warrantyNumber:'A',name:'架空,物件',handoverDate:'2026-10-06',companyLabel:'会社',branchLabel:'本店'}]),'\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店"\r\n"A","架空,物件","2026-10-06","会社","本店"')
+  assert.equal(certificateCsv([{warrantyNumber:'A',name:'架空,物件',handoverDate:'2026-10-06',companyLabel:'会社',branchLabel:'本店'}]),'\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店","住所"\r\n"A","架空,物件","2026-10-06","会社","本店",""')
+})
+
+
+test('billing backlog includes pending periods through selected month; CSV address remains optional', async()=>{
+  const {billingProjection,pendingBillingRows}=await import('../src/domain/billing-output.mjs')
+  const {certificateCsv}=await import('../src/domain/warranty-certificate.mjs')
+  const row={id:'one',status:'active',years:20,applicationDate:'2026-09-01',handoverDate:'2026-10-06',history:[{kind:'extend',requestId:'ext',before:{years:10}}],billingItems:[{id:'initial',state:'pending'},{id:'ext',state:'pending'}]}
+  assert.equal(billingProjection(row).billingPendingMonth,'2026-09')
+  assert.equal(pendingBillingRows([row],'2026-08').length,0)
+  assert.deepEqual(pendingBillingRows([row],'2036-10').map(r=>r.billingEventId),['initial','ext'])
+  assert.equal(pendingBillingRows([{...row,billingItems:[{id:'initial',state:'billed'}]}],'2036-11').length,0)
+  assert.equal(billingProjection({...row,status:'cancelled'}).billingPendingMonth,'')
+  assert.equal(certificateCsv([{address:'東京都架空区1-1',buildingName:'架空棟'}]).split('\r\n')[1].endsWith('"東京都架空区1-1 架空棟"'),true)
 })

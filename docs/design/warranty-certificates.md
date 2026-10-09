@@ -1,17 +1,17 @@
 # 保証書CSV・保証期間別の発行管理
 
-仕様0.1.130／2026-10-09オーナー承認。製品の検証・Dev反映は下の実績欄で区別する。
+仕様0.1.131／2026-10-09オーナー承認。製品の検証・Dev反映は下の実績欄で区別する。
 
 ## 保存と取得
 
-- `propertyWarranties.certificateItems`は`id`（initial／有効延長requestId／確定済み取込期間ID）、`startDate`、`expiryDate`、`issued:true`、`requestId`、`at`、`actorUid`を持つ。期間IDと両日付が一致した場合だけ発行済み。保証期間は既存の10年区切り。保険の5年区切りとは別。
+- `propertyWarranties.certificateItems`は`id`（initial／有効延長requestId／確定済み取込期間ID）、`startDate`、`expiryDate`、`issued`（boolean）、`requestId`、`at`、`actorUid`を持つ。期間IDと両日付が一致した場合だけ発行済み。保証期間は既存の10年区切り。保険の5年区切りとは別。
 - 記録のない既存Dev／Local期間は未発行で開始する。年月・取消・延長取消から有効な期間を再計算。延長取消後の記録は保存し、再延長の新IDへ流用しない。引渡日訂正で日付が変われば未発行として再確認する。実際の交付物の回収・訂正はHSの別業務。
 - 発行済みcommandはHSの有効アカウント、物件active、revision、選択した期間ID・日付・対象月をtransaction内で検証。同じ物件の複数期間を一度に更新。異なる物件は順次処理し、途中失敗は確認済み件数を表示。requestId receiptにより結果不明の再試行で二重更新しない。
-- CSV出力だけでは更新しない。編集画面からも変更させない。誤操作の発行済み取消UIは今回追加していない。
+- CSV出力だけでは更新しない。編集画面からundoCertificateで指定期間を未発行へ戻せる。active・revision・期間ID／日付・発行済みを検査し、理由必須でissued:falseと履歴を保存する。
 - 派生値は`certificateQueryVersion:1`、`certificateQueryMonths`（有効期間の開始月）、`certificatePendingMonth`（最も早い未発行月、なければ空文字）。全保存command／一括取込と同じtransactionで更新。
-- Firestoreで指定月のarray-containsと過去未発行月の範囲（空文字より大・対象月より小）を取得し、文書IDで重複排除して期間行へ展開。業務文書全件取得はしない。同一物件が両条件を満たす場合は読取が2回になる。各queryは単一フィールド索引で、追加の複合索引は不要。
+- Firestoreで指定月のarray-containsと過去未発行月の範囲（空文字より大・対象月より小）を取得し、文書IDで重複排除して期間行へ展開。業務文書全件取得はしない。同一物件が両条件を満たす場合は読取が2回になる。各queryにgroupId一致を付け、有効な保証グループを必須とする。groupId＋certificateQueryMonths、groupId＋certificatePendingMonthの複合索引を使用する。
 - `prototypeSettings/certificateQueries.version=1`まで新一覧を公開しない。記録不足で期間IDを特定できない行は「要確認」、選択・発行済み登録不可。
-- CSVはBOM付きUTF-8、CRLF、共通csvCellによる引用・エスケープ。仮5列には期間列を追加しないため、同物件の初回／延長を同時に選ぶと同じ5列の行が複数になる。発行対象期間は画面で確認する。
+- CSVはBOM付きUTF-8、CRLF、共通csvCellによる引用・エスケープ。仮6列（既存5列＋住所）には期間列を追加しないため、同物件の初回／延長を同時に選ぶと同じ6列の行が複数になる。発行対象期間は画面で確認する。
 
 ## 導入・差戻し・復旧
 
@@ -20,7 +20,7 @@
 3. Hosting配備・正式preflight・実画面月切替／選択／CSV／発行／編集表示／Functionsログを検証する。
 4. 差戻しは前のレビュー済みruntimeへ戻し、新タブを除く。保存済み発行事実は消さない。再導入・旧バックアップ復旧時は派生値を再補完し、月別投影の整合を満たすまで公開しない。これは正常Devの更新であり保守モードやProd変更を許可するものではない。
 
-## 検証実績
+## 旧版0.1.130の検証実績
 
 実装・独立レビュー・全7gate・Dev配備・検索項目補完・実画面検証を完了。runtime基準は `8ea12df8bb8aadbe35d81d048a627c93484da4a4`。レビューの2件（詳細の保険向け誤案内、共通年月入力の未使用）は修正・再レビューで解消。
 

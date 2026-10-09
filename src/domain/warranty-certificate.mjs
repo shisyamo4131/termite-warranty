@@ -1,4 +1,4 @@
-import { warrantyTransactions, csvCell } from './property-warranty.mjs'
+import { warrantyTransactions, csvCell, propertyAddress } from './property-warranty.mjs'
 
 export function certificatePeriods(row) {
   return warrantyTransactions(row).map(period => ({ ...period,
@@ -21,6 +21,6 @@ export function certificateRows(rows, month) {
     .sort((a,b) => a.certificateMonth.localeCompare(b.certificateMonth) || String(a.warrantyNumber).localeCompare(String(b.warrantyNumber)) || a.certificatePeriodId.localeCompare(b.certificatePeriodId))
 }
 export function certificateCsv(rows) {
-  const values = [['保証書No','物件名','引渡日','担当工務店','担当本支店'], ...rows.map(row => [row.warrantyNumber,row.name,row.handoverDate,row.companyLabel,row.branchLabel])]
+  const values = [['保証書No','物件名','引渡日','担当工務店','担当本支店','住所'], ...rows.map(row => [row.warrantyNumber,row.name,row.handoverDate,row.companyLabel,row.branchLabel,[propertyAddress(row),row.buildingName].filter(Boolean).join(' ')])]
   return '\uFEFF' + values.map(row => row.map(csvCell).join(',')).join('\r\n')
 }

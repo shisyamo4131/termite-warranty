@@ -1,5 +1,9 @@
 # Operations
 
+## 2026-10-09 請求・保証書の追加改修（進行中）
+
+請求の保証グループ別・当月以前未請求抽出／一括請求済み、保証書のグループ別抽出・住所列・編集取消を実装中。Devは前版のまま。新索引3件とbillingQueriesの派生値補完が必要。導入・差戻し・検証の契約は[月別取得](design/monthly-queries.md)、[保証書](design/warranty-certificates.md)。過去データ受領後のHS試験運用は2日へ更新した[現行日程](../deliverables/production-schedule-2026-10-05/README.md)を使用する。
+
 ## 2026-10-09 Dev設定照合・保証書CSV着手
 
 Devの実一覧4サービスアカウントの個別IAMと全21関数の実行主体、祖先組織なし、GitHub development保護なしを読取専用で確認。[設定仕様の追加照合](requirements/environment-configuration.md#2026-10-09-dev設定権限の追加照合)に確認値・未確認範囲・コマンド終了状態を反映。通知メールはCLI操作者メールと不一致だが、指定先との不一致と断定せず、本人照合／実受信は未確認。設定・権限変更や通知送信は行っていない。

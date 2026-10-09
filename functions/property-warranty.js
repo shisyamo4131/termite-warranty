@@ -1,3 +1,4 @@
+import { pendingBillingRows } from './domain/billing-output.mjs'
 import { certificatePeriods, certificateRows } from './domain/warranty-certificate.mjs'
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { createHash } from 'node:crypto'
@@ -92,11 +93,19 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     return settings
   }
   if (action === 'catalog') return catalog(db, a, String(input.search ?? '').trim(), input.groupId || '', input.companyId || '', input.purpose || '')
-  if (action === 'certificateList') {
+  if (action === 'certificateList' || action === 'billingList') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     if (!validMonth(input.month)) fail('invalid-argument', '対象年月を指定してください。')
+    const groupId = id(input.groupId)
+    const group = (await db.doc(`warrantyGroups/${groupId}`).get()).data()
+    if (!group || group.enabled === false) fail('failed-precondition', '有効な保証グループを選択してください。')
+    if (action === 'billingList') {
+      if ((await db.doc('prototypeSettings/billingQueries').get()).data()?.version !== 1) fail('failed-precondition', '請求一覧の準備中です。開発側へ確認してください。')
+      const page = await db.collection('propertyWarranties').where('groupId','==',groupId).where('billingPendingMonth','>','').where('billingPendingMonth','<=',input.month).get()
+      return {rows:pendingBillingRows(rows(page), input.month)}
+    }
     if ((await db.doc('prototypeSettings/certificateQueries').get()).data()?.version !== 1) fail('failed-precondition', '保証書一覧の準備中です。開発側へ確認してください。')
-    const collection = db.collection('propertyWarranties')
+    const collection = db.collection('propertyWarranties').where('groupId','==',groupId)
     const snapshots = await Promise.all([
       collection.where('certificateQueryMonths', 'array-contains', input.month).get(),
       collection.where('certificatePendingMonth', '>', '').where('certificatePendingMonth', '<', input.month).get()
@@ -289,8 +298,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     } catch (error) { if (error instanceof AccountMutationError) fail(error.code, error.message); throw error }
     return { ok: true }
   }
-  if (!['save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
-  if (['notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
+  if (!['save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
+  if (['notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
   const ref = db.doc(`propertyWarranties/${id(input.id)}`)
   const requestId = id(input.requestId)
   return db.runTransaction(async tx => {
@@ -313,7 +322,26 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     let next = { ...old }
     let newKeyReservation = null
     let operationTarget = null
-    if (action === 'issueCertificate') {
+    if (action === 'undoCertificate') {
+      if (old.status !== 'active') fail('failed-precondition', '本登録済みの物件だけが対象です。')
+      const period = certificatePeriods(old).find(p=>p.id === input.warrantyPeriodId && p.identifiable)
+      if (!period || !period.certificateIssued || period.startDate !== input.startDate || period.expiryDate !== input.expiryDate) fail('failed-precondition','発行済みの保証期間を確認して開き直してください。')
+      text(input.reason,'理由')
+      next.certificateItems = [...(old.certificateItems ?? []).filter(item=>item.id !== period.id), {id:period.id,startDate:period.startDate,expiryDate:period.expiryDate,issued:false,requestId,at:now.toDate().toISOString(),actorUid:uid}]
+      operationTarget = {id:period.id,startDate:period.startDate,expiryDate:period.expiryDate}
+    } else if (action === 'billPeriods') {
+      if (old.status !== 'active') fail('failed-precondition','本登録済みの物件だけが対象です。')
+      if (!validMonth(input.month) || !Array.isArray(input.periods) || !input.periods.length || input.periods.length > 3 || new Set(input.periods.map(p=>p?.id)).size !== input.periods.length) fail('invalid-argument','対象年月と保証期間を確認してください。')
+      if (old.groupId !== input.groupId) fail('failed-precondition','保証グループが一致しません。')
+      const available = warrantyTransactions(old)
+      const selected = input.periods.map(target=>{
+        const period = available.find(p=>p.id === target?.id && p.identifiable)
+        if (!period || period.billingState !== 'pending' || !validMonth(period.billingDate.slice(0,7)) || period.billingDate.slice(0,7)>input.month || period.startDate !== target.startDate || period.expiryDate !== target.expiryDate) fail('failed-precondition','請求対象の保証期間・状態が変わりました。一覧を更新してください。')
+        return period
+      })
+      next.billingItems = [...(old.billingItems ?? []).filter(item=>!selected.some(p=>p.id === item.id)), ...selected.map(p=>({id:p.id,startDate:p.startDate,expiryDate:p.expiryDate,state:'billed',requestId,at:now.toDate().toISOString(),actorUid:uid}))]
+      operationTarget = {periods:selected.map(p=>({id:p.id,startDate:p.startDate,expiryDate:p.expiryDate}))}
+    } else if (action === 'issueCertificate') {
       if (old.status !== 'active') fail('failed-precondition', '本登録済みの物件だけが対象です。')
       if (!validMonth(input.month) || !Array.isArray(input.periods) || !input.periods.length || input.periods.length > 3 || new Set(input.periods.map(p => p?.id)).size !== input.periods.length) fail('invalid-argument', '対象年月と保証期間を確認してください。')
       const available = certificatePeriods(old)
