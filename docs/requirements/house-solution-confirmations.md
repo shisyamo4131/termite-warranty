@@ -27,7 +27,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-08：上限到達の保証案内除外・最長10年対応はDev反映済み。UHも共通保険ルール。保険満了一覧の用途等・HS受入は残件。初回対象月・月内終了のHS選択は既決。現在のCSVは日付自動補完なし | House Solution |
 | HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | 初回引渡月／延長開始月＋過去未発行、期間別発行状態を承認。初版5列はDev検証済み。住所追加6列・グループ抽出・編集画面からの発行取消もDev実画面検証済み。正式列未確定。保証書出力・グループ訂正は後発 | House Solution |
 | HSC-038 | [Construction-company Branches and Document Recipients](house-solution-confirmations/HSC-038-company-branches-recipients.md) | Initial dispatch/recipient management excluded; address-label CSV not adopted; hierarchy confirmed, remaining portal effects deferred | House Solution |
-| HSC-015 | [初期データ登録準備](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 資料は揃ったとの報告。オーナーの投入準備データ提供まで保留。旧訂正依頼を繰り返さない | House Solution, then project |
+| HSC-015 | [初期データ登録準備](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 10/9資料442件を受領・点検。登録値・所属対応と再実行可能な一括処理を準備、Dev未投入 | House Solution, then project |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS confirmed; company functionality retained, rollout deferred | House Solution, then project |
 
 ## Resolved Matters

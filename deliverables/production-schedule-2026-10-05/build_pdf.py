@@ -7,7 +7,7 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / 'output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-05.pdf'
+OUT = ROOT / 'output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-09.pdf'
 pdfmetrics.registerFont(TTFont('JP', 'C:/Windows/Fonts/BIZ-UDGothicR.ttc'))
 pdfmetrics.registerFont(TTFont('JPB', 'C:/Windows/Fonts/BIZ-UDGothicB.ttc'))
 navy = colors.HexColor('#173A53')
@@ -19,19 +19,17 @@ white = ParagraphStyle('white', parent=bold, textColor=colors.white, fontSize=9)
 def p(text, style=body): return Paragraph(text, style)
 
 rows = [
- ('10/9', '残仕様・本番準備事項の確認', 'フォームへの回答、HS管理者名・メールアドレスの決定、本番環境設定の日程調整。', 'HS'),
- ('10/13', '過去データ・帳票資料の確定', '不足情報・不明点の解消、UHの引渡日等の補完、保証書のWord差し込み項目の確定。', 'HS・開発側'),
- ('10/16', '初期稼働に必要な機能の完成', '回答に基づく改修、保証書用CSV、過去データ登録の準備、検索・採番・期間計算等の検証。', '開発側'),
- ('10/20', '本番環境の構築', 'HS所有の環境・開発者権限・料金設定、管理者アカウント、バックアップ・障害時対応の準備。', '開発側・HS'),
- ('10/22', '過去データの取込み予行・業務確認', '過去番号を保持した登録と照合。登録・延長・取消・保険報告・請求・保証書印刷を一巡。', '開発側・HS'),
- ('10/26', 'HSによる最終確認・操作説明', '実際の担当者が操作し、一覧・CSV・印刷結果を確認。指摘事項を整理して修正。', 'HS・開発側'),
- ('10/28', '本番への初期データ登録・照合', '確認期間中の追加・訂正分を反映して本番へ登録。HSが登録結果を照合・了承。', '開発側・HS'),
- ('10/29', '稼働開始の最終判断', '重大な不具合、初期データ、ログイン、問い合わせ先・障害時対応を確認し、開始を承認。', 'HS社長\n・開発側'),
- ('10/30', '本番稼働開始', 'HSによる通常の登録・更新業務を開始。開発側が初日の動作を確認。', 'HS・開発側'),
+ ('10/9', '過去データ受領・事前点検', 'HSC 99件・SHS 66件・UH 277件、計442件を確認。不足値・所属・初期状態の対応を整理。取込みは未実施。', '開発側'),
+ ('10/13\n〜10/15', 'Dev初期化・一括取込み・照合', '不明点の解消と取込処理の検証後に実施。過去番号を保持し、件数・日付・保証期間・状態を全件照合。再取込み手順も整備。', '開発側\n・HS'),
+ ('10/16・19', 'HS試験運用（2日）', 'Devの実画面で登録・訂正・延長・月別一覧・各CSV・済み登録と取消を確認。指摘をまとめる。実施日はHSと調整。', 'HS'),
+ ('10/20\n〜10/26', '修正・再試験（3〜5作業日）', 'UIや保存形式を必要に応じ修正。形式変更時は再初期化・再取込み・全件照合を行い、期間を再見積り。', '開発側\n・HS'),
+ ('10/27', 'Prod構築直前の確認', '初期仕様、データ、未解決不具合、管理者情報、設定・権限、再現可能な投入手順を確認。HS試験完了が開始条件。', '開発側\n・HS'),
+ ('10/28以降', 'Prod構築・本番投入・最終確認', '環境と権限、配備、PITR等の設定・検証後、原資料から本番投入して照合。HS社長による利用開始判断。各日は構築前確認後に設定。', '開発側\n・HS'),
+ ('再設定', '本番稼働開始', '従来の10/30は確約しない。上記工程と最終了承を満たして開始日を決める。11月以降への後ろ倒しも含めて調整。', 'HS\n・開発側'),
 ]
-story = [p('HS様 共有用  /  2026年10月5日作成', small), Spacer(1, 9),
+story = [p('HS様 共有用  /  2026年10月9日改訂', small), Spacer(1, 9),
          p('本番稼働に向けた目標スケジュール', ParagraphStyle('title', parent=bold, fontSize=19, leading=27)),
-         p('起算日：2026年10月5日　｜　本番稼働開始目標：2026年10月30日', bold), Spacer(1, 13)]
+         p('過去データによるDev試験を先行　｜　HS試験運用：2日', bold), Spacer(1, 13)]
 notice = Table([[p('本資料は「目標日程」です', bold)],
                 [p('各日付は現時点の目標であり、確定した納期・完了日の確約ではありません。')],
                 [p('回答・資料提供・確認、または開発・検証等の作業が遅れた場合、その影響に応じて後続作業および本番稼働開始日（納期）も後ろ倒しとなります。変更後の日程はHS様と協議して再設定します。')]], colWidths=[523])
@@ -39,17 +37,17 @@ notice.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,-1),colors.HexColor('#FFF4DE
 story += [notice, Spacer(1, 15)]
 data = [[p('目標完了日',white),p('大項目・実施内容',white),p('主担当',white)]]
 for date,title,desc,owner in rows:
-    data.append([p(date,bold),[p(title,bold),p(desc,small)],p(owner.replace('\n','<br/>'),small)])
+    data.append([p(date.replace('\n','<br/>'),bold),[p(title,bold),p(desc,small)],p(owner.replace('\n','<br/>'),small)])
 table = Table(data, colWidths=[66,383,74], repeatRows=1, hAlign='LEFT')
 table.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),navy),('VALIGN',(0,0),(-1,-1),'TOP'),('LEFTPADDING',(0,0),(-1,-1),9),('RIGHTPADDING',(0,0),(-1,-1),9),('TOPPADDING',(0,0),(-1,-1),8),('BOTTOMPADDING',(0,0),(-1,-1),8),('ROWBACKGROUNDS',(0,1),(-1,-2),[colors.white,colors.HexColor('#F0F5F8')]),('BACKGROUND',(0,-1),(-1,-1),colors.HexColor('#E3F2F1')),('LINEBELOW',(0,1),(-1,-1),.35,colors.HexColor('#CCD8DF'))]))
-story += [table, Spacer(1, 13),p('日程を左右する直近のお願い',bold),
-          p('10/9までの回答・管理者情報の決定と、10/13までの不足データ補完をお願いします。本番環境の準備は改修と並行して進めます。',small),
+story += [table, Spacer(1, 13),p('日程の前提',bold),
+          p('土日・祝日を除く案（10/12は祝日）。10/13までに取込条件が確定する前提で、HSの実施日は未合意です。不足情報や保存形式の変更に応じて再調整します。',small),
           Spacer(1,7),p('初期稼働の範囲',bold),
-          p('HS側で入力し、保証書・請求書はCSVを利用してHS側で作成します。工務店ポータルの利用開始などの後発事項は、今回の稼働条件に含めません。',small)]
+          p('初期対応はCSV出力まで。保証書生成・印刷は後発です。過去データは開発側が一括投入し、HSによる1件ずつの手入力は求めません。',small)]
 def footer(canvas,doc):
     canvas.setStrokeColor(teal); canvas.setLineWidth(1); canvas.line(36,31,559,31)
     canvas.setFont('JP',7); canvas.setFillColor(navy)
-    canvas.drawString(36,19,'白蟻保証業務システム  |  2026年10月末稼働に向けた目標日程（案）')
+    canvas.drawString(36,19,'白蟻保証業務システム  |  Dev試験運用を先行する改訂日程（案）')
     canvas.drawRightString(559,19,str(doc.page))
 OUT.parent.mkdir(parents=True,exist_ok=True)
 SimpleDocTemplate(str(OUT),pagesize=A4,rightMargin=36,leftMargin=36,topMargin=30,bottomMargin=43,title='本番稼働に向けた目標スケジュール',author='開発側').build(story,onFirstPage=footer,onLaterPages=footer)

@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [過去物件のDev初期化・一括取込み準備](runbooks/historical-property-intake.md)：10月9日受領442件の点検、不足事項、再実行手順。取込みは未実施。
+
 - [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮6列・保存／導入契約。
 
 - [Dev／Prod環境設定・権限仕様](requirements/environment-configuration.md)：実設定と構築時の照合条件。
