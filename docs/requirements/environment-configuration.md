@@ -54,8 +54,27 @@ DevとProdは別プロジェクト。Dev例外（自動退避停止等）をProd
 
 プロジェクトIAM・Auth・Functions・DB・Rules releases・有効API・Billing・alert件数・APIキー制限をAPIで確認済み。ページ続きなし。14:37 UTCに追加確認：実行SAへのserviceAccountUser bindingあり。Auth退避bucketは東京・uniform有効・publicAccessPrevention enforced、実行SAへobjectCreatorと専用metadata reader、開発者へstorage.admin。hash読取用独自roleは`firebaseauth.configs.getHashConfig`のみ。Cloud Loggingの_Defaultは30日保持、除外0件。
 
-SA個別IAMは一部がHTTP404のため全主体照合は未完了。次は配備主体が現行かどうか、通知先の実受信、組織の継承IAM・制約、GitHub environment保護を構築時に確認する。プロジェクトIAM一覧だけでは保証できない。これらの不足を残したまま「Prodで同一設定を再現済み」とは扱わない。
+SA個別IAM・親組織・GitHub保護の追加照合は下記2026-10-09節を優先する。通知先の本人照合・実受信、CI秘密が実際に指す主体、サービス管理主体の内部IAMは引き続き未確認。これらの不足を残したまま「Prodで同一設定を再現済み」とは扱わない。
 
 有効APIにはBigQuery等、現在アプリが必要とする証拠のないものも含まれる。全APIをProdへ複製しない。Firebase／Hosting／Rules／Firestore／Auth／Functionsとその配備基盤、IAM／監視／ログ／復旧で実使用するAPIを構築記録に対応付け、残りは必要性が判明してから追加する。
 
 Prod実ID、公開URL、組織制約、CI方式・主体、実行主体、請求先関連付けは未確定。HS管理者のメール／氏名は受領済みであり、再提出待ちにはしない。仕様の存在だけでは設定完了を保証しない。実設定の読戻しと配備・認証・業務・復旧の受入証拠を揃えて提供を判断する。
+
+## 2026-10-09 Dev設定・権限の追加照合
+
+オーナーの「確認→設定仕様書へ反映」指示により、10:01 JSTにCloud管理API、続いてGitHub APIを読取専用で確認。IAM・通知・GitHub設定は変更していない。認証情報・個人メールは出力せず、主体を役割で対応付けた。
+
+| 照合対象 | 確認結果 | Prodへの反映条件 |
+| --- | --- | --- |
+| Dev所属サービスアカウント | IAMの実一覧4主体、すべて有効。各主体の個別IAMを取得成功。Firebase SDK管理・配備用は個別bindingなし。Functions実行用と別editor主体には配備用主体のserviceAccountUser bindingあり | プロジェクトroleと個別actAsを両方照合。今回一覧にない主体へ推測で権限を付けない |
+| Functions実行主体 | 全21関数が同じ実行主体を使用。editor・datastore.backupsViewer・独自recoveryAuthHashReaderを確認 | Devのeditorを無条件に複製せず、Prodで必要な操作を検証。別editor主体はFunctions未使用だが、他用途まで不要と断定しない |
+| プロジェクトIAM内のその他主体 | サービス管理用など、上記一覧外12主体。ワイルドカードprojectによる識別照会は11主体403、1主体404 | 403を不存在と解釈しない。管理主体の内部IAM、404主体の現役判定は未確認として残す。今回削除・整理なし |
+| 親組織・継承 | getAncestryは当該projectのみ。祖先folder／organizationなし。listOrgPoliciesは空、ページ続きなし | Devに祖先から継承するIAMはない。組織ポリシー未設定は全サービス制約なしの意味ではない。Prodの実際の所属で再照合 |
+| 直近の配備主体 | 10月8日のCloud Functions更新監査ログは現在のCLI操作者。最新ログ時刻14:49:56 UTC。GitHubの最新手動配備成功は9月18日、run 35303604261 | 現在のDevをGitHubの最新配備だけで説明しない。CI用秘密の内容は取得せず、現在の秘密が指す主体の実証は次回正規配備で確認 |
+| GitHub development環境 | protection_rulesは空、deployment_branch_policyはnull。mainの旧ブランチ保護は404「Branch not protected」、repository rulesetsは空 | 現在はレビュー承認・environment側ブランチ制限なし。ローカルworkflowは手動dispatch時だけ配備だが、Prodの保護条件は別途設定・実証する |
+| 失敗通知条件 | 有効policy 1件、ログ条件jsonPayload.recoveryBackupFailure=true。メールchannel 1件、有効。通知間隔300秒・自動close86400秒 | 通知は復旧バックアップ失敗用で、全アプリ障害の通知ではない。Prodで条件・宛先・到達を照合する |
+| 通知先と到達 | 設定メールは現在のFirebase CLIログインメールと一致しない。オーナーが意図する別Googleアカウントかは未確認。verificationStatusの値なし | 誤設定とは断定せず、オーナー指定先と非公開照合し、実通知の受信確認を残す。今回通知送信・メール変更なし |
+
+証拠：`node tmp/environment-followup.mjs` exit 0（監査ログは最新100記録の限定取得・続きあり。IAM／Functions／監視等の一覧は続きなし）。`gh api repos/shisyamo4131/termite-warranty/environments/development`、同workflow手動実行履歴、repository rulesets取得は各exit 0。main/protectionの照会はexit 1・HTTP404の明示応答を「保護なし」の根拠とした。初回の通常sandbox内GitHub接続は失敗し、ネットワーク許可付きの再照会で成功。成功コマンドと区別する。
+
+API解釈はGoogle公式の[サービスアカウントIAM取得](https://docs.cloud.google.com/iam/docs/reference/rest/v1/projects.serviceAccounts/getIamPolicy)、[祖先取得](https://docs.cloud.google.com/resource-manager/reference/rest/v1/projects/getAncestry)を照合。主体の403／404から存在や権限を補完しない。追加取得結果はignored `tmp/environment-followup.json`。本節はDevの照合記録であり、Prod設定完了や通知到達の証拠ではない。
