@@ -1,8 +1,8 @@
 # Operations
 
-## 2026-10-09 請求・保証書の追加改修（進行中）
+## 2026-10-09 請求・保証書の追加改修（Dev反映済み）
 
-請求の保証グループ別・当月以前未請求抽出／一括請求済み、保証書のグループ別抽出・住所列・編集取消を実装中。Devは前版のまま。新索引3件とbillingQueriesの派生値補完が必要。導入・差戻し・検証の契約は[月別取得](design/monthly-queries.md)、[保証書](design/warranty-certificates.md)。過去データ受領後のHS試験運用は2日へ更新した[現行日程](../deliverables/production-schedule-2026-10-05/README.md)を使用する。
+請求の保証グループ別・当月以前未請求抽出／一括請求済み、保証書のグループ別抽出・住所列・編集取消を6decdc5でDev反映。315件の業務値を保って新検索項目を補完し、全7Localgate・独立レビュー・正式配備照合10項目・Chrome実画面・Functionsログ11件を確認。導入・差戻し・検証の契約は[月別取得](design/monthly-queries.md)、[保証書](design/warranty-certificates.md)。過去データ受領後のHS試験運用は2日へ更新した[現行日程](../deliverables/production-schedule-2026-10-05/README.md)を使用する。
 
 ## 2026-10-09 Dev設定照合・保証書CSV着手
 

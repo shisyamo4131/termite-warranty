@@ -1,6 +1,6 @@
 # 保険／請求の月別Firestore取得
 
-## 2026-10-09 請求の過月未処理抽出（改修中）
+## 2026-10-09 請求の過月未処理抽出（Dev反映済み）
 
 現行要件は保証グループ＋対象年月で当月を含む過去未請求を抽出する。従来のbillingQueryMonthsと旧APIは互換用に維持し、新画面はbillingListを使用する。billingQueryVersion:1とbillingPendingMonth（activeかつ識別可能なpending期間の最古の請求対象月、なければ空文字）をmonthlyQueryProjectionで同時保存する。unknownをpendingへ変換しない。
 
@@ -187,4 +187,94 @@ ignored証拠は`tmp/concurrent-log-verified.json`／`concurrent-db-verified.jso
 
 改修対象：3画面コンポーネント、billing-output・warranty-certificate・monthly-query・recovery、property-warranty・firestore-metrics、索引、請求検索移行CLI／helper、seed、recovery-controller、domain／emulator試験。仕様0.1.131・検索／保存契約・環境仕様・HSC-037・日程／ロードマップ・運用／索引／changelogを更新。新しい耐久的アーキテクチャ判断はなくADR追加なし。Rules・IAM・governance設定は変更しない。
 
-Dev事前確認はnormal世代10、315件、Hosting `sites/termite-warranty-dev/versions/3fe35a7a90ec2bbe`。補完前業務値のハッシュをLocalのignored一時記録へ保存した。Dev配備と実画面確認は以下へ追記するまで未完了。
+Dev事前確認はnormal世代10、315件、Hosting `sites/termite-warranty-dev/versions/3fe35a7a90ec2bbe`。補完前業務値のハッシュをLocalのignored一時記録へ保存した。その後のDev配備と実画面確認は以下の実績を参照する。
+
+
+## 0.1.131 Dev配備・実画面検証（2026-10-09）
+
+runtime `6decdc52e45fc128403443ea3c89d3dfdf9bb1d1`、Dev `termite-warranty-dev`／`(default)`、normal世代10。
+
+| 実行 | 結果／exit |
+| --- | --- |
+| `npm run build:recovery-release -- --revision 6decdc52e45fc128403443ea3c89d3dfdf9bb1d1` | 成功／0 |
+| `npx firebase deploy --only firestore:indexes --project termite-warranty-dev --non-interactive` | 成功／0、新3索引をRESTでREADY確認 |
+| `npx firebase deploy --only functions --project termite-warranty-dev --non-interactive` | 全21成功／0 |
+| `node tmp/billing-dev-check.mjs drain`（読取専用補助） | ACTIVE21・操作0・ロックなし・normal10／0 |
+| `node scripts/billing-query-migration.mjs --project termite-warranty-dev` | scanned315・changed315、書込なし／0 |
+| 同CLI `--apply --writers-drained --generation 10 --revision 6decdc52e45fc128403443ea3c89d3dfdf9bb1d1` | 315件補完・再検査後ready1／0 |
+| `node tmp/billing-dev-check.mjs verify` | 315件保持・業務値ハッシュ不変・3グループ×3年月で請求／保証書双方一致／0 |
+| `npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` | 成功／0、`sites/termite-warranty-dev/versions/099829773fdbd08d` |
+| `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 6decdc52e45fc128403443ea3c89d3dfdf9bb1d1 --source '(default)' --generation 10 --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/3fe35a7a90ec2bbe --dev-inspect` | 最終10項目pass／0、Functions21・Hosting991ファイル・索引15・除外30 |
+| `node tmp/billing-dev-check.mjs postcheck` | UI操作後315件保持、期間別状態一致、グループ有効8／無効4／0 |
+
+索引状態の最初の確認はAPIのpageSize指定が拒否（exit1）。指定を除いてCREATINGを確認し、READYまで待った。配備直後の最初のpreflightはHosting identity-mismatchでblocked（コマンドexit0でも成功扱いにせず）、新版画面配信確認後の最終照合で全pass。内部原因は断定しない。
+
+補完直後の通常保証グループ：2026-09は請求2文書／2期間、2026-10は3文書／4期間、2036-10は4文書／5期間。他グループを読まず、DBの対象集合と全件から独立計算した期待集合が一致。計測は課金件数ではない。
+
+### Chrome実画面での確認
+
+既存ログインのデモ管理者を使用。Authアカウント作成なし。架空データだけを操作した。
+
+1. 請求画面の検索欄が保証グループ・年月だけになり、グループ未選択では取得しないことを確認。有効候補8件を表示（DBには無効4件も存在するが選択候補に出ない）。
+2. 通常保証グループの2026-09は過去未請求2期間、2026-10は当月を含む4期間。初回・延長の2期間（QA85F17F-16-001）をCSV出力し、実ファイルのBOM・11列・2行・両期間の日付・未請求表記を検査。CSV出力だけでは状態不変。
+3. 同じ2期間を請求済みにし、4→2期間へ減少。未選択の別物件2期間を保持。
+4. 物件／保証編集画面で初回だけを理由付きで請求取消。初回未請求・延長請求済みを確認。再度請求一覧を開くと3期間となり、初回が戻り延長は含まれない。
+5. 同編集画面で初回保証書の発行取消を実施。理由空欄での拒否を確認後、理由を入力して実行。初回未発行・延長発行済みとなり、保証書一覧の過去未発行に初回が戻る。
+6. 保証書CSVは通常保証グループ1行・6列で、末尾住所が編集画面の架空住所と一致。取込み保証へ切替えると選択解除・再検索前出力不可。そのグループの2件だけをCSV出力し、うち住所未登録1件が空欄であることを実ファイルで確認。どちらも出力後未発行を維持。
+7. QA85F17F-21-001の既存「保険の報告済みを取り消す」を実行。後半2026-10-08〜2031-10-07が未報告、前半2021-10-08〜2026-10-07は報告済みのまま。現在の保険期間は前半へ戻り、次回対象は2026年10月分。
+8. 390px幅で入力・ボタンの折返しを目視し、documentのclientWidth／scrollWidthはいずれも375（スクロールバーを除く）。通常幅へ戻した。ブラウザは通常保証・2026-10の未請求3期間を開いている。
+
+最後の保存状態：315物件維持。上記満了案内の初回は未請求／未発行、延長は請求済み／発行済み（revision12）。保険更新の架空物件は後半報告を取消。補完直後の業務値不変確認と、その後の承認済み2物件へのテスト操作を区別する。
+
+Local画像は`tmp/billing-certificate-period-state.png`、`tmp/billing-final-list.png`、`tmp/billing-narrow.png`。実CSVはDownloadsの`請求_業務検証・通常保証_2026-10.csv`、`保証書_業務検証・通常保証_2026-10.csv`、`保証書_業務検証・取込み保証_2026-10.csv`。
+
+通信切断と複数物件の途中失敗を意図的に発生させる実ブラウザ試験は未実施。再送／同時更新／不正期間の原子性はLocal試験、成功行除外は独立レビューで確認。実HS過去データの投入・2日間のHS試験はデータ未受領のため未実施。Prod構築・IAM変更・Git pushなし。旧日程PDFは履歴と明記し、現行日程は既存READMEに集約した。
+
+
+### Functionsログ受信
+
+`node tmp/billing-dev-check.mjs logs 2026-10-09T02:21:18Z`は最終exit0、11件受信・ページ残りなし・すべてsuccess。billingList5件（160〜274ms）、billPeriods1件（554ms）、undoBill1件（287ms）、undoCertificate1件（478ms）、certificateList2件（178／210ms）、undoReport1件（325ms）。一括請求の2期間は物件read1／writeConfirmed1。ほかに認可・receipt・復旧制御等のアクセスがあり、課金件数や画面所要時間との一致は求めない。
+
+最初のログ読取はLogging APIのRead requests/minute上限で429（exit1）。間隔を空けた再取得で成功を確認。アプリの業務処理失敗とは区別し、初回の失敗を隠さない。
+
+
+### 今回の変更ファイル
+
+runtime／仕様コミット6decdc5の変更対象。以後の実績追記もこの文書群だけに限定する。
+
+```text
+CHANGELOG.md
+app/components/MeetingPrototype.vue
+app/components/WarrantyCertificateManagement.vue
+app/components/WarrantyLifecycleDetails.vue
+deliverables/production-schedule-2026-10-05/README.md
+docs/README.md
+docs/design/README.md
+docs/design/meeting-prototype-2026-10-03.md
+docs/design/monthly-queries.md
+docs/design/warranty-certificates.md
+docs/operations.md
+docs/requirements/delivery-and-technology.md
+docs/requirements/environment-configuration.md
+docs/requirements/house-solution-confirmations.md
+docs/requirements/house-solution-confirmations/HSC-037-warranty-groups.md
+docs/requirements/search-and-list.md
+docs/roadmaps/2026-initial-delivery.md
+docs/specification.md
+firestore.indexes.json
+functions/firestore-metrics.js
+functions/property-warranty.js
+scripts/billing-query-migration.mjs
+scripts/lib/billing-query-migration.mjs
+scripts/lib/recovery-controller.mjs
+scripts/seed-emulator.mjs
+src/domain/billing-output.d.mts
+src/domain/billing-output.mjs
+src/domain/monthly-query.mjs
+src/domain/recovery.mjs
+src/domain/warranty-certificate.mjs
+test/emulator/property-warranty.test.mjs
+test/property-warranty.test.mjs
+```
+
+最終追記は文書のみでruntime gateの無効化条件に該当しないため、上記runtime結果を再利用。governance-checkとdiff-checkで文書整合を確認する。
