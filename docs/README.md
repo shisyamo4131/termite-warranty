@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮5列・保存／導入契約。
+
 - [Dev／Prod環境設定・権限仕様](requirements/environment-configuration.md)：実設定と構築時の照合条件。
 - [保険／請求の月別取得・移行](design/monthly-queries.md)：月条件、検索用項目、まとめ読み。
 

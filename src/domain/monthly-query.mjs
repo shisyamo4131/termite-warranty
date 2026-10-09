@@ -1,3 +1,4 @@
+import { certificateProjection } from './warranty-certificate.mjs'
 import { activeInsuranceReports, insuranceExpiryDate, insuranceReportKind, warrantyTransactions } from './property-warranty.mjs'
 
 export const MONTHLY_QUERY_VERSION = 1
@@ -13,7 +14,7 @@ function previousMonth(month) {
 }
 // Search fields are derived from the same rules as the displayed report, never user input.
 export function monthlyQueryProjection(input) {
-  const result = { monthlyQueryVersion: MONTHLY_QUERY_VERSION, insuranceQueryStart: '', insuranceQueryEnd: '', billingQueryMonths: [] }
+  const result = { ...certificateProjection(input), monthlyQueryVersion: MONTHLY_QUERY_VERSION, insuranceQueryStart: '', insuranceQueryEnd: '', billingQueryMonths: [] }
   if (input.status !== 'active') return result
   const row = withInsuranceDefaults(input)
   result.billingQueryMonths = [...new Set(warrantyTransactions(row).map(item => item.billingDate.slice(0, 7)).filter(validMonth))].sort()

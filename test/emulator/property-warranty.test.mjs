@@ -855,3 +855,60 @@ test('HS latest extension undo preserves insurance and corrections, requires rea
   await call('cancel',command(key,9,{reason:'確認用取消'}))
   await assert.rejects(call('undoExtend',command(key,10,{targetRequestId:latest,reason:'訂正'})),e=>e.code==='failed-precondition')
 })
+
+
+test('certificate month queries, migration, period issuance and concurrent updates',async()=>{
+  const {certificateProjection,certificateRows}=await import('../../src/domain/warranty-certificate.mjs')
+  const {migrateCertificateQueries}=await import('../../scripts/lib/certificate-query-migration.mjs')
+  const target=getFirestore(app,'certificate-query-test')
+  await target.doc('staffAccounts/cert-hs').set({role:'house_solution_administrator',enabled:true})
+  await target.doc('constructionCompanyAccounts/cert-portal').set({role:'construction_company',enabled:true,scope:'company',constructionCompanyId:'meeting-co'})
+  const invoke=(action,data={},uid='cert-hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,...data},uid)
+  const fixtures=[]
+  for(const [id,date,patch] of [['past','2026-09-05',{}],['current','2026-10-05',{}],['future','2026-11-05',{}],['cancelled','2026-10-05',{status:'cancelled'}],['draft','2026-10-05',{status:'draft'}],['issued','2026-09-05',{certificateItems:[{id:'initial',startDate:'2026-09-05',expiryDate:'2036-09-04',issued:true}]}]]){
+    const row={...fields,status:'active',years:10,maxYears:20,history:[],revision:1,warrantyNumber:id,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
+    fixtures.push({id,...row});await target.doc('propertyWarranties/'+id).set(row)
+  }
+  await assert.rejects(invoke('certificateList',{month:'2026-10'}),e=>e.code==='failed-precondition')
+  assert.equal((await migrateCertificateQueries(target,{apply:true})).changed,6)
+  assert.equal((await migrateCertificateQueries(target,{apply:true})).changed,0)
+  for(const row of fixtures){const {id,...original}=row;assert.deepEqual((await target.doc('propertyWarranties/'+id).get()).data(),{...original,...certificateProjection(original)})}
+  for(const month of ['2026-08','2026-09','2026-10','2026-11','2036-10']){
+    let metrics
+    const result=await measureFirestoreOperation('propertyPrototype','certificateList',()=>invoke('certificateList',{month}),record=>{metrics=record})
+    const expected=certificateRows(fixtures,month)
+    assert.deepEqual(result.rows.map(r=>r.id),expected.map(r=>r.id))
+    assert.equal(metrics.rows.find(r=>r.collection==='propertyWarranties').counters.returnedDocuments??0,expected.length)
+  }
+  await assert.rejects(invoke('certificateList',{month:'2026-10'},'cert-portal'),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('certificateList',{month:'bad'}),e=>e.code==='invalid-argument')
+  const data={id:'current',revision:1,requestId:'issue-initial',month:'2026-10',periods:[{id:'initial',startDate:'2026-10-05',expiryDate:'2036-10-04'}]}
+  await assert.rejects(invoke('issueCertificate',data,'cert-portal'),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('issueCertificate',{...data,periods:[{...data.periods[0],expiryDate:'2036-10-05'}]}),e=>e.code==='failed-precondition')
+  await invoke('issueCertificate',data)
+  await invoke('issueCertificate',data) // lost-response retry is idempotent
+  await assert.rejects(invoke('issueCertificate',{...data,requestId:'stale'}),e=>e.code==='aborted')
+  const initial=(await target.doc('propertyWarranties/current').get()).data()
+  assert.equal(initial.revision,2);assert.equal(initial.certificateItems.length,1)
+  await invoke('extend',{id:'current',revision:2,requestId:'extension'})
+  const listed=(await invoke('certificateList',{month:'2036-10'})).rows.filter(r=>r.id==='current')
+  assert.equal(listed.length,1);assert.equal(listed[0].certificatePeriodId,'extension');assert.equal(listed[0].certificateIssued,false)
+  const extension={...data,revision:3,requestId:'issue-extension',month:'2036-10',periods:[{id:'extension',startDate:'2036-10-05',expiryDate:'2046-10-04'}]}
+  const concurrent=await Promise.allSettled([invoke('issueCertificate',extension),invoke('issueCertificate',{...extension,requestId:'other-extension'})])
+  assert.equal(concurrent.filter(r=>r.status==='fulfilled').length,1)
+  const final=(await target.doc('propertyWarranties/current').get()).data()
+  assert.equal(final.certificateItems.length,2);assert.equal(final.certificateItems.find(p=>p.id==='initial').issued,true)
+  assert.equal(final.certificatePendingMonth,'')
+  assert.equal((await invoke('certificateList',{month:'2036-11'})).rows.some(r=>r.id==='current'),false)
+  await invoke('cancel',{id:'current',revision:final.revision,requestId:'cancel-certificate',reason:'試験取消',confirmCancellation:true})
+  assert.equal((await invoke('certificateList',{month:'2036-10'})).rows.some(r=>r.id==='current'),false)
+  await invoke('restore',{id:'current',revision:final.revision+1,requestId:'restore-certificate',reason:'試験復元'})
+  assert.equal((await invoke('certificateList',{month:'2036-10'})).rows.find(r=>r.id==='current').certificateIssued,true)
+  await invoke('undoExtend',{id:'current',revision:final.revision+2,requestId:'undo-certificate-extension',targetRequestId:'extension',reason:'試験延長取消'})
+  assert.equal((await invoke('certificateList',{month:'2036-10'})).rows.some(r=>r.id==='current'),false)
+  await invoke('extend',{id:'current',revision:final.revision+3,requestId:'replacement-extension'})
+  const replacement=(await invoke('certificateList',{month:'2036-10'})).rows.find(r=>r.id==='current')
+  assert.equal(replacement.certificatePeriodId,'replacement-extension');assert.equal(replacement.certificateIssued,false)
+  assert.equal((await target.doc('propertyWarranties/current').get()).data().certificateItems.find(p=>p.id==='initial').issued,true)
+
+})

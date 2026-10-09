@@ -714,3 +714,22 @@ test('account scope change rejects delayed property list and keeps previous acco
  await assert.rejects(pending)
  assert.deepEqual(v.rows.value,[])
 })
+
+
+test('certificate issuance is period-specific; selected month includes earlier unissued periods only', async()=>{
+  const {certificatePeriods,certificateProjection,certificateRows,certificateCsv}=await import('../src/domain/warranty-certificate.mjs')
+  const initial={id:'initial',startDate:'2026-10-06',expiryDate:'2036-10-05',issued:true}
+  const row={id:'certificate',status:'active',years:20,handoverDate:'2026-10-06',applicationDate:'2026-09-01',history:[{kind:'extend',requestId:'ext',before:{years:10}}],certificateItems:[initial]}
+  assert.deepEqual(certificatePeriods(row).map(p=>p.certificateIssued),[true,false])
+  assert.deepEqual(certificateRows([row],'2026-09'),[])
+  assert.equal(certificateRows([row],'2026-10')[0].certificatePeriodId,'initial')
+  assert.equal(certificateRows([row],'2036-09').length,0)
+  assert.equal(certificateRows([row],'2036-10')[0].certificatePeriodId,'ext')
+  assert.equal(certificateRows([row],'2036-11')[0].certificatePeriodId,'ext')
+  assert.equal(certificateProjection(row).certificatePendingMonth,'2036-10')
+  assert.equal(certificateRows([{...row,status:'cancelled'}],'2036-10').length,0)
+  assert.equal(certificatePeriods({...row,handoverDate:'2026-10-07'})[0].certificateIssued,false)
+  const old={...row,certificateItems:[]};assert.equal(certificateRows([old],'2036-10').length,2)
+  assert.equal(certificateProjection({...row,status:'cancelled'}).certificatePendingMonth,'')
+  assert.equal(certificateCsv([{warrantyNumber:'A',name:'架空,物件',handoverDate:'2026-10-06',companyLabel:'会社',branchLabel:'本店'}]),'\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店"\r\n"A","架空,物件","2026-10-06","会社","本店"')
+})

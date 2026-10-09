@@ -8,6 +8,7 @@
         <div><div class="font-weight-bold mb-1">{{ period.label }}</div><div>{{ period.startDate }} ～ {{ period.expiryDate }}</div></div>
         <div v-if="showBilling"><div class="text-caption mb-1">請求状態</div><v-chip size="small" :color="period.billingState==='billed' ? 'success' : 'default'">{{ billingLabel(period.billingState) }}</v-chip></div>
         <div><div class="text-caption mb-1">保証満了案内</div><v-chip v-if="index===transactions.length-1" size="small" :color="row.warrantyNotified ? 'success' : 'default'">{{ row.warrantyNotified ? '案内済み' : '未案内' }}</v-chip><span v-else>—</span></div>
+        <div><div class="text-caption mb-1">保証書</div><v-chip size="small" :color="period.certificateIssued ? 'success' : 'default'">{{ period.identifiable ? period.certificateIssued ? '発行済み' : '未発行' : '要確認（期間記録不足）' }}</v-chip></div>
         <div class="period-actions">
           <template v-if="editable && showBilling">
             <v-btn v-if="period.billingState!=='billed'" variant="outlined" :disabled="busy || !period.identifiable" @click="$emit('billing','bill',period)">請求済みにする</v-btn>
@@ -45,12 +46,13 @@
   </v-card>
 </template>
 <script setup lang="ts">
+import { certificatePeriods } from '../../src/domain/warranty-certificate.mjs'
 import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { warrantyTransactions, activeInsuranceReports, japanDate } from '../../src/domain/property-warranty.mjs'
 import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
 const props=withDefaults(defineProps<{row:Record<string,any>;editable?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
 defineEmits<{billing:[action:string,period:Record<string,any>]}>()
-const transactions=computed(()=>warrantyTransactions(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
+const transactions=computed(()=>certificatePeriods(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
 const reports=computed(()=>activeInsuranceReports(props.row))
 const incomplete=computed(()=>!!props.row.insuranceHistoryIncomplete || (!props.row.insuranceEvents && (!!props.row.insuranceEverRenewed || (!!props.row.insuranceReported && !props.row.insuranceLastReport))))
 const insuranceGroups=computed(()=>transactions.value.map(period=>{
@@ -67,7 +69,7 @@ const billingLabel=(state:string)=>({pending:'未請求',billed:'請求済み',u
 <style scoped>
 .report-status-chip { height: auto; min-height: 26px; max-width: 100%; white-space: normal; padding-block: 4px; }
 .report-status-chip :deep(.v-chip__content) { white-space: normal; }
-.period-row { display:grid; grid-template-columns:minmax(220px,2fr) minmax(90px,1fr) minmax(100px,1fr); gap:16px; padding:16px 0; border-bottom:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); }
+.period-row { display:grid; grid-template-columns:minmax(220px,2fr) repeat(3,minmax(90px,1fr)); gap:16px; padding:16px 0; border-bottom:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); }
 .period-actions { grid-column:1/-1; display:flex; flex-wrap:wrap; justify-content:flex-end; gap:8px; }
 .insurance-row { display:grid; grid-template-columns:minmax(200px,2fr) minmax(120px,1fr); gap:16px; padding:16px 0; }
 .insurance-row + .insurance-row { border-top:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); }

@@ -3,7 +3,7 @@ export const RUNTIME_PATH = 'recovery/runtime'
 export const ACTIVATION_PATH = '_recovery/activation'
 export const ACCESS_PATH = '_recovery/access'
 export const RECOVERY_ROLES = ['developer_superuser', 'house_solution_administrator']
-export const PROPERTY_READ_ACTIONS = ['catalog', 'list', 'propertyList', 'detail', 'alertSettings', 'accounts']
+export const PROPERTY_READ_ACTIONS = ['catalog', 'list', 'propertyList','certificateList', 'detail', 'alertSettings', 'accounts']
 export class RecoveryError extends Error {
   constructor(message, code = 'failed-precondition') { super(message); this.code = code }
 }

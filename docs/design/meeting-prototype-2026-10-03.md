@@ -1,5 +1,9 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-09 保証書発行の保存契約
+
+保証期間ごとのcertificateItemsと検索用派生値、certificateQueries readinessを追加。[データ・互換性・移行契約](warranty-certificates.md)。既存の保険／請求項目は維持する。
+
 ## 2026-10-08 月別検索の保存契約
 
 `propertyWarranties`に`monthlyQueryVersion`、`insuranceQueryStart`、`insuranceQueryEnd`、`billingQueryMonths`を追加する。全業務command／CSVの同transactionで派生値を更新。`prototypeSettings/monthlyQueries.version`で既存値の補完完了を確認して月別一覧を公開する。[型・導入・復旧互換性](monthly-queries.md)。Dev反映と実測は実施記録で区別する。
