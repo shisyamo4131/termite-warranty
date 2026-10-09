@@ -32,7 +32,7 @@ DevとProdは別プロジェクト。Dev例外（自動退避停止等）をProd
 | Monitoring | 有効alert policy 1件、条件1件、通知channel 1件 | 通知先はオーナーGoogleアカウント。条件本文・送達は別途実照合。件数一致だけで完了としない |
 | 配備CI | development environment、専用SA秘密`FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV`、手動dispatch時のみdeploy。7検証後の成果物を使用 | ID・認証方式が確定してから専用workflowを作成。Dev秘密を流用しない。認証主体、environment保護、競合防止、差戻しを検証 |
 | アプリ初期管理者 | Authと同UIDのenabled staffAccounts、roleで認可 | 受領済みHS氏名・メールを外部資料台帳で照合。HS管理者と開発者を各自作成。実ログインと権限範囲を確認。初期業務データは前準備待ち |
-| 検索用派生値 | 月別検索導入中 | 新規空DBでは準備完了markerを構築手順で設定。初期データ登録・旧復元時には[月別検索移行](../design/monthly-queries.md)を実施 |
+| 検索用派生値 | Dev307件補完・準備完了marker=1・月切替12条件のDB／実画面一致を確認済み | 新規空DBでは準備完了markerを構築手順で設定。初期データ登録・旧復元時には[月別検索移行](../design/monthly-queries.md)を実施 |
 
 ## 権限の対照
 

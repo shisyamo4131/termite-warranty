@@ -1,5 +1,7 @@
 # Prod準備・Dev実測（2026-10-08）
 
+> 現在地（2026-10-09）：本書は改修前の測定と当時の調査を含む。月別取得・getAllは採用／Dev反映済み、月切替12条件・請求CSV・300件プレビューの実画面検証は[最新記録](../monthly-queries.md)で完了。認証診断は実装・Dev受信済みだが元の通信失敗原因は未特定。下の「getAll未採用」「全件取得をHSへ説明」「高速化後未測定」「診断未実装」を現在の状態に用いない。全件取得を通常仕様として説明する方針は撤回済み。
+
 ## 追加のCloudログ確認と決定（2026-10-08 22:30 JST）
 
 Dev termite-warranty-devの19:30〜20:10 JST（10:30〜11:10 UTC）をCloud Logging APIで検索。identitytoolkit／securetokenの認証ログ0件、severity>=ERRORが0件、auth/network-request-failed／SignInWithPasswordの文字列検索0件。各検索は1ページで終了。これは検索範囲に記録がないという結果であり、認証サービスへ要求が届かなかったという証明ではない。
