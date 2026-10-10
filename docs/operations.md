@@ -1,5 +1,223 @@
 # Operations
 
+## 2026-10-10 現在地・PM（白蟻）-09への引継ぎ
+
+オーナー指示によりPM（白蟻）-08から同じ主リポジトリの新規・非forkタスクへ交代。設定はAstra／Medium。新タスクは通常のAGENTS・project-rules・文書マップから起動する。
+
+- UI改修の最新Dev確認は直下の「ダイアログ外枠除去」。共通ツールバー、セクション、組織ツリー、メニューアイコン、一覧からの報告／発行取消を含む既存差分を統合。交代時の追加配備・Cloud再照合はしない。今後のDev配備は各回の明示指示を待つ。
+- 過去物件442件は未投入。所属判断の回答待ちはUH新潟南／新津2件のみ。竹原・早良・三次・金沢南の既決を再質問しない。回答まで取込みを待機し、再開時は[ロードマップ](roadmaps/historical-property-intake.md)と[手順](runbooks/historical-property-intake.md)を読む。変換・初期化・書込み・採番照合・再投入・全件検証は未完成。既存ツールは入力パッケージの読取検査だけ。
+- 業務資料・メールは事業用AIRを使用する。Driveの入口は[AriLabo内のプロジェクト](https://drive.google.com/drive/folders/1Fx4cKWun0UzVmSxDkJBE7BZcjuCTKQ-7)。再接続時はアカウントと対象をツールで再確認する。日付準備のHS了承、PDF送付、日程未合意の訂正は[資料台帳](requirements/source-materials.md#2026-10-10-airメールによる記録訂正)が根拠。メール送信は別途指示が必要。
+- 実データを含む確認用PDF2件はローカルに保持し、Gitへ含めない。生成コード・手順は保存する。独立した引継ぎファイルは作らない。
+- 統合前検証：`npm test` は制限環境で失敗後、通常環境で358成功・2skip／exit0。`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit0。`node --test test/historical-intake-package.test.mjs test/list-undo-ui.test.mjs`は7成功／exit0。Rulesは直下の145成功／exit0の記録を再利用し、以後の表示・文書・読取専用入力検査の変更はRules・永続化処理・依存の失効条件に該当しない。最終文書検証・差分検査はコミット前に実行し結果を交代元の完了報告へ残す。データ契約・ADR・governance・権限設定の変更なし。
+
+## 2026-10-09 ダイアログ外枠の除去（Dev確認済み）
+
+全14ダイアログのルートVCardに`:border="false"`を指定。対象はCompanyPortalAccountManagement、CompanyPortalNotificationManagement、ConstructionCompanyPortal、MeetingPrototype、PropertyBulkImportDialog、StaffAccountManagement、WarrantyCertificateManagementの7 Vueファイル。`app/assets/clear-sky-theme.css`でダイアログ直下のカードだけborderを0にする。一般カード・内部カード・影・区切り線・日付v-menuは変更しない。
+
+UI・文書・配備の全7gateを選定。最終アプリ差分の`npm run typecheck`・`npm run build`各exit0。`node --test test/warranty-organization-ui.test.mjs test/list-undo-ui.test.mjs test/property-bulk-import-ui.test.mjs`は15成功／exit0。domain358成功2skip・Rules145成功・Functions構文・seed構文の各exit0は同日の成功証拠を再利用。今回のテンプレートborder指定・CSSと文書はそれらの失効条件に該当せず、保存・業務処理・依存は不変。`./scripts/check-governance.ps1`と`git diff --check`は各exit0（既存の改行警告のみ）。ADR・データ契約・governance変更なし。既存差分を保持しcommit/pushなし。
+
+Dev対象照合`npx firebase hosting:sites:list --project termite-warranty-dev --json` exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` exit0（1,003ファイル公開）。`node tmp/verify-portal-menu-hosting.mjs` exit0（32資産一致、Dev設定一致）。HTML SHA-256 `1e16729644788ea4499779e94ec3e52f1689f691fb1260a0f885732fc8d04a96`。Chromeで再読込後、物件編集・一括取込みのルートカードを実測しborder-width 0pxを確認。画像`tmp/dev-dialog-border.jpg`。フォーム保存・データ変更なし。非表示のポータル画面等はコード上の全14箇所確認とビルドで確認し、全14画面を実操作したとは扱わない。差戻しは今回のborder指定・CSSを戻し検証後Hosting再配備。
+
+並行して訂正版過去物件442件を読取検査し、追加回答の三次統一・金沢南分離を仕様／資料台帳／手順／工程／HSC-015へ反映。原資料・Devデータは変更していない。検査結果と残件は[資料台帳](requirements/source-materials.md#2026-10-09-訂正版の全件再検査とuh名称の確定)を参照。実投入完了を意味しない。
+
+## 2026-10-09 マスタ編集の所属表示・アラート統一（Dev確認済み）
+
+対象は`app/components/MeetingPrototype.vue`。登録済み工務店の保証グループ／本支店の工務店をdlによる文字表示へ変更、新規は選択欄維持。3種マスタの有効ラベルを統一し、無効化・再有効化・既存保証対応の説明をwarning v-alertへ集約。本支店の接頭辞案内と不要な表示用computedを削除。保証グループの固定設定案内も共通info v-alertへ統一。保存・参照取得・無効マスタ編集禁止・データ形式は維持。
+
+UI・文書・配備として全7gate選定。`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check`は各exit0。`node --test test/warranty-organization-ui.test.mjs test/list-undo-ui.test.mjs`は6成功／exit0。domain358成功2skip、Rules145成功、Functions構文、seed構文の各exit0は同日の有効な成功証拠を再利用。表示テンプレートと未使用表示用computed削除だけで、業務処理・保存・依存・試験等の失効条件に該当しない。既存ビルド／改行警告のみ。仕様・共通UI・CHANGELOG・本書を整合、ADR・データ契約・工程・governance変更なし。既存差分保持、commit/pushなし。差戻しは今回の表示変更を戻して検証後Hosting再配備。
+
+Dev対象照合 `npx firebase hosting:sites:list --project termite-warranty-dev --json` exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` は1,003ファイル公開／exit0。`node tmp/verify-portal-menu-hosting.mjs` は32資産・Dev設定一致／exit0。HTML SHA-256：`cd02e15087fbc5e815372d25218c889be975d3d011810aac3b21707d00d196df`。
+
+実画面で保証グループ・工務店・本支店の各warning案内と有効ラベルを確認。工務店／本支店の編集は所属名の文字表示・選択欄0、新規は選択欄1を確認。本支店の旧接頭辞案内0。下部までスクロールしてアラートと保存／閉じるの表示を確認。保存せず終了、DB変更なし。画像 `tmp/dev-master-alert.jpg`。Dev再読込で確認できる。
+
+## 2026-10-09 保証グループ編集の固定設定整理（Dev確認済み）
+
+`app/components/MeetingPrototype.vue`の保証グループ編集テンプレートを変更。新規時だけ固定設定の入力欄を表示し、登録済みでは閉じたdetails「登録時の設定」内に文字表で表示。外部キー名称欄は必須設定オンの場合だけ表示し、v-modelと保存処理は維持。古い保証書差込み印刷の案内はこの編集フォームから除去。変更対象文書は仕様・共通UI・CHANGELOG・本書。データ形状・意味・API・権限・governance・ADR・工程変更なし、移行不要。既存差分保持、commit/pushなし。差戻しは当該表示変更を戻し検証後Hosting再配備。
+
+UI・文書・配備として全7gateを選定。`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check`各exit0。`node --test test/warranty-organization-ui.test.mjs test/list-undo-ui.test.mjs`は6成功／exit0。domain358成功2skip・Rules145成功・Functions構文・seed構文の各exit0は同日証拠を再利用（テンプレートだけで各失効条件に該当せず、保存・依存・試験変更なし）。省略gateなし。
+
+Dev対象照合 `npx firebase hosting:sites:list --project termite-warranty-dev --json` exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` は1,003ファイル公開／exit0。`node tmp/verify-portal-menu-hosting.mjs` は32資産・Dev設定一致／exit0。HTML SHA-256 `862d28738142a51979e745f82eff56cb8385857e91ddc8b7156f9373c2bbeca6`。
+
+実画面：通常保証（外部キー不要）の編集で固定入力欄と外部キー名称欄なし、閉じた登録時設定を展開して5設定を確認。取込み保証では外部キー名称欄の値「契約番号」を編集可能。新規では従来設定入力があり、外部キーのオン→名称入力→オフで非表示→再オンで入力値保持を確認。保存は行わずDB変更なし。無効マスタのv-form無効化・保存ボタン非表示はコード上維持、今回は再実画面検証しない。画像 `tmp/dev-group-fixed-settings.jpg`。利用者はDevを再読込する。
+
+## 2026-10-09 組織リスト拡幅・検索欄伸長修正（Dev確認済み）
+
+`WarrantyOrganizationManagement.vue`のCSSのみ変更。組織列240→320px、名称検索入力をflex:0 0 autoへ変更。Dev修正前は入力flex-grow:1・高さ約152px、修正後は保証グループ／工務店／本支店の3階層すべてgrow:0・高さ66px（メッセージ領域込み）。組織幅320px、Body高855px＝viewport855pxを実画面で確認。画像 `tmp/dev-organization-width-search.jpg`。
+
+UI・文書・Dev配備として全7gateを選定。最終CSS後の `npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check` は各exit0。domain358成功2skip・Rules145成功・Functions構文・seed構文は各exit0の同日証拠を再利用。CSSと文書だけでpolicyの失効条件に該当しない。業務ロジック・データ契約・権限・ADR・ロードマップ・governance変更なし。設計・CHANGELOG・本書を整合。既存差分保持、commit/pushなし。差戻しは今回のCSS2か所を戻し検証後Hosting再配備。
+
+`npx firebase hosting:sites:list --project termite-warranty-dev --json` 対象一致／exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` は1,003ファイル公開／exit0。`node tmp/verify-portal-menu-hosting.mjs` は32資産・Dev設定一致／exit0。HTML SHA-256：`9af2c58737f50b38091730221aef09b9bb309cce9438cdf496199cd0ce7fe497`。DB更新なし。Dev再読込で確認できる。
+
+## 2026-10-09 組織管理のアイコン・内部スクロール
+
+モックのfolder／building-2アイコンを組織ツリーへ反映し、最新設定取得を「無効を含む」の左へ移動。既存の取得ハンドラをslotで再配置しただけで、取得範囲・保存・権限は変更しない。左右独立の内部スクロール、通常PCの表見出し・検索・ページ操作固定、内容増加時の右領域スクロールを実装。独立レビューで警告増加時のクリップ懸念を修正し、再レビューで指摘解消。
+
+変更：`app/components/WarrantyOrganizationManagement.vue`、`MeetingPrototype.vue`、`BusinessNavigationIcon.vue`、`app/assets/clear-sky-theme.css`、`public/icons/lucide/folder.svg`、`building-2.svg`、共通UI設計、本書、CHANGELOG。UI・文書・Dev配備に分類。スキーマ・API・ADR・移行・工程・governance変更なし。既存差分を保持し、commit/pushなし。差戻しは当該UI差分を戻して影響検証後Hosting再配備。
+
+全7gateを選定。`npm run typecheck`・`npm run build`は最終CSS後に各exit0。対象UI `node --test test/warranty-organization-ui.test.mjs test/list-undo-ui.test.mjs` は6成功／exit0。`./scripts/check-governance.ps1`・`git diff --check` はexit0。`npm test`（358成功2skip／exit0）、`npm run test:rules`（145成功／exit0）、Functions構文・seed構文（各exit0）は直下の共通ダイアログ検証を再利用。今回のテンプレート・CSS・静的SVG・文書だけでは各gateの失効条件に該当しない。省略gateなし。
+
+Dev Chromeで容量検証の25工務店を表示。1920×855時、Body高855・Bodyスクロール位置0、組織リスト586pxに内容1784px、表186pxに内容1259px。ホイール操作後、組織scrollTop1198・表1073へそれぞれ移動し、右領域全体は0のまま。更新ボタンx564、無効チェックx733で左右順序一致、実際の最新取得も完了。無効グループの警告表示は1366×800でBody高800、右領域内でページ操作へ到達可能。無効グループ＋無効工務店の警告2件が出る既存データは確認できず、その組合せの実画面検証は未実施（静的レビューで自然高と内部スクロールを確認）。データ追加・変更なし。
+
+最終Dev配備：`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` は1,003ファイル公開／exit0。`node tmp/verify-portal-menu-hosting.mjs` は32資産・Dev設定一致／exit0。HTML SHA-256：`54ea4fb61a8ce30bbd182d688edfa204d0b8d7f63965e32251936a620df91a14`。対象照合の初回は制限環境で通信失敗exit1、通常環境で再実行exit0。最終390×700ではBody高700・横幅390、組織リスト95px（改修前21px）を確保、右領域292pxで内部スクロール。通常幅へ復元済み。画像 `tmp/dev-organization-scroll.jpg`。Dev再読込で利用できる。
+
+## 2026-10-09 共通ダイアログ・組織ツリー（Dev反映）
+
+採用済みの共通ツールバー・見出し、本文末尾の物件・保証全体取消、組織ツリー＋一覧を実装。UI実装、独立レビュー、UH確認PDFを分担した。レビューの必須修正指摘なし。
+
+アプリ変更は `BusinessDialogHeader.vue`（新規）、`MeetingPrototype.vue`、`StaffAccountManagement.vue`、`WarrantyCertificateManagement.vue`、`WarrantyOrganizationManagement.vue`、`PropertyBulkImportDialog.vue`、`clear-sky-theme.css`。文書は仕様・共通UI・ロードマップ・本書・changelog・資料台帳・docs索引・PDF生成手順を更新。データ形式・API・業務処理・権限・governanceは変更せず、ADR／データ契約変更なし。既存の未コミット差分を保持し、commit/pushなし。差戻しは当該UI差分を戻し、影響検証とbuild後Hostingへ再配備する。
+
+UI・文書・配備として全7gateを選定。最終アプリ変更後の結果：
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功（既存のNitro／SPA警告あり） | 0 |
+| `npm test` | 358成功・2skip | 0 |
+| `npm run test:rules` | 145成功・Emulator停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+
+`git diff --check` も成功／exit0（既存文書の改行コード警告のみ）。
+
+対象UI回帰：`node --test test/warranty-organization-ui.test.mjs test/list-undo-ui.test.mjs test/property-bulk-import-ui.test.mjs` は15成功／exit0。通常テストとRulesの初回は制限環境によりexit1となり、通常実行環境で再実行した上記結果を採用。省略gateなし。アプリ検証後は文書のみ更新。
+
+`npx firebase hosting:sites:list --project termite-warranty-dev --json`（対象一致／exit0）、`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive`（1,001ファイル公開／exit0）。`node tmp/verify-portal-menu-hosting.mjs`（32資産一致・Dev設定一致／exit0）。公開HTML SHA-256：`c513d41542f0ffd802af2fd9dbad0920c542f49dd1528a5030bb8adb8b4968ef`。Functions／Rules配備・DB更新・Prod操作なし。
+
+Dev Chromeの既存管理者ログインで、物件編集の共通ヘッダーとセクション、本文末尾の取消ボタン→理由・影響確認画面、組織ツリーから工務店→本支店、親所属変更不可の本支店編集、保険報告の閲覧詳細を確認。取消の実行や保存は行っていない。物件編集は1920×855と390×700でヘッダー・下部操作が表示され、本文内スクロール・横はみ出しなし。組織管理は通常幅で確認済み。390pxへ既存画面を縮めた際は左メニューが残り本文が狭まったため、組織管理の狭幅利用を検証済みとはしない。検証後に画面幅を復元。画像はignored `tmp/dev-dialog-cancellation.jpg`、`tmp/dev-organization-tree.jpg`。利用者はDevを再読込する。
+
+UH確認PDFは19ページ・重複全50組100行を掲載。全ページ描画確認、50コード／100名称と行番号・ページ数・日本語フォント埋込みの検査成功。[生成手順](../deliverables/uh-code-review-2026-10-09/README.md)。PDFはGitへstageしない。原資料変更・HSへの送信・過去物件取込みは実施しない。
+
+## 2026-10-09 採用済みメニューアイコン（Dev確認済み）
+
+採用されたLucide線画10点を各業務名の左へ追加。20px、間隔12px、文字色を継承。3サブヘッダーと常時表示、既存権限・busy制御を維持。配布元・ライセンス・名称対応は[共通UI設計](design/clear-sky-theme.md#2026-10-09-採用済みメニューアイコン)。
+
+変更ファイル：`app/components/BusinessNavigationIcon.vue`（新規）、`app/components/MeetingPrototype.vue`、`app/assets/clear-sky-theme.css`、`public/icons/lucide/`のhouse/calendar-clock/shield-alert/clipboard-list/receipt-text/file-badge/network/users-round/bell-ring/database-backup各SVGとLICENSE.txt、`docs/specification.md`、`docs/design/clear-sky-theme.md`、`CHANGELOG.md`、本書。UI・文書・配備。package依存追加なし。データ契約・保存・検索・Functions・Rules・governance・ADR・工程は変更なし。既存別件差分保持、commit/pushなし。差戻しはprependスロット・新規コンポーネント・アイコン資産・余白CSSを戻し、影響ゲート後Hosting再配備。
+
+`npm run typecheck`、`npm run build`は最終余白修正後、各成功・exit0。`./scripts/check-governance.ps1`、`git diff --check`も成功・exit0。既存SPA警告・別件改行警告のみ。全7gate選定のうちdomain（358成功2skip／exit0）、Rules（145成功／exit0）、Functions構文（exit0）、seed構文（exit0）は同日UI改善の成功を再利用。UI表示・静的画像・文書のみでそれぞれの失効条件（業務ロジック・保存・テスト・依存・環境等）に該当しない。
+
+`npx firebase hosting:sites:list --project termite-warranty-dev --json`対象一致／exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive`最終999ファイル公開／exit0。`node tmp/verify-portal-menu-hosting.mjs`HTML＋JS/CSS30資産一致／exit0。追加のNode読取照合（public/icons/lucide配下の11ファイルを公開URLから取得しBuffer.equalsで比較）も全一致／exit0。最終公開index SHA-256：`c7ba68fb86454388f5e43f78c76a9e5029caaa63f5d9334e6b7c860182369450`。
+
+Dev Chromeで10点描画、20px・全10項目の余白12px、選択時primary色を確認。390×844の一時メニューでも10項目、全名称clientWidth/scrollWidth一致で横切れなし、長い組織名は折返し。物件画面へ遷移し画面幅を復元。Body高は通常855px・狭い幅844pxで画面高と一致。DB更新なし。画像はignored `tmp/dev-menu-icons-2026-10-09.jpg`。利用者はDevを再読込する。
+
+## 2026-10-09 メニューをサブヘッダーへ訂正（Dev確認済み）
+
+「まとめる」を折り畳みと解釈した実装をオーナーが訂正。日常業務・月次業務・その他業務を同じv-list-subheaderに統一し、権限内の項目は常時表示。opened指定とv-list-groupを撤去。開閉自体の不具合修正は実施しない。
+
+原因調査で確認できたこと：旧テンプレートはopened=['monthly']を固定で渡し、利用者の開閉状態を保存していなかった。再読込・コンポーネント再作成で月次が開く構造。一方、Devで月次を閉じた後の物件画面切替・検索欄入力では自動展開が再現せず、報告された発生タイミングの原因は未特定。一般的な再描画で必ず開くとは断定しない。
+
+変更ファイル：`app/components/MeetingPrototype.vue`、`docs/specification.md`、`docs/design/clear-sky-theme.md`、`CHANGELOG.md`、本書。UI・文書・配備。データ形式・保存・権限・Functions・Rules・governance・ADR・工程変更なし。既存差分保持、commit/pushなし。差戻しは今回のテンプレート変更を戻し、型・build等の影響検証後Hosting再配備。
+
+`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check`は各成功・exit0。全7gate選定。domain（358成功2skip／exit0）、Rules（145成功／exit0）、Functions構文（exit0）、seed構文（exit0）は同日UI改善の証拠を再利用。テンプレートと文書のみの変更は各gateの失効条件に該当せず、保存・業務ロジック・テスト・依存・環境変更なし。
+
+`npx firebase hosting:sites:list --project termite-warranty-dev --json`（対象一致／exit0）、`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive`（988ファイル公開／exit0）、`node tmp/verify-portal-menu-hosting.mjs`（HTML＋JS/CSS30資産一致／exit0）。公開index SHA-256：`20bec72c1fb48e3bd6c166ffafe3401b209411b22daa102d0f53ca504a1afeef`。
+
+Dev Chromeで3サブヘッダーと10業務項目を常時表示、折り畳み要素0、保険満了案内へ遷移後も配置を維持。Body高855pxは画面高と一致。DB更新なし。画像：ignored `tmp/dev-menu-subheaders-2026-10-09.jpg`。利用者はDevを再読込する。
+
+## 2026-10-09 アラート伸長・メニュー分類（Dev確認済み）
+
+オーナー指示により、業務画面内のv-alertをflex:0 0 autoに変更。日常業務の物件・保証を残し、指定5一覧を初期展開する開閉式「月次業務」、従来の管理機能を開閉式「その他業務」に整理。既存の権限別候補・busy時の遷移制御は維持。
+
+変更ファイル：`app/components/MeetingPrototype.vue`、`app/assets/clear-sky-theme.css`、`docs/specification.md`、`docs/design/clear-sky-theme.md`、`CHANGELOG.md`、本書。UI・文書・配備。データ契約・保存・検索・Functions・Rules・governance・ADR・移行・工程変更なし。既存別件差分を保持しcommit/pushなし。差戻しは今回のテンプレートとCSSを戻し、影響ゲート後Hosting再配備。
+
+`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check`は各成功・exit0。buildの既存SPA警告と別件ファイルの改行警告のみ。全7gate選定のうちdomain（358成功2skip／exit0）、Rules（145成功／exit0）、Functions構文（exit0）、seed構文（exit0）は同日UI改善の成功を再利用。今回のテンプレート配置・CSS・文書は各gateの失効条件に該当せず、業務ロジック・保存・テスト・依存・環境を変更していない。
+
+`npx firebase hosting:sites:list --project termite-warranty-dev --json`で対象一致・exit0。`npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive`で988ファイル公開・exit0。`node tmp/verify-portal-menu-hosting.mjs`でHTML＋JS/CSS30資産一致・exit0。公開index SHA-256：`4301cf24b26a5166f6016417b6a3739f7023eada2e674fd72f09380b32c20c54`。
+
+Dev Chromeでアラートは修正前231.53px／flex:1 1 0%から、修正後41px／flex:0 0 autoへ。390px幅では文章の折返しに従い104px（client/scroll双方104）で切れなし。Bodyは通常画面855px、狭い画面844pxでそれぞれ画面高と一致。月次5項目・その他4項目、月次メニュー開閉による子項目の非表示、狭い画面で保険満了案内への遷移を確認。画面幅を復元、DB更新なし。画像：ignored `tmp/dev-alert-menu-2026-10-09.jpg`。利用者はDevを再読込する。
+
+## 2026-10-09 一覧のBodyスクロール修正（Dev反映済み）
+
+表の65vh固定と検索・操作欄の合計が画面高を超え、変更前の保証書一覧は画面911pxに対してページ1169pxだった。加えてVuetifyのhtml overflow-y:scrollがバーを常設していた。メインを100dvh（ヘッダー込み）に収め、表へ残り高さを割り当てた。表は最低128px、狭い画面・説明展開ではメイン内をスクロールして全操作へ到達する。htmlは業務画面の存在時のみauto。Bodyのoverflow:hiddenによる切捨てはしていない。
+
+変更ファイル：`app/components/MeetingPrototype.vue`、`app/components/WarrantyCertificateManagement.vue`、`app/assets/clear-sky-theme.css`、`docs/design/clear-sky-theme.md`、`CHANGELOG.md`、本書。UI/CSS・文書・Dev配備に分類。既存仕様の配置不具合修正であり、業務仕様・データ契約・ADR・工程・進捗・governanceは変更しない。既存の別件差分を保持、commit/pushなし。差戻しはこの高さ・クラス・overflow変更を戻し、影響検証後Hosting再配備。
+
+| コマンド | 結果／exit |
+| --- | --- |
+| `npm run typecheck` | 最終CSS変更後成功／0 |
+| `npm run build` | 最終CSS変更後成功／0（既存SPA警告あり） |
+| `./scripts/check-governance.ps1` | 成功／0 |
+| `git diff --check` | 成功／0（既存別件ファイルの改行警告のみ） |
+| `npx firebase hosting:sites:list --project termite-warranty-dev --json` | Devサイト一致／0 |
+| `npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` | 最終988ファイル公開成功／0 |
+| `node tmp/verify-portal-menu-hosting.mjs` | 最終HTML＋JS/CSS30資産一致／0 |
+
+公開index SHA-256：`809145450bb69fb25ac637a9f9c79f2e8caff72d0b9db0f180c8ef1b67f56c53`。配備の全7gateを選定。直下の同日UI改善で記録済みの`npm test`（358成功・2skip／exit0）、`npm run test:rules`（145成功／exit0）、`node scripts/check-functions-syntax.mjs`（exit0）、`node --check scripts/seed-emulator.mjs`（exit0）は今回再実行せず、有効な成功証拠を再利用。変更はテンプレートのクラス・高さ属性、CSS、文書に限定され、検証方針JSONのそれぞれの失効条件（業務ロジック・保存・Rules・Functions・テスト・依存・実行環境）には該当しない。型とbuildは最終CSS変更後に再実行した。
+
+Dev Chrome実画面：日常6一覧のBodyは画面高855px／ページ855px、Bodyバー常設も解消。保険報告の説明展開時もページ送り下端839pxで画面内。請求・保証書の複数ページ表示とページ切替を確認。最終最低高さ調整後、1366×768で保証書309期間（20行表示）のメインclient/scroll双方704px、Body768px、ページ送り下端735px。390×844ではBody844px、画面幅/client幅双方390px、メイン内を移動して次ページへ進み、ページ送り下端810.58pxで到達確認。画面サイズを復元。DB更新・CSV出力は行っていない。画像はignored `tmp/dev-list-height-2026-10-09.jpg`。利用者はDevを再読込して確認する。
+
+## 2026-10-09 採用済み5案のUI改善（Dev反映済み）
+
+オーナーが5案全採用と試作Chip撤去を指示。業務／管理の左メニュー、一覧操作配置、件数区分、コンパクトな表と固定見出し、業務状態を先にする詳細・物件情報開閉を実装。[確定した外観](design/clear-sky-theme.md#2026-10-09-採用済み一覧詳細ナビゲーション)。初期データ取込みはHS回答待ちを維持。
+
+今回の実装変更は`app/components/MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`WarrantyLifecycleDetails.vue`、`app/assets/clear-sky-theme.css`。試験は`test/property-warranty.test.mjs`の画面幅スタブ追加・メニュー制限とbusy時の操作拒否追加。仕様書、共通UI設計、CHANGELOG、本運用記録を整合。UI＋application-logic＋documentation＋deployに分類。既存の別件差分を保持し、commit／pushなし。データ形式、検索条件、Functions、Rules、IAM、governance変更なし。移行・ADR・工程変更・進捗加点なし。
+
+| 検証コマンド | 最終結果／exit |
+| --- | --- |
+| `node --test test/property-warranty.test.mjs` | 58成功／0 |
+| `node --test test/list-undo-ui.test.mjs` | 2成功／0 |
+| `npm test` | 358成功・既存2skip／0 |
+| `npm run typecheck` | 最終表示修正後成功／0 |
+| `npm run build` | 最終表示修正後成功／0 |
+| `npm run test:rules` | 145成功・Emulator停止確認／0 |
+| `node scripts/check-functions-syntax.mjs` | 成功／0 |
+| `node --check scripts/seed-emulator.mjs` | 成功／0 |
+| `./scripts/check-governance.ps1` | 成功／0 |
+| `git diff --check` | 成功／0 |
+| `npx firebase hosting:sites:list --project termite-warranty-dev --json` | 接続先一致／0 |
+| `npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` | 最終988ファイル公開成功／0 |
+| `node tmp/verify-portal-menu-hosting.mjs` | 最終HTML＋JS/CSS30資産一致、Dev設定一致／0 |
+
+最終公開index SHA-256：`8f3064d51873c35cc7b8a05dd9f78cff2ed13018b3011c9b4f12eca1b9c1ca95`。全7gate選定。最終仕上げのメニューrole・検索ボタン配置変更は型・buildを再実行し、業務処理・依存・保存・Rules・Functionsを変更しないため該当しないゲートの成功を検証方針に従い再利用。初回単体テストはuseDisplayのスタブ不足で25失敗・exit1。スタブ整備後の全体成功で解消し、失敗を成功扱いしない。ビルドの既存警告は残る。
+
+Dev Chromeの実画面でChipなし、日常6業務と管理4項目、Enterキーで保険報告へ遷移、保証書の5期間抽出→1期間選択→選択中／更新対象1への連動、保証書詳細・保険詳細の情報順、物件情報の開閉を確認。保険カード上端141px、保証カード454pxで保険が先。表theadのstickyを確認。390×844で一時メニュー開閉・検索と操作ボタンの折返しを確認後、画面幅を元へ復元。最終版の保証書一覧画像はignored `tmp/dev-ui-polish-2026-10-09.jpg`。今回の画面確認ではDBを書き換えず、CSV実ファイル再照合・別権限アカウントでの実画面検証は未実施（権限制限は単体で確認）。差戻しは上記UI差分を戻して型・build等の影響ゲート後にHosting再配備。HSは再読込して変更後の操作感を確認できる。
+
+## 2026-10-09 保険・保証書一覧からの取消（Dev確認済み）
+
+保険報告用一覧と保証書CSV一覧から開く詳細に、直近報告取消／期間別発行済み取消を追加。物件／保証管理と請求一覧の既存導線を維持。実装は`app/components/MeetingPrototype.vue`、対象試験は`test/list-undo-ui.test.mjs`。仕様書、insurance-reporting、warranty-certificates、CHANGELOGを整合。分類はUI＋application-logic＋documentation＋deploy。DB形式・移行・Functions・Rules・権限・ADR・ロードマップの工程／加点は変更なし。既存の別件差分を保持し、commit／pushなし。
+
+| コマンド | 結果／exit |
+| --- | --- |
+| `node --test test/list-undo-ui.test.mjs`（npm testとは別に実行） | 2成功／0。画面ごとの操作限定、HS・active・復旧閲覧制限 |
+| `npm test` | 357成功・既存2skip／0 |
+| `npm run typecheck` | 成功／0 |
+| `npm run build` | 成功／0 |
+| `npm run test:rules` | 145成功・Emulator停止確認／0 |
+| `node scripts/check-functions-syntax.mjs` | 成功／0 |
+| `node --check scripts/seed-emulator.mjs` | 成功／0 |
+| `./scripts/check-governance.ps1` | 成功／0 |
+| `git diff --check` | 成功／0 |
+| `npx firebase hosting:sites:list --project termite-warranty-dev --json` | 実対象一致／0 |
+| `npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` | 989ファイル公開成功／0 |
+| `node tmp/verify-portal-menu-hosting.mjs` | 公開HTML＋JS/CSS31資産バイト一致、Dev接続先一致／0 |
+
+全7gate省略なし。ソースSHA-256は`b4fca9bc4f5d8112c1ded1ba1bdaf8b99c3e23a2b454109786fd7d688f11c7de`、公開indexは`1f33e876faa9c1a0c23086be89f0e5ccc80bb000bfadb7400ce922d45aca0f75`。差戻しは追加した画面条件・説明と操作許可を戻し、同じ検証後にHostingを再配備する。取消済みの業務記録は自動的には戻さない。
+
+Chromeの既存Dev管理者画面で実操作：架空「業務検証・保険更新」の一覧詳細→報告取消確認→実行→閉じて再取得し未報告・初回報告が必要を確認。架空「業務検証・満了案内」の保証書一覧詳細→延長1の発行済み取消→理由空欄を拒否→検証理由を入力して実行→一覧の当該期間が未発行へ更新されることを確認。テスト結果としてこの2状態を残す。請求済みは維持。画像はignored `tmp/dev-list-undo-2026-10-09.jpg`。過去実資料の取込み・初期化は引き続きHS回答待ち。今回、機能の既存サーバー処理は再配備せず、Functionsログの個別受信照合は行っていない。
+
+## 2026-10-09 工務店担当者メニュー非表示（Dev確認済み）
+
+オーナーの今回の明示指示で、初期導入に使わない上部「工務店担当者」タブだけを`app/components/MeetingPrototype.vue`から除外。将来用の機能・サーバー・権限・データは保持した。旧申請の本支店認可漏れは[PORTAL-SEC-01](roadmaps/technical-remediation.md#portal-sec-01-旧申請経路の本支店認可将来対応)に記録し、現在は改修しない。分類はdocumentation-only＋ui-css-layout＋build-release-deploy。スキーマ／移行・ADR・検証方針の変更なし、進捗加点なし。
+
+| コマンド | 最終結果／exit |
+| --- | --- |
+| `./scripts/check-governance.ps1` | 成功／0 |
+| `npm test` | 357成功・既存2skip／0 |
+| `npm run typecheck` | 成功／0 |
+| `npm run build` | 成功／0 |
+| `npm run test:rules` | 145成功・Emulator停止確認／0 |
+| `node scripts/check-functions-syntax.mjs` | 成功／0 |
+| `node --check scripts/seed-emulator.mjs` | 成功／0 |
+| `npx firebase hosting:sites:list --project termite-warranty-dev --json` | Dev site／接続先照合／0 |
+| `npx firebase deploy --only hosting --project termite-warranty-dev --non-interactive` | Hosting989ファイル公開成功／0 |
+| `node tmp/verify-portal-menu-hosting.mjs` | 公開HTML＋JS/CSS31資産のバイト一致・Firebase project一致／0 |
+
+初回sandbox内の単体試験は一時ファイルrenameのEPERMで7失敗（exit1）、ログ採取の再実行も同じ失敗。通常権限で同じ試験を実行し上表の成功を確認した。Emulator初回はsandboxのhubポート起動待ちで失敗（exit1）、通常権限で同じ全体試験を再実行して成功。試験の省略や失敗の成功扱いはしていない。ビルドの既存警告は残るがexit0。画面操作確認の初回は前タスクのソース限定監査を理由に自動承認レビューが拒否したが、今回の明示承認範囲を示して再試行し許可された。
+
+配備した画面ソースSHA-256は`f9389525cb4c80517500a9a196c9f3483ceb4d8f3549e7f8a04ed35e5e490917`、index.htmlは`fd064f460b53a7ce72359178a2c99cb75ddf855ab0a8951421398331df8553b9`。既存文書差分を保持した作業ツリーの成果物を配備し、Git commit／pushは行っていない。Functions・Rules・DBへの変更なし。公開資産検証は画面31資産であり、全郵便番号データやCloud IAMの再監査ではない。
+
+Chromeの既存ログイン済み管理者画面で、配備前の工務店担当者タブ表示を確認後、配備後に再読込。タブ11→10、工務店担当者なし、HS担当者あり、通常物件一覧20件の表示を確認した。画面画像はignored `tmp/dev-portal-menu-hidden-2026-10-09.jpg`へ保存。利用者追加・データ書込みは行わず、過去物件取込みはHS回答待ちを維持。差戻しが必要ならタブを復元して同じ検証後にHostingへ再配備する。メニュー非表示は旧申請の認可不備を解消しない。
+
 ## 2026-10-09 過去物件の一括投入準備
 
 資料442件を受領・点検。[初期化範囲・不足事項・再実行手順](runbooks/historical-property-intake.md)を使用する。旧「投入準備データ提供まで保留」は解消したが、実DBの初期化・初期取込みはまだ行っていない。既存増分CSV／旧初期化スクリプトを無条件に流用しない。旧バックアップの維持・復元互換性をDev試験の前提とした整理を訂正し、10月7日の停止・削除決定を維持する。Prod構築後の新しいバックアップ検証は別工程。

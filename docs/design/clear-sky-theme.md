@@ -39,6 +39,28 @@ Search action buttons beside an input align within a separate region matching th
 
 ## Application Rules
 
+### 組織管理の一覧領域（2026-10-09 追加指示）
+
+組織ツリーの保証グループはfolder、工務店はbuilding-2のアイコンを表示する。最新の設定を取得するボタンは「無効を含む」の左側へ配置する。組織リストと右側の一覧はそれぞれ残りの画面領域内で独立してスクロールし、Bodyをスクロールさせない。一覧の表見出し・検索・ページ操作は到達可能に保ち、データ取得や保存条件は変更しない。
+
+追加2アイコンは既存メニューと同じLucide配布版・同梱ライセンスを使用する。通常は表の中身だけをスクロールし、狭幅・低高・警告や長い名称で領域が足りない場合には右側領域全体でスクロールして操作を隠さない。
+
+組織リストのPC幅は320px。右一覧の名称検索入力はflex: 0 0 autoとし、縦方向の余白を吸収しない。メッセージ領域と狭幅時の1列配置を維持する。
+
+### 2026-10-09 共通ダイアログ（Dev反映済み）
+
+すべてのv-dialog直下のVCardは`:border="false"`とし、共通CSSでもダイアログ直下カードのborderを0にする。一般の画面内カード・ダイアログ内部カード・影・ツールバーや操作領域の区切り線は変更しない。v-menuの日付入力ポップアップは対象外。
+
+保証グループ・工務店・本支店の利用状態スイッチは「有効」に統一し、無効化の影響・再有効化時の制約を直下の共通warning v-alertにまとめる。操作案内を通常の段落やスイッチの括弧書きへ分散させない。工務店の所属保証グループ、本支店の所属工務店は登録済みなら名称・所属内に文字で常時表示し、新規時だけ選択欄にする。本支店の「所属保証グループ・接頭辞共通・変更不可」案内は表示しない。
+
+保証グループ編集の固定設定は、閉じた「登録時の設定」を展開して文字で確認する。外部キーの名称は必須設定がオンの場合のみ入力欄を表示する。新規登録では固定設定の入力欄を表示する。保存済みデータは表示切替で消去しない。
+
+オーナー採用は「ツールバー＋見出しセクション」。物件・保証編集、保険報告等の一覧詳細、マスタ編集を対象とし、本支店画面だけに限定しない。v-toolbarへ画面名・装飾アイコン・閉じる操作を配置。その下に対象名・識別番号・状態をまとめ、本文は見出し付きセクション、下部は保存／閉じる等の通常操作とする。編集と閲覧の違いを示し、業務一覧詳細は対象期間・当該業務状態を先に表示する。
+
+既存の全項目・入力メッセージ領域・権限・復旧時制限・期間別操作・理由入力・確認手順を保持する。通常画面では本文だけを必要に応じてスクロールさせ、ツールバーと下部操作を到達可能に保つ。物件・保証全体の取消は、同日のオーナー追加採用により本文末尾の「物件・保証全体の取消」専用セクションに赤い枠線ボタンを配置する。保存・閉じるの通常操作とは離し、理由入力と影響確認を維持する。期間ごとの取消は各期間・状態の近くに保持する。
+
+組織管理の「組織ツリー＋共通一覧」と合わせ実装し、Devへ反映済み。[検証結果と確認範囲](../operations.md#2026-10-09-共通ダイアログ組織ツリーdev反映)を参照。保存・取消の業務処理やデータ形式は変更しない。
+
 - Apply theme tokens to the header, navigation drawer, page background, cards, tables, dialogs, inputs, buttons, links, and selected navigation state.
 - Preserve warning, error, success, inactive, and terminal-state labels and icons; colour supplements rather than replaces them.
 - Interactive controls need a visible keyboard focus indicator and sufficient text/control contrast at desktop and narrow widths.
@@ -66,3 +88,23 @@ Search action buttons beside an input align within a separate region matching th
 この節は対象とサンプルの確認待ちの記録。CSS・Vuetify設定・製品カードの変更はなし。
 
 Verify login, dashboard, master screens, case detail, dialogs, and navigation with the local emulator at both desktop and narrow browser widths. This visual check supplements, rather than replaces, typecheck and build evidence.
+
+## 2026-10-09 採用済み一覧・詳細・ナビゲーション
+
+5つの画面サンプルをオーナーが全採用。サンプルの簡略化された列や架空状態を製品仕様には持ち込まず、既存の項目・確認操作・権限を維持して配置を適用する。
+
+- 横並びタブを左の業務メニューへ変更。日常業務の物件・保証、サブヘッダー「月次業務」の5一覧、サブヘッダー「その他業務」の管理機能を分け、各項目を常時表示する。狭い幅ではtemporary drawer。工務店担当者は引き続き非表示。ヘッダーの試作Chipを撤去。
+- 保険／保証書／請求は選択件数とCSV・状態更新を同じ操作領域に配置。保証書／請求は抽出全体・選択中・今回更新の3種類を表示。要確認行を未処理に誤集計しない。
+- 常設の説明はdetailsで開閉できる。エラー、参照失敗、条件変更、復旧制限は隠さない。入力メッセージ領域と共通アラートの規則を維持。
+- 表はcompactとし、検索・操作欄を除いた画面の残りの高さに収めて見出しを固定。表の最低高さは128px。メイン領域をヘッダー込みの画面高に制限し、狭い画面や説明展開で収まらないときはメイン領域内でスクロールする。Bodyへはみ出させず、操作欄・警告・ページ送りを切り捨てない。ページ送りは表の下へ。件数が多い場合も20行の表示単位と検索取得範囲は維持。
+- 一覧詳細は保証書・請求なら保証期間カード、保険報告なら保険カードを先に表示。物件情報は後段の開閉領域。通常の物件編集フォームは維持。
+
+実装先はMeetingPrototype、WarrantyCertificateManagement、WarrantyLifecycleDetailsと共通CSS。DB形式・ADR・移行なし。差戻しはこれらの配置変更を戻し、検証後Hosting再配備。検証・配備結果はoperationsへ記録する。
+
+業務画面内のv-alertはflex: 0 0 autoとし、余白を吸収して縦に伸ばさない。文章の折返しに必要な高さは保持する。
+
+## 2026-10-09 採用済みメニューアイコン
+
+各業務名の左にLucideの線画を20px・文字との間隔12pxで表示。文字色を継承し、選択時は既存のprimary色。装飾アイコンは読み上げ対象外、業務名と常時表示の3分類は維持する。物件=house、保証満了=calendar-clock、保険満了=shield-alert、保険報告=clipboard-list、請求=receipt-text、保証書=file-badge、組織=network、HS担当者=users-round、アラート=bell-ring、復旧=database-backup。
+
+配布版はnpm registryで確認したlucide-static 1.54.0。https://unpkg.com/lucide-static@1.54.0/icons/ から当該10点のみpublic/icons/lucideへ同梱。stroke-widthのみ提案に合わせ2から1.8へ変更し、同版LICENSEをLICENSE.txtに保持する。表示時の外部通信やnpm依存追加なし。実装はBusinessNavigationIconとMeetingPrototype、余白は共通CSS。

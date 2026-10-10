@@ -7,7 +7,7 @@
 - `propertyWarranties.certificateItems`は`id`（initial／有効延長requestId／確定済み取込期間ID）、`startDate`、`expiryDate`、`issued`（boolean）、`requestId`、`at`、`actorUid`を持つ。期間IDと両日付が一致した場合だけ発行済み。保証期間は既存の10年区切り。保険の5年区切りとは別。
 - 記録のない既存Dev／Local期間は未発行で開始する。年月・取消・延長取消から有効な期間を再計算。延長取消後の記録は保存し、再延長の新IDへ流用しない。引渡日訂正で日付が変われば未発行として再確認する。実際の交付物の回収・訂正はHSの別業務。
 - 発行済みcommandはHSの有効アカウント、物件active、revision、選択した期間ID・日付・対象月をtransaction内で検証。同じ物件の複数期間を一度に更新。異なる物件は順次処理し、途中失敗は確認済み件数を表示。requestId receiptにより結果不明の再試行で二重更新しない。
-- CSV出力だけでは更新しない。編集画面からundoCertificateで指定期間を未発行へ戻せる。active・revision・期間ID／日付・発行済みを検査し、理由必須でissued:falseと履歴を保存する。
+- CSV出力だけでは更新しない。物件／保証編集画面と保証書CSV一覧の詳細画面からundoCertificateで指定期間を未発行へ戻せる。active・revision・期間ID／日付・発行済みを検査し、理由必須でissued:falseと履歴を保存する。
 - 派生値は`certificateQueryVersion:1`、`certificateQueryMonths`（有効期間の開始月）、`certificatePendingMonth`（最も早い未発行月、なければ空文字）。全保存command／一括取込と同じtransactionで更新。
 - Firestoreで指定月のarray-containsと過去未発行月の範囲（空文字より大・対象月より小）を取得し、文書IDで重複排除して期間行へ展開。業務文書全件取得はしない。同一物件が両条件を満たす場合は読取が2回になる。各queryにgroupId一致を付け、有効な保証グループを必須とする。groupId＋certificateQueryMonths、groupId＋certificatePendingMonthの複合索引を使用する。
 - `prototypeSettings/certificateQueries.version=1`まで新一覧を公開しない。記録不足で期間IDを特定できない行は「要確認」、選択・発行済み登録不可。

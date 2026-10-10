@@ -1,5 +1,10 @@
 # Documentation Map
 
+- [UH加盟店コードの確認用PDF](../deliverables/uh-code-review-2026-10-09/README.md)：コード昇順で全重複50組100行を掲載した5ページの一覧。修正順序・状況判断はHSに委ねる。10月9日送付済みの当時の重複一覧。修正後のコード重複は解消、所属の残件は受領資料台帳を参照。
+
+- [過去物件取込みの確認資料](../deliverables/historical-intake-review-2026-10-09/README.md)：回答前の5ページPDF・回答用Googleフォームと回答後の状態。HSC2件・SHS3件は確定、UH追加一覧の重複と所属対応等は継続確認。
+- [過去物件取込みロードマップ](roadmaps/historical-property-intake.md)：資料確定から一括処理・再取込み・Dev検証・HS試験までの工程と完了条件。
+
 - [過去物件のDev初期化・一括取込み準備](runbooks/historical-property-intake.md)：10月9日受領442件の点検、不足事項、再実行手順。取込みは未実施。
 
 - [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮6列・保存／導入契約。
