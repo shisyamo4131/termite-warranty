@@ -1,14 +1,14 @@
 <template>
   <v-dialog v-model="open" max-width="1100" persistent scrollable>
-    <v-card>
-      <v-card-title>物件・保証の一括取込み</v-card-title>
+    <v-card :border="false" class="business-dialog">
+      <BusinessDialogHeader title="物件・保証の一括取込み" :busy="busy || locked && !result" @close="open=false" />
       <v-card-text>
         <v-alert type="info" class="mb-4">毎月届く増分の初回保証を登録します。外部キー必須の保証グループだけで利用できます。外部キーの重複や未登録の本支店コードなどが1件でもあれば全件を登録しません。登録後の訂正は通常の編集画面で行います。</v-alert>
         <v-alert v-if="props.referenceReady===false" type="warning" class="mb-4">参照マスタの最新状態を確認できません。保証グループ・工務店の選択は再取得後に行ってください。</v-alert>
         <v-alert v-if="problem" type="error" class="mb-4">{{ problem }}</v-alert>
         <v-alert v-if="locked && !result" type="warning" class="mb-4">{{ rejected ? '今回の登録はサーバーで拒否されました。修正する場合は、下の「入力を見直す」から確認してください。' : '以前の登録結果が未確認です。「登録結果を確認」で確認してください。結果がまだ確認できない場合は同じCSVを選択し、同じ取込みとして再送できます。新しい取込みとして送信し直さないでください。' }}</v-alert>
         <v-alert v-if="result" type="success" class="mb-4">{{ result.count }}件を本登録しました。{{ result.replayed ? '前回の登録結果を確認しました。追加の登録は行っていません。' : '' }}</v-alert>
-        <v-form ref="importForm" @submit.prevent="previewFile" :disabled="props.referenceReady===false || busy || locked || !!result">
+        <h2 class="business-section-title">取込み対象・CSV</h2><v-form ref="importForm" @submit.prevent="previewFile" :disabled="props.referenceReady===false || busy || locked || !!result">
           <v-row>
             <v-col cols="12" md="6"><v-select v-model="groupId" :items="activeGroups" item-title="name" item-value="id" :rules="requiredRules" label="保証グループ" required /></v-col>
             <v-col cols="12" md="6"><CompanyAutocomplete :key="groupId" v-model="companyId" :items="props.companies.filter(company=>company.defaultGroupId===groupId)" :fetch-options="searchCompanies" :active="open" :disabled="props.referenceReady===false || !groupId || busy || locked || !!result" required @select="chooseCompany" /></v-col>
@@ -19,7 +19,7 @@
         <v-file-input v-if="locked && pendingRecord && !csv && !result && !rejected" v-model="file" prepend-icon="" append-inner-icon="$file" accept=".csv,text/csv" label="前回と同じCSVファイルを選択" :rules="[fileRule]" :disabled="busy" show-size @update:model-value="readFile" />
         <v-btn variant="outlined" class="mb-3" @click="$emit('downloadTemplate')">共通テンプレートをダウンロード</v-btn>
         <v-progress-linear v-if="busy" indeterminate class="mb-3" />
-        <template v-if="preview">
+        <template v-if="preview"><h2 class="business-section-title">検証結果</h2>
           <p class="mb-3">検証対象：{{ preview.count }}件（上限300件）。全件の保証番号を新規採番します。</p>
           <v-alert v-if="preview.errors.length" type="error" class="mb-4">{{ preview.errors.length }}件の問題があるため全件を登録できません。ファイルを修正して再検証してください。</v-alert>
           <v-table v-if="preview.errors.length" density="compact"><thead><tr><th>行</th><th>項目</th><th>理由</th></tr></thead><tbody><tr v-for="(item,index) in preview.errors" :key="index"><td>{{ item.line || '全体' }}</td><td>{{ item.field }}</td><td>{{ item.message }}</td></tr></tbody></v-table>

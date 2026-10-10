@@ -31,7 +31,7 @@
   </section>
 
   <v-dialog v-model="renewalDialog" max-width="640">
-    <v-card title="保証更改依頼を作成">
+    <v-card :border="false" title="保証更改依頼を作成">
       <v-card-text>
         <v-select v-model="renewalCaseId" :items="renewalCandidates" item-title="label" item-value="id" label="案件" />
       </v-card-text>
@@ -43,7 +43,7 @@
   </v-dialog>
 
   <v-dialog v-model="reviewDialog" max-width="720">
-    <v-card title="仮データを確認">
+    <v-card :border="false" title="仮データを確認">
       <v-card-text v-if="reviewItem">
         <v-alert v-if="reviewItem.status !== 'submitted'" type="info" class="mb-4">
           現在は工務店からの提出待ちです。

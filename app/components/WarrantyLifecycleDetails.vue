@@ -1,6 +1,7 @@
 <template>
-  <v-card class="my-4 lifecycle-card">
-    <v-card-title>保証期間</v-card-title>
+  <div class="lifecycle-stack" :class="{'insurance-first':focus==='report'}">
+  <v-card class="my-4 lifecycle-card warranty-card">
+    <v-card-title>{{ focus==='certificate' ? '保証書の発行状況' : focus==='billing' ? '保証期間ごとの請求状況' : '保証期間' }}</v-card-title>
     <v-card-text>
       <v-row><v-col cols="12" sm="8"><div class="text-caption">保証開始日 ～ 現在の満了日</div><div class="text-h6">{{ row.startDate }} ～ {{ row.expiryDate }}</div></v-col><v-col cols="12" sm="4"><div class="text-caption">通算保証年数／最長保証期間</div><div class="text-h6">{{ row.years }}年／{{ row.maxYears }}年</div></v-col></v-row>
       <v-divider class="my-4" />
@@ -24,7 +25,7 @@
     </v-card-text>
     <v-card-actions v-if="$slots['warranty-footer']" class="justify-end pa-4"><slot name="warranty-footer" /></v-card-actions>
   </v-card>
-  <v-card v-if="showInsurance" class="my-4 lifecycle-card">
+  <v-card v-if="showInsurance" class="my-4 lifecycle-card insurance-card">
     <v-card-title>保険の適用・報告状況</v-card-title>
     <v-card-text>
       <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">次回報告の対象年月</div><v-chip size="small" class="report-status-chip">{{ renewalLabel }}</v-chip></v-col></v-row>
@@ -45,13 +46,14 @@
     </v-card-text>
     <v-card-actions v-if="$slots['insurance-actions']" class="pa-4"><slot name="insurance-actions" /></v-card-actions>
   </v-card>
+  </div>
 </template>
 <script setup lang="ts">
 import { certificatePeriods } from '../../src/domain/warranty-certificate.mjs'
 import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
 import { warrantyTransactions, activeInsuranceReports, japanDate } from '../../src/domain/property-warranty.mjs'
 import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
-const props=withDefaults(defineProps<{row:Record<string,any>;editable?:boolean;allowCertificateUndo?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
+const props=withDefaults(defineProps<{row:Record<string,any>;focus?:string;editable?:boolean;allowCertificateUndo?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
 defineEmits<{billing:[action:string,period:Record<string,any>]}>()
 const transactions=computed(()=>certificatePeriods(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
 const reports=computed(()=>activeInsuranceReports(props.row))
@@ -77,3 +79,8 @@ const billingLabel=(state:string)=>({pending:'未請求',billed:'請求済み',u
 @media(max-width:600px) { .period-row,.insurance-row { grid-template-columns:1fr; } .period-actions { justify-content:flex-start; } }
 </style>
 
+
+<style scoped>
+.lifecycle-stack{display:flex;flex-direction:column}
+.insurance-first .insurance-card{order:-1}
+</style>

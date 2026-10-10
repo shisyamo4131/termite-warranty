@@ -49,14 +49,14 @@
   </section>
 
   <v-dialog v-model="dialogOpen" max-width="560" persistent scrollable>
-    <v-card :title="editingUid ? '担当者アカウントを編集' : '担当者アカウントを発行'">
+    <v-card :border="false" class="business-dialog"><BusinessDialogHeader :title="editingUid ? '担当者アカウントを編集' : '担当者アカウントを発行'" :subtitle="form.displayName || '新規発行'" icon="staff" :busy="saving" @close="dialogOpen=false" />
       <v-card-text><v-form ref="editForm" @submit.prevent="save"><v-alert v-if="saveError" type="error" class="mb-4">{{ saveError }}</v-alert>
         <v-alert v-if="!editingUid" type="info" class="mb-4">
           発行後、入力したメールアドレスへパスワード設定メールを送信します。
         </v-alert>
-        <v-text-field v-model="form.displayName" :rules="requiredRules" label="表示名" required />
+        <h2 class="business-section-title">担当者情報</h2><v-text-field v-model="form.displayName" :rules="requiredRules" label="表示名" required />
         <v-text-field v-model="form.email" :rules="[requiredRule,emailRule]" label="メールアドレス" type="email" required />
-        <div class="text-caption">付与する権限: {{ roleLabel(targetRole) }}</div>
+        <h2 class="business-section-title">権限</h2><div class="text-caption">付与する権限: {{ roleLabel(targetRole) }}</div>
       </v-form></v-card-text>
       <v-card-actions class="flex-wrap">
         <v-spacer />

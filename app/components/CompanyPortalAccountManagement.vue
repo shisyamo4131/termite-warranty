@@ -40,7 +40,7 @@
   </section>
 
   <v-dialog v-model="accountDialog" max-width="560">
-    <v-card title="工務店アカウントを発行">
+    <v-card :border="false" title="工務店アカウントを発行">
       <v-card-text>
         <v-alert type="info" class="mb-4">
           発行後、工務店側がログイン画面の「パスワードを設定・再設定」からパスワードを設定します。

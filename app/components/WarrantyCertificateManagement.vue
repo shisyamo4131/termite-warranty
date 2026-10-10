@@ -1,26 +1,32 @@
 <template>
   <h1 class="text-h5 mb-4">{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</h1>
+  <details class="business-help"><summary>抽出条件・操作の注意</summary>
   <v-alert v-if="!billing" type="info" class="mb-4">初回は引渡月、延長分はその保証開始月で抽出します。指定月より前の未発行分も含みます。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</v-alert>
   <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、対象年月以前（指定月を含む）の未請求分を表示します。初回は申込月、延長は保証開始月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>
   <v-alert v-else type="warning" class="mb-4">CSVは仮の出力項目です。保証書そのものの作成・印刷には対応していません。</v-alert>
+  </details>
   <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>
   <v-alert v-if="message" type="success" class="mb-4">{{ message }}</v-alert>
   <v-card class="mb-4"><v-card-text>
     <v-form @submit.prevent="load"><div class="d-flex flex-wrap ga-3 align-start">
-      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" style="min-width:240px;max-width:400px" />
-      <BusinessDateInput v-model="month" label="対象年月" type="month" :disabled="working" :rules="[monthRule]" style="max-width:240px" />
-      <v-btn color="primary" variant="flat" type="submit" :disabled="working">検索・更新</v-btn>
+      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" style="flex:1 1 240px;min-width:0;max-width:400px" />
+      <BusinessDateInput v-model="month" label="対象年月" type="month" :disabled="working" :rules="[monthRule]" style="flex:1 1 180px;max-width:240px" />
+      <div class="property-search-actions d-flex align-center"><v-btn color="primary" variant="flat" type="submit" :disabled="working">検索・更新</v-btn></div>
     </div></v-form>
-    <div class="d-flex flex-wrap ga-2">
-      <v-btn variant="outlined" :disabled="!selectedRows.length || working || dirty || !referencesReady" @click="download">選択した行をCSV出力</v-btn>
-      <v-btn v-if="!readOnly" variant="outlined" :disabled="!pendingRows.length || working || dirty" @click="confirm=true">選択分を{{ doneLabel }}にする</v-btn>
-    </div>
+
   </v-card-text></v-card>
   <v-alert v-if="dirty && loadedMonth" type="warning" class="mb-4">検索条件が変わりました。「検索・更新」を押してください。</v-alert>
-  <v-card><v-card-text>
-    <p class="mb-2">{{ loadedMonth }}分：{{ rows.length }}期間／選択 {{ selectedRows.length }}期間（{{ pendingLabel }} {{ pendingRows.length }}期間）</p>
+  <v-card class="business-results"><v-card-text class="business-results-content">
+    <p v-if="loadedMonth" class="text-body-2 mb-3">{{ references.name('groups',loadedGroup) }} ／ {{ loadedMonth }}分</p>
+    <div class="business-counts" aria-live="polite"><div><span>抽出結果</span><strong>{{ rows.length }}期間</strong><small>{{ pendingLabel }} {{ rows.filter(r=>r.certificateIdentifiable && !r.certificateIssued).length }} ／ {{ doneLabel }} {{ rows.filter(r=>r.certificateIdentifiable && r.certificateIssued).length }} ／ 要確認 {{ rows.filter(r=>!r.certificateIdentifiable).length }}</small></div><div><span>選択中</span><strong>{{ selectedRows.length }}期間</strong><small>選択中の{{ pendingLabel }}：{{ pendingRows.length }}期間</small></div><div><span>今回{{ doneLabel }}にする対象</span><strong>{{ pendingRows.length }}期間</strong><small>選択中の{{ pendingLabel }}のみ</small></div></div>
+    <div class="business-selection-bar">
     <v-checkbox :model-value="allSelected" label="全ページの対象を選択" :disabled="working || dirty || !rows.length" hide-details @update:model-value="selectAll" />
-    <v-table><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
+    <div class="d-flex flex-wrap ga-2">
+      <v-btn variant="outlined" :disabled="!selectedRows.length || working || dirty || !referencesReady" @click="download">選択した{{ selectedRows.length }}期間をCSV出力</v-btn>
+      <v-btn v-if="!readOnly" variant="flat" color="primary" :disabled="!pendingRows.length || working || dirty" @click="confirm=true">{{ pendingLabel }}{{ pendingRows.length }}期間を{{ doneLabel }}にする</v-btn>
+    </div>
+    </div>
+    <v-table class="business-list-table" density="compact" fixed-header><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
       <tbody><tr v-for="row in visibleRows" :key="key(row)">
         <td><v-checkbox v-model="selected" :value="key(row)" :aria-label="`${row.warrantyNumber} ${row.certificatePeriodLabel}を選択`" :disabled="working || dirty || !row.certificateIdentifiable" hide-details /></td>
         <td>{{ row.warrantyNumber }}<div>{{ row.name }}</div><div class="text-caption">引渡日：{{ row.handoverDate }}</div></td>
@@ -32,7 +38,7 @@
     </v-table>
     <v-pagination v-if="rows.length>20" v-model="page" :length="Math.ceil(rows.length/20)" :disabled="working" />
   </v-card-text></v-card>
-  <v-dialog v-model="confirm" max-width="700" persistent scrollable><v-card :title="`${doneLabel}にする期間の確認`"><v-card-text>
+  <v-dialog v-model="confirm" max-width="700" persistent scrollable><v-card :border="false" class="business-dialog"><BusinessDialogHeader :title="`${doneLabel}にする期間の確認`" :icon="billing ? 'billing' : 'certificates'" :busy="working" @close="confirm=false" /><v-card-text>
     <p>次の{{ pendingRows.length }}期間を{{ doneLabel }}にします。<template v-if="!billing">CSVを出力しただけでは発行済みにしないでください。</template><template v-else>請求書の作成・送信や入金登録は行いません。</template></p>
     <p v-for="row in pendingRows" :key="key(row)" class="mt-3">{{ row.warrantyNumber }}／{{ row.name }} — {{ row.certificatePeriodLabel }}：{{ row.certificateStartDate }} ～ {{ row.certificateExpiryDate }}</p>
     <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
