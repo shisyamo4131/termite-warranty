@@ -4,19 +4,24 @@ import { before, after, test } from 'node:test'
 import { initializeApp, deleteApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
-import { propertyPrototypeOperation } from '../../functions/property-warranty.js'
-import { propertyBulkImportOperation } from '../../functions/property-bulk-import.js'
+import { propertyPrototypeOperation as propertyOperation } from '../../functions/property-warranty.js'
+import { propertyBulkImportOperation as bulkOperation } from '../../functions/property-bulk-import.js'
 import { CSV_TEMPLATE_HEADERS } from '../../src/domain/property-bulk-import.mjs'
 import { inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.mjs'
 import { coveragePeriods, initialGroups, insuranceReportTarget, latestInsuranceReport } from '../../src/domain/property-warranty.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
-import { seedFixedRuntime, httpsCallable as fixedCallable } from '../helpers/fixed-runtime.mjs'
+import { seedFixedRuntime, httpsCallable as runtimeCallable } from '../helpers/fixed-runtime.mjs'
 import {fixtureTasks} from '../helpers/fixture-tasks.mjs'
 import {monthlyQueryProjection,monthlyProjectionMatches,withInsuranceDefaults} from '../../src/domain/monthly-query.mjs'
 import {migrateMonthlyQueries} from '../../scripts/lib/monthly-query-migration.mjs'
 import {insuranceReportKind,billingRows,initialInsurance} from '../../src/domain/property-warranty.mjs'
 import {measureFirestoreOperation,observedFirestore} from '../../functions/firestore-metrics.js'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
+// Existing scenarios use the supported client format; protocol rejection has dedicated tests.
+const operationPayload=input=>input.action==='reenableMaster'?input:{operationProtocol:1,...input}
+const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,operationPayload(input),uid)
+const propertyBulkImportOperation=(db,input,uid)=>bulkOperation(db,{operationProtocol:1,...input},uid)
+const fixedCallable=(functions,name)=>{const invoke=runtimeCallable(functions,name);return input=>invoke(operationPayload(input))}
 const app=initializeApp({projectId:'demo-termite-warranty'},'property-test'),db=getFirestore(app),auth=getAuth(app)
 const call=async(action,data={},uid='meeting-hs')=>{
   // Old scenario helpers explicitly construct the new confirmation payload.
@@ -37,6 +42,7 @@ before(async()=>{
   await fixtureTasks(['propertyWarranties','warrantyGroups','warrantyCounters','companyBranches'].map(name=>()=>db.recursiveDelete(db.collection(name))))
   const fixture=db.batch()
   fixture.set(db.doc('prototypeSettings/monthlyQueries'),{version:1})
+  fixture.set(db.doc('prototypeSettings/insuranceStates'),{version:1})
   fixture.set(db.doc('staffAccounts/meeting-hs'),{role:'house_solution_administrator',enabled:true,displayName:'架空HS'})
   await auth.createUser({uid:'meeting-hs',email:'meeting-callable@example.invalid',password:'Demo-only-password-123'})
   fixture.set(db.doc('constructionCompanies/meeting-co'),{name:'架空工務店',defaultGroupId:'HSC'})
@@ -49,6 +55,7 @@ after(()=>deleteApp(app))
 
 test('monthly migration is idempotent, preserves business fields and queries only eligible property documents',async()=>{
   const target=getFirestore(app,'monthly-query-test')
+  await target.doc('prototypeSettings/insuranceStates').set({version:1})
   await target.doc('staffAccounts/monthly-hs').set({role:'house_solution_administrator',enabled:true})
   const fixtures=[]
   for(const [id,date,patch] of [['oct','2026-10-05',{}],['sep','2026-09-05',{}],['future','2026-11-05',{}],['reported','2026-10-05',{insuranceReported:true}],['cancelled','2026-10-05',{status:'cancelled'}],['review','2026-10-05',{insuranceRenewalMonth:''}]]){
@@ -831,7 +838,8 @@ test('HS latest extension undo preserves insurance and corrections, requires rea
   await call('save',command(key,4,{fields:{...fields,maxYears:30,name:'訂正後'},confirmDates:true}))
   await call('report',command(key,5,{month:'2026-10'}))
   row=await call('detail',{id:key})
-  const insurance=Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('insurance')))
+  const preservedInsurance=row=>Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('insurance')&&k!=='insurancePeriods'&&!/^insurancePending(Start|End)\d$/.test(k)))
+  const insurance=preservedInsurance(row),remainingInsurancePeriods=row.insurancePeriods.slice(0,4)
   await assert.rejects(call('undoExtend',command(key,6,{targetRequestId:second,reason:'訂正'}),'meeting-branch-user'),e=>e.code==='permission-denied')
   await assert.rejects(call('undoExtend',command(key,6,{targetRequestId:second,reason:' '})),e=>e.code==='invalid-argument')
   await assert.rejects(call('undoExtend',command(key,6,{targetRequestId:first,reason:'訂正'})),e=>e.code==='failed-precondition')
@@ -840,7 +848,11 @@ test('HS latest extension undo preserves insurance and corrections, requires rea
   row=await call('detail',{id:key})
   assert.equal(row.revision,7);assert.equal(row.years,20);assert.equal(row.maxYears,30)
   assert.equal(row.expiryDate,'2046-09-30');assert.equal(row.name,'訂正後');assert.equal(row.warrantyNumber,number)
-  assert.deepEqual(Object.fromEntries(Object.entries(row).filter(([k])=>k.startsWith('insurance'))),insurance)
+  assert.deepEqual(preservedInsurance(row),insurance)
+  assert.deepEqual(row.insurancePeriods,remainingInsurancePeriods)
+  assert.equal(row.insurancePeriods.length,4)
+  assert.equal(row.insurancePendingEnd1,'2046-09-30')
+  for(const index of [2,3])for(const edge of ['Start','End'])assert.equal(row[`insurancePending${edge}${index}`],'')
   assert.equal(row.history.filter(h=>h.kind==='undoExtend').length,1)
   const billed=(await call('list',{filter:{billingMonth:row.periods[1]?.startDate.slice(0,7) || '2036-10'}})).rows.filter(r=>r.id===key && r.billingKind==='延長')
   assert.equal(billed.length,1);assert.equal(billed[0].billingEventId,first)
@@ -864,10 +876,20 @@ test('certificate month queries, migration, period issuance and concurrent updat
   await target.doc('staffAccounts/cert-hs').set({role:'house_solution_administrator',enabled:true})
   await target.doc('constructionCompanyAccounts/cert-portal').set({role:'construction_company',enabled:true,scope:'company',constructionCompanyId:'meeting-co'})
   const invoke=(action,data={},uid='cert-hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,groupId:'cert-group',...data},uid)
-  await target.doc('warrantyGroups/cert-group').set({name:'試験グループ',enabled:true})
+  await target.doc('warrantyGroups/cert-group').set({name:'試験グループ',enabled:true,prefix:'CERT',fiscalStartMonth:1})
+  await target.doc('constructionCompanies/meeting-co').set({name:'架空工務店',defaultGroupId:'cert-group',enabled:true})
+  await target.doc('companyBranches/meeting-branch').set({name:'架空支店',constructionCompanyId:'meeting-co',enabled:true})
   const fixtures=[]
   for(const [id,date,patch] of [['past','2026-09-05',{}],['current','2026-10-05',{}],['future','2026-11-05',{}],['cancelled','2026-10-05',{status:'cancelled'}],['draft','2026-10-05',{status:'draft'}],['issued','2026-09-05',{certificateItems:[{id:'initial',startDate:'2026-09-05',expiryDate:'2036-09-04',issued:true}]}]]){
-    const row={...fields,groupId:'cert-group',status:'active',years:10,maxYears:20,history:[],revision:1,warrantyNumber:id,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
+    let row={...fields,groupId:'cert-group',status:'active',years:10,maxYears:20,history:[],revision:1,warrantyNumber:id,updatedAt:Timestamp.now(),handoverDate:date,applicationDate:date,expiryDate:coveragePeriods(date,10).at(-1).expiryDate,...initialInsurance(date),...patch}
+    if(id==='current') {
+      // This scenario extends real registered coverage. Unknown legacy insurance is
+      // covered separately; do not manufacture pending status merely to bypass it.
+      await invoke('register',{id,revision:0,requestId:'certificate-fixture-register',fields:{...fields,handoverDate:date,applicationDate:date},confirmRegistration:true,confirmWarnings:true})
+      row=(await target.doc('propertyWarranties/'+id).get()).data()
+      // Model the certificate-index introduction while retaining all registration evidence.
+      for(const key of Object.keys(certificateProjection(row)))delete row[key]
+    }
     fixtures.push({id,...row});await target.doc('propertyWarranties/'+id).set(row)
   }
   await assert.rejects(invoke('certificateList',{month:'2026-10'}),e=>e.code==='failed-precondition')

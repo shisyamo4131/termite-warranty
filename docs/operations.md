@@ -1,11 +1,201 @@
 # Operations
 
+## 2026-10-10 過去物件取込みの実行準備
+
+オーナーの「アカウント以外のDevデータを初期化して取込み準備」の指示に対応。確定原資料442件と所属・欠番・年度別採番を非公開計画へ変換し、マスタ作成、初期化、過去番号保持投入、中断再開、全件照合、既存公開手順への接続を整備した。対象とコマンドは[取込み手順](runbooks/historical-property-intake.md#2026-10-10-取込み計画と実行準備)。本作業ではDev停止・削除・投入・配備は行っていない。
+
+実Devの正式読取inspectは終了0：削除候補1,115、保持スタッフ3、工務店アカウント0、Auth整合。inventoryHash=`d7ab009652beb391a404c1a0c589075b21bf044afede032889710a0858541dbe`。値は実行時の再点検を省略するためのものではない。実値ファイルはGit外、内容をログへ出さない。
+
+今回の担当変更：`scripts/extract-historical-intake.py`、`scripts/prepare-historical-intake.mjs`、`scripts/historical-intake.mjs`、`scripts/lib/historical-intake-plan.mjs`、`scripts/lib/historical-intake-execution.mjs`、既存`default-recovery.mjs`のCLI／lib／admission、`scripts/lib/rules-test-plan.mjs`の試験登録、`test/historical-intake-plan.test.mjs`、`test/historical-intake-extraction.py`、`test/helpers/historical-intake.mjs`、`test/emulator/historical-intake.test.mjs`、`test/default-recovery-admission.test.mjs`、`MeetingPrototype.vue`の履歴表示名1件。文書はspecification、取込みrunbook／roadmap、prototype保存契約、backup-recovery-implementation、CHANGELOG、本書の該当節。既存の別作業差分を保持し、ステージ・コミットなし。
+
+分類はapplication-logic、data-contract-schema-migration、公開経路への変更を含むbuild-release-deployの包括7ゲート。既存の停止・公開・通常再開の承認境界は変更せず、新たな恒久アーキテクチャ判断ではないためADRは追加しない。新規文書がなく索引は変更不要。ガバナンス・権限設定・通常の新規採番仕様は変更しない。失敗時は維持した停止状態で正確な前回実行者と完了位置を照合して再開する。旧バックアップ取得を再開しない。
+
+独立レビューで指摘された、初回記録前の中断、履歴日時形式、削除／書込み途中の計画外データ消失を修正し、最終差分の再レビューで追加の具体的阻害事項なし。最終包括試験は169成功、その他の必須ゲートも終了0。[各コマンドと制約](runbooks/historical-property-intake.md#準備の検証結果)。実行前には検証した版を確定し、現原本・DB・配備状態を再点検する。
+
+## 2026-10-10 AIR取込み原資料の2セル修正
+
+オーナーの修正指示に基づき、AIRのExcel原本のUH!F13・F31を1508-00から1508-01へ変更し、Driveの同一IDへ保存・再取得照合済み。[対象・相違範囲・現資料ID・SHA-256](requirements/source-materials.md#2026-10-10-新潟南2件の原資料修正)。元ファイルの他セル・書式・数式・構成ファイルを保持し、保存後ファイルのSHA-256一致を確認した。原資料の旧版はGit外の一時領域に保持する。Dev・アプリ・メール送信・共有権限は変更していない。
+
+ローカル反映は本書、受領資料台帳、仕様書、取込み手順、取込みロードマップの5文書。既存差分は保持、未コミット。採用値自体の変更ではなく原資料修正の実施記録なので、データ契約・ADR・ガバナンス・索引構造・未決事項の決定内容は変更不要。文書はdocumentation-onlyとしてgovernance-checkとdiff --checkを適用し、アプリ試験・ビルド・配備は対象外。初期取込み全体は未完了。
+
+## 2026-10-10 AIR回答確認による新潟南の残件訂正
+
+GmailのAIRアカウントをプロフィールで照合し、10月10日の照会・回答・了承の3メールを読取確認。対象2件は加盟店名「新潟南」、加盟店コード「1508-01」として取り込む。原資料の1508-00はこの2件の所属対応で訂正し、新津へ割り当てない。区切り記号は既定の4桁-2桁表記に合わせる。契約No・保証番号や他の1508-00を一律に書き換える判断は含まない。 所属の回答待ちを解消し、開発側の入力固定・採番照合・一括処理・予行・実投入・全件検証へ引き継ぐ。取込全体やHI-01を完了とはしない。本文・個人情報の転載は避け、必要な決定要約とメール参照のみ記録した。
+
+文書のみ変更：仕様書、source-materials、HSC-015と台帳の対応行、historical-property-intakeのロードマップ・手順、changelog、本書の8ファイル。台帳の既存HSC-006／036差分は同じコーディネーターによる先行作業として保持し、他行・他事項を変更しない。アプリ・データ契約・ADR・索引構造・ガバナンス変更なし。原資料／Dev／メールへの書込みなし。原資料上で訂正済みかは今回未検査。差戻しは今回の文書差分のみ。未コミット。検証はdocumentation-onlyの文書検査と差分検査を行い、コード・配備試験は分類対象外。
+
+## 2026-10-10 ダイアログ内の情報整理用カードを枠線・影なしに統一
+
+オーナーが先行見本を採用。`WarrantyLifecycleDetails.vue`の保証・保険カード2箇所と、`MeetingPrototype.vue`の満了案内・履歴・登録内容・変更されない情報の4箇所へ`border :elevation="0"`を設定。`app/assets/clear-sky-theme.css`の独自枠・影から`dialog-layout-card`を除外し、Vuetifyの既定枠線を使う。現在の保険期間の青枠・情報・操作・保存、ダイアログ外枠、一覧・dashboardは維持。前段記録の見本未採用は当時の状態であり、本採用を優先する。
+
+UI・文書・継続Dev公開として包括7ゲートを適用。`npm run typecheck`／`npm run build`は各exit0。直前の日付表示変更での`npm test`385成功・2skip・exit0、およびRules163成功・Functions構文・seed構文・governance-tools10成功を再利用。今回の変更はカード属性・CSS除外と文書のみで、業務処理・保存・サーバー・依存・試験基盤の失効条件に該当しない。低影響の外観変更のため新規の恒久テストは追加しない。
+
+`node tmp/build-insurance-order-preview.cjs`はexit0。実Vue部品・架空データをCUAで1280px／375px確認。保証・保険カードの枠は1px rgba(0,0,0,0.12)、elevation 0で影の距離・ぼかし・広がりが全て0、現在期間の2px青枠を保持、横あふれなし。dashboardの従来の影も維持。Devログイン後の全ダイアログ操作試験とは区別する。確認用サーバーを停止済み。
+
+反映文書は仕様書・共通UI設計・changelog・本書。データ契約・ADR・ロードマップ・索引・ガバナンスは対象外で変更不要。未コミットの既存差分を保持。差戻しは今回の6カード属性とCSS除外を戻しHostingを再配備する範囲。`pwsh -NoProfile -File scripts/check-governance.ps1`、`git -c core.safecrlf=false diff --check`は各exit0、最終追記後にも確認する。`npx firebase deploy --project termite-warranty-dev --only hosting --non-interactive`はexit0。`node tmp/verify-portal-menu-hosting.mjs`は32配信ファイル・接続先の一致を確認、exit0。index SHA-256は`7ba938c0ff5ae578f9fea638123789274587dfeb1e880fc89802a5ce2c1ab97a`。Functions・DBの変更なし。オーナーはDevを再読込みして実業務画面を確認する。
+
+## 2026-10-10 変更できない申込日・引渡日を文字表示
+
+オーナーの継続指示「こちらもだ」に対応し、`app/components/MeetingPrototype.vue`の申込日・引渡日も変更不可時は`dl`で日付表示とする。申込日は本登録後または取消中、引渡日は既存の訂正制限ありまたは取消中。引渡日の手続き案内は残し、制限解除後は既存入力へ戻る。新規・下書きの入力、日付訂正条件、保存・権限は変更しない。カード外観見本の採用とは別。
+
+今回の変更ファイルは同部品、仕様書、共通UI設計、changelog、本書。データ契約・ADR・ロードマップ・索引・ガバナンス変更は不要。既存差分を保持し未コミット。差戻しは今回の2日付の表示分岐と対応記述を戻しHostingを再配備する範囲。
+
+分類はUI・文書・継続Dev反映、包括7ゲートを適用。`npm run typecheck`はexit0。`node tmp/check-property-date-display.mjs`は実テンプレート抜粋・架空日付・入力部品の代替を使用し、新規／下書き／本登録後の訂正可／訂正不可／取消の5条件で入力欄数・日付・手続き説明を確認、exit0。全画面の実操作確認とは区別する。`npm test`は385成功・2skip・失敗0、exit0。前段のRules163成功・Functions構文・seed構文・governance-tools10成功は、保存／サーバー／依存／試験基盤の変更がなく失効条件に該当しないため再利用。`npm run build`はexit0。`pwsh -NoProfile -File scripts/check-governance.ps1`、`git -c core.safecrlf=false diff --check`は各exit0、最終追記後も再確認する。`npx firebase deploy --project termite-warranty-dev --only hosting --non-interactive`はexit0。`node tmp/verify-portal-menu-hosting.mjs`は32配信ファイル・接続先の一致を確認、exit0。index SHA-256は`6a7683e6501fdad5c4496531c25875358bebfa0bed2d7bdeb2cd2a505c82ba50`。Functions・DB変更なし。認証後の実画面確認はオーナーによるDev再読込み後の確認を残す。
+
+## 2026-10-10 物件・保証の固定された所属を名称表示
+
+Dev画面確認の継続指示に対応。`app/components/MeetingPrototype.vue`の担当工務店・本支店について、本登録後・取消中、またはアカウントの利用範囲で変更不可の項目を`dl`による名称表示へ変更。本支店コードが参照できる場合は併記。新規・下書きの変更可能な選択欄と、一時的な処理中／参照取得中の無効化を維持する。既存の保存・所属固定・参照取得・権限には変更なし。前段のカード外観見本は採用指示がないため製品へ反映しない。
+
+反映先は上記部品、`test/property-warranty.test.mjs`、仕様書、共通UI設計、changelog、本書。データ契約・ADR・ロードマップ工程・索引・ガバナンスの変更は不要。既存差分を保持し未コミット。差戻しは今回の表示分岐を戻す範囲。
+
+分類はUI・文書・継続Dev反映。包括7ゲートのうち`npm run typecheck`／`npm run build`を再実施し各exit0。`node tmp/check-property-affiliation.mjs`は実テンプレート抜粋を使い、本登録・下書き・取消・会社担当・支店担当・処理中の6条件で表示と入力欄数を確認、exit0。選択部品は検証用の代替であり、全画面の実操作試験ではない。初回の検証用コンパイルの警告は方式を修正して解消。`npm test`の初回は既存の選択欄検出が属性順序に依存していたため1件失敗・exit1。検出式を属性順序に依存しない形へ修正し、必須入力の検証を維持。再実行は385成功・2skip・失敗0、exit0。Rules163成功、Functions構文、seed構文、governance-tools10成功は、今回が保存・サーバー・依存・検証基盤を変更せず失効条件に該当しないため前段証拠を再利用。
+
+`npx firebase deploy --project termite-warranty-dev --only hosting --non-interactive`はexit0。`node tmp/verify-portal-menu-hosting.mjs`は32配信ファイルと接続先の一致を確認、exit0。index SHA-256は`0fd2467e67ee110ec94c6c031a9d9422bac4a1d0b8165eb2b18f22d74803a8e9`。Functions・DB変更なし。最終追記後の文書・差分検査を実施し、認証後の実画面でのオーナー確認は別途とする。
+
+## 2026-10-10 一覧の選択余白・保険期間の表示順変更
+
+オーナーが一覧選択用チェックのメッセージ領域除去と、保証期間に合わせた保険期間の古い順表示を指示し、Dev反映まで承認。`MeetingPrototype.vue`の保険報告／請求共通行を`hide-details`（真）へ変更。全件選択・保証書一覧・組織一覧の選択欄は既に非表示で変更不要。確認・入力エラー用チェックは対象外。`WarrantyLifecycleDetails.vue`の表示順だけを開始日昇順へ変更し、現在・選択期間の強調と操作条件を維持する。保存内容・サーバー処理・移行は変更しない。
+
+仕様書、保険報告要件、アラート要件、dashboard設計、共通UI設計、dashboardロードマップ、HSC-006とその台帳行、changelogへ反映。HSCの既存差分は同一コーディネーターの作業であり他項目を保持。ADRの保存・集計判断、データ契約、環境、ガバナンス、索引入口は変更不要。過去の会話内画面案は現行表示の正本にしない。差戻しは今回の2部品の表示差分と対応仕様を戻す範囲。未コミットで既存変更を保持。
+
+検証分類はUI・文書・Dev公開で包括7ゲート。`npm test`は385成功・2skip・失敗0／exit0、`npm run typecheck`／`npm run build`は各exit0。Windowsの既存symlink試験2skipを維持。文書検査・差分検査は最終追記後に実行する。直下の前回記録のRules163成功、Functions構文、seed構文は今回の表示2箇所・文書変更が失効条件に該当しないため再利用。保存・Functions・依存・試験基盤は変更なし。governance-tools10成功も同じ条件で再利用する。
+
+実Vue部品と架空4保険期間のローカル画面をCUAで確認。2020→2025→2030→2035の開始日順、現在の2025年期間だけ強調、選択期間の目印・終了済み不要の取消不可を確認。標準幅と375pxで一覧のメッセージ領域0・横あふれなし。選択部品の簡易行は約56〜57pxで、実業務の複数行テキストを含む行高の保証値ではない。最初の制限環境のプレビューは接続できず、通常ローカル環境で確認した。追加の恒久テストは低影響の表示変更のため作成しない。
+
+`npx firebase deploy --project termite-warranty-dev --only hosting --non-interactive`はexit0。`node tmp/verify-portal-menu-hosting.mjs`は32配信ファイルの完全一致・接続先一致、exit0。index SHA-256は`bfd6188c5905fe673aef980096cd61e04410470daa3f0813ea2461be1b65ae93`。Functions・DBの再配備／書換えなし。`pwsh -NoProfile -File scripts/check-governance.ps1`と`git -c core.safecrlf=false diff --check`は各exit0、最終追記後にも確認する。Devは再読込みで反映される。認証後の実業務画面でのオーナー確認は別途残る。
+
+## 2026-10-10 ダッシュボード・保険期間別状態の実装とDev導入
+
+オーナーが確定設計の実装・検証・Dev配備を明示承認。対象は既存Dev `(default)` と別制御DBであり、Prod・業務受入は含まない。実装を画面／集計・保険処理／テストへ分担し、別担当が移行・復旧・画面の境界を読取レビュー。包括7ゲートと下記Dev導入・実測を完了。ログイン後のDev操作確認・業務受入は残る。
+
+既存315物件の移行事前点検は315件変更対象・確認不能0件、読取りのみ。手順は必要索引を準備→対応済み保存処理を配備→旧処理終了を確認→移行事前点検→変換・全件照合→画面配備。保存処理の切替はFunctionsの有効版とCloud Runの受付先100%一致を確認し、その確認から旧処理の最大処理時間以上経過してから変換する。旧画面の新しい保存は形式版確認で拒否し、再読込みを案内する。
+
+移行コマンドは `scripts/dashboard-migration.mjs`。`inspect` は読取りのみ、`artifact` はレビュー済みローカル実装一式のSHA-256を取得する。未コミットの既存作業を勝手にまとめないため、この専用コマンドでは対象ファイルの内容を固定して検証・配備と結び付ける。他の既存移行コマンドのclean revision要件は変更しない。`apply` は対象Dev/local、別制御DB、復旧世代、実行ID、`--artifact-hash`、`--writers-drained`、`--apply` が必要。書換え前に最新物件を再読取りし、初回変換だけrevisionを加算、updatedAt・業務履歴を保持する。初期投入にも同じ変換を使う。
+
+失敗時は準備完了を公開せず、その実行の占有記録を保持する。`status` で所有者を確認し、旧処理終了を確認したうえで同じ実行ID・世代と `--resume-owner`／`--previous-worker-ended` で再開する。緊急停止による世代変更等で再開できない場合は、終了済み処理の正確な所有者・実行IDを指定する `stop` でその制御記録だけを解除し、準備印と物件は変更せず既存復旧へ引き継ぐ。不要履歴を削除する逆変換や、旧保存処理への単純差戻しはしない。
+
+画面ではHSの初期画面に4件数と基準日・更新時刻を表示。画面を往復しても再取得せず、初回と「件数を更新」で取得する。業務変更・日付変更は更新を促し、失敗時は前回値を保持する。保険詳細は新しい期間から並び、現在の期間を強調。未報告期間の「報告不要にする」から理由を入力し、期限内は「報告不要を取り消す」で戻す。終了済み期間は記録を表示し変更不可。報告済みは先に既存の報告取消を行う。引渡日訂正・延長取消の影響範囲に不要記録がある場合も先に取り消す。
+
+### Local検証の実行結果
+
+対象分類はUI・アプリ処理・保存契約／変換・配備の和集合。各コマンドの終了を個別に確認した。後述のDev確認と業務受入は区別する。
+
+| コマンド | 最終結果 | 終了コード |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功。最終文書更新後にも確認する | 0 |
+| `npm test` | 385成功・2skip・失敗0。2skipはWindowsでシンボリックリンクを作れない既存fixtureの条件分岐 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功。既存のチャンクサイズ等の警告あり | 0 |
+| `npm run test:rules` | 163成功・失敗0・skip0、約288秒、エミュレーター停止確認。保険・集計13件、移行5件を含む | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functionsと共有領域49項目の整合・構文確認成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `node --test test/governance-tools.test.mjs` | 既存作業の入力変更に対応する追加確認10件成功 | 0 |
+| `node tmp/check-dashboard-ui.cjs` | 実Vue部品と架空データで1280px／375pxを確認。横あふれ・実行時エラーなし。期間順、現在強調、操作権限、失敗時の前回値保持、請求遷移を確認し画像も点検 | 0 |
+
+初回の制限環境では一時ファイル／エミュレーター起動が失敗した。通常環境へ切り替えた後、既存fixtureの旧保存形式・確認不能な保険状態を修正して再実行。失敗した回を成功数へ含めない。最終unit・typecheck・build後の追加変更は索引順とエミュレーター試験であり、Rulesはその最終状態で再実施。文書の実施状況追記は保存契約の意味を変更せず、アプリ検証結果を失効させない。包括ゲートの省略なし。
+
+実装の識別は基点 `ed9ccead21fa1df10b072375f39196742535a4ae` の作業ツリーと、`node scripts/dashboard-migration.mjs artifact` のSHA-256 `7e7f0e30e0580ecaeb411597d08dddc0f7eb2212f044d45dd341f89f08d35871`。既存の無関係なガバナンス作業を保持しており、コミット・pushは行っていない。package依存、Rules、IAM、Prod設定の変更なし。独立レビューの指摘は修正し、DB-REVIEW-03で追加指摘なし。
+
+### Dev導入・実測の実行結果
+
+対象 `termite-warranty-dev`、業務 `(default)`、制御 `recovery-control`、通常稼働・復旧世代10。新規実行ID `dashboard-20261010`。4索引READYを確認後、更新した3 Functionsの受付先100%が新しい版であることを05:54:17 UTCに確認。旧処理の最大300秒を超えた05:59:27 UTCに再確認し、更新処理の占有0件・同じ世代・正常稼働で変換を開始した。
+
+| コマンド／確認 | 結果 | 終了コード |
+| --- | --- | --- |
+| `npx firebase deploy --project termite-warranty-dev --only firestore:indexes --non-interactive` | 4つの集計索引と内部記録の単独索引除外を反映 | 0 |
+| `node tmp/dashboard-index-status.mjs` | 4索引すべてREADY。作成中の点検は終了1で区別 | 0 |
+| `npx firebase deploy --project termite-warranty-dev --only functions:propertyPrototype,functions:propertyBulkImport,functions:reportFirestoreMetrics --non-interactive` | 3関数ACTIVE。順に `propertyprototype-00030-jul`、`propertybulkimport-00014-jow`、`reportfirestoremetrics-00008-man` | 0 |
+| `node tmp/dashboard-dev-source-proof.mjs` | 実配備ソースのZIPとローカルの関連12ファイルを各関数で照合・一致 | 0 |
+| `node tmp/dashboard-dev-runtime.mjs` | 受付先・準備済み版一致、100%受付、通常世代10、更新処理の占有0件 | 0 |
+| `node scripts/dashboard-migration.mjs inspect --project termite-warranty-dev --control recovery-control` | 直前315件・変更対象315・確認不能0。変換後315件・変更対象0・確認不能0 | 各0 |
+| `node tmp/dashboard-dev-migrate-and-verify.mjs --project termite-warranty-dev --control recovery-control --generation 10 --operation dashboard-20261010 --artifact-hash 7e7f0e30e0580ecaeb411597d08dddc0f7eb2212f044d45dd341f89f08d35871 --writers-drained --apply` | 専用applyを実行。315件変換・315件照合。業務情報・updatedAt・既存履歴の型付き識別値が前後一致、revision加算も全件正しい | 0 |
+| `node scripts/dashboard-migration.mjs status --project termite-warranty-dev --control recovery-control` | 前後とも占有なし。変換後に残留なし | 各0 |
+| `node tmp/dashboard-dev-verify.mjs` | 実装と同じ4集計をDevで実行し、独立計算した対象ID集合と一致。確認のための本文全件取得はこの単発検査だけ | 0 |
+| `npx firebase deploy --project termite-warranty-dev --only hosting --non-interactive` | 検証済み画面を公開 | 0 |
+| `node tmp/verify-portal-menu-hosting.mjs` | indexとJS／CSSの32ファイルがローカル成果物と完全一致、Firebase接続先一致 | 0 |
+
+公開先：[Dev](https://termite-warranty-dev.web.app)。indexのSHA-256は `f42c02d5f6e8371261ad7589feebc837c06c7a730b372f9a8b8811cc2c2ca270`。ブラウザーで共通ログイン画面を確認。既存ログイン状態がないため、Dev上の認証済み画面・実ユーザー操作は未確認であり、Localの部品検証と混同しない。
+
+基準日2026-10-10、315物件での単発測定。以下はFirestoreの集計診断値であり、設定・アカウント・復旧確認の読取り、通常画面の一覧読取り、画面通信時間は含まない。配備済みソースとの一致を確認した集計処理を開発側から実行した結果で、認証済みブラウザー経由の往復時間ではない。
+
+| 指標 | 件数 | 集計の物件本文読取り | 走査した索引項目 | 集計のreadOperations | 集計実行時間 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 有効 | 315 | 0 | 315 | 1 | 5.053ms |
+| 保険未報告 | 314 | 0 | 945 | 1 | 6.796ms |
+| 保証満了案内待ち | 0 | 0 | 0 | 1（最低課金単位） | 6.122ms |
+| 未請求 | 314 | 0 | 314 | 1 | 6.762ms |
+
+4集計と前後の設定・アカウント確認を含む開発側呼出しは130ms。最大物件文書は15,930bytes、取消用の容量確保を含めても同値で上限内。現在の不要記録がないデータでの値であり、将来の件数・期間配置・履歴量の性能保証ではない。通常ダッシュボードは4countで本文を取得しない。画面を往復しただけでは集計しないこと、手動更新の成功／失敗・日付境界・認証変更はLocal試験で確認した。
+
+### 変更範囲と残る確認
+
+- 画面：`app/components/BusinessDashboard.vue`、`BusinessNavigationIcon.vue`、`MeetingPrototype.vue`、`WarrantyLifecycleDetails.vue`、`app/composables/useDashboardStore.ts`、`app/utils/dashboardSession.mjs`／`.d.mts`、`insuranceReportDisplay.mjs`／`.d.mts`。前段で承認済みの画面タイトルアイコン差分も今回のHostingへ含む。
+- 保存・集計：`functions/dashboard.js`、`property-warranty.js`、`property-bulk-import.js`、`firestore-metrics.js`。`src/domain/dashboard.mjs`、`insurance-state.mjs`／`.d.mts`、`insurance-capacity.mjs`／`.d.mts`、`property-warranty.mjs`、`monthly-query.mjs`、`recovery.mjs`、`client-firestore-metrics.mjs`。Functionsの共有領域は既存生成手順で反映。
+- 導入・検証：`firestore.indexes.json`、`package.json`、`scripts/dashboard-migration.mjs`、`scripts/lib/dashboard-migration.mjs`、`recovery-controller.mjs`、`rules-test-plan.mjs`、`scripts/seed-emulator.mjs`。新規試験は `test/dashboard-session.test.mjs`、`insurance-period-display.test.mjs`、`insurance-state.test.mjs`、`dashboard-migration.test.mjs`、`test/emulator/dashboard-insurance.test.mjs`、`dashboard-migration.test.mjs`。既存のproperty-warranty・property-bulk-import・client/server-firestore-metrics、emulator/property-warranty・isolated-property-import試験を更新。
+- 文書：仕様、保険報告／アラート要件、dashboard設計／ロードマップ、試作保存契約、月別検索契約、ADR 0040／0041、文書／設計索引、環境設定、本書、changelogへ反映。新しい業務判断はないため、採用根拠のHSC記録やADRの理由を変更しない。共通UI・他業務・Prod構築・初期納品範囲への追加判断は変更なし。
+- ガバナンス：今回の実装では変更なし。既存のガバナンス・AIR指定等の差分を保持。所有範囲外のstage／commit／pushなし。作業ツリーは既存差分を含め未コミット。
+
+次はオーナーのDev画面確認。再読込み・ログイン後に①4件数と基準日、②別画面から戻った時の更新時刻維持と「件数を更新」、③保険詳細の新しい期間順・現在強調、④未請求から既存請求画面への遷移を確認する。「報告不要」の設定・取消は意図した検証用物件で行う。業務データを確認のためだけに変更しない。これを終えるまでDB-05の認証済み操作確認・DB-06の業務受入を完了扱いにしない。
+
+## 2026-10-10 設計確定（実装指示待ち）
+
+Q30の最終確認へオーナーが「YES」と回答。ダッシュボード・期間別報告不要の詳細設計を確定し、ロードマップDB-03を完了、DB-04を実装指示待ちとした。HSC-006は設計解決として台帳の解決済みへ移動。実装・データ変換・配備・初期納品への追加を自動承認しない。下の確認待ち記録は今回の回答前の状態。
+
+反映先：`docs/design/dashboard.md`、`docs/roadmaps/dashboard.md`、`docs/requirements/house-solution-confirmations/HSC-006-dashboard-presentation.md`と台帳の同項目、`docs/specification.md`、`docs/requirements/alerts-and-dashboard.md`、`docs/requirements/insurance-reporting.md`、`docs/decisions/0040-dashboard-session-store.md`、`docs/decisions/0041-insurance-period-reporting-status.md`、`docs/design/meeting-prototype-2026-10-03.md`の未実装計画節、`docs/README.md`、`docs/design/README.md`、`CHANGELOG.md`、本書。
+
+今回は承認状態と参照の文書反映のみ。前段でレビューした設計内容を新たに変更せず、稼働中の保存契約・アプリ・ガバナンス設定・利用手順・外部環境は変更しない。既存差分を保持し、未コミット。documentation-onlyとして文書検査と差分検査を実行し、結果は今回の完了報告へ記録する。実装・型検査・ビルド・業務／DB試験・実データ実測は対象外。実装開始後に適用する検証・導入の条件は詳細設計を参照。
+
+## 2026-10-10 実装前準備の最終整理
+
+今回の変更は`docs/design/dashboard.md`、`docs/roadmaps/dashboard.md`、`docs/requirements/house-solution-confirmations/HSC-006-dashboard-presentation.md`、同台帳のHSC-006行、本書。採用済み仕様に対する作業順、架空6物件の期待件数・対象集合、操作順による集計回数、失敗時保持値、公開条件を具体化。旧画面の操作形式確認、通常保存と初期変換の同時処理、再実行と復旧世代、書込み後の差戻しを詳細案へ追加。DB-READY-CLOSE／INS-READY-CLOSEの読取専用独立点検で対象箇所の指摘なし。Q30は設計全体の最終確認で、実装・移行・配備は含めない。
+
+文書のみ・未コミット。既存アプリとガバナンスの差分を保持し、今回変更なし。業務仕様・ADRの採用済み決定は変更せず、稼働中のデータ契約・利用手順・索引の変更もなし。新規文書を作らないため入口索引の追加不要。変更履歴には既存の詳細設計作成の記載があり、今回はその具体化のため追加しない。検証方針のdocumentation-onlyを選び、`pwsh -NoProfile -File scripts/check-governance.ps1`と差分検査を最終状態で行い結果を完了報告へ記録する。アプリ・データ・配備を変えないため、業務試験・型検査・ビルド・DB試験・構文検査は今回の対象外。記載した期待値は試験結果ではなく、実装後に照合する条件。実データ点検・索引・容量・速度・切替の実証は未実施。
+
+## 2026-10-10 実装前の詳細点検
+
+サブエージェントINS-PREFLIGHT-FINAL／DB-PREFLIGHT-FINALを読取専用で実施。現行保存・月別検索・復旧検査・計測を照合し、[詳細設計](design/dashboard.md)へ具体項目候補、初期変換のrevisionと更新日時、月別報告候補、全更新経路、復旧・容量・受入条件を追加。Q28の保険満了案内方針を仕様・insurance-reporting・alerts-and-dashboard・ADR 0041・HSC-006とHSC-036／対応台帳行・roadmaps/dashboard・CHANGELOGへ反映。Q29の初回未報告の予告対象外も採用。 最終レビューINS-PREFLIGHT-REVIEWの2指摘（先行期間の不要取消の再表示、取消後の文書全体の容量確保）を詳細案・受入条件へ反映。DB-01は正本に全4指標の定義が揃ったため仕様確定とし、DB-03は詳細案の確認待ち。文書のみ・未コミット、アプリ・DB・ガバナンス設定・配備・会話内画面は変更しない。稼働中の保存契約は変更せず、詳細の候補を別途レビューするため、型検査・ビルド・業務／DB試験は選択外。文書検査は今回の最終報告に結果を記録する。
+
+Python入力による6期間の3状態の全729通りの組合せ点検で、未報告の連続区間は最大3、3超過0、終了0。DB・日付関数の試験ではない。公式の容量上限と容量計算法を公開Webで確認し設計へ出典を記載。実データの不足件数・容量、索引・性能、変換・復旧の実証は未実施。旧機能の成功記録を今回の成功へ流用しない。
+
+Gmail・Googleドライブの参照先と接続確認は、[プロジェクト規則](../governance/project-rules.md#gmailgoogleドライブの参照先)を正本とする。
+
+## 2026-10-10 保険期間の表示順（設計のみ）
+
+Q27の回答を反映し、開始前を含め保険期間の開始日が新しい順に上から表示。現在の期間はその位置で強調する。反映先は仕様書、insurance-reporting、alerts-and-dashboard、design/dashboard、HSC-006と対応台帳行、roadmaps/dashboard、CHANGELOG、本書、会話内のinsurance-final-review.html。文書と架空画面のみの変更で、未コミット。既存アプリ差分を保持。データ契約・ADRの期間別状態方針・ガバナンス・配備・利用手順は変更対象外。文書検査と画面案の並び順・操作・幅の確認を行い、今回の最終結果は完了報告へ記録する。アプリの型検査・ビルド・DB試験は、実装を変更しない設計段階のため選択対象外。
+
+## 2026-10-10 ダッシュボード詳細設計の境界
+
+[詳細設計案](design/dashboard.md)を作成。今回の変更は文書のみで、既存Localのアイコン等の差分を保持。ダッシュボード実装・DB補完・外部配備は未着手。設計完了後もオーナーの明示指示を待つ。未請求は既存請求画面へ遷移し保証グループ指定を維持。保険はQ19で期間別3状態と今日を含む期間の未報告数へ変更を採用。不要の理由・担当者・日時と取消を保持する設計。Q20で「現在の期間を強調」・対象期間横の操作と、期間終了後の報告不要取消禁止を採用。終了当日は取消可、翌日以降は不可として日本時間で判定し、終了後も状態・理由を表示する設計。Q21で終了後の不要設定禁止と訂正前の不要取消を採用。終了済みの不要が残る場合は画面で訂正せず開発側へ個別依頼する。対象は5年ごとの保険期間で、保証全体の満了後に限らない。Q22で不要期間の一覧・CSV・報告済み登録からの除外、詳細での確認・期限内取消、取消後の条件付き再表示、次期間を除外しない方針を採用。Q23で延長取消前の対象区間の不要取消と、終了済みなら個別依頼する手順を採用。残る保証区間の不要は保持する。Q24で報告取消後に理由付きで不要にする2段階の操作を採用。Q25で登録済み保証内の開始前期間への不要設定を採用。Q26で物件内の期間別状態と集計用未報告区間を同時保存する方式を採用。具体項目・既存記録の移行・画面全体への反映等を詳細化中。実装・DB移行・運用切替は行っていない。以下の同日アイコン作業の記録は当時の状態で、現在の採用事項は詳細設計と仕様書を参照する。
+
+今回の設計反映先は`docs/specification.md`、`docs/requirements/insurance-reporting.md`、`docs/requirements/alerts-and-dashboard.md`、`docs/requirements/house-solution-confirmations/HSC-006-dashboard-presentation.md`と対応する台帳行、`docs/design/dashboard.md`、`docs/roadmaps/dashboard.md`、`docs/decisions/0041-insurance-period-reporting-status.md`と決定索引、`CHANGELOG.md`、本書。文書差分は未コミット。既存のアプリ・AIR規則差分を保持し、今回の設計作業では変更していない。現行保存契約`docs/design/meeting-prototype-2026-10-03.md`にはQ26の計画節を追加。具体項目・移行契約は詳細化中。利用手順は例外時の表示・操作設計と実装待ちのため未更新。共通UI方針・他のADR・配備設定・ガバナンス設定への変更なし。
+
+今回の分類は文書のみ。保存契約には将来方針だけを追記し、稼働中の項目・意味・変換処理は変更していないため、適用済みデータ契約の変更としては扱わない。文書検査のためアプリの型検査・ビルド・業務試験・DB試験は今回の選択対象に含めない。Q25までの`./scripts/check-governance.ps1`と`git diff --check`は終了0。Q26の最終文書検査は今回の完了報告へ結果を記録する。Q27の画面確認案をアプリ外の架空データで作成し、`python .../visualize/1.0.47/skills/visualize/scripts/render.py <fragment> <preview> --force`は終了0、`node tmp/check-insurance-final.cjs`は終了0。最初のブラウザー起動は制限環境のアクセス拒否で終了1、同じローカル架空画面の確認を許可範囲内で再実行し終了0。736px／320pxの横あふれ、理由必須、不要取消、開始前の個別設定、報告取消後の不要設定、選択期間の目印、閲覧専用の操作非表示を確認した。画像で狭幅・明暗を点検。実アプリの動作・DB・導入の検証ではない。その後Q27は新しい期間ほど上へ並べる修正付きで採用。保存項目・移行等も残るため設計全体の完了とはしない。アプリ・ガバナンス設定は変更していない。
+
+## 2026-10-10 画面タイトルのアイコン（Local）・ダッシュボード質疑
+
+現在のDrawerの10画面で、h1左へ同じBusinessNavigationIconを共用。20px、間隔12px、文字色継承、長いタイトルの折返しを確認。タイトル文言・サイズ・業務処理は維持。Dev配備・実画面受入は未実施。
+
+実装差分は`app/components/MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`WarrantyOrganizationManagement.vue`、`StaffAccountManagement.vue`、`RecoveryStatus.vue`（後4件も同じcomponents配下）、`app/assets/clear-sky-theme.css`。文書は仕様書、共通UI設計、アラート要件、HSC-006と索引、[ダッシュボードロードマップ](roadmaps/dashboard.md)、docs索引、changelog、本書。既存AIR規則の3文書差分を保持。未コミット。
+
+ダッシュボードは仕様整理を開始し、満了カードを既存の保証満了案内の対応対象数、有効カードを今日保証期間内の本登録物件数と確定。保険は今月までの初回・更新報告待ちと確定。未請求は今月以前の対象物件数と確定。ログイン直後の画面として採用。保険は履歴有無によらず当月基準、4指標は全体合計のみでグループ別表示・切替なしと確定。HS全員の閲覧・3カード遷移・共有Storeによる初回・手動更新・更新時刻表示も確定。関連質問は一度に最大3問とし、残る質疑はHSC-006を正本とする。対応優先デザインと、更新失敗時の前回値・更新時刻保持＋警告、初回失敗時の取得不可表示を採用（HSC-006 Q14）。集計方式未採用、ダッシュボード実装未着手、初期納品の進捗・日程は変更なし。
+
+検証分類はUI/CSS/layout＋文書。以下は今回のUI差分で実行完了した結果。最終文書検査・差分検査は追記後にも再実行し、最終結果をタスク完了報告に残す。
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功。チャンクサイズ・Nitro参照等の警告あり | 0 |
+| `node tmp/check-page-title-icons.cjs` | 制限環境ではブラウザー起動失敗。通常環境で1280px／375px、各10タイトルの図柄・20px・12px・はみ出しなしを確認。生成画像も目視確認 | 再実行0（初回1） |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+
+表示確認は実テンプレートのh1と既存アイコン・CSSを使う独立したローカルfixture。ログイン後の画面全体や実データの受入確認とは区別する。通常のアプリ画面へ配備しての最終確認はDev反映時に行う。追加の永続テストは作成しない。domain／Rules／Functions構文／seed構文は今回の選択クラス外で、業務ロジック・保存・依存・権限は未変更。前段AIR規則変更の全7検証は完了済みで、今回失効する型検査・buildを上記で再取得。データ契約・ADR・共通governanceの変更なし。差戻しはアイコン挿入と共通タイトルCSSの今回差分を戻す。
+
 ## 2026-10-10 現在地・PM（白蟻）-09への引継ぎ
 
 オーナー指示によりPM（白蟻）-08から同じ主リポジトリの新規・非forkタスクへ交代。設定はAstra／Medium。新タスクは通常のAGENTS・project-rules・文書マップから起動する。
 
 - UI改修の最新Dev確認は直下の「ダイアログ外枠除去」。共通ツールバー、セクション、組織ツリー、メニューアイコン、一覧からの報告／発行取消を含む既存差分を統合。交代時の追加配備・Cloud再照合はしない。今後のDev配備は各回の明示指示を待つ。
-- 過去物件442件は未投入。所属判断の回答待ちはUH新潟南／新津2件のみ。竹原・早良・三次・金沢南の既決を再質問しない。回答まで取込みを待機し、再開時は[ロードマップ](roadmaps/historical-property-intake.md)と[手順](runbooks/historical-property-intake.md)を読む。変換・初期化・書込み・採番照合・再投入・全件検証は未完成。既存ツールは入力パッケージの読取検査だけ。
+- 過去物件442件は未投入。所属判断の回答待ちは10月10日のメール照合で解消（新潟南2件＝1508-01）。竹原・早良・三次・金沢南の既決を再質問しない。開発側の入力固定・採番照合・一括処理と検証を進め、再開時は[ロードマップ](roadmaps/historical-property-intake.md)と[手順](runbooks/historical-property-intake.md)を読む。変換・初期化・書込み・採番照合・再投入・全件検証は未完成。既存ツールは入力パッケージの読取検査だけ。
 - 業務資料・メールは事業用AIRを使用する。Driveの入口は[AriLabo内のプロジェクト](https://drive.google.com/drive/folders/1Fx4cKWun0UzVmSxDkJBE7BZcjuCTKQ-7)。再接続時はアカウントと対象をツールで再確認する。日付準備のHS了承、PDF送付、日程未合意の訂正は[資料台帳](requirements/source-materials.md#2026-10-10-airメールによる記録訂正)が根拠。メール送信は別途指示が必要。
 - 実データを含む確認用PDF2件はローカルに保持し、Gitへ含めない。生成コード・手順は保存する。独立した引継ぎファイルは作らない。
 - 統合前検証：`npm test` は制限環境で失敗後、通常環境で358成功・2skip／exit0。`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit0。`node --test test/historical-intake-package.test.mjs test/list-undo-ui.test.mjs`は7成功／exit0。Rulesは直下の145成功／exit0の記録を再利用し、以後の表示・文書・読取専用入力検査の変更はRules・永続化処理・依存の失効条件に該当しない。最終文書検証・差分検査はコミット前に実行し結果を交代元の完了報告へ残す。データ契約・ADR・governance・権限設定の変更なし。

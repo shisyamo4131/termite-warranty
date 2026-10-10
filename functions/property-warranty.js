@@ -1,4 +1,7 @@
 import { pendingBillingRows } from './domain/billing-output.mjs'
+import { dashboardCounts } from './dashboard.js'
+import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState } from './domain/insurance-state.mjs'
+import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
 import { certificatePeriods, certificateRows } from './domain/warranty-certificate.mjs'
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { createHash } from 'node:crypto'
@@ -28,6 +31,11 @@ function owner(a, value) {
 // Legacy trial rows remain readable, but are not silently promoted to reportable insurance data.
 const withInsurance = withInsuranceDefaults
 const rows = snapshot => snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+function visibleInsurance(row, staff) {
+  if (staff) return row
+  const { insuranceWaiverEvents, insuranceMigration, ...visible } = row
+  return visible
+}
 async function catalog(db, a, search = '', groupId = '', companyId = '', purpose = '') {
   if ((groupId || companyId) && !a.staff) fail('permission-denied', '階層の管理はHS担当者のみ利用できます。')
   if (groupId) id(groupId)
@@ -85,6 +93,7 @@ async function reserveBranchCode(db, tx, ref, old, value) {
 export async function propertyPrototypeOperation(auth, db, input, uid) {
   const a = await actor(db, uid)
   const action = input?.action
+  if (action === 'dashboard') return dashboardCounts(db,{uid,runtimeGeneration:input.runtimeGeneration})
   if (action === 'alertSettings') return normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())
   if (action === 'saveAlertSettings') {
     manager(a)
@@ -121,6 +130,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     }
     if (f.alertKind && !['warranty','insurance'].includes(f.alertKind)) fail('invalid-argument', '案内の種類が不正です。')
     if (f.alertKind === 'insurance' && !a.staff) fail('permission-denied', '保険満了案内はHS担当者のみ閲覧できます。')
+    if ((f.reportMonth || f.alertKind === 'insurance') && (await db.doc('prototypeSettings/insuranceStates').get()).data()?.version !== 1) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
     let query = db.collection('propertyWarranties')
     if (!a.staff) query = query.where('constructionCompanyId', '==', a.constructionCompanyId)
     if (!a.staff && a.scope === 'branch') query = query.where('branchId', '==', a.branchId)
@@ -153,7 +163,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const names = new Map()
     for(let i=0;i<paths.length;i+=100) for(const doc of await db.getAll(...paths.slice(i,i+100).map(path=>db.doc(path)))) names.set(doc.ref.path,doc.data()?.name ?? '')
     result = result.map(row=>({...row,companyLabel:names.get(`constructionCompanies/${row.constructionCompanyId}`),branchLabel:row.branchId ? names.get(`companyBranches/${row.branchId}`) : '未指定'}))
-    return { rows: result, limited: !filtered }
+    return { rows: result.map(row => visibleInsurance(row,a.staff)), limited: !filtered }
   }
   if (action === 'detail') {
     const snapshot = await db.doc(`propertyWarranties/${id(input.id)}`).get()
@@ -163,7 +173,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (a.staff && input.omitReferenceLabels === true) return withInsurance({...value,id:snapshot.id})
     const company = (await db.doc(`constructionCompanies/${value.constructionCompanyId}`).get()).data()
     const branch = value.branchId ? (await db.doc(`companyBranches/${value.branchId}`).get()).data() : null
-    return withInsurance({ ...value, id: snapshot.id, companyLabel: company?.name ?? value.constructionCompanyId, branchLabel: branch?.name ?? (value.branchId || '未指定') })
+    return visibleInsurance(withInsurance({ ...value, id: snapshot.id, companyLabel: company?.name ?? value.constructionCompanyId, branchLabel: branch?.name ?? (value.branchId || '未指定') }),a.staff)
   }
   if (action === 'reenableMaster') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ設定できます。')
@@ -298,8 +308,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     } catch (error) { if (error instanceof AccountMutationError) fail(error.code, error.message); throw error }
     return { ok: true }
   }
-  if (!['save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
-  if (['notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
+  if (!['waiveInsurance','undoInsuranceWaiver','save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
+  if (['waiveInsurance','undoInsuranceWaiver','notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
   const ref = db.doc(`propertyWarranties/${id(input.id)}`)
   const requestId = id(input.requestId)
   return db.runTransaction(async tx => {
@@ -307,7 +317,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (currentActor.data()?.enabled !== true) fail('permission-denied', 'アカウントが無効です。')
     if (!a.staff && ['constructionCompanyId','branchId','scope'].some(key => currentActor.data()[key] !== a[key])) fail('aborted', 'アカウントの所属が変更されました。ログインし直してください。')
     const snapshot = await tx.get(ref)
-    const old = snapshot.data()
+    let old = snapshot.data()
     if (old) owner(a, old)
     const receipt = (await tx.get(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`))).data()
     if (receipt) {
@@ -315,14 +325,37 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       return {id:ref.id}
     }
     if (old?.history?.some(event => event.requestId === requestId)) return { id: ref.id }
+    if (input.operationProtocol !== 1) fail('failed-precondition','保存形式が変更されました。画面を再読込してください。')
+    const insuranceReady = (await tx.get(db.doc('prototypeSettings/insuranceStates'))).data()?.version === 1
+    if (['waiveInsurance','undoInsuranceWaiver','report','undoReport'].includes(action) && !insuranceReady) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
     if ((old?.revision ?? 0) !== Number(input.revision ?? 0)) fail('aborted', '他の操作で更新されました。一覧から開き直してください。')
     if (!old && !['save', 'register'].includes(action)) fail('not-found', '物件が見つかりません。')
     const now = Timestamp.now(), date = japanDate(now.toDate())
+    if (old) {
+      try {
+        const original = old
+        old = materializeInsuranceState(old,{at:now.toDate().toISOString(),sourceFingerprint:createHash('sha256').update(JSON.stringify({insuranceEvents:original.insuranceEvents??null,insuranceStartDate:original.insuranceStartDate??null,insuranceExpiryDate:original.insuranceExpiryDate??null,revision:original.revision??0})).digest('hex')})
+        const errors = validateInsuranceState(old)
+        if (errors.length) fail('failed-precondition',errors.join('\n'))
+      } catch (error) { fail('failed-precondition',error.message) }
+    }
     if (old && Object.hasOwn(old,'ownerName') && (typeof old.name !== 'string' || !old.name.trim() || typeof old.ownerName !== 'string' || old.ownerName.trim() && old.name.trim() !== old.ownerName.trim())) fail('failed-precondition','旧名称に不一致があります。開発者へ確認してください。')
     let next = { ...old }
     let newKeyReservation = null
     let operationTarget = null
-    if (action === 'undoCertificate') {
+    if (['waiveInsurance','undoInsuranceWaiver'].includes(action)) {
+      if (old.status !== 'active') fail('failed-precondition','本登録済みの物件だけが対象です。')
+      const period = old.insurancePeriods.find(period => period.id === input.insurancePeriodId)
+      if (!period || period.expiryDate < date) fail('failed-precondition','対象の保険期間が終了したため変更できません。')
+      if (action === 'waiveInsurance') {
+        if (period.state !== 'pending') fail('failed-precondition','未報告の保険期間を選択してください。')
+        const reason = text(input.reason,'報告不要とする理由')
+        next.insuranceWaiverEvents = [...old.insuranceWaiverEvents,{kind:'waive',id:requestId,periodId:period.id,warrantyPeriodId:period.warrantyPeriodId,basisRevision:period.basisRevision,half:period.half,startDate:period.startDate,expiryDate:period.expiryDate,reason,actorUid:id(uid),actorName:String(a.displayName??''),at:now.toDate().toISOString()}]
+      } else {
+        if (period.state !== 'waived' || !activeInsuranceWaivers(old).some(event => event.id === period.waiverId)) fail('failed-precondition','報告不要の状態が変わりました。開き直してください。')
+        next.insuranceWaiverEvents = [...old.insuranceWaiverEvents,{kind:'undoWaive',id:requestId,targetId:period.waiverId,periodId:period.id,actorUid:id(uid),at:now.toDate().toISOString()}]
+      }
+    } else if (action === 'undoCertificate') {
       if (old.status !== 'active') fail('failed-precondition', '本登録済みの物件だけが対象です。')
       const period = certificatePeriods(old).find(p=>p.id === input.warrantyPeriodId && p.identifiable)
       if (!period || !period.certificateIssued || period.startDate !== input.startDate || period.expiryDate !== input.expiryDate) fail('failed-precondition','発行済みの保証期間を確認して開き直してください。')
@@ -380,8 +413,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         next.insuranceEvents.push(event)
         next.insuranceLastReport = {...event,kind:event.reportKind}
         operationTarget = target
-        if (renewal) Object.assign(next,nextInsurancePeriod(old),{insuranceEverRenewed:true})
-        else Object.assign(next,{insuranceStartDate:target.startDate,insuranceExpiryDate:target.expiryDate,insuranceRenewalMonth:target.expiryDate.slice(0,7).replace('-','')})
+        Object.assign(next,{insuranceStartDate:target.startDate,insuranceExpiryDate:target.expiryDate,insuranceRenewalMonth:target.expiryDate.slice(0,7).replace('-','')})
+        if (renewal) next.insuranceEverRenewed = true
         next.insuranceReported = true
       } else {
         const target = latestInsuranceReport(old)
@@ -507,7 +540,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
     }
     const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
-    if (action !== 'notify') next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
+    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
     // Separate receipts provide replay safety without introducing a business report/notice history.
     if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
     tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,createdAt:now})
@@ -515,7 +548,21 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     next.updatedAt = now
     next.createdAt = old?.createdAt ?? now
     delete next.ownerName
+    try {
+      const changedHandover = old?.status === 'active' && old.handoverDate !== next.handoverDate
+      next = materializeInsuranceState(next,{reconcile:true,newRegistration: action === 'register' || changedHandover,basisRevision: changedHandover ? old.insuranceBasisRevision + 1 : next.insuranceBasisRevision ?? 1})
+      // Before publication, unrelated existing business may preserve an unknown
+      // interval. Activation/coverage changes must never introduce one into use.
+      // Once published every active write preserves readiness; the marker read
+      // participates in this transaction so publication cannot race this choice.
+      const coverageChanged = ['handoverDate','startDate','expiryDate','years'].some(key => old?.[key] !== next[key])
+      const requireKnown = insuranceReady || old?.status !== 'active' || coverageChanged
+      const errors = validateInsuranceState(next,requireKnown ? {today:date} : {})
+      if (errors.length) fail('failed-precondition',errors.join('\n'))
+      Object.assign(next,insuranceProjection(next))
+    } catch (error) { fail('failed-precondition',error.message) }
     Object.assign(next, monthlyQueryProjection(next))
+    try { assertInsuranceCapacity(next,{documentPath:ref.path,today:date}) } catch (error) { fail('resource-exhausted',error.message) }
     tx.set(ref, next)
     return { id: ref.id }
   })

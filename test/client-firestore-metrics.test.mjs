@@ -3,6 +3,12 @@ import { test } from 'node:test'
 import { createClientMetricBuffer, measuredFirestore } from '../src/domain/client-firestore-metrics.mjs'
 
 const doc = (exists = true) => ({ exists: () => exists, metadata: { fromCache: false, hasPendingWrites: false } })
+test('dashboard cache reuse is measured without inventing document reads',()=>{
+  const buffer=createClientMetricBuffer()
+  buffer.record('dashboard',{cacheHits:1,privateValue:'not allowed'})
+  buffer.record('dashboard',{cacheHits:2})
+  assert.deepEqual(buffer.drain(),[{operation:'dashboard',counters:{cacheHits:3}}])
+})
 test('client counters exclude unapproved labels/data and bound retained values', () => {
   const buffer = createClientMetricBuffer()
   buffer.record('user@example.com', { getCalls: 1 })

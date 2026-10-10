@@ -261,7 +261,7 @@ import { readFileSync } from 'node:fs'
 
 test('property branch selection is required for drafts and no longer implies head office',()=>{
   const source=readFileSync(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')
-  const input=source.match(/<v-autocomplete v-model="form.branchId"[^>]*>/)?.[0]
+  const input=source.match(/<v-autocomplete\b[^>]*\bv-model="form.branchId"[^>]*>/)?.[0]
   assert.ok(input)
   assert.match(input,/:rules="requiredRules" required/)
   assert.match(input,/label="本支店"/)
@@ -367,7 +367,8 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const {readFile}=await import('node:fs/promises')
   const ts=(await import('typescript')).default
   const vue=await import('vue')
-  const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'')
+  // These existing cases exercise the property/list workflow, independent of the new login landing screen.
+  const source=(await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')).split('<script setup lang="ts">')[1].split('</script>')[0].replace(/^import .*$/gm,'').replace("ref(staff.value ? 'dashboard' : 'properties')","ref('properties')")
   const inputRules=await import('../src/domain/input-rules.mjs')
   const fixtureProfile=vue.ref({accountType:'staff',uid:'fictional-hs',role:'house_solution_administrator'})
   const references={companies:vue.ref([]),branches:vue.ref([]),groups:vue.ref([]),status:vue.ref('ready'),error:vue.ref('')}
@@ -378,7 +379,7 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   references.activeBranches=id=>references.branches.value.filter(row=>row.constructionCompanyId===id && row.enabled!==false)
   references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
   vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
-  const notifications=[];const env={useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   return new Function(...Object.keys(env),code+';return {businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
@@ -750,7 +751,7 @@ test('billing backlog includes pending periods through selected month; CSV addre
 
 test('business navigation preserves role and recovery boundaries and blocks busy navigation',async()=>{
   const ui=await prototypeViewForTest(async()=>({}))
-  assert.equal(ui.businessNavigation.value.length,6)
+  assert.equal(ui.businessNavigation.value.length,7)
   assert.equal(ui.managementNavigation.value.length,4)
   ui.busy.value=true
   ui.navigate('report')

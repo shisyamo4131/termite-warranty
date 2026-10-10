@@ -140,6 +140,13 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
     return {baseline,address,image}
   }
   async function validateAddressPlan(plan) {
+    if(plan.kind==='historical-intake') {
+      if(!plan.publicationOnly||plan.source!=='(default)'||plan.authoritySource!=='(default)'||plan.target!=='(default)'||plan.controlId!==controlId||plan.revision!==revision||plan.migration!==false||plan.total!==0)deny()
+      const {verifyCompletedHistoricalIntake}=await import('./historical-intake-execution.mjs')
+      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:plan.intakeOperationId,generation:plan.generation,planHash:plan.intakePlanHash})
+      if(evidence.receiptHash!==plan.intakeReceiptHash||imageHash(evidence.image)!==plan.expectedHash||evidence.authorizationHash!==plan.authorizationHash||digest(typed(evidence.highWater))!==digest(typed(plan.highWater)))deny()
+      return
+    }
     if(plan.kind!=='address-migration'||plan.publicationOnly!==true||plan.source!=='(default)'||plan.authoritySource!=='(default)'||plan.target!=='(default)'||plan.controlId!==controlId||plan.revision!==revision||plan.migration!==false||plan.total!==0)deny()
     const {baseline,address,image}=await addressEvidence(plan.generation,plan)
     if(digest(typed(baseline))!==plan.baselineHash||address.journalHash!==plan.addressJournalHash||address.checkpointHash!==plan.addressCheckpointHash||imageHash(image)!==plan.expectedHash||plan.sourceHash!==plan.expectedHash||image.size!==plan.count||baseline.authorizationHash!==plan.authorizationHash||digest(typed(baseline.highWater))!==digest(typed(plan.highWater)))deny()
@@ -232,6 +239,20 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
         await afterTransition('address-plan-verified')
         await release(owner);return {status:'verified',planId:id,count:image.size,changes:0,deletes:0}
       }catch{await failed(owner);throw new RecoveryError('Address publication sealing interrupted; retain maintenance and inspect private evidence.')}
+    },
+    async planIntake(generation,id,{intakeOperationId,intakePlanHash,approval}) {
+      ids(id,approval);ids(intakeOperationId);if(!approval||!/^[a-f0-9]{64}$/.test(intakePlanHash??''))deny()
+      const state=fixedRuntimeState(await stopped(generation)),ref=planRef(id),owner=randomUUID()
+      const {verifyCompletedHistoricalIntake}=await import('./historical-intake-execution.mjs')
+      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:intakeOperationId,generation,planHash:intakePlanHash}),hash=imageHash(evidence.image)
+      const plan={status:'sealing',kind:'historical-intake',publicationOnly:true,source:'(default)',authoritySource:'(default)',target:'(default)',controlId,generation,revision,approval,migration:false,intakeOperationId,intakePlanHash,intakeReceiptHash:evidence.receiptHash,authorizationHash:evidence.authorizationHash,highWater:evidence.highWater,sourceHash:hash,beforeHash:hash,expectedHash:hash,count:evidence.image.size,total:0,owner,createdAt:new Date()}
+      await control.runTransaction(async tx=>{
+        const [current,held,prior,ops,exporting]=await Promise.all([tx.get(runtime),tx.get(lock),tx.get(ref),tx.get(control.collection('recoveryOperations').limit(1)),tx.get(control.doc('recovery/authExportLock'))])
+        if(!sameFixedEpoch(fixedRuntimeState(current.data()),state)||held.exists||prior.exists||ops.size||exporting.exists)deny()
+        tx.create(lock,{operationId:id,generation,intent:{kind:'default-seal'},owner,startedAt:new Date()});tx.create(ref,plan)
+      })
+      try {await afterSealItem(0);await stopped(generation);await validateAddressPlan(plan);await ref.update({status:'verified',verifiedAt:new Date()});await release(owner);return {status:'verified',planId:id,count:evidence.image.size,changes:0,deletes:0}}
+      catch{await failed(owner);throw new RecoveryError('Historical publication sealing interrupted; retain maintenance.')}
     },
     async apply(id,{resume=false,workerStopped=false,expectedOwner}={}) {
       ids(id)

@@ -1,6 +1,7 @@
 import { calculateExpiryDate, calculateExtensionStartDate } from './warranty.mjs'
 import { createSearchPlan, generateSearchTokens } from './search-tokens.mjs'
 import { propertyFieldRequirements } from './property-field-requirements.mjs'
+import { activeInsuranceWaivers, insuranceNoticeExpiry, periodReportSelection } from './insurance-state.mjs'
 
 export const initialGroups = [
   { id: 'HSC', name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
@@ -115,6 +116,7 @@ function initialInsuranceForMonth(row, month) {
 export function insuranceReportKind(row, month, today = japanDate()) {
   if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('対象年月を指定してください。')
   calculateExpiryDate(`${month}-01`, 1)
+  if (row.insuranceStateVersion === 1) return periodReportSelection(row, month).kind
   if (row.status !== 'active' || !row.insuranceExpiryDate || !row.insuranceRenewalMonth) return ''
   const ym = month.replace('-', '')
   if (!row.insuranceReported) {
@@ -148,7 +150,8 @@ export function extensionUndoPreview(row) {
   const blockers = []
   const bill = warrantyTransactions(row).find(p => p.id === target.requestId)
   if (bill?.billingState !== 'pending') blockers.push(bill?.billingState === 'billed' ? 'この延長の請求済みを先に取り消してください。' : 'この延長の請求状態を確認してください。')
-  if (row.insuranceReported && row.insuranceExpiryDate > periods.at(-1).expiryDate) blockers.push('この延長区間にかかる保険報告を先に取り消してください。')
+  if (row.insuranceReported && row.insuranceExpiryDate > periods.at(-1).expiryDate || activeInsuranceReports(row).some(report => report.expiryDate > periods.at(-1).expiryDate)) blockers.push('この延長区間にかかる保険報告を先に取り消してください。')
+  if (activeInsuranceWaivers(row).some(event => event.expiryDate > periods.at(-1).expiryDate)) blockers.push('この延長区間の報告不要を先に取り消してください。終了した期間は開発側へ確認を依頼してください。')
   if (row.warrantyNotified) blockers.push('現在の満了案内を先に未案内に戻してください。')
   return { targetRequestId: target.requestId, targetDate: target.date, years: row.years - 10, periods, expiryDate: periods.at(-1).expiryDate, blockers }
 }
@@ -178,6 +181,7 @@ export function activeInsuranceReports(row) {
 }
 export function latestInsuranceReport(row) { return activeInsuranceReports(row).at(-1) || null }
 export function insuranceReportTarget(row, month, today = japanDate()) {
+  if (row.insuranceStateVersion === 1) return periodReportSelection(row, month).target
   const kind = insuranceReportKind(row, month, today)
   if (!kind || kind === 'review') return null
   const next = ['renewal','past-renewal'].includes(kind) ? nextInsurancePeriod(row) : initialInsuranceForMonth(row, month)
@@ -188,6 +192,7 @@ export function insuranceReportTarget(row, month, today = japanDate()) {
 export function handoverChangeBlockers(row) {
   if (!row || row.status === 'draft') return []
   const reasons = []
+  if (activeInsuranceWaivers(row).length) reasons.push('報告不要をすべて取り消してください。終了した期間は開発側へ確認を依頼してください。')
   if (row.years > 10 || activeExtensions(row).length) reasons.push('有効な保証延長をすべて取り消してください。')
   if (row.insuranceReported || activeInsuranceReports(row).length) reasons.push('初回分を含む保険の報告済みをすべて取り消してください。')
   if (row.insuranceHistoryIncomplete || (!Array.isArray(row.insuranceEvents) && row.insuranceEverRenewed && !row.insuranceLastReport)) reasons.push('旧データの保険報告記録が不足しています。開発側へ確認を依頼してください。')
@@ -224,7 +229,7 @@ export function alertStartDate(expiryDate, months = 2) {
 export function expiryAlertEligible(row, kind, today = japanDate(), months = 2) {
   calculateExpiryDate(today, 1)
   if (kind === 'warranty' && !(row.years < row.maxYears)) return false
-  const expiry = kind === 'insurance' ? row.insuranceExpiryDate : row.expiryDate
+  const expiry = kind === 'insurance' ? row.insuranceStateVersion === 1 ? insuranceNoticeExpiry(row) : row.insuranceExpiryDate : row.expiryDate
   return row.status === 'active' && !!expiry && today >= alertStartDate(expiry, months)
 }
 export function insuranceExpiryDate(startDate) {

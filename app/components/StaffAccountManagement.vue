@@ -2,7 +2,7 @@
   <section>
     <div class="d-flex align-center justify-space-between ga-4 mb-6">
       <div>
-        <h1 class="text-h4 mb-2">担当者アカウント管理</h1>
+        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span></h1>
         <p class="text-body-2 text-medium-emphasis mb-0">ハウスソリューション側の担当者アカウントを発行・編集・無効化します。</p>
       </div>
       <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>

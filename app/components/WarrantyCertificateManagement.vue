@@ -1,5 +1,5 @@
 <template>
-  <h1 class="text-h5 mb-4">{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</h1>
+  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon :item="billing ? 'billing' : 'certificates'" /><span>{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</span></h1>
   <details class="business-help"><summary>抽出条件・操作の注意</summary>
   <v-alert v-if="!billing" type="info" class="mb-4">初回は引渡月、延長分はその保証開始月で抽出します。指定月より前の未発行分も含みます。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</v-alert>
   <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、対象年月以前（指定月を含む）の未請求分を表示します。初回は申込月、延長は保証開始月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>

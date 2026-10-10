@@ -3,6 +3,31 @@ import { test } from 'node:test'
 import { measureFirestoreOperation, observedFirestore } from '../functions/firestore-metrics.js'
 import { reportClientMetrics, validateClientMetrics } from '../functions/client-metrics.js'
 
+test('client dashboard cache count is accepted but arbitrary dashboard data remains rejected',()=>{
+  assert.deepEqual(validateClientMetrics({version:1,rows:[{operation:'dashboard',counters:{cacheHits:3}}]}),[{operation:'dashboard',counters:{cacheHits:3}}])
+  assert.throws(()=>validateClientMetrics({version:1,rows:[{operation:'dashboard',counters:{cacheHits:3,propertyName:'private'}}]}))
+})
+
+test('aggregate observations record success/failure and never count returned aggregate as documents', async()=>{
+  let failed=false
+  const records=[]
+  const raw={collection(){return {where(){return this},count(){return {async get(){if(failed)throw new Error('private failure');return {data:()=>({count:315})}}}}}}}
+  await measureFirestoreOperation('propertyPrototype','dashboard',async()=>{
+    const db=observedFirestore(raw)
+    assert.equal((await db.collection('propertyWarranties').where('status','==','active').count().get()).data().count,315)
+    failed=true
+    await assert.rejects(db.collection('propertyWarranties').count().get(),/private failure/)
+  },record=>records.push(record))
+  const counters=records[0].rows[0].counters
+  assert.equal(counters.aggregateCalls,2)
+  assert.equal(counters.aggregateSuccesses,1)
+  assert.equal(counters.aggregateFailures,1)
+  assert.equal(counters.returnedDocuments,undefined)
+  assert.ok(counters.aggregateDurationMs>=0)
+  assert.equal(records[0].action,'dashboard')
+  assert.ok(!JSON.stringify(records).includes('private failure'))
+})
+
 function fixture({ retry = false, failCommit = false } = {}) {
   const data = new Map([['constructionCompanies/personal-id', { name: 'private-name' }]])
   const snapshot = ref => ({ ref, exists: data.has(ref.path), data: () => data.get(ref.path) })

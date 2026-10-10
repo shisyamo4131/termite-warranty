@@ -24,16 +24,17 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-030 | [Custom authentication-email sender](house-solution-confirmations/HSC-030-custom-auth-email-sender.md) | Deferred | House Solution, if requested |
 | HSC-034 | [Deterioration countermeasure grade and warranty limit](house-solution-confirmations/HSC-034-deterioration-countermeasure-grade.md) | Manual cap selection and later HS edits confirmed; no reduction below granted 30 years; business eligibility remains outside automation | House Solution |
 | HSC-035 | [Case cancellation and invalidation criteria](house-solution-confirmations/HSC-035-case-cancellation-invalidation-criteria.md) | 2026-10-05全体取消の事前保険報告取消は不要と再確認。外部減少報告はHS。個別の情報補正・旧データ対応は残る | House Solution |
-| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-08：上限到達の保証案内除外・最長10年対応はDev反映済み。UHも共通保険ルール。保険満了一覧の用途等・HS受入は残件。初回対象月・月内終了のHS選択は既決。現在のCSVは日付自動補完なし | House Solution |
+| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-08：上限到達の保証案内除外・最長10年対応はDev反映済み。UHも共通保険ルール。2026-10-10の用途方針はHSC-006 Q28で採用。初回未報告の除外は同Q29で採用。HS受入等は残件。初回対象月・月内終了のHS選択は既決。現在のCSVは日付自動補完なし | House Solution |
 | HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | 初回引渡月／延長開始月＋過去未発行、期間別発行状態を承認。初版5列はDev検証済み。住所追加6列・グループ抽出・編集画面からの発行取消もDev実画面検証済み。正式列未確定。保証書出力・グループ訂正は後発 | House Solution |
 | HSC-038 | [Construction-company Branches and Document Recipients](house-solution-confirmations/HSC-038-company-branches-recipients.md) | Initial dispatch/recipient management excluded; address-label CSV not adopted; hierarchy confirmed, remaining portal effects deferred | House Solution |
-| HSC-015 | [初期データ登録準備](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 訂正版442件を再検査。UH11コード対応と三次統一／金沢南・金沢南店の分離を確定。修正版コード重複0。早良4003-02削除確認で解消。UH新潟南2件のコード相違は確認待ち。SHS竹原は竹原・三原支店へ対応確定。年度別採番照合、一括処理・予行が残る。Dev未投入 | House Solution, then project |
+| HSC-015 | [初期データ登録準備](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | 訂正版442件を再検査。UH11コード対応と三次統一／金沢南・金沢南店の分離を確定。修正版コード重複0。早良4003-02削除確認で解消。UH新潟南2件は1508-01とHS回答・AIR了承を確認し解決。SHS竹原は竹原・三原支店へ対応確定。年度別採番照合、一括処理・予行が残る。Dev未投入 | Project |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS confirmed; company functionality retained, rollout deferred | House Solution, then project |
 
 ## Resolved Matters
 
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
+| HSC-006 | [ダッシュボードの仕様整理](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-10 | Project owner | Q30で詳細設計を確定し、後続承認でDev導入済み。追加指示で保険期間を古い順へ変更し、一覧選択の余白を除去。検証・受入はロードマップDB-04〜06 |
 | HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-07 | House Solution / Project owner | 物件名に統合、6b2573dでDev反映・移行済み |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | 2026-10-08 | Project owner | Firestore採用確定。ADR0038。Dev計測は別作業 |
 | HSC-032 | [Case-list year/month basis](house-solution-confirmations/HSC-032-case-list-month-basis.md) | 2026-10-03 | Project owner | Existing answers reconciled: insurance handover/expiry months; billing application/extension-procedure months; ordinary search optional |
@@ -47,7 +48,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-029 | [Remaining data-model rules](house-solution-confirmations/HSC-029-remaining-data-model-rules.md) | 2026-10-03 | Project owner | Initial ownership/affiliation rules confirmed including prior-owner history and original dates on re-registration; technical design remains, import in HSC-015 |
 | HSC-019 | [Address and contact-field validation](house-solution-confirmations/HSC-019-address-contact-validation.md) | 2026-10-03 | Project owner | TEL/FAX ASCII digits and hyphens retained; free-text relaxation rejected; property postal optional and existing address/auth rules retained |
 | HSC-031 | [Mobile-device usage and support scope](house-solution-confirmations/HSC-031-mobile-device-support.md) | 2026-10-03 | Project owner | Initial Windows Chrome/Edge testing scope confirmed; mobile reconsideration deferred until portal rollout |
-| HSC-006 | [Dashboard presentation and accessibility](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-03 | Project owner | Initial release extends prototype; dashboard redesign deferred, not an initial acceptance requirement |
 | HSC-016 | [Cutover, parallel operation, and rollback](house-solution-confirmations/HSC-016-cutover-rollback.md) | 2026-10-03 | Project owner | New system becomes source after HS import acceptance; no management-Excel double entry; invoice Excel/Word retained |
 | HSC-024 | [Role types and functional permissions](house-solution-confirmations/HSC-024-role-business-data-access.md) | 2026-10-03 | Project owner | Initial HS business operations shared; user management/settings administrator-only; new archive deletion authority remains HSC-001, portal reconsideration HSC-013 |
 | HSC-033 | [Branch management necessity](house-solution-confirmations/HSC-033-branch-management-necessity.md) | 2026-10-01 | Project owner | HS branches excluded; specification reflected, implementation pending |

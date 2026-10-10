@@ -6,7 +6,7 @@ import { logger } from 'firebase-functions'
 const contexts = new AsyncLocalStorage()
 const originals = new WeakMap()
 const collections = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','constructionCompanyCaseWorkItems','constructionCompanies','companyBranches','warrantyGroups','propertyWarranties','propertyOperationReceipts','propertyImportSources','externalKeyReservations','propertyImportReceipts','branchCodeReservations','warrantyCounters','accountMutationLocks','notificationOutbox','cases','appliedWarranties','properties','homeowners','warrantyServices','prototypeSettings','caseNumberReservations','systemCounters','branches','recovery','_recovery','recoveryOperations','backupHistory'])
-const actions = new Set(['catalog','list','propertyList','certificateList','billingList','detail','alertSettings','saveAlertSettings','accounts','createAccount','setAccountEnabled','saveCompany','saveBranch','saveGroup','reenableMaster','save','register','extend','undoExtend','cancel','restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate','preview','commit','status'])
+const actions = new Set(['dashboard','waiveInsurance','undoInsuranceWaiver','catalog','list','propertyList','certificateList','billingList','detail','alertSettings','saveAlertSettings','accounts','createAccount','setAccountEnabled','saveCompany','saveBranch','saveGroup','reenableMaster','save','register','extend','undoExtend','cancel','restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate','preview','commit','status'])
 export const SERVER_OPERATIONS = new Set(['propertyPrototype','propertyBulkImport','registerCase','addAppliedWarranty','updateAppliedWarranty','createConstructionCompanyAccount','setConstructionCompanyAccountEnabled','createRenewalWorkItem','createNewCaseWorkItem','updateCompanyCaseWorkItem','withdrawNewCaseWorkItem','reviewCompanyCaseWorkItem','listManageableStaffAccounts','createStaffAccount','updateStaffAccount','setStaffAccountEnabled','recoveryRuntime','recoveryStatus','recoveryBackupMonitor','reportFirestoreMetrics'])
 const unwrap = value => value && originals.get(value) || value
 const safeCollection = path => collections.has(path) ? path : 'other'
@@ -82,6 +82,14 @@ export function observedFirestore(database, databaseLabel = 'business', category
         }
         const member = Reflect.get(target, property, target)
         if (typeof member !== 'function') return member
+        if (kind === 'query' && ['count','aggregate'].includes(property)) return (...args) => wrap(member.apply(target,args),'aggregate',collection)
+        if (kind === 'aggregate' && property === 'get') return async (...args) => {
+          const started = performance.now()
+          count(collection,'aggregateCalls')
+          try { const result = await member.apply(target,args); count(collection,'aggregateSuccesses'); return result }
+          catch (error) { count(collection,'aggregateFailures'); throw error }
+          finally { count(collection,'aggregateDurationMs',Math.round(performance.now()-started)) }
+        }
         if (property === 'collection') return (...args) => wrap(member.apply(target, args), 'query', safeCollection(String(args[0]).split('/').at(-1)))
         if (property === 'collectionGroup') return (...args) => wrap(member.apply(target, args), 'query', safeCollection(args[0]))
         if (property === 'doc') return (...args) => { const ref = member.apply(target, args); return wrap(ref, 'doc', collectionFromPath(ref.path)) }

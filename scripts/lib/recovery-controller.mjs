@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from '../../src/domain/external-key.mjs'
 import { monthlyQueryProjection } from '../../src/domain/monthly-query.mjs'
+import { validateInsuranceState, insuranceProjectionMatches } from '../../src/domain/insurance-state.mjs'
 import { FieldPath } from 'firebase-admin/firestore'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RecoveryError, databaseId, runtimeState, assertTransition } from '../../src/domain/recovery.mjs'
 
@@ -129,6 +130,10 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   const monthlyReady = (await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version === 1
   const certificateReady = (await db.doc('prototypeSettings/certificateQueries').get()).data()?.version === 1
   const billingReady = (await db.doc('prototypeSettings/billingQueries').get()).data()?.version === 1
+  const insuranceReady = (await db.doc('prototypeSettings/insuranceStates').get()).data()
+  const dashboardReady = (await db.doc('prototypeSettings/dashboard').get()).data()
+  if (dashboardReady?.version === 1 && (insuranceReady?.version !== 1 || insuranceReady.generation !== dashboardReady.generation || insuranceReady.operationId !== dashboardReady.operationId)) throw new RecoveryError('Dashboard readiness requires reconciliation.')
+  const today = new Date(Date.now() + 9 * 3600000).toISOString().slice(0,10)
   let cursor
   do {
     let query = db.collection('propertyWarranties').orderBy(FieldPath.documentId()).limit(200)
@@ -136,6 +141,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     const page = await query.get()
     for (const row of page.docs) {
       const value = row.data()
+      if ((insuranceReady?.version === 1 || value.insuranceStateVersion !== undefined) && (validateInsuranceState(value, insuranceReady?.version === 1 ? {today} : {}).length || !insuranceProjectionMatches(value))) throw new RecoveryError('Insurance periods and dashboard projections require reconciliation before recovery publication.')
       const expected = monthlyQueryProjection(value)
       const required = [...(monthlyReady ? ['monthlyQueryVersion','insuranceQueryStart','insuranceQueryEnd','billingQueryMonths'] : []), ...(certificateReady ? ['certificateQueryVersion','certificateQueryMonths','certificatePendingMonth'] : []), ...(billingReady ? ['billingQueryVersion','billingPendingMonth'] : [])]
       if (required.some(key=>JSON.stringify(value[key]) !== JSON.stringify(expected[key]))) throw new RecoveryError('Monthly query projections require reconciliation before recovery publication.')

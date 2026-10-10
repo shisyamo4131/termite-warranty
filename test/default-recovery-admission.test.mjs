@@ -48,6 +48,16 @@ test('address publication requires default-only explicit journal hash and pre-mi
  assert.throws(()=>options(['plan-address',...addressArgs,...extra,'--migration']))
  assert.throws(()=>options(['publish',...addressArgs,...extra]))
 })
+test('historical intake publication requires completed intake identity and cannot accept restore/address evidence',async()=>{
+ const base=args.map(value=>value===source?'(default)':value),extra=['--intake-operation','fictional-intake','--intake-plan-hash','e'.repeat(64)]
+ const parsed=options(['plan-intake',...base,...extra]);assert.equal(parsed.command,'plan-intake')
+ for(const addition of [['--baseline','fictional-baseline'],['--migration'],['--verification','fictional-verify']])assert.throws(()=>options(['plan-intake',...base,...extra,...addition]))
+ assert.throws(()=>options(['publish',...base,...extra]));assert.throws(()=>options(['plan-intake',...args,...extra]))
+ const f=fixture();f.options=parsed;await admitDev(f)
+ let closed=0,called=0
+ await dispatchDev(parsed,{admission:async()=>{},verifyClosedRules:async()=>{closed++},factory:{planIntake:async(g,id,data)=>{called++;assert.equal(data.intakePlanHash,'e'.repeat(64));return {status:'verified'}}}})
+ assert.equal(closed,1);assert.equal(called,1)
+})
 test('publication-only plans cannot enter generic apply/resume and verified seal recovery stays closed',async()=>{
  const f=fixture(),normalSource=f.options.source
  f.options.source='(default)';f.plan.source='(default)';f.plan.kind='address-migration';f.plan.publicationOnly=true;f.plan.status='verified'

@@ -1,4 +1,5 @@
 import { migrateBillingQueries } from './lib/billing-query-migration.mjs'
+import { migrateDashboard } from './lib/dashboard-migration.mjs'
 import { migrateCertificateQueries } from './lib/certificate-query-migration.mjs'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
@@ -301,6 +302,8 @@ if (!(await renewalWorkItemRef.get()).exists) {
     updatedAt: now,
   })
 }
+
+await migrateDashboard(firestore, getFirestore(app, fixedRuntime.controlDatabaseId), {generation:fixedRuntime.generation,operationId:'local-dashboard-seed'})
 
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
 console.log(`Seeded local contractor account: ${builderEmail} (${builderUser.uid})`)

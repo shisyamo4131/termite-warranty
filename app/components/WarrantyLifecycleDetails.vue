@@ -1,6 +1,6 @@
 <template>
   <div class="lifecycle-stack" :class="{'insurance-first':focus==='report'}">
-  <v-card class="my-4 lifecycle-card warranty-card">
+  <v-card border :elevation="0" class="my-4 lifecycle-card dialog-layout-card warranty-card">
     <v-card-title>{{ focus==='certificate' ? '保証書の発行状況' : focus==='billing' ? '保証期間ごとの請求状況' : '保証期間' }}</v-card-title>
     <v-card-text>
       <v-row><v-col cols="12" sm="8"><div class="text-caption">保証開始日 ～ 現在の満了日</div><div class="text-h6">{{ row.startDate }} ～ {{ row.expiryDate }}</div></v-col><v-col cols="12" sm="4"><div class="text-caption">通算保証年数／最長保証期間</div><div class="text-h6">{{ row.years }}年／{{ row.maxYears }}年</div></v-col></v-row>
@@ -25,21 +25,23 @@
     </v-card-text>
     <v-card-actions v-if="$slots['warranty-footer']" class="justify-end pa-4"><slot name="warranty-footer" /></v-card-actions>
   </v-card>
-  <v-card v-if="showInsurance" class="my-4 lifecycle-card insurance-card">
+  <v-card v-if="showInsurance" border :elevation="0" class="my-4 lifecycle-card dialog-layout-card insurance-card">
     <v-card-title>保険の適用・報告状況</v-card-title>
     <v-card-text>
-      <v-row><v-col cols="12" md="6"><div class="text-caption">現在の保険期間</div><div>{{ row.insuranceStartDate || '要確認' }} ～ {{ row.insuranceExpiryDate || '要確認' }}</div></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">報告有無</div><v-chip size="small" :color="row.insuranceReported ? 'success' : 'default'">{{ row.insuranceReported ? '報告済み' : '未報告' }}</v-chip></v-col><v-col cols="6" md="3"><div class="text-caption mb-1">次回報告の対象年月</div><v-chip size="small" class="report-status-chip">{{ renewalLabel }}</v-chip></v-col></v-row>
-      <v-expansion-panels multiple variant="accordion" class="mt-5">
-        <v-expansion-panel v-for="period in insuranceGroups" :key="period.id">
-          <v-expansion-panel-title><div><strong>{{ period.label }}</strong><div class="text-body-2 mt-1">{{ period.startDate }} ～ {{ period.expiryDate }}</div><div class="text-caption mt-1">前半・後半の保険報告を確認</div></div></v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <div v-for="half in period.halves" :key="half.startDate" class="insurance-row">
-              <div><div class="font-weight-bold mb-1">{{ half.label }}5年の保険</div><div>{{ half.startDate }} ～ {{ half.expiryDate }}</div><v-chip v-if="half.startDate>japanDate()" size="small" class="mt-1">保険対象期間の開始前</v-chip></div>
-              <div><div class="text-caption mb-1">保険会社への報告</div><v-chip size="small" :color="half.report ? 'success' : 'default'">{{ half.state }}</v-chip><div v-if="half.report" class="text-caption mt-1">対象月：{{ half.report.month }}</div></div>
-            </div>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+      <div class="text-caption mb-1">次回報告の対象年月</div><v-chip size="small" class="report-status-chip mb-4">{{ renewalLabel }}</v-chip>
+      <section v-for="period in insurancePeriods" :key="period.id" class="insurance-period" :class="{'insurance-current':period.startDate<=today && today<=period.expiryDate}" :aria-label="`${period.startDate}から${period.expiryDate}の保険`">
+        <div class="d-flex flex-wrap align-center ga-2 mb-2"><strong>{{ transactions.find(p=>p.id===period.warrantyPeriodId)?.label }}・{{ period.half===1 ? '前半' : '後半' }}5年の保険</strong><v-chip v-if="period.startDate<=today && today<=period.expiryDate" size="small" color="primary">現在の期間</v-chip><v-chip v-if="matchesSelectedInsurancePeriod(period,selectedInsurancePeriod)" size="small" color="info">一覧で選んだ期間</v-chip></div>
+        <div class="mb-3">{{ period.startDate }} ～ {{ period.expiryDate }}<v-chip v-if="period.startDate>today" size="small" class="ml-2">保険対象期間の開始前</v-chip></div>
+        <div class="d-flex flex-wrap align-center ga-3"><v-chip :color="period.state==='reported' ? 'success' : period.state==='waived' ? 'secondary' : period.state===null ? 'warning' : 'default'" size="small">{{ insuranceStateLabel(period.state) }}</v-chip>
+          <template v-if="insuranceEditable && row.status==='active' && period.expiryDate>=today">
+            <v-btn v-if="period.state==='pending'" variant="outlined" :disabled="busy" @click="$emit('insurance','waiveInsurance',period)">報告不要にする</v-btn>
+            <v-btn v-if="period.state==='waived'" color="error" variant="outlined" :disabled="busy" @click="$emit('insurance','undoInsuranceWaiver',period)">報告不要を取り消す</v-btn>
+          </template>
+          <span v-if="period.state==='waived' && period.expiryDate<today" class="text-caption">期間終了のため取消不可</span>
+        </div>
+        <dl v-if="period.state==='waived'" class="waiver-facts mt-3"><dt>理由</dt><dd class="waiver-reason">{{ waiver(period.waiverId)?.reason || '記録を確認できません' }}</dd><dt>設定者</dt><dd>{{ waiver(period.waiverId)?.actorName || waiver(period.waiverId)?.actorUid || '要確認' }}</dd><dt>設定日時</dt><dd>{{ eventTime(waiver(period.waiverId)?.at) }}</dd></dl>
+        <p v-if="period.state===null" class="text-body-2 mt-3">期間の状態を確認できません。記録を確認してください。</p>
+      </section>
       <v-alert v-if="incomplete" type="warning" class="mt-4">旧データの報告記録には不足があります。記録のない期間を未報告とは断定できません。訂正は開発側に確認してください。</v-alert>
       <v-alert v-if="unmatchedReports.length" type="warning" class="mt-4"><p>現在の保証期間に対応づけられない報告があります。</p><p v-for="report in unmatchedReports" :key="report.requestId">{{ report.startDate }} ～ {{ report.expiryDate }}（{{ report.month }}分・報告済み）</p></v-alert>
       <p class="text-caption mt-3">対象年月は報告する月ではなく「何月分か」を示します（例：9月分は10月月初に報告）。前半・後半は各保証の開始日からの5年ごとの保険対象期間です。表示だけで保険が適用・更新されることはありません。報告・請求の対外訂正はHSが行います。</p>
@@ -50,26 +52,31 @@
 </template>
 <script setup lang="ts">
 import { certificatePeriods } from '../../src/domain/warranty-certificate.mjs'
-import { nextInsuranceReportLabel } from '../utils/insuranceReportDisplay.mjs'
+import { nextInsuranceReportLabel, matchesSelectedInsurancePeriod } from '../utils/insuranceReportDisplay.mjs'
 import { warrantyTransactions, activeInsuranceReports, japanDate } from '../../src/domain/property-warranty.mjs'
-import { calculateExpiryDate, calculateExtensionStartDate } from '../../src/domain/warranty.mjs'
-const props=withDefaults(defineProps<{row:Record<string,any>;focus?:string;editable?:boolean;allowCertificateUndo?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean}>(),{showBilling:true,showInsurance:true})
-defineEmits<{billing:[action:string,period:Record<string,any>]}>()
+import { insurancePeriodStates } from '../../src/domain/insurance-state.mjs'
+const props=withDefaults(defineProps<{row:Record<string,any>;focus?:string;editable?:boolean;allowCertificateUndo?:boolean;busy?:boolean;showBilling?:boolean;showInsurance?:boolean;insuranceEditable?:boolean;selectedInsurancePeriod?:Record<string,any>|null}>(),{showBilling:true,showInsurance:true})
+defineEmits<{billing:[action:string,period:Record<string,any>];insurance:[action:string,period:Record<string,any>]}>()
 const transactions=computed(()=>certificatePeriods(props.row).map((period,index):Record<string,any>=>({...period,label:index ? `延長保証（${index}回目）` : '初回保証'})))
 const reports=computed(()=>activeInsuranceReports(props.row))
 const incomplete=computed(()=>!!props.row.insuranceHistoryIncomplete || (!props.row.insuranceEvents && (!!props.row.insuranceEverRenewed || (!!props.row.insuranceReported && !props.row.insuranceLastReport))))
-const insuranceGroups=computed(()=>transactions.value.map(period=>{
-  const firstExpiry=calculateExpiryDate(period.startDate,5)
-  return {id:period.id,label:period.label,startDate:period.startDate,expiryDate:period.expiryDate,halves:[{label:'前半',startDate:period.startDate,expiryDate:firstExpiry},{label:'後半',startDate:calculateExtensionStartDate(firstExpiry),expiryDate:period.expiryDate}].map(half=>{
-    const report=reports.value.find(r=>r.warrantyPeriodId===period.id && r.startDate===half.startDate && r.expiryDate===half.expiryDate)
-    return {...half,report,state:report?'報告済み':incomplete.value?'要確認（記録不足）':'未報告'}
-  })}
-}))
-const unmatchedReports=computed(()=>reports.value.filter(report=>!insuranceGroups.value.some(p=>p.halves.some(h=>h.report?.requestId===report.requestId))))
+const insurancePeriods=computed(()=>insurancePeriodStates(props.row).slice().sort((a,b)=>a.startDate.localeCompare(b.startDate)))
+const today=ref(japanDate())
+let dateTimer:ReturnType<typeof setInterval>
+onMounted(()=>{dateTimer=setInterval(()=>{today.value=japanDate()},30000)})
+onUnmounted(()=>clearInterval(dateTimer))
+const waiver=(id?:string)=>(props.row.insuranceWaiverEvents ?? []).find((event:Record<string,any>)=>event.kind==='waive' && event.id===id)
+const insuranceStateLabel=(state:string|null)=>({pending:'未報告',reported:'報告済み',waived:'報告不要'}[state ?? ''] ?? '要確認（記録不足）')
+const eventTime=(value:unknown)=>{const date=new Date(String(value ?? ''));return Number.isNaN(date.getTime()) ? '要確認' : new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',dateStyle:'short',timeStyle:'medium'}).format(date)}
+const unmatchedReports=computed(()=>reports.value.filter(report=>!insurancePeriods.value.some(p=>p.startDate===report.startDate && p.expiryDate===report.expiryDate && p.warrantyPeriodId===report.warrantyPeriodId)))
 const renewalLabel=computed(()=>nextInsuranceReportLabel(props.row))
 const billingLabel=(state:string)=>({pending:'未請求',billed:'請求済み',unknown:'要確認'}[state] || '要確認')
 </script>
 <style scoped>
+.insurance-period { padding:16px; margin-top:16px; border:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); border-radius:8px; }
+.insurance-current { border:2px solid rgb(var(--v-theme-primary)); background:rgba(var(--v-theme-primary),0.04); padding:20px; }
+.waiver-facts { display:grid; grid-template-columns:6em minmax(0,1fr); gap:8px; }
+.waiver-reason { white-space:pre-wrap; overflow-wrap:anywhere; }
 .report-status-chip { height: auto; min-height: 26px; max-width: 100%; white-space: normal; padding-block: 4px; }
 .report-status-chip :deep(.v-chip__content) { white-space: normal; }
 .period-row { display:grid; grid-template-columns:minmax(220px,2fr) repeat(3,minmax(90px,1fr)); gap:16px; padding:16px 0; border-bottom:1px solid rgba(var(--v-border-color),var(--v-border-opacity)); }

@@ -4,6 +4,8 @@ import { propertyFieldRequirements } from './domain/property-field-requirements.
 import { Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { monthlyQueryProjection } from './domain/monthly-query.mjs'
+import { materializeInsuranceState, insuranceProjection } from './domain/insurance-state.mjs'
+import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
 import { prepareBulkImportRows } from './domain/property-bulk-import.mjs'
 import { coveragePeriods, fiscalYear, initialInsurance, initialInsurancePeriodAt, japanDate, warrantyNumber } from './domain/property-warranty.mjs'
 
@@ -62,6 +64,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
         if (receipt.uid !== uid || receipt.digest !== digest || receipt.previewHash !== input.previewHash) fail('failed-precondition', '取込識別子を別の内容・利用者で再利用できません。')
         return { count: receipt.count, ids: receipt.ids, replayed: true }
       }
+      if (input.operationProtocol !== 1) fail('failed-precondition','保存形式が変更されました。画面を再読込してください。')
     }
     const destinations = await readImportDocuments(tx, [db.doc(`constructionCompanies/${companyId}`), db.doc(`warrantyGroups/${groupId}`)])
     const company = destinations.get(`constructionCompanies/${companyId}`).data()
@@ -134,7 +137,10 @@ export async function propertyBulkImportOperation(db, input, uid) {
         const value = { ...row.fields, constructionCompanyId: companyId, branchId: branch?.id ?? '', groupId, groupName: group.name, fiscalYear: year, warrantyNumber: number, externalKey: row.externalKey, receivedRecordId: refs[index].id, status: 'active', years: 10, periods, startDate: row.fields.handoverDate, expiryDate: periods[0].expiryDate, ...initialInsurance(row.fields.handoverDate), warrantyNotified: false, insuranceEvents: [], insuranceHistoryIncomplete: false, billingItems: [{ id: 'initial', ...periods[0], state: 'pending' }], history: [{ kind: 'register', requestId: `${requestId}_${index}`, date: today, at: now.toDate().toISOString(), actorUid: uid, actorName: account.displayName ?? '', reason: 'CSV一括取込み', before: null }], revision: 1, createdAt: now, updatedAt: now }
         const insurance = initialInsurancePeriodAt(value, today)
         if (insurance) Object.assign(value, insurance)
+        Object.assign(value,materializeInsuranceState(value,{newRegistration:true}))
+        Object.assign(value,insuranceProjection(value))
         Object.assign(value, monthlyQueryProjection(value))
+        try { assertInsuranceCapacity(value,{documentPath:refs[index].path,today}) } catch (error) { errors.push(reason(row,'保険記録',error.message)) }
         plans.push({ row, ref: refs[index], branchLabel: branch ? `${branch.name}（${row.branchCode}）` : '', value })
       }
     }

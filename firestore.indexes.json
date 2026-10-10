@@ -265,6 +265,90 @@
           "arrayConfig": "CONTAINS"
         }
       ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiryDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "startDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "billingPendingMonth",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "warrantyNoticePending",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiryDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insuranceProjectionVersion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd1",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd2",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd3",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart1",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart2",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart3",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": [
@@ -416,6 +500,21 @@
     {
       "fieldPath": "runtimeNonce",
       "collectionGroup": "warrantyGroups",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insurancePeriods",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insuranceWaiverEvents",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insuranceMigration",
       "indexes": []
     }
   ]

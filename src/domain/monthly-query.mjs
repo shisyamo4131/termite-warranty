@@ -1,6 +1,7 @@
 import { billingProjection } from './billing-output.mjs'
 import { certificateProjection } from './warranty-certificate.mjs'
 import { activeInsuranceReports, insuranceExpiryDate, insuranceReportKind, warrantyTransactions } from './property-warranty.mjs'
+import { periodMonthlyRange } from './insurance-state.mjs'
 
 export const MONTHLY_QUERY_VERSION = 1
 export function validMonth(month) {
@@ -19,6 +20,7 @@ export function monthlyQueryProjection(input) {
   if (input.status !== 'active') return result
   const row = withInsuranceDefaults(input)
   result.billingQueryMonths = [...new Set(warrantyTransactions(row).map(item => item.billingDate.slice(0, 7)).filter(validMonth))].sort()
+  if (input.insuranceStateVersion === 1) return { ...result, ...periodMonthlyRange(input) }
   if (row.insuranceNeedsReview || !row.insuranceReported && row.insuranceExpiryDate && row.insuranceRenewalMonth && (row.insuranceHistoryIncomplete || activeInsuranceReports(row).length || !row.expiryDate || !row.handoverDate)) {
     return { ...result, insuranceQueryStart: '0001-01', insuranceQueryEnd: '9999-12' }
   }

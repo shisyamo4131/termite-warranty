@@ -1,5 +1,5 @@
 <template>
-  <h1 class="text-h5 mb-4">バックアップ・復旧状況</h1>
+  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon item="recovery" /><span>バックアップ・復旧状況</span></h1>
   <v-alert v-if="problem" type="error" class="mb-4">{{ problem }}</v-alert>
   <v-alert v-if="status && !status.configured" type="warning" class="mb-4">自動バックアップと復旧制御は、この環境でまだ有効化されていません。</v-alert>
   <v-alert type="info" class="mb-4">復元とメンテナンスの操作は開発側で行います。復旧に関する連絡・了承はシステム外で行います。</v-alert>

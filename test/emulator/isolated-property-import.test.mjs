@@ -3,13 +3,16 @@ import {createHash} from 'node:crypto'
 import {after,test} from 'node:test'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
 import {getFirestore as adminFirestore} from 'firebase-admin/firestore'
-import {propertyPrototypeOperation} from '../../functions/property-warranty.js'
-import {propertyBulkImportOperation} from '../../functions/property-bulk-import.js'
+import {propertyPrototypeOperation as propertyOperation} from '../../functions/property-warranty.js'
+import {propertyBulkImportOperation as bulkOperation} from '../../functions/property-bulk-import.js'
 import {CSV_TEMPLATE_HEADERS} from '../../src/domain/property-bulk-import.mjs'
 import {inspectBusinessIntegrity} from '../../scripts/lib/recovery-controller.mjs'
 import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from '../helpers/isolated-import.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw Error('Dedicated emulator required')
+// Legacy import scenarios represent the current supported client request format.
+const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,input.action==='reenableMaster'?input:{operationProtocol:1,...input},uid)
+const propertyBulkImportOperation=(db,input,uid)=>bulkOperation(db,{operationProtocol:1,...input},uid)
 const app=initializeApp({projectId:'demo-termite-warranty'},'isolated-import-test')
 const getFirestore=(app,id)=>isolatedImportDatabase(adminFirestore,app,id),auth=isolatedImportAuth
 const fields={name:'架空物件',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}

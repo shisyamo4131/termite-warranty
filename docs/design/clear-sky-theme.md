@@ -1,5 +1,17 @@
 # Clear Sky Theme
 
+## 2026-10-10 ダイアログ内カードの枠線・影
+
+オーナーが枠線あり・影なしの見本を採用。物件・保証の編集・詳細と関連する確認／履歴ダイアログ内の情報整理用カードは、VCardの`border`と`:elevation="0"`で細いグレー枠・影なしにする。保証期間、保険の適用・報告状況、満了・案内状況、手続き履歴、登録内容、変更されない情報が対象。共通の独自枠・影の指定から対象カードを除外し、枠色・太さ・影の独自指定は追加しない。ダイアログ外側と一覧・ダッシュボードのカードは対象外。現在の保険期間の青い強調、項目・操作・保存条件は維持する。
+
+## 2026-10-10 変更できない申込日・引渡日の表示
+
+物件・保証詳細の申込日・引渡日も、変更できない場合は入力欄ではなく日付の文字表示とする。申込日は本登録後・取消中、引渡日は既存の訂正制限あり・取消中が対象。引渡日の訂正に必要な手続きの説明は残す。変更可能な場合は従来の入力欄を使用し、変更条件・保存内容は変えない。
+
+## 2026-10-10 物件・保証の変更できない所属表示
+
+オーナーの画面確認指示により、物件・保証の担当工務店・本支店は、本登録後・取消中・担当者の利用範囲により変更できない項目を名称の文字表示とする。本支店コードが確認できる場合は従来どおり名称と併記する。新規・下書きで変更可能な項目は選択欄を維持。処理中・参照取得中という一時的な無効化では表示形式を切り替えない。保存・権限・所属固定条件は変更しない。
+
 - Status: Approved for the local prototype
 - Adopted: 2026-09-11
 - Scope: Nuxt/Vuetify local prototype UI only
@@ -33,11 +45,15 @@ Approved by the project owner on 2026-10-05 in PM（白蟻）-07 (task 01a10af9-
 
 ## Input message regions
 
-Do not use `hide-details="auto"` or bound auto values on Vuetify inputs. Leave the message region reserved when empty (`hide-details=false` or the default). Selection-only checkboxes that always hide details remain supported. Allow long messages to wrap rather than clipping them.
+Do not use `hide-details="auto"` or bound auto values on Vuetify inputs. Leave the message region reserved when empty (`hide-details=false` or the default). Selection-only checkboxes in lists must always hide details (owner instruction, 2026-10-10); validation or confirmation inputs retain their message area. Allow long messages to wrap rather than clipping them.
 
 Search action buttons beside an input align within a separate region matching the input control height, not the combined control/message height. The property quick-search uses 56px for the default-density control; changing input density must also update the action region. At narrow widths the action group wraps together.
 
 ## Application Rules
+
+### 2026-10-10 画面タイトルのアイコン
+
+オーナー採用により、現在のDrawerにある10画面のh1左へ、メニューと同じBusinessNavigationIconを表示する。物件・保証、保証満了案内、保険満了案内、保険報告、請求、保証書CSV、組織管理、HS担当者、アラート設定、バックアップ・復旧が対象。既存の20px・文字色継承・装飾扱いを維持し、間隔12px、アイコンは縮めず長いタイトルは折り返す。共通business-page-titleクラスを用い、既存のタイトル文言・文字サイズを変更しない。旧非公開画面・ダイアログは今回の追加対象外。Local改修、Dev未反映。
 
 ### 組織管理の一覧領域（2026-10-09 追加指示）
 

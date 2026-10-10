@@ -12,8 +12,10 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
-| [0039](0039-monthly-query-projections.md) | 保険／請求の月別検索用項目 | Accepted | 2026-10-08 |
 | [0042](0042-project-owned-governance.md) | プロジェクト所有のガバナンスと検証分類 | Accepted | 2026-10-10 |
+| [0041](0041-insurance-period-reporting-status.md) | 保険期間別の報告不要・今日基準の未報告件数（実装未着手） | Accepted | 2026-10-10 |
+| [0040](0040-dashboard-session-store.md) | ダッシュボード件数の共有Store（実装未着手） | Accepted | 2026-10-10 |
+| [0039](0039-monthly-query-projections.md) | 保険／請求の月別検索用項目 | Accepted | 2026-10-08 |
 | [0038](0038-production-firestore.md) | 本番DBはFirestore | Accepted | 2026-10-08 |
 | [0037](0037-reference-store-observability.md) | 共有参照Storeと使用量の観測 | Accepted | 2026-10-08 |
 | [0036](0036-account-mutation-serialization.md) | アカウント更新の直列化と結果不明時の復旧 | Accepted | 2026-10-05 |

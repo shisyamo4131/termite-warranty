@@ -1,8 +1,61 @@
 # 過去物件のDev初期化・一括取込み準備
 
+## 2026-10-10 取込み計画と実行準備
+
+オーナーの最新指示は「アカウント以外のDev業務データを初期化→必要マスタ作成→既存保証番号を保持した物件投入→採番管理更新」の実行準備。本節を下記の先行準備・旧資料点検時点より優先する。実Devの初期化・投入はまだ実行していない。
+
+- 現Excelを全件変換：HSC99、SHS66、UH277＝442件。保証グループ3、工務店3、本支店17、外部キー予約277、本支店コード予約11、年度別採番17を作成する計画。元資料hashは `b15510db33e5b0375b4547d6bae0bc5bc5dac7b7092904311786b22c331c68a4`。AIR metadataの更新日時2026-10-10 07:03:55.873 UTCと再取得済みExcelを照合した。
+- 保証番号年度と申込年度の差22件（SHS2、UH20）は既存番号を保持。2026年度の次連番はHSC100、SHS68、UH128。全17年度の上限は非公開計画へ保存した。
+- 除外済みUH訂正2の元44・68行、SHS旧資料の元4行の番号を非公開対応表へ予約として保存。AIRの旧Excel `1ykMHuquLVQZ0tSesYMrGwygKp1tIkxpy` と `1KIXyu_34szLxPLQXHxCiFn6hCTt2R1BU` の該当番号を読み、現442件へ追加せず上限と照合。上限引上げは不要だった。
+- 工務店の必須所在地は公式公開資料の本社所在地から準備。本支店の不明住所・電話を推測で補わない。参照：[アイデザインホーム](https://www.ai-design-home.co.jp/profile/)、[創建ホーム本社](https://www.soken-home.jp/reform/takehara/)、[ユニバーサルホーム](https://www.universalhome.co.jp/company/about.html)。この補完は物件の住所を書き換えない。
+- 変換元・所属対応・計画の実値は `C:/Users/seven/AppData/Local/Temp/niigata-intake-correction/` の `readback.xlsx`、`mapping-final.json`、`input-reviewed.json`、`plan-reviewed.json` に保管。最終計画hashは `b90f32a13fe3380976e026e127f0ed7aae77f31849d1605fee710f64e5941043`。SHSのR列memo62件は備考へ保持し、発行・送付日時へ推測変換しない。Gitへ追加しない。Tempの永続性を前提にせず、失われたら同じAIR原本と確定対応から再生成・再照合する。
+
+### 保持・初期化の範囲
+
+Authとスタッフ・工務店アカウント、所属結合、進行中アカウント操作、`_recovery`、別の復旧制御DB、IAMと配備環境を保持。現行確認ではスタッフ3、工務店アカウント0。工務店アカウント／結合／処理中アカウント操作が存在する場合は、この準備済み対応表では処理を拒否し、所属を壊して続行しない。
+
+業務マスタ・物件・操作／受領記録・予約・採番・prototypeSettingsを初期化し、必要な設定を再作成。アラートは既定の各2か月、検索・保険・集計の準備情報は今回の完了像で作る。未知コレクションや親のない子階層は拒否。現在の予備棚卸しはpropertyWarranties315、groups12、companies31、branches34、branchCodeReservations32、externalKeyReservations311、propertyImportReceipts7、propertyImportSources310、propertyOperationReceipts52、warrantyCounters5、prototypeSettings6。実行直前に正式inspectで全階層・Auth・保持文書を再検査する。
+
+### 使用するコマンドと実行順
+
+1. `scripts/extract-historical-intake.py --xlsx <private.xlsx> --mapping <private-mapping.json> --output <private-input.json>`。承認されたExcel全体hashが一致しないと変換しない。SHS62行の個別補正を別版へ黙って適用しない。
+2. `node scripts/prepare-historical-intake.mjs --input <private-input.json> --date <YYYY-MM-DD> --output <private-plan.json>`。確定件数99/66/277と回答根拠、所属、番号、外部キー、日付・期間・初期状態を確認する。出力先既存ファイルは上書きしない。エラーありは終了2、形式不整合は1。出力の成功はクラウド投入ではない。
+3. `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control`。読取専用。削除内訳、保持件数、inventoryHash・authorizationHashを保存。実行の間にデータが変わったら再点検する。
+4. レビュー・包括検証・実行承認を確認後、[既存のdefault停止手順](backup-recovery.md)で更新停止と処理収束を確認。今回はまだ停止しない。
+5. `node scripts/historical-intake.mjs artifact`で検証対象コードのhashを取得。`apply`には`--project`、`--control`、`--input`、`--date`、`--plan-hash`、`--inventory-hash`、`--generation`、`--operation`、`--actor-uid`、`--artifact-hash`、`--apply --confirm reset-dev-business`をすべて指定。世代・実行者・hashを本書の例から推測しない。実行者は保持する有効な開発者アカウント。停止済みDBへだけ適用する。
+6. 応答不明時は`status`で正確なownerと進行状態を読取確認。元プロセス終了を確認したうえで同一入力・計画・実行IDへ`--resume-owner <observed> --previous-worker-ended`を追加する。別入力で再開しない。削除中の追加・変更、アカウント変更、世代変更があれば停止する。
+7. 完了後も停止を保持。`scripts/default-recovery.mjs plan-intake`に`--intake-operation`と`--intake-plan-hash`を指定して専用完了像を封印し、既存のpublish→HS読取確認→別了承のreopenへ進む。Dev用の既存共通引数（対象・source default・revision・generation・site・operation・approval・dev-execute・apply・confirm fixed-recovery）と配備検証を省略しない。既存のplan/apply復元経路へ初期取込像を偽装しない。
+
+保存契約は[プロトタイプ契約](../design/meeting-prototype-2026-10-03.md#2026-10-10-初期過去物件の出典投入契約)。準備用コードと架空データ予行は完了。実行前に検証版を確定し、原本・DB像・停止世代・配備版を再照合する。今回の作業差分は未コミットであり、既存の別作業差分を保持している。実行・公開時の版固定と既存の配備一致検査を省略しない。
+
+### 準備の検証結果
+
+2026-10-10、HEAD `ed9ccead21fa1df10b072375f39196742535a4ae`上の担当差分に対して確認。実行コード一式のartifactHashは `5191638b867c32cf62d7c4c68c197e7e9c9669d776517ef4c54333fe091e4294`。後からコード・入力・環境を変えた場合は該当検証をやり直す。
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 文書・規則の整合を確認 | 0 |
+| `npm test` | 386成功、既存のシンボリックリンク試験2件はホストの作成権限がなくskip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 最終修正後169成功、skip0。初期取込みの6試験を含む | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `node --test test/historical-intake-plan.test.mjs test/historical-intake-package.test.mjs test/default-recovery-admission.test.mjs` | 24成功 | 0 |
+| bundled Pythonで`test/historical-intake-extraction.py`（TEMPはrepoのtmpへ指定） | 2成功。原本変更・行移動・件数不足・日付・番号・備考保持を確認 | 0 |
+| `scripts/extract-historical-intake.py`＋`scripts/prepare-historical-intake.mjs`の実入力実行 | 抽出442、計画770文書、エラー0。設定6文書を実行時に加えて776文書。クラウド書込みなし | 各0 |
+| `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control` | 1,115文書の初期化候補、保持3、Auth整合。書込みなし | 0 |
+| `git diff --check` | 空白エラーなし | 0 |
+
+制限環境での初回npm test・emulator起動は失敗し、ローカル実行の承認範囲で再実行して上記終了0を確認した。Pythonの初回TEMP書込み制限はrepo内tmpへ切り替えて解消。失敗実行を成功証拠には使用しない。必須ゲートの省略なし。2件の既存skipは残る制約として明記し、今回の新規予行試験はskipなし。独立レビューの指摘は修正・再レビュー済み。
+
+予行では442件以上の関連記録を含む初期化・投入・同一実行再送・再初期化・再投入、停止前後の通常モード拒否、書込み応答不明、初回記録前の停止、削除／書込み中の追加・変更保持、別入力・別実行者・未知階層の拒否、全件改変検出、確認用公開・別了承の通常再開を確認。実Devの停止・削除・投入・画面受入れ・HS試験は未実施。
+
 工程の順序・担当・完了条件・日程との接続は[専用ロードマップ](../roadmaps/historical-property-intake.md)を参照する。本書は資料点検と再利用する実行手順を管理する。
 
-状態：訂正版「新システム取込み用過去物件_20261009」の442件を全件再検査済み。[現在の入力元・検査結果・UH名称の確定](../requirements/source-materials.md#2026-10-09-訂正版の全件再検査とuh名称の確定)を優先し、下記旧資料の記録は履歴として扱う。UHは277件すべて4桁-2桁、11コードと店舗の対応を確認。金沢南と金沢南店は別本支店、三次と三次店は三次へ統一する。末尾「店」を一律削除してはならない。所属対応はUH新潟南／新津2件のみ未確定。SHS竹原10件は竹原・三原支店へ対応確定。開発側では、既存番号年度と申込年度の差を含む採番照合が残る。ローカル入力検査のみ先行実装済みで、変換・初期化・書込み・再開処理と実取込みは未実施。業務仕様は[仕様書](../specification.md)、未決事項は[HSC-015](../requirements/house-solution-confirmations/HSC-015-migration-scope-cleaning.md)を正本とする。
+2026-10-10追加：AIRの現原資料はExcel形式で、[UH!F13・F31を1508-01へ修正・再取得照合済み](../requirements/source-materials.md#2026-10-10-新潟南2件の原資料修正)。現ファイルIDは `1FpP0BS9dd9aL8F0_LTZ6bpdFxsunU00h`。以前のGoogle Sheets IDはAIRから参照できない。下記U-01の原資料訂正はこの2セルについて完了したが、最終入力固定・全項目変換検査・Dev投入は未完了。取得方法とシート識別子は現Excelに合わせて確認し、過去のgidを流用しない。
+
+状態：訂正版「新システム取込み用過去物件_20261009」の442件を全件再検査済み。[現在の入力元・検査結果・UH名称の確定](../requirements/source-materials.md#2026-10-09-訂正版の全件再検査とuh名称の確定)を優先し、下記旧資料の記録は履歴として扱う。UHは277件すべて4桁-2桁、11コードと店舗の対応を確認。金沢南と金沢南店は別本支店、三次と三次店は三次へ統一する。末尾「店」を一律削除してはならない。新潟南2件はHS回答とAIR了承により1508-01へ対応確定し、所属の回答待ちは解消。SHS竹原10件は竹原・三原支店へ対応確定。開発側では、既存番号年度と申込年度の差を含む採番照合が残る。ローカル入力検査のみ先行実装済みで、変換・初期化・書込み・再開処理と実取込みは未実施。業務仕様は[仕様書](../specification.md)、未決事項は[HSC-015](../requirements/house-solution-confirmations/HSC-015-migration-scope-cleaning.md)を正本とする。
 
 ## HS回答による取込変換の確定値
 
@@ -13,9 +66,9 @@
 - S-01：SHS!I2の東広島本部を東広島支店へ対応させる。既存の東広島支店36件と合わせ37件、広島支店14件は別本支店。福山5件・竹原10件と計66件という点検時の件数は維持。2026-10-10の確定回答により、過去名「竹原支店」10件を「竹原・三原支店」へ対応させる。
 - S-02：SHSの申込日は全66件B列。A列は申込日に使わず、発行日時へ自動転記する処理も追加しない。回答の意味（申込日＝報告受領日、発行日＝HS担当者の保証書発行日）は資料台帳へ記録。
 - S-03：SHS62行は基礎断熱あり、G62を資材名に適用。原資料そのものは書き換えず、確定変換規則として管理する。
-- U-01：UH加盟店コードはD列4桁＋ハイフン＋E列2桁として先頭ゼロを保持。提供一覧の札幌南／札幌豊平を別コードで扱い、元の4桁コードだけで統合しない。過去物件の店舗名等と新コードの全件対応は別途検査する。469行の50組重複（同名7組、同一法人別名24組、法人相違19組）は未解決。名称を推測で統合したり、独自に枝番を付けたりしない。
+- U-01：UH加盟店コードは4桁-2桁として先頭ゼロを保持し、札幌・金沢南の既決の区別を維持。最新の記録では一覧460件・コード重複0。今回の[HS回答とAIR了承](../requirements/source-materials.md#2026-10-10-新潟南2件の回答了承確認)により、過去物件UH13・31行の2件は新潟南・1508-01に対応させる。所属回答待ちは解消。原資料を再取得し、この訂正と各対応を最終入力に反映・検査して固定する。契約Noや保証番号は本回答を理由に変更しない。
 
-下記の一次点検にある「保留4件」「広島・札幌の回答待ち」は回答前の経緯。本節とHSC-015を現在の状態として優先する。入力manifestではS-01〜03の承認根拠を指定できるが、U-01は全体の対応未完了を示すpendingを維持する。札幌の区別だけで全体をapprovedにしない。実行前検査・原資料固定・期間／採番照合・ツール検証を省略しない。
+下記の一次点検にある「保留4件」「広島・札幌の回答待ち」は回答前の経緯。本節とHSC-015を現在の状態として優先する。入力manifestのU-01には、既決回答と今回の新潟南に関するHS回答・AIR了承を根拠としてapprovedを指定できる。回答欄の承認と、対応表の作成・全件検査の完了は別であり、実入力manifestは今回更新していない。実行前検査・原資料固定・期間／採番照合・ツール検証を省略しない。
 
 ## 回答待ち中に実装した入力検査
 
@@ -27,7 +80,7 @@ manifestの形式（schemaVersionは1）：
 - `sources`：HSC／SHS／UH各1件。`group`、`sheetId`（非負整数）、`path`、`sha256`（ファイルのSHA-256・小文字64桁）、`expectedRows`（正整数）を持つ。
 - 各sourceファイルはJSONで、`workbookId`、`sheetId`、`group`、`values`を持つ。valuesは見出し1行と原資料のデータ行を保持する二次元配列。空行は除外して件数を数える。各ファイル16MiB以下、最大10,001行・100列。実値はGit外に保管する。
 - `mapping`：所属・登録条件の対応表ファイルを指す`path`と`sha256`。内容の変更を検出するだけで、対応表の業務的な正しさは判定しない。
-- `decisions`：H-01／H-02／S-01／S-02／S-03／U-01を各1件。`id`、`status`（pendingまたはapproved）、承認時は根拠を示す`reference`が必要。承認根拠のない事項をapprovedに書き換えて通過させない。現在は上記のHS回答確定値とU-01の残件を反映する。
+- `decisions`：H-01／H-02／S-01／S-02／S-03／U-01を各1件。`id`、`status`（pendingまたはapproved）、承認時は根拠を示す`reference`が必要。承認根拠のない事項をapprovedに書き換えて通過させない。上記のHS回答確定値と新潟南の回答・了承を反映し、全回答の根拠を保持する。
 
 相対pathはmanifestの所在基準。標準出力には件数、内容hash、質問ID、エラーコードだけを出し、元データ・ファイルパス・回答本文は出さない。終了コードは1＝入力不整合、2＝入力形式は整合するが回答待ち、0＝入力形式と回答欄が整合。**0も取込み承認ではない**ため`importReady`は常にfalse。最新Drive原本との一致、回答根拠の真正性、個別業務値、Devとの照合は別工程。入力とhashを同時に改変した場合の検出機構ではない。
 
@@ -93,4 +146,4 @@ UH申込日の修正は差替え後の資料で確認済み。今後の再取得
 
 旧Devバックアップの取得・保存・復元互換対応は今回の前提にしない。[10月7日の停止・削除決定](backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)を維持する。復元方法は旧像への巻戻しではなく、確定原資料と対応表からの再初期化・再投入。実データ取込後の独自変更があれば、破棄対象として計画へ明記し、不明な更新を黙って失わない。途中失敗中は通常業務を開放しない。Prodのバックアップ・PITR設定はProd構築後の別工程。
 
-先行実装は上記のローカル入力検査まで。アプリ・スキーマ・権限変更、Dev初期化、実データ投入は行っていない。取込処理全体の完成・再投入の成功はまだ確認していない。
+先行準備時点ではローカル入力検査のみだったが、現在は冒頭の実行準備・検証結果のとおり専用処理と予行が完了している。Dev初期化・実データ投入・画面受入れは未実施。

@@ -1,5 +1,25 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-10 初期過去物件の出典・投入契約
+
+専用初期投入は通常の増分CSVとは分離する。`propertyWarranties`のIDは保証グループと既存保証番号から決定し、`historicalIntakeSource`にworkbookId、sourceSha256、transformVersion、sheet、元row、rowHash、operationIdを保持する。HSC／SHSに架空の外部キーや通常CSV用receivedRecordIdを付けない。UHは既存契約NoとexternalKeyReservationsを保持する。通常編集では出典を引き継ぎ、原資料の差替えは別の検証済み再取込みとする。
+
+`createdAt`／`updatedAt`は実取込時のTimestamp。historyには実際の取込み1件（kind:historicalImport、ISO文字列at、実行者actorUid、実行IDrequestId）を残し、過去の請求・発行日時や担当者は作らない。保証・保険期間と月別検索・集計項目は既存の共通計算から生成する。
+
+`_recovery/historicalIntake`は実行ID・入力計画hash・当初棚卸しhash・アカウント/Auth照合hash・削除対象path/hash・進行位置・完了像hashを保持する。削除対象表は512KiB上限を超えたら拒否する。実値・個人情報を実行ログやリポジトリへ保存しない。各100件以下の書込みと進行位置を同じ取引で確定し、応答不明時は実行を保持して正しい停止済み実行者の指定から再開する。削除中に追加・変更された業務記録は自動削除しない。
+
+採番と各検索準備設定は新投入像から作成する。全件一致とアカウント不変を確認後、専用の完了像を既存の復旧公開検証へ接続する（plan-intake）。読取確認用の公開・別了承による通常再開には既存の配備照合を適用し、投入スクリプト自体は業務を再開しない。[詳細と予行状況](../runbooks/historical-property-intake.md#2026-10-10-取込み計画と実行準備)。
+
+## 2026-10-10 保険期間別状態・ダッシュボードの保存契約
+
+HSC-006 Q19〜Q30で確定した[詳細設計](dashboard.md)を実装へ反映。保険期間ごとの未報告／報告済み／報告不要、理由付きの設定・期限内取消を扱う。物件文書に `insuranceStateVersion:1`、`insuranceBasisRevision`、最大6件の `insurancePeriods`、設定・取消の `insuranceWaiverEvents` を保存する。期間の状態・実報告・不要履歴を照合し、確認不能は `state:null` と理由で保持する。業務上の第4状態や推測した報告履歴は作らない。
+
+検索用項目は `insuranceProjectionVersion:1`、`insurancePendingStart1`〜`3`、`insurancePendingEnd1`〜`3`、`warrantyNoticePending`。未使用枠は空文字。通常保存・取消・復元・延長・報告・請求・CSV取込みで正本と同時に更新する。`insurancePeriods`／`insuranceWaiverEvents`／`insuranceMigration` は単独索引を除外。理由・担当者を含む内部履歴と移行情報は工務店向け応答に含めない。
+
+旧記録の変換は専用 `insuranceMigration` に版・実行日時・旧revision・元記録の識別値を保存し、初回だけrevisionを1加算、updatedAtと既存履歴を保持する。検索項目だけの再補完はrevision・updatedAtを変更しない。通常業務と変換が重なっても最新文書から計算する。保険の利用準備は `prototypeSettings/insuranceStates`、集計の準備は `prototypeSettings/dashboard` に版・移行時の復旧世代・実行IDを保存し、未完了は版0、照合完了は版1とする。両者の一致を集計開始・終了時に確認する。移行時世代は証跡であり、検査済み復元像を公開した後の新しい実行世代と同一である必要はない。実行中の復旧変化は既存の復旧確認で拒否する。
+
+影響する保存操作には `operationProtocol:1` を要求し、未対応の新規書込みを拒否。受領済みの同一操作の再送は従前の成功を返す。取消履歴を追加できる容量を文書全体で予約する。不要状態を書き込んだ後に旧処理へ戻したり、不要履歴を消して差し戻したりしない。Dev移行・実測の実施状況は[運用記録](../operations.md)で区別する。
+
 ## 2026-10-09 保証書発行の保存契約
 
 保証期間ごとのcertificateItemsと検索用派生値、certificateQueries readinessを追加。[データ・互換性・移行契約](warranty-certificates.md)。既存の保険／請求項目は維持する。0.1.131ではissued:falseによる取消を追加し、請求抽出のbillingQueryVersion・billingPendingMonthとbillingQueries readinessを追加。[検索契約](monthly-queries.md)。

@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [ダッシュボード検討・実装ロードマップ](roadmaps/dashboard.md)：質疑による指標定義から集計設計・検証・受入まで。[詳細設計](design/dashboard.md)はQ30で確定。実装・Local検証・Dev導入済み。ログイン後の操作確認・業務受入は残る。
+
 - [UH加盟店コードの確認用PDF](../deliverables/uh-code-review-2026-10-09/README.md)：コード昇順で全重複50組100行を掲載した5ページの一覧。修正順序・状況判断はHSに委ねる。10月9日送付済みの当時の重複一覧。修正後のコード重複は解消、所属の残件は受領資料台帳を参照。
 
 - [過去物件取込みの確認資料](../deliverables/historical-intake-review-2026-10-09/README.md)：回答前の5ページPDF・回答用Googleフォームと回答後の状態。HSC2件・SHS3件は確定、UH追加一覧の重複と所属対応等は継続確認。
@@ -82,7 +84,7 @@ For project-specific verification or operations, select the applicable procedure
 | Work type | Required documents | Additional implementation or evidence |
 | --- | --- | --- |
 | Delegate or act on package, repository, environment, deploy, or data identifiers | Authoritative specification, manifest, data contract, release evidence, or operations source | Verify exact source/location/command and value in the current turn; stop on mismatch before state change |
-| Select validation for a daily change | [検証方針JSON](../governance/verification-policy.json)、[検証の進め方](operations.md#検証の進め方)と同書の検証マトリクス | 変更箇所の試験から全体検証へ進み、[証拠の有効性](operations.md#evidence-validity-and-retry)で再利用を判断。[記録先](operations.md#検証結果と文書の記録先)に結果と省略理由をまとめる |
+| Select validation for a daily change | [検証方針JSON](../governance/verification-policy.json)、[検証の進め方](operations.md#検証の進め方)と同書の検証マトリクス | 変更分類から必須ゲートを選び、[証拠の有効性](operations.md#evidence-validity-and-retry)で今回実行・有効証拠再利用・未充足を判定。[記録先](operations.md#検証結果と文書の記録先)に結果と省略理由をまとめる |
 | Plan or report the 2026 delivery | `docs/specification.md`, `docs/requirements/delivery-and-technology.md`, and `docs/roadmaps/2026-initial-delivery.md` | Record only verified progress; revise milestone scope, evidence, and risks together when the plan changes |
 | バックアップ・復旧の作業／残件確認 | [操作手順](runbooks/backup-recovery.md)の現在の例外と該当手順、[検証／実行記録](design/evidence/recovery-implementation-2026-10-06.md)の対象版・実行分 | 設計変更時は[設計索引](design/README.md)から該当設計・仕様へ進む。過去の成功記録と現在の復元可能性を区別する |
 | 共通CSV取込み・住所統合・外部キーの作業／受入確認 | [共通設計](design/property-bulk-import.md)、[検証／Dev実行記録](design/evidence/common-import-address-2026-10-07.md)の該当箇所 | 資料の再照合は[受領資料台帳](requirements/source-materials.md)の既存結果と資料の更新を確認。UH固有の検討は[入口](design/uh-integration-proposal-2026-10-06.md)から該当論点へ進む |
@@ -93,7 +95,7 @@ For project-specific verification or operations, select the applicable procedure
 
 | Document | Authoritative content |
 | --- | --- |
-| `governance/common-governance.md` | Managed cross-project governance; do not edit in the project |
+| `governance/common-governance.md` | Project-owned governance source; edit locally and regenerate AGENTS with the local renderer |
 | `governance/project-rules.md` | Project-specific instructions, ownership, safety, and approval boundaries |
 | `governance/verification-policy.json` | Machine-readable change classes, gate stages, inclusion, invalidation, fallback, and omission routing |
 | `docs/specification.md` | Current confirmed requirements and explicitly separated open decisions |

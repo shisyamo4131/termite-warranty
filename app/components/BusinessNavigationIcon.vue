@@ -5,6 +5,7 @@
 <script setup lang="ts">
 defineProps<{ item: string }>()
 const icons: Record<string, string> = {
+  dashboard: 'network',
   properties: 'house',
   alerts: 'calendar-clock',
   insuranceAlerts: 'shield-alert',

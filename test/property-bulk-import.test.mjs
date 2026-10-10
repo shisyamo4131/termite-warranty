@@ -179,7 +179,19 @@ test('getAll chunks preserve path identity including missing documents and batch
     for(const ref of refs)assert.equal(result.get(ref.path).ref,ref)
   }
 })
-const request = (records = [sample], extra = {}) => ({ action: 'preview', groupId: 'HSC', companyId: 'company', csv: csv(...records), format: 'common', requestId: 'request-1', ...extra })
+const request = (records = [sample], extra = {}) => ({ action: 'preview', operationProtocol: 1, groupId: 'HSC', companyId: 'company', csv: csv(...records), format: 'common', requestId: 'request-1', ...extra })
+
+test('old import protocol is rejected before writes but a receipted retry keeps its original success',async()=>{
+  const {propertyBulkImportOperation:operation}=await server()
+  const db=fakeDb(seed()),input=request(),preview=await operation(db,input,'staff')
+  const commit={...input,action:'commit',confirmed:true,previewHash:preview.previewHash}
+  await assert.rejects(operation(db,{...commit,operationProtocol:undefined},'staff'),error=>error.code==='failed-precondition'&&error.message.includes('再読込'))
+  assert.equal([...db.documents.keys()].filter(path=>path.startsWith('propertyWarranties/')).length,0)
+  const result=await operation(db,commit,'staff')
+  const replay=await operation(db,{...commit,operationProtocol:undefined},'staff')
+  assert.equal(replay.replayed,true)
+  assert.deepEqual(replay.ids,result.ids)
+})
 
 test('long branch codes compare full values and legacy header commits replay without rewriting its digest',async()=>{
   const {propertyBulkImportOperation:operation}=await server()

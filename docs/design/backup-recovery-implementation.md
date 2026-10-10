@@ -1,5 +1,11 @@
 # Backup and Recovery Implementation
 
+## 2026-10-10 初期過去物件取込みの公開接続
+
+初期取込みのDev業務データ初期化は、障害復元と別の承認済み作業。専用処理の完了記録と全件像・アカウント不変を照合する`plan-intake`を追加した。`defaultRecoveryPlans`にkind:historical-intake、publicationOnly:true、intakeOperationId、intakePlanHash、intakeReceiptHashと完了像のhashを保持し、汎用apply/resumeによる再書込みを拒否する。初期化対象の架空データ採番を復元時の保全上限として持ち込まず、確認済み既存保証番号と欠番に対応する新投入採番を公開検証の上限とする。
+
+公開前の配備一致確認、HSの読取専用確認、別了承による通常再開、公開途中停止のexact-owner回復は既存経路を維持。通常の障害復元、Auth修復、権限拡大を許可する変更ではない。[取込みの保持範囲・コマンド・検証](../runbooks/historical-property-intake.md#2026-10-10-取込み計画と実行準備)。
+
 ## 2026-10-07 Dev保護停止とProd提供前ゲート
 
 オーナー承認でDevの自動取得・PITR・Auth自動退避を停止し、取得済み像を削除した。取得／監視コードとAuthハッシュ設定は保持。controlのbackupHealthはmonitoring/authBackupをpaused、lastFirestoreSuccessTimeをnullとし、lastAuthBackup参照を除去。backupHistoryは監査履歴。新状態画面のpaused「停止中」はDev配備済み。Prod提供前の初回取得・PITR開始・互換性・通知ゲートは[現在の例外](../runbooks/backup-recovery.md#2026-10-07-dev自動取得pitrの停止現在の例外)を参照。
