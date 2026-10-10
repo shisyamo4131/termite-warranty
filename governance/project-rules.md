@@ -2,7 +2,7 @@
 
 - Status: Active
 - Owner: Project
-- Common governance: `governance/common-governance.md`
+- Project-owned governance: `governance/common-governance.md`
 - Rule: This file may add project-specific requirements but must not weaken the common governance contract.
 
 ## Project and Current Scope
@@ -73,11 +73,23 @@ Persist and follow the existing A–D checkpoints: close new updates and HS busi
 
 ## Project-specific Approval and Safety Boundaries
 
-Customer and home-related information is expected to be handled, but its exact fields, classification, retention, and legal obligations are unconfirmed. Keep secrets and private records out of the repository. Network, external writes, deployment, and destructive operations require separate human approval.
+### Gmail・Googleドライブの参照先
+
+- 2026-10-10のオーナー指示により、本プロジェクトでGmail・Googleドライブを参照する際は、事業用の「AIR」を対象とする。
+- 参照開始時・再接続時に、利用ツールの接続アカウントと対象がAIRであることを確認する。AIRを確認できない場合は別アカウントで代用せず、参照を止めて接続先の確認を求める。
+- この参照先指定はメール送信や外部資料の変更の承認を含まない。外部書込み等には下記の承認境界を適用する。
+
+Customer and home-related information is expected to be handled, but its exact fields, classification, retention, and legal obligations are unconfirmed. Keep secrets and private records out of the repository.
+
+### 公開Web参照の承認範囲
+
+- 2026-10-10、オーナーがGOVERNANCE-MANAGER（タスク `01a1015f-0477-7ad3-8b3c-ef77242b4dcf`）で採用した方針により、本プロジェクトの作業に必要な公開Web検索・閲覧・公式資料取得を恒常承認する。この範囲では都度の確認を求めない。共通契約の「別途承認済み」に当たり、ツール・実行環境の制限を解除するものではない。
+- 検索語・URL・送信内容へ秘密情報、顧客・物件情報や非公開資料を含めない。認証付きの非公開情報へのアクセスはこの公開参照承認に含めず、既存の承認範囲を確認する。Gmail・Googleドライブの参照では、上記AIR接続先も確認する。HTTP GETでも削除・状態変更等の効果がある操作は閲覧扱いにしない。
+- メール送信・投稿・外部資料編集・購入・配備・権限変更・破壊的操作等は、その操作と対象を含む明示承認が必要。既に承認された対象・範囲を重ねて質問せず、範囲外・対象不明・承認不足の操作だけを止める。その他のネットワーク利用は別途承認を要する。
 
 ## Project-specific Implementation and Verification
 
-The approved prototype stack is a Nuxt SPA with Vuetify, Firebase Hosting, Firestore with application-maintained N-Gram search indexes, Firebase Authentication email/password sign-in using browser-session persistence, and Cloud Functions for Firebase for Firebase Admin SDK account management. Exact local-prototype dependency versions are authoritative in `package.json` and `package-lock.json`; do not infer real Firebase project IDs, deployment configuration, production dependency promotion, or production database selection from them. Local verification uses only the fictional `demo-termite-warranty` identifier and required emulators. Firestore access has one bounded authorization exception: the signed-in account must be enabled, so immediate account disable is enforceable. PostgreSQL may replace Firestore only through a recorded architecture decision and an updated schema/migration assessment. The dependency-free domain slice is verified with `npm test`; additional runtime and integration commands become confirmed only after successful local execution and policy registration. Use the project-owned policy as the machine-readable source; classify impact before work. Governance scaffolding, migration, managed sync, common-contract, permission/agent-policy, and release/deploy work require comprehensive validation. Record each selected command and exit status independently; never use status-masking command chains as completion evidence.
+The approved prototype stack is a Nuxt SPA with Vuetify, Firebase Hosting, Firestore with application-maintained N-Gram search indexes, Firebase Authentication email/password sign-in using browser-session persistence, and Cloud Functions for Firebase for Firebase Admin SDK account management. Exact local-prototype dependency versions are authoritative in `package.json` and `package-lock.json`; do not infer real Firebase project IDs, deployment configuration, production dependency promotion, or production database selection from them. Local verification uses only the fictional `demo-termite-warranty` identifier and required emulators. Firestore access has one bounded authorization exception: the signed-in account must be enabled, so immediate account disable is enforceable. PostgreSQL may replace Firestore only through a recorded architecture decision and an updated schema/migration assessment. The dependency-free domain slice is verified with `npm test`; additional runtime and integration commands become confirmed only after successful local execution and policy registration. Use the project-owned policy as the machine-readable source; classify impact before work. Governance scaffolding, migration, local contract/tool changes, effective permission/agent-policy, and release/deploy work require comprehensive validation. Owner-approved reference-target clarification alone follows `project-guidance-metadata` in the policy when capability, approval/safety boundaries, executable configuration, and verification behavior are unchanged; mixed or uncertain impact keeps the broader gates. Record each selected command and exit status independently; never use status-masking command chains as completion evidence.
 
 For staff-facing business collections, Firestore Rules are limited to authentication and the live enabled-account check. Do not use Rules to enforce document schemas, field allowlists, types, business invariants, lifecycle transitions, soft deletion, or application workflow. The prototype explicitly does not guarantee integrity for authenticated Create, Update, or Delete requests made outside the supported application flow. Keep schema and business validation in the application or a trusted server command where that command is required by the supported workflow. Account records, construction-company ownership boundaries, notification outbox records, account bindings, and server-owned numbering state may remain denied or scoped in Rules because they are authentication/identity or server-authority boundaries rather than staff business-schema validation.
 

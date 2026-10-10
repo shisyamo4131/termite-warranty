@@ -1,39 +1,11 @@
 [CmdletBinding()]
 param(
     [string]$ProjectPath = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
-    [int]$MaxAgentsBytes = 32768
+    [int]$MaxAgentsBytes = 32768,
+    [switch]$SourcesOnly
 )
 
 $ErrorActionPreference = 'Stop'
-
-function Get-NormalizedLfSha256 {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    $sourceBytes = [IO.File]::ReadAllBytes($Path)
-    $normalizedBytes = [IO.MemoryStream]::new()
-    try {
-        for ($index = 0; $index -lt $sourceBytes.Length; $index++) {
-            if ($sourceBytes[$index] -eq 13) {
-                if (($index + 1) -lt $sourceBytes.Length -and $sourceBytes[$index + 1] -eq 10) {
-                    $index++
-                }
-                $normalizedBytes.WriteByte(10)
-            } else {
-                $normalizedBytes.WriteByte($sourceBytes[$index])
-            }
-        }
-
-        $sha256 = [Security.Cryptography.SHA256]::Create()
-        try {
-            $hashBytes = $sha256.ComputeHash($normalizedBytes.ToArray())
-            return ([BitConverter]::ToString($hashBytes)).Replace('-', '').ToLowerInvariant()
-        } finally {
-            $sha256.Dispose()
-        }
-    } finally {
-        $normalizedBytes.Dispose()
-    }
-}
 
 function Assert-ObjectProperties {
     param(
@@ -83,35 +55,7 @@ function Get-LiteralPowerShellScriptReferences {
     return @($references)
 }
 
-function Format-VerificationSummaryValue {
-    param([AllowNull()][object]$Value)
-    if ($null -eq $Value) { return '' }
-    return ([string]$Value).Replace('\', '\\').Replace("`r", '\r').Replace("`n", '\n').Replace(';', '\;').Replace(',', '\,').Replace('[', '\[').Replace(']', '\]')
-}
-
-function Format-VerificationSummaryArray {
-    param([AllowEmptyCollection()][object[]]$Values)
-    return '[' + ((@($Values) | ForEach-Object { Format-VerificationSummaryValue -Value $_ }) -join ',') + ']'
-}
-
-function Get-VerificationPolicyDocumentationBlock {
-    param([Parameter(Mandatory = $true)]$Policy)
-
-    $lines = [Collections.Generic.List[string]]::new()
-    $lines.Add('<!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->')
-    $lines.Add('- Root: schemaVersion=' + (Format-VerificationSummaryValue $Policy.schemaVersion) + '; comprehensiveGateIds=' + (Format-VerificationSummaryArray @($Policy.comprehensiveGateIds)) + '; unknownImpactGateIds=' + (Format-VerificationSummaryArray @($Policy.unknownImpactGateIds)))
-    foreach ($runtimeProfile in @($Policy.runtimeProfiles)) {
-        $lines.Add('- RuntimeProfile: id=' + (Format-VerificationSummaryValue $runtimeProfile.id) + '; platform=' + (Format-VerificationSummaryValue $runtimeProfile.platform) + '; edition=' + (Format-VerificationSummaryValue $runtimeProfile.edition) + '; executable=' + (Format-VerificationSummaryValue $runtimeProfile.executable) + '; versionRule=' + (Format-VerificationSummaryValue $runtimeProfile.versionRule) + '; required=' + (Format-VerificationSummaryValue $runtimeProfile.required) + '; supportStatus=' + (Format-VerificationSummaryValue $runtimeProfile.supportStatus))
-    }
-    foreach ($changeClass in @($Policy.classes)) {
-        $lines.Add('- Class: id=' + (Format-VerificationSummaryValue $changeClass.id) + '; triggers=' + (Format-VerificationSummaryArray @($changeClass.triggers)) + '; iterationGateIds=' + (Format-VerificationSummaryArray @($changeClass.iterationGateIds)) + '; targetedRegressionGateIds=' + (Format-VerificationSummaryArray @($changeClass.targetedRegressionGateIds)) + '; completionGateIds=' + (Format-VerificationSummaryArray @($changeClass.completionGateIds)) + '; releaseOnlyGateIds=' + (Format-VerificationSummaryArray @($changeClass.releaseOnlyGateIds)) + '; omittableGateIds=' + (Format-VerificationSummaryArray @($changeClass.omittableGateIds)) + '; omissionRecord=' + (Format-VerificationSummaryValue $changeClass.omissionRecord))
-    }
-    foreach ($gate in @($Policy.gates)) {
-        $lines.Add('- Gate: id=' + (Format-VerificationSummaryValue $gate.id) + '; command=' + (Format-VerificationSummaryValue $gate.command) + '; stages=' + (Format-VerificationSummaryArray @($gate.stages)) + '; includes=' + (Format-VerificationSummaryArray @($gate.includes)) + '; invalidatedBy=' + (Format-VerificationSummaryArray @($gate.invalidatedBy)) + '; evidenceDestination=' + (Format-VerificationSummaryValue $gate.evidenceDestination))
-    }
-    $lines.Add('<!-- END GENERATED VERIFICATION POLICY SUMMARY -->')
-    return ($lines -join "`n")
-}
+. (Join-Path $PSScriptRoot 'lib/governance-policy.ps1')
 
 $resolvedProject = (Resolve-Path -LiteralPath $ProjectPath).Path
 $governanceRoot = Join-Path $resolvedProject 'governance'
@@ -138,19 +82,9 @@ function Get-LockValue {
     return $match.Matches[0].Groups[1].Value.ToLowerInvariant()
 }
 
-$checks = [ordered]@{
-    common_governance = @($commonPath, 'common_governance_sha256')
-    renderer = @($rendererPath, 'renderer_sha256')
-    validator = @($validatorPath, 'validator_sha256')
-    task_turnover_contract = @((Join-Path $resolvedProject 'references\task-turnover-contract.md'), 'task_turnover_contract_sha256')
-}
-
-foreach ($entry in $checks.GetEnumerator()) {
-    $actual = Get-NormalizedLfSha256 -Path $entry.Value[0]
-    $expected = Get-LockValue -Name $entry.Value[1]
-    if ($actual -ne $expected) {
-        throw "Managed $($entry.Key) differs from governance.lock.toml. Restore it through the approved skill sync."
-    }
+# Origin hashes are provenance, not a restriction on project-owned sources/tools.
+if ((Get-LockValue -Name 'ownership_model') -ne 'project-owned') {
+    throw 'Project governance ownership must be explicitly recorded as project-owned.'
 }
 
 $projectRules = [IO.File]::ReadAllText($projectRulesPath)
@@ -179,6 +113,30 @@ Assert-ObjectProperties -Object $verificationPolicy -Names @('schemaVersion', 'c
 if ($verificationPolicy.schemaVersion -ne '1.0') {
     throw "Unsupported verification policy schemaVersion: $($verificationPolicy.schemaVersion)"
 }
+# Bounded, input-triggered regression commands supplement the selected gate set.
+Assert-ObjectProperties -Object $verificationPolicy -Names @('focusedRegressions') -Context 'Verification policy root'
+$focusedIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($focused in @($verificationPolicy.focusedRegressions)) {
+    Assert-ObjectProperties -Object $focused -Names @('id','triggerPaths','command','completionRequired') -Context 'Focused regression'
+    if ([string]::IsNullOrWhiteSpace([string]$focused.id) -or -not $focusedIds.Add([string]$focused.id) -or
+        -not (Test-NonBlankStringArray -Values @($focused.triggerPaths)) -or
+        $focused.completionRequired -isnot [bool] -or -not $focused.completionRequired) {
+        throw 'Focused regression has an invalid ID, triggers or completion requirement.'
+    }
+    $match = [regex]::Match([string]$focused.command, '^node --test (test/[A-Za-z0-9._/-]+\.test\.mjs)$')
+    if (-not $match.Success -or $match.Groups[1].Value.Contains('..') -or
+        -not (Test-Path -LiteralPath (Join-Path $resolvedProject $match.Groups[1].Value) -PathType Leaf)) {
+        throw 'Focused regression must name an existing project-local Node test file.'
+    }
+    foreach ($trigger in @($focused.triggerPaths)) {
+        if ([IO.Path]::IsPathRooted($trigger) -or $trigger.Contains('..') -or
+            -not (Test-Path -LiteralPath (Join-Path $resolvedProject $trigger) -PathType Leaf)) {
+            throw "Focused regression has a missing or unsafe trigger path: $trigger"
+        }
+    }
+}
+if (-not $focusedIds.Contains('governance-tools')) { throw 'Required governance-tools focused regression is missing.' }
+
 $runtimeProfileIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 $requiredRuntimeProfileCount = 0
 foreach ($runtimeProfile in @($verificationPolicy.runtimeProfiles)) {
@@ -400,25 +358,32 @@ Assert-SelectionContainsComprehensiveGate -GateIds $unknownImpactGateIds -Contex
 Assert-SelectionContainsComprehensiveGate -GateIds $classCompletionGateIds['governance-permissions-agents'] -Context 'Governance completion'
 Assert-SelectionContainsComprehensiveGate -GateIds $classCompletionGateIds['build-release-deploy'] -Context 'Build/release/deploy completion'
 
+if ($SourcesOnly) {
+    [pscustomobject]@{
+        project_path = $resolvedProject
+        source_validation_only = $true
+        completion_verified = $false
+        verification_gate_count = $gateCatalog.Count
+    }
+    return
+}
 $expectedPolicySummary = (Get-VerificationPolicyDocumentationBlock -Policy $verificationPolicy).Replace("`r`n", "`n")
 $normalizedOperationsText = $operationsText.Replace("`r`n", "`n")
-if (-not $normalizedOperationsText.Contains($expectedPolicySummary)) {
+$blocks = [regex]::Matches($normalizedOperationsText, '(?s)<!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->.*?<!-- END GENERATED VERIFICATION POLICY SUMMARY -->')
+if ($blocks.Count -ne 1 -or $blocks[0].Value -cne $expectedPolicySummary) {
     throw 'Generated verification-policy summary in docs/operations.md does not match governance/verification-policy.json.'
 }
-
 $rendererResult = & $rendererPath -ProjectPath $resolvedProject -Check
-
 $agentsBytes = (Get-Item -LiteralPath $agentsPath).Length
 if ($agentsBytes -gt $MaxAgentsBytes) {
     throw "Generated AGENTS.md is $agentsBytes bytes, above the configured maximum of $MaxAgentsBytes bytes."
 }
-
 [pscustomobject]@{
     project_path = $resolvedProject
-    common_governance_version = (Get-LockValue -Name 'common_governance_version')
+    ownership_model = 'project-owned'
+    local_governance_version = $rendererResult.local_governance_version
     agents_bytes = $agentsBytes
     max_agents_bytes = $MaxAgentsBytes
-    managed_hashes_current = $true
     generated_agents_current = $true
     renderer_check_result = $rendererResult
     renderer_check_exit_status = 0
@@ -426,7 +391,7 @@ if ($agentsBytes -gt $MaxAgentsBytes) {
     verification_policy_present = $true
     verification_gate_count = $gateCatalog.Count
     verification_script_reference_count = $verificationScriptReferences.Count
-    managed_validator_path = 'scripts/check-governance.ps1'
+    validator_path = 'scripts/check-governance.ps1'
     verification_class_count = $classCatalog.Count
     runtime_profile_count = $runtimeProfileIds.Count
     required_runtime_profile_count = $requiredRuntimeProfileCount

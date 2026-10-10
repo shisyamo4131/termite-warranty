@@ -46,7 +46,7 @@ npm run dev
 
 ローカル画面の合成アカウントは `demo.admin@example.invalid` / `Demo-only-password-123` です。実データや実際の資格情報を入力しないでください。
 
-この混合変更の完了ゲートは `npm test`、`npm run typecheck`、`npm run build`、`npm run test:rules`、Functions/seedの構文確認、`./scripts/check-governance.ps1` です。今後の変更では `governance/verification-policy.json` で影響クラスを選び、対象コマンドをそれぞれ単独で実行します。
+この混合変更の完了ゲートは `npm test`、`npm run typecheck`、`npm run build`、`npm run test:rules`、Functions/seedの構文確認、`./scripts/check-governance.ps1` です。今後の変更では `governance/verification-policy.json` で影響クラスと必須ゲートを選び、[証拠の有効性](docs/operations.md#evidence-validity-and-retry)に従って今回実行・有効証拠再利用・未充足を区別します。新たに実行する各コマンドの終了コードは個別に確認します。
 
 ローカル検証のFirebase CLIには架空の `demo-termite-warranty` だけを渡します。開発環境へのデプロイでは、必ず `--project termite-warranty-dev` を明示してローカル検証と分離します。
 

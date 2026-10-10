@@ -34,6 +34,10 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
 | User-authored UI component collaboration | [custom UI component runbook](../docs/runbooks/custom-ui-component-collaboration.md) and [decision 0021](../docs/decisions/0021-user-authored-ui-component-collaboration.md) |
 
+## Local Governance Maintenance
+
+The project owns its governance after initial scaffolding; the installed scaffold skill is not part of maintenance. See [decision 0042](../docs/decisions/0042-project-owned-governance.md). Edit the [local contract](common-governance.md), project rules, policy or local tools; run `./scripts/render-governance.ps1 -Check` for comparison, approved `-Apply` to regenerate, then `./scripts/check-governance.ps1`. Generation touches only AGENTS, the operations policy-summary block, and local-generation lock fields. Origin hashes are retained as provenance. For render/check/helper changes, run the focused safety regression `node --test test/governance-tools.test.mjs` before the selected completion gates. `check-governance.ps1 -SourcesOnly` is internal source preflight, not completion evidence; use the ordinary checker after generation.
+
 ## Authority Boundaries
 
 - A technology candidate, working hypothesis, or requested outcome is not an approved implementation decision.
