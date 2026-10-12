@@ -1,5 +1,11 @@
 # HSC-015: Migration Scope and Data Cleaning
 
+## 2026-10-10 Dev投入後の残件
+
+所属回答、原資料訂正、全442件の入力固定、17年度の採番照合、処理実装・予行を経て、オーナーの実行指示によりDev初期化・取込み・全件照合・確認用公開まで完了。アカウント3を保持、保証番号変更なし。保険報告CSV442行の全項目も一致。[実行記録](../../runbooks/historical-property-intake.md#2026-10-10-実取込みの実行記録)。以下の「Dev未投入」「年度別採番・予行が残る」は以前の経緯。
+
+同日の別了承で通常再開し、詳細・請求／保証書の代表画面とCSV、架空1件の採番・検索・編集・請求・取消、実442件不変、処理時間・ログを確認してHI-06完了。本事項はHS試験運用・受入れが残るため継続。[工程HI-07〜08](../../roadmaps/historical-property-intake.md)で管理し、開発検証済みだけを理由に全体解決としない。
+
 ## 2026-10-10 新潟南の所属対応を解決
 
 AIR接続先を確認し、Gmailの[清水様の回答](https://mail.google.com/mail/u/?authuser=dmaruyama.air%40gmail.com#all/1a123cc219f9979d)（2026-10-10 12:12 JST）と[AIRの了承返信](https://mail.google.com/mail/u/?authuser=dmaruyama.air%40gmail.com#all/1a123ef2036f795e)（同12:50 JST）を本文で確認。HS回答は「新潟南 1508−01でお願いします」、AIRは「承知しました」。問い合わせ対象は過去物件UHの13・31行の2件である。
