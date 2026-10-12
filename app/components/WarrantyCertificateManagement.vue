@@ -3,7 +3,7 @@
   <details class="business-help"><summary>抽出条件・操作の注意</summary>
   <v-alert v-if="!billing" type="info" class="mb-4">初回は引渡月、延長分はその保証開始月で抽出します。指定月より前の未発行分も含みます。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</v-alert>
   <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、対象年月以前（指定月を含む）の未請求分を表示します。初回は申込月、延長は保証開始月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>
-  <v-alert v-else type="warning" class="mb-4">CSVは仮の出力項目です。保証書そのものの作成・印刷には対応していません。</v-alert>
+  <v-alert v-else type="warning" class="mb-4">CSVは全保証グループ共通の21列です。日付は年月日を分けた列も出力します。Wordの会社情報や固定の保証年数は手動で確認・変更してください。保証書そのものの作成・印刷には対応していません。</v-alert>
   </details>
   <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>
   <v-alert v-if="message" type="success" class="mb-4">{{ message }}</v-alert>
@@ -14,6 +14,7 @@
       <div class="property-search-actions d-flex align-center"><v-btn color="primary" variant="flat" type="submit" :disabled="working">検索・更新</v-btn></div>
     </div></v-form>
 
+    <p v-if="billing && groupId" class="text-body-2 mb-3">請求先：{{ references.groups.value.find(group=>group.id===groupId)?.billingRecipient?.name || '未設定' }}</p>
   </v-card-text></v-card>
   <v-alert v-if="dirty && loadedMonth" type="warning" class="mb-4">検索条件が変わりました。「検索・更新」を押してください。</v-alert>
   <v-card class="business-results"><v-card-text class="business-results-content">
@@ -75,7 +76,7 @@ watch([month,groupId],()=>{selected.value=[];confirm.value=false;message.value='
 async function fetchRows(){requests.clear();const target=month.value,targetGroup=groupId.value;await references.ensureReady();const result=await props.call(billing.value?'billingList':'certificateList',{month:target,groupId:targetGroup});if(!active)return;rows.value=billing.value?result.rows.map((r:Row)=>({...r,certificatePeriodId:r.billingEventId,certificatePeriodLabel:r.billingPeriodLabel,certificateStartDate:r.billingStartDate,certificateExpiryDate:r.billingExpiryDate,certificateIssued:false,certificateIdentifiable:true,certificateMonth:r.billingDate.slice(0,7)})):result.rows;loadedMonth.value=target;loadedGroup.value=targetGroup;selected.value=[];page.value=1}
 async function execute(work:()=>Promise<void>){if(working.value)return;working.value=true;emit('busy',true);error.value='';message.value='';try{await work()}catch(e){if(active)error.value=e instanceof Error?e.message:'操作に失敗しました。'}finally{if(active){working.value=false;emit('busy',false)}}}
 async function load(){if(groupRule(groupId.value)!==true){error.value='有効な保証グループを選択してください。';return}if(monthRule(month.value)!==true){error.value='対象年月を指定してください。';return}await execute(fetchRows)}
-function download(){if(dirty.value || !referencesReady.value || !selectedRows.value.length)return;const content=(billing.value?billingCsv:certificateCsv)(selectedRows.value.map(r=>({...r,companyLabel:references.name('companies',r.constructionCompanyId),branchLabel:references.name('branches',r.branchId)})));const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`${billing.value?'請求':'保証書'}_${references.name('groups',loadedGroup.value).replace(/[\\/:*?"<>|]/g,'_')}_${loadedMonth.value}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message.value='CSVを出力しました。状態は変更していません。'}
+function download(){if(dirty.value || !referencesReady.value || !selectedRows.value.length)return;error.value='';message.value='';try{const content=(billing.value?billingCsv:certificateCsv)(selectedRows.value.map(r=>({...r,groupLabel:references.name('groups',r.groupId),companyLabel:references.name('companies',r.constructionCompanyId),branchLabel:references.name('branches',r.branchId)})));const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`${billing.value?'請求':'保証書'}_${references.name('groups',loadedGroup.value).replace(/[\\/:*?"<>|]/g,'_')}_${loadedMonth.value}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);message.value='CSVを出力しました。状態は変更していません。'}catch(cause){error.value=cause instanceof Error?cause.message:'CSVを出力できませんでした。'}}
 // Preserve request IDs after an unknown response, until a fresh list is fetched.
 const requests=new Map<string,string>()
 async function issue(){if(props.readOnly || dirty.value || !pendingRows.value.length)return;await execute(async()=>{

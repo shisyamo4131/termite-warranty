@@ -1,4 +1,5 @@
 import { pendingBillingRows } from './domain/billing-output.mjs'
+import { companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
 import { dashboardCounts } from './dashboard.js'
 import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
@@ -54,7 +55,7 @@ async function catalog(db, a, search = '', groupId = '', companyId = '', purpose
   return {
     companies: matching(rows(companies)).filter(row => !groupId || row.defaultGroupId === groupId),
     branches: matching(purpose === 'companyOptions' ? [] : rows(await branches.get())).filter(row => !companyId || row.constructionCompanyId === companyId),
-    groups: a.staff ? rows(await db.collection('warrantyGroups').get()) : await (async()=>{const groupId=companies.docs[0]?.data()?.defaultGroupId;if(!groupId)return [];const group=await db.doc(`warrantyGroups/${groupId}`).get();return group.exists ? [{...group.data(),id:group.id}] : []})(),
+    groups: a.staff ? rows(await db.collection('warrantyGroups').get()) : await (async()=>{const groupId=companies.docs[0]?.data()?.defaultGroupId;if(!groupId)return [];const group=await db.doc(`warrantyGroups/${groupId}`).get();return group.exists ? [portalWarrantyGroup(group.data(),group.id)] : []})(),
   }
 }
 
@@ -93,6 +94,21 @@ async function reserveBranchCode(db, tx, ref, old, value) {
 export async function propertyPrototypeOperation(auth, db, input, uid) {
   const a = await actor(db, uid)
   const action = input?.action
+  if (action === 'companyProfile' || action === 'saveCompanyProfile') {
+    if (!a.staff) fail('permission-denied', 'HS担当者のみ利用できます。')
+    const ref = db.doc('prototypeSettings/companyProfile')
+    if (action === 'saveCompanyProfile') {
+      manager(a)
+      let profile
+      try { profile = normalizeCompanyProfile(input.profile) } catch (error) { fail('invalid-argument', error.message) }
+      const updatedAt = Timestamp.now()
+      const value = { ...profile, updatedAt, updatedBy: uid, updatedByName: String(a.displayName ?? '') }
+      await ref.set(value, { merge: true })
+      return { ...value, updatedAt: updatedAt.toDate().toISOString() }
+    }
+    const saved = (await ref.get()).data() ?? {}
+    return { ...Object.fromEntries(Object.keys(companyProfileDefaults()).map(key => [key, saved[key] ?? ''])), updatedAt: saved.updatedAt?.toDate?.().toISOString() ?? null, updatedBy: saved.updatedBy ?? '', updatedByName: saved.updatedByName ?? '' }
+  }
   if (action === 'dashboard') return dashboardCounts(db,{uid,runtimeGeneration:input.runtimeGeneration})
   if (action === 'alertSettings') return normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())
   if (action === 'saveAlertSettings') {
@@ -242,6 +258,11 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
       // Reserve numbering settings and prefixes from creation, even while disabled.
       if (action === 'saveGroup') {
+        if (input.billingRecipient !== undefined) {
+          if (!input.billingRecipient || typeof input.billingRecipient !== 'object' || Array.isArray(input.billingRecipient)) fail('invalid-argument', '請求先の指定が不正です。')
+          try { value.billingRecipient = normalizeBillingRecipient({ ...old?.billingRecipient, ...input.billingRecipient }) }
+          catch (error) { fail('invalid-argument', error.message) }
+        }
         let settings, previous
         try {
           previous = old ? externalKeySettings(old) : null

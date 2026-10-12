@@ -53,6 +53,49 @@ before(async()=>{
 })
 after(()=>deleteApp(app))
 
+test('company profile is staff-only, administrator saved, and never inferred from existing data',async()=>{
+  const target=getFirestore(app,'company-settings-test')
+  for(const [uid,role] of [['admin','house_solution_administrator'],['dev','developer_superuser'],['staff','general_staff']])await target.doc('staffAccounts/'+uid).set({enabled:true,role,displayName:'架空'+uid})
+  await target.doc('constructionCompanyAccounts/portal').set({enabled:true,role:'construction_company',scope:'company',constructionCompanyId:'fictional'})
+  const invoke=(action,uid,extra={})=>propertyPrototypeOperation(auth,target,{action,...extra},uid)
+  assert.equal((await invoke('companyProfile','staff')).companyName,'')
+  await assert.rejects(invoke('companyProfile','portal'),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('saveCompanyProfile','portal',{profile:{companyName:'禁止'}}),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('saveCompanyProfile','staff',{profile:{companyName:'禁止'}}),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('saveCompanyProfile','admin',{profile:{companyName:''}}),e=>e.code==='invalid-argument')
+  const saved=await invoke('saveCompanyProfile','admin',{profile:{companyName:' 架空会社 ',postalCode:'100-0001',updatedBy:'forged'}})
+  assert.equal(saved.companyName,'架空会社');assert.equal(saved.updatedBy,'admin');assert.equal(saved.updatedByName,'架空admin');assert.ok(saved.updatedAt)
+  assert.deepEqual(await invoke('companyProfile','staff'),saved)
+  const replaced=await invoke('saveCompanyProfile','dev',{profile:{companyName:'架空変更'}})
+  assert.equal(replaced.postalCode,'');assert.equal(replaced.updatedBy,'dev')
+})
+
+test('group billing recipient survives legacy saves and status changes while portal never receives it',async()=>{
+  const target=getFirestore(app,'group-recipient-test')
+  await target.doc('staffAccounts/staff').set({enabled:true,role:'general_staff'})
+  await target.doc('constructionCompanyAccounts/portal').set({enabled:true,role:'construction_company',scope:'company',constructionCompanyId:'fictional'})
+  await target.doc('constructionCompanies/fictional').set({name:'架空工務店',defaultGroupId:'fixture'})
+  const invoke=(input,uid='staff')=>propertyPrototypeOperation(auth,target,input,uid)
+  const group={action:'saveGroup',id:'fixture',name:'架空保証',prefix:'BILLTEST',fiscalStartMonth:1}
+  await invoke({...group,billingRecipient:{name:'架空請求先',department:'経理',email:'billing@example.invalid'}})
+  const read=async()=>(await target.doc('warrantyGroups/fixture').get()).data()
+  const original=(await read()).billingRecipient
+  await invoke({...group,name:'変更保証'})
+  assert.deepEqual((await read()).billingRecipient,original)
+  await invoke({...group,billingRecipient:{name:''}})
+  assert.equal((await read()).billingRecipient.name,'');assert.equal((await read()).billingRecipient.department,'経理')
+  await assert.rejects(invoke({...group,billingRecipient:null}),e=>e.code==='invalid-argument')
+  await assert.rejects(invoke({...group,billingRecipient:{email:'invalid'}}),e=>e.code==='invalid-argument')
+  await invoke({...group,enabled:false})
+  await invoke({action:'reenableMaster',kind:'group',id:'fixture'})
+  assert.equal((await read()).billingRecipient.department,'経理')
+  await target.doc('warrantyGroups/fixture').update({privateFuture:'hidden'})
+  const portal=(await invoke({action:'catalog'},'portal')).groups[0]
+  assert.equal(portal.name,group.name);assert.equal(portal.prefix,group.prefix)
+  assert.equal(Object.hasOwn(portal,'billingRecipient'),false);assert.equal(Object.hasOwn(portal,'privateFuture'),false)
+  assert.equal((await invoke({action:'catalog'})).groups[0].billingRecipient.department,'経理')
+})
+
 test('monthly migration is idempotent, preserves business fields and queries only eligible property documents',async()=>{
   const target=getFirestore(app,'monthly-query-test')
   await target.doc('prototypeSettings/insuranceStates').set({version:1})
@@ -734,8 +777,11 @@ test('HTTP Callable preserves account authentication and latest registration pay
     const original=(await runtime.get()).data()
     try{
       await runtime.update({phase:'recovering'});await marker.update({phase:'recovering'})
+      await assert.rejects(invoke({action:'companyProfile'}),e=>e.code==='functions/failed-precondition')
       await assert.rejects(bulk({action:'status',requestId:'no-receipt'}),e=>e.code==='functions/failed-precondition')
       await runtime.update({phase:'verification'});await marker.update({phase:'verification'})
+      assert.equal(typeof (await invoke({action:'companyProfile'})).data.companyName,'string')
+      await assert.rejects(invoke({action:'saveCompanyProfile',profile:{companyName:'禁止'}}),e=>e.code==='functions/failed-precondition')
       assert.deepEqual((await bulk({action:'status',requestId:'no-receipt'})).data,{pending:true})
       await assert.rejects(bulk({action:'commit',requestId:'no-receipt'}),e=>e.code==='functions/failed-precondition')
       await assert.rejects(httpsCallable(functions,'propertyBulkImport')({action:'status',requestId:'no-receipt',runtimeProtocol:2,runtimeGeneration:0}),e=>e.code==='functions/failed-precondition')

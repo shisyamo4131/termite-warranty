@@ -16,6 +16,7 @@
     <v-alert v-if="errors.page" type="error" closable class="mb-4" @click:close="errors.page=''">{{ errors.page }}</v-alert>
     <v-progress-linear v-if="busy" indeterminate class="mb-3" />
     <BusinessDashboard v-if="tab==='dashboard' && staff" @navigate="navigate" />
+    <CompanySettings v-else-if="tab==='companySettings' && staff" :key="JSON.stringify([referenceScope,recoveryRuntime])" ref="companySettingsView" @busy="busy=$event" />
     <RecoveryStatus v-else-if="tab==='recovery' && manager" />
     <StaffAccountManagement v-else-if="tab==='staff' && manager" />
     <WarrantyCertificateManagement v-else-if="['certificates','billing'].includes(tab) && staff" :key="JSON.stringify([tab,referenceScope,recoveryRuntime])" :kind="tab" :refresh="periodRefresh" :call="call" :read-only="recoveryReadOnly" @open="openProperty" @busy="busy=$event" />
@@ -135,6 +136,11 @@
     </tbody></v-table>
   </details>
   <v-text-field v-if="setting.externalKeyRequired" v-model="setting.externalKeyLabel" label="外部キーの名称" :rules="[...(setting.externalKeyRequired ? requiredRules : []),externalKeyLabelRule]" :required="setting.externalKeyRequired" hint="例：お施主様契約No。表示名は後から変更できます。" persistent-hint />
+  <h2 class="business-section-title">請求先</h2>
+  <v-text-field v-model="setting.billingRecipient.name" label="請求先名" :rules="optionalRules" />
+  <v-text-field v-model="setting.billingRecipient.department" label="部署名" :rules="optionalRules" />
+  <v-text-field v-model="setting.billingRecipient.contactPerson" label="担当者名" :rules="optionalRules" />
+  <BusinessContactFields v-model="setting.billingRecipient" />
   <h2 class="business-section-title">利用状態</h2>
   <v-switch v-model="setting.enabled" color="primary" label="有効" />
   <v-alert type="warning" class="my-4">この保証グループを無効にすると、新たな工務店の所属先として選択できなくなり、このグループでの物件・保証の本登録もできなくなります。登録済みの保証は、引き続き閲覧・延長できます。無効化しても、番号接頭辞を別の保証グループで再利用することはできません。</v-alert></template></v-form></v-card-text><v-card-actions class="flex-wrap"><v-btn variant="outlined" :disabled="busy" @click="settingDialog=false">閉じる</v-btn><v-spacer /><v-btn variant="flat" color="primary" :disabled="busy" v-if="!settingReadOnly" @click="saveSetting">保存</v-btn></v-card-actions></v-card></v-dialog>
@@ -146,6 +152,7 @@
 
 <script setup lang="ts">
 import { useDisplay } from 'vuetify'
+import { billingRecipientDefaults } from '../../src/domain/company-settings.mjs'
 import { createReferenceFetchCache, referenceFetchKey } from '../../src/domain/reference-fetch-cache.mjs'
 import { insuranceReportingCandidates, insurancePeriodStates } from '../../src/domain/insurance-state.mjs'
 import { nextInsuranceReportLabel, currentInsuranceSummary, matchesSelectedInsurancePeriod } from '../utils/insuranceReportDisplay.mjs'
@@ -165,17 +172,20 @@ import { createBulkImportTemplate } from '../../src/domain/property-bulk-import.
 type Row = Record<string, any>
 const { $firebase } = useNuxtApp()
 const { profile, logout: sessionLogout } = useSession()
-async function logout(){dashboard.reset();referenceCache.clear();references.reset();await sessionLogout()}
+async function logout(){if(!canLeaveCompanySettings())return;companyProfileStore.reset();dashboard.reset();referenceCache.clear();references.reset();await sessionLogout()}
 const staff = computed(()=>profile.value?.accountType==='staff')
 const manager = computed(()=>staff.value && ['developer_superuser','house_solution_administrator'].includes(profile.value?.role ?? ''))
 const companyBranchOnly = computed(()=>profile.value?.accountType==='construction_company' && profile.value.scope==='branch')
 const dashboard=useDashboardStore()
+const companyProfileStore=useCompanyProfile()
+const companySettingsView=ref<{canLeave:()=>boolean}|null>(null)
+const canLeaveCompanySettings=()=>tab.value!=='companySettings' || companySettingsView.value?.canLeave()!==false
 const tab = ref(staff.value ? 'dashboard' : 'properties'), busy = ref(false)
 const { mdAndUp } = useDisplay()
 const drawerOpen=ref(false)
 const businessNavigation=computed(()=>[...(staff.value ? [{value:'dashboard',title:'ダッシュボード'}] : []),{value:'properties',title:'物件・保証'},{value:'alerts',title:'保証満了案内'},...(staff.value ? [{value:'insuranceAlerts',title:'保険満了案内'},{value:'report',title:'保険報告用一覧'},{value:'billing',title:'請求用一覧'},{value:'certificates',title:'保証書CSV'}] : [])])
-const managementNavigation=computed(()=>[...(staff.value && !recoveryReadOnly.value ? [{value:'settings',title:'保証グループ・工務店・本支店'}] : []),...(manager.value && !recoveryReadOnly.value ? [{value:'staff',title:'HS担当者'},{value:'alertSettings',title:'アラート設定'}] : []),...(manager.value ? [{value:'recovery',title:'バックアップ・復旧状況'}] : [])])
-function navigate(value:string){if(busy.value)return;tab.value=value;drawerOpen.value=false}
+const managementNavigation=computed(()=>[...(staff.value ? [{value:'companySettings',title:'設定'}] : []),...(staff.value && !recoveryReadOnly.value ? [{value:'settings',title:'保証グループ・工務店・本支店'}] : []),...(manager.value && !recoveryReadOnly.value ? [{value:'staff',title:'HS担当者'},{value:'alertSettings',title:'アラート設定'}] : []),...(manager.value ? [{value:'recovery',title:'バックアップ・復旧状況'}] : [])])
+function navigate(value:string){if(busy.value || value!==tab.value && !canLeaveCompanySettings())return;tab.value=value;drawerOpen.value=false}
 
 const bulkImportDialog=ref(false)
 const recoveryReadOnly = computed(()=>recoveryRuntime.value.phase==='verification')
@@ -250,7 +260,7 @@ const periodRefresh=ref(0)
 async function fetchRows(){ if(tab.value==='dashboard')return;if(['certificates','billing'].includes(tab.value)){periodRefresh.value++;return}const submittedFilter={...filter};const f:Row=tab.value==='report' ? {reportMonth:submittedFilter.month} : tab.value==='alerts' ? {alertKind:'warranty',notification:'pending'} : tab.value==='insuranceAlerts' ? {alertKind:'insurance'} : tab.value==='properties' ? {warrantyNumber:submittedFilter.warrantyNumber ?? ''} : {...submittedFilter};if(tab.value==='billing')f.billingMonth=submittedFilter.month;const result=await call(tab.value==='properties' ? 'propertyList' : 'list',{filter:f});rows.value=result.rows;selectedKeys.value=[];page.value=1;limited.value=result.limited;reportKey.value=JSON.stringify(submittedFilter) }
 const loadRows=async()=>{if(!await validate(searchForm.value))return;await run(fetchRows)}
 async function clearFilter(){if(busy.value)return;Object.assign(filter,emptyFilter());await loadRows()}
-watch(tab,async()=>{if(tab.value==='dashboard')return;error.value='';Object.assign(filter,emptyFilter());rows.value=[];await run(async()=>{await loadCatalog();if(['properties','alerts','insuranceAlerts','report'].includes(tab.value))await fetchRows();if(tab.value==='accounts')accounts.value=(await call('accounts')).accounts})})
+watch(tab,async()=>{if(['dashboard','companySettings'].includes(tab.value))return;error.value='';Object.assign(filter,emptyFilter());rows.value=[];await run(async()=>{await loadCatalog();if(['properties','alerts','insuranceAlerts','report'].includes(tab.value))await fetchRows();if(tab.value==='accounts')accounts.value=(await call('accounts')).accounts})})
 onMounted(()=>{if(tab.value!=='dashboard')void run(async()=>{await loadCatalog();await fetchRows()})})
 const confirmWarnings=ref(false),confirmRegistration=ref(false),registrationWarnings=ref<string[]>([])
 async function openRegistrationConfirmation(){if(!await validateProperty(true))return;confirmRegistration.value=false;confirmWarnings.value=false;registrationWarnings.value=[];error.value='';confirmation.value='register'}
@@ -315,7 +325,7 @@ const settingBranchCodeRequired=computed(()=>externalKeySettings(settingGroup.va
 function openSetting(action:string,item:Row={}){
   errors.setting='';settingAction.value=action;settingReadOnly.value=!!item.id && item.enabled===false
   setting.value={address:emptyAddress(),name:'',branchCode:'',defaultGroupId:selectedGroupId.value,constructionCompanyId:selectedCompanyId.value,prefix:'',fiscalStartMonth:1,enabled:true,...JSON.parse(JSON.stringify(item))}
-  if(action==='saveGroup'){setting.value.prefix=normalizeWarrantyPrefix(setting.value.prefix);const keys=externalKeySettings(item);setting.value.externalKeyRequired=keys.required;setting.value.externalKeyLabel=keys.label;Object.assign(setting.value,propertyFieldRequirements(item))}
+  if(action==='saveGroup'){setting.value.billingRecipient={...billingRecipientDefaults(),...(setting.value.billingRecipient ?? {})};setting.value.prefix=normalizeWarrantyPrefix(setting.value.prefix);const keys=externalKeySettings(item);setting.value.externalKeyRequired=keys.required;setting.value.externalKeyLabel=keys.label;Object.assign(setting.value,propertyFieldRequirements(item))}
   delete setting.value.groupId // Legacy branch overrides are never submitted or used.
   settingDialog.value=true
 }

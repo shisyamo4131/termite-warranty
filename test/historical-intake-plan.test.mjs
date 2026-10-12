@@ -3,6 +3,9 @@ import assert from 'node:assert/strict'
 import {prepareHistoricalIntake} from '../scripts/lib/historical-intake-plan.mjs'
 
 import {historicalFixture as fixture} from './helpers/historical-intake.mjs'
+import {Timestamp} from 'firebase-admin/firestore'
+import {typed} from '../scripts/lib/default-recovery.mjs'
+import {captureIntakeSettings,restoreIntakeSettings} from '../scripts/lib/historical-intake-settings.mjs'
 const prepare=input=>prepareHistoricalIntake(input,{today:'2026-10-10'})
 test('442 fictional records preserve numbers, initial states, deterministic IDs and untouched source',()=>{
   const input=fixture(),original=structuredClone(input),plan=prepare(input)
@@ -23,4 +26,17 @@ test('missing, extra, duplicated, unmapped and invalid rows fail closed',()=>{
 test('expired initial warranty is a blocking issue instead of automatic extension',()=>{
   const input=fixture();input.rows[0].fields.handoverDate='2010-01-01';const p=prepare(input)
   assert.equal(p.summary.errors[0].code,'INITIAL_WARRANTY_EXPIRED');assert.equal(p.documents.find(d=>d.path.startsWith('propertyWarranties/')).data.years,10)
+})
+test('preserved company and billing settings bind the plan; names are not identity and timestamps survive',()=>{
+  const original=prepare(fixture()),group=original.documents.find(row=>row.path==='warrantyGroups/HSC').data
+  const profile={companyName:'架空株式会社',updatedAt:new Timestamp(1000,123),updatedBy:'fictional'},recipient={name:'架空請求先',department:'経理'}
+  const image=new Map([['prototypeSettings/companyProfile',{fields:profile}],['warrantyGroups/HSC',{fields:{...group,name:'名称は変更可能',billingRecipient:recipient}}]])
+  const preserved=captureIntakeSettings(image),input=fixture();input.preservedBusinessSettings=preserved
+  const plan=prepare(input);assert.notEqual(plan.planDigest,original.planDigest)
+  const docs=restoreIntakeSettings(structuredClone(plan.documents),plan.preservedSettings)
+  assert.deepEqual(docs.find(r=>r.path==='prototypeSettings/companyProfile').data,profile)
+  assert.deepEqual(docs.find(r=>r.path==='warrantyGroups/HSC').data.billingRecipient,recipient)
+  assert.deepEqual(plan.summary.counters,original.summary.counters)
+  for(const mutate of [v=>v.billingRecipients.push(v.billingRecipients[0]),v=>v.billingRecipients[0].groupId='renamed-id',v=>v.billingRecipients[0].identity.prefix='DIFFERENT',v=>v.companyProfile=typed('invalid')]){const bad=structuredClone(input);mutate(bad.preservedBusinessSettings);assert.throws(()=>prepare(bad))}
+  assert.throws(()=>captureIntakeSettings(new Map([['warrantyGroups/unknown',{fields:{...group,billingRecipient:recipient}}]])))
 })

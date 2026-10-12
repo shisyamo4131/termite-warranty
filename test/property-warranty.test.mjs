@@ -379,8 +379,10 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   references.activeBranches=id=>references.branches.value.filter(row=>row.constructionCompanyId===id && row.enabled!==false)
   references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
   vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
+  const companyProfileDependencies={useCompanyProfile:()=>({reset:()=>{}}),...(await import('../src/domain/company-settings.mjs'))}
   const notifications=[];const env={useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+  Object.assign(env,companyProfileDependencies)
   return new Function(...Object.keys(env),code+';return {businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
 
@@ -732,27 +734,90 @@ test('certificate issuance is period-specific; selected month includes earlier u
   assert.equal(certificatePeriods({...row,handoverDate:'2026-10-07'})[0].certificateIssued,false)
   const old={...row,certificateItems:[]};assert.equal(certificateRows([old],'2036-10').length,2)
   assert.equal(certificateProjection({...row,status:'cancelled'}).certificatePendingMonth,'')
-  assert.equal(certificateCsv([{warrantyNumber:'A',name:'架空,物件',handoverDate:'2026-10-06',companyLabel:'会社',branchLabel:'本店'}]),'\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店","住所"\r\n"A","架空,物件","2026-10-06","会社","本店",""')
+  const csv=certificateCsv(certificateRows([{...row,warrantyNumber:'A',name:'架空,物件',companyLabel:'会社',branchLabel:'本店'}],'2026-10'))
+  assert.equal(csv.startsWith('\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店","住所",'),true)
+  assert.equal(csv.split('\r\n')[1].startsWith('"A","架空,物件","2026-10-06","会社","本店","",'),true)
 })
 
 
 test('billing backlog includes pending periods through selected month; CSV address remains optional', async()=>{
   const {billingProjection,pendingBillingRows}=await import('../src/domain/billing-output.mjs')
-  const {certificateCsv}=await import('../src/domain/warranty-certificate.mjs')
+  const {certificateCsv,certificateRows}=await import('../src/domain/warranty-certificate.mjs')
   const row={id:'one',status:'active',years:20,applicationDate:'2026-09-01',handoverDate:'2026-10-06',history:[{kind:'extend',requestId:'ext',before:{years:10}}],billingItems:[{id:'initial',state:'pending'},{id:'ext',state:'pending'}]}
   assert.equal(billingProjection(row).billingPendingMonth,'2026-09')
   assert.equal(pendingBillingRows([row],'2026-08').length,0)
   assert.deepEqual(pendingBillingRows([row],'2036-10').map(r=>r.billingEventId),['initial','ext'])
   assert.equal(pendingBillingRows([{...row,billingItems:[{id:'initial',state:'billed'}]}],'2036-11').length,0)
   assert.equal(billingProjection({...row,status:'cancelled'}).billingPendingMonth,'')
-  assert.equal(certificateCsv([{address:'東京都架空区1-1',buildingName:'架空棟'}]).split('\r\n')[1].endsWith('"東京都架空区1-1 架空棟"'),true)
+  assert.equal(certificateCsv(certificateRows([{...row,address:'東京都架空区1-1',buildingName:'架空棟'}],'2026-10')).split('\r\n')[1].split(',')[5],'"東京都架空区1-1 架空棟"')
+})
+
+test('certificate CSV has one common 21-column contract and preserves each selected cumulative period',async()=>{
+  const {certificateCsv,certificateRows}=await import('../src/domain/warranty-certificate.mjs')
+  const headers=['保証書No','物件名','引渡日','担当工務店','担当本支店','住所','保証グループ','外部キー','発行対象','保証開始日','保証満了日','保証年数','引渡日_年','引渡日_月','引渡日_日','保証開始日_年','保証開始日_月','保証開始日_日','保証満了日_年','保証満了日_月','保証満了日_日']
+  const row={id:'fictional',status:'active',years:30,handoverDate:'2026-10-08',startDate:'2026-10-08',expiryDate:'2056-10-07',warrantyNumber:'000123',name:'架空物件',groupName:'旧名称',groupLabel:'グループ',externalKey:'00123',history:[{kind:'extend',requestId:'ext1',before:{years:10}},{kind:'extend',requestId:'ext2',before:{years:20}}]}
+  const selected=certificateRows([row],'2046-10')
+  const before=JSON.stringify(selected)
+  const lines=certificateCsv(selected).slice(1).split('\r\n')
+  assert.deepEqual(lines[0].split(',').map(v=>JSON.parse(v)),headers)
+  assert.equal(lines.length,4)
+  for(let i=0;i<3;i++){
+    const cells=lines[i+1].split(',').map(v=>JSON.parse(v))
+    assert.equal(cells.length,21)
+    assert.deepEqual(cells.slice(0,9),['000123','架空物件','2026-10-08','','','','グループ','00123',i?`延長保証（${i}回目）`:'初回保証'])
+    assert.deepEqual(cells.slice(9,12),['2026-10-08',`${2036+i*10}-10-07`,String((i+1)*10)])
+    assert.deepEqual(cells.slice(12),['2026','10','8','2026','10','8',String(2036+i*10),'10','7'])
+  }
+  assert.equal(JSON.stringify(selected),before,'CSV export must not mark issued or mutate source')
+  for(const groupName of ['HSC','SHS','UH']){
+    const csv=certificateCsv([{...selected[0],groupLabel:undefined,groupName,externalKey:undefined}])
+    assert.equal(csv.slice(1).split('\r\n')[0],lines[0])
+    assert.equal(csv.split('\r\n')[1].split(',')[7],'""')
+  }
+})
+
+test('certificate CSV refuses stale, cancelled, unknown and invalid-date selections without guessing',async()=>{
+  const {certificateCsv,certificateRows}=await import('../src/domain/warranty-certificate.mjs')
+  const source={id:'fictional',warrantyNumber:'TEST-001',status:'active',years:20,handoverDate:'2026-10-08',history:[{kind:'extend',requestId:'ext1',before:{years:10}}]}
+  const selected=certificateRows([source],'2036-10')[1]
+  for(const altered of [
+    {status:'cancelled'}, {certificatePeriodId:undefined}, {certificateExpiryDate:'2056-10-07'},
+    {certificateStartDate:'2036-10-09'}, {handoverDate:'2026-02-30'}, {handoverDate:'2026-1-08'},
+    {handoverDate:''}, {handoverDate:undefined}, {startDate:'2026-10-09'}, {history:[]},
+    {history:[...source.history,{kind:'undoExtend',targetRequestId:'ext1'}]},
+    {history:[...source.history,{kind:'undoExtend',targetRequestId:'ext1'},{kind:'extend',requestId:'ext2',before:{years:10}}]}
+  ]) assert.throws(()=>certificateCsv([{...selected,...altered}]),/保証書CSVを出力できません（保証番号：TEST-001）/)
+  assert.throws(()=>certificateCsv([selected,{...selected,handoverDate:'2026-13-01'}]),/保証書CSVを出力できません/)
+})
+
+test('certificate CSV preserves quoting, imported period identity and calendar boundary dates',async()=>{
+  const {certificateCsv,certificateRows}=await import('../src/domain/warranty-certificate.mjs')
+  const {importedWarrantyPeriods}=await import('../src/domain/property-warranty.mjs')
+  for(const date of ['2024-02-29','2026-12-31','2026-01-31']){
+    const row={id:'fictional',status:'active',years:20,handoverDate:date,receivedRecordId:'fixture',importedWarrantyPeriods:importedWarrantyPeriods(date,20,'fixture')}
+    const selected=certificateRows([row],'2040-01')
+    const cells=certificateCsv(selected).split('\r\n')[2].split(',').map(v=>JSON.parse(v))
+    assert.equal(cells[9],date)
+    assert.equal(cells[10],selected[1].certificateExpiryDate)
+    assert.equal(cells[11],'20')
+    for(const [dateIndex,partsIndex] of [[2,12],[9,15],[10,18]]){
+      const [year,month,day]=cells[dateIndex].split('-')
+      assert.deepEqual(cells.slice(partsIndex,partsIndex+3),[year,String(Number(month)),String(Number(day))])
+    }
+  }
+  const selected=certificateRows([{status:'active',years:10,handoverDate:'2026-10-08',name:'架空,"住宅"\r\n別棟',companyLabel:'架空,会社',externalKey:'00001'}],'2026-10')
+  const csv=certificateCsv(selected)
+  assert.equal(csv.charCodeAt(0),0xfeff)
+  assert.equal(csv.includes('"架空,""住宅""\r\n別棟"'),true)
+  assert.equal(csv.includes('"架空,会社"'),true)
+  assert.equal(csv.includes('"00001"'),true)
 })
 
 
 test('business navigation preserves role and recovery boundaries and blocks busy navigation',async()=>{
   const ui=await prototypeViewForTest(async()=>({}))
   assert.equal(ui.businessNavigation.value.length,7)
-  assert.equal(ui.managementNavigation.value.length,4)
+  assert.deepEqual(ui.managementNavigation.value.map(x=>x.value),['companySettings','settings','staff','alertSettings','recovery'])
   ui.busy.value=true
   ui.navigate('report')
   assert.equal(ui.tab.value,'properties')
@@ -762,7 +827,7 @@ test('business navigation preserves role and recovery boundaries and blocks busy
   assert.equal(ui.tab.value,'report')
   assert.equal(ui.drawerOpen.value,false)
   ui.profile.value={accountType:'staff',role:'house_solution_staff'}
-  assert.deepEqual(ui.managementNavigation.value.map(x=>x.value),['settings'])
+  assert.deepEqual(ui.managementNavigation.value.map(x=>x.value),['companySettings','settings'])
   ui.profile.value={accountType:'construction_company'}
   assert.deepEqual(ui.businessNavigation.value.map(x=>x.value),['properties','alerts'])
   assert.equal(ui.managementNavigation.value.length,0)

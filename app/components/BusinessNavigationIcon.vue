@@ -13,6 +13,7 @@ const icons: Record<string, string> = {
   billing: 'receipt-text',
   certificates: 'file-badge',
   settings: 'network',
+  companySettings: 'building-2',
   organizationGroup: 'folder',
   organizationCompany: 'building-2',
   staff: 'users-round',

@@ -131,6 +131,32 @@ test('full default synchronization preserves current roles, counters and typed r
  assert.equal((await api.emergencyClose(6,'emergency-third')).generation,7)
  assert.ok((await documentImage(target)).size>0) // private orphan checkpoint paths are deliberately excluded
 })
+test('normal recovery restores company profile and group billing recipient to the selected point including update metadata',async()=>{
+ await clean()
+ const oldProfile={companyName:'架空旧会社',postalCode:'1000001',address1:'架空住所1',address2:'架空棟',telephone:'03-1234-5678',fax:'',invoiceRegistrationNumber:'T1234567890123',representativeName:'架空代表',representativeTitle:'代表',email:'old@example.invalid',updatedAt:new Timestamp(100,123000),updatedBy:'fictional-old-editor',updatedByName:'架空旧担当'}
+ const newProfile={...oldProfile,companyName:'架空現会社',address2:'架空新棟',updatedAt:new Timestamp(200,456000),updatedBy:'fictional-new-editor',updatedByName:'架空新担当'}
+ const recipient={name:'架空旧請求先',department:'架空経理部',contactPerson:'架空担当者',postalCode:'1000001',address1:'架空請求先住所',address2:'架空請求先棟',telephone:'03-1111-2222',email:'billing-old@example.invalid'}
+ const oldGroup={name:'架空保証',prefix:'RESTORE',fiscalStartMonth:1,enabled:true,billingRecipient:recipient,updatedAt:new Timestamp(110,789000)}
+ const newGroup={...oldGroup,billingRecipient:{...recipient,name:'架空現請求先',department:'架空新部署'},updatedAt:new Timestamp(210,987000)}
+ await source.doc('prototypeSettings/companyProfile').set(oldProfile)
+ await target.doc('prototypeSettings/companyProfile').set(newProfile)
+ await source.doc('warrantyGroups/fictional').set(oldGroup)
+ await target.doc('warrantyGroups/fictional').set(newGroup)
+ for(const db of [source,target])await db.doc('warrantyCounters/year').set({lastValue:9})
+ const sourceHash=(await scanDatabase(source)).hash
+ assert.notEqual((await scanDatabase(target)).hash,sourceHash)
+ assert.notEqual(imageHash(await documentImage(source)),imageHash(await documentImage(target)))
+ await api.initialize()
+ const plan=await api.plan(1,'settings-restore-plan',await evidence(1,'settings-restore-baseline'))
+ assert.equal(plan.changes,2);assert.equal(plan.deletes,0)
+ assert.equal((await api.apply('settings-restore-plan')).status,'verified')
+ assert.deepEqual((await target.doc('prototypeSettings/companyProfile').get()).data(),oldProfile)
+ assert.deepEqual((await target.doc('warrantyGroups/fictional').get()).data(),oldGroup)
+ assert.equal((await scanDatabase(target)).hash,sourceHash)
+ assert.equal(imageHash(await documentImage(target)),imageHash(await documentImage(source)))
+ assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
+})
+
 test('orphan business parents, unknown collections and target conflicts keep maintenance closed',async()=>{
  await clean();await api.initialize()
  await source.doc('properties/missing/history/child').set({v:1})

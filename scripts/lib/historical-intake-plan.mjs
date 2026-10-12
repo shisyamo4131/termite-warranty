@@ -4,6 +4,7 @@ import {normalizeExternalKey} from '../../src/domain/external-key.mjs'
 import {materializeInsuranceState,insuranceProjection,validateInsuranceState} from '../../src/domain/insurance-state.mjs'
 import {monthlyQueryProjection} from '../../src/domain/monthly-query.mjs'
 import {assertInsuranceCapacity} from '../../src/domain/insurance-capacity.mjs'
+import {validateIntakeSettings} from './historical-intake-settings.mjs'
 
 export const intakeHash=value=>createHash('sha256').update(typeof value==='string'?value:JSON.stringify(value)).digest('hex')
 const nonempty=v=>typeof v==='string'&&!!v.trim()
@@ -15,6 +16,7 @@ const cleanAddress=value=>Object.fromEntries(addressKeys.map(k=>[k,String(value?
 // Local preparation only: real values belong in the caller's private directory.
 // Numbering follows the year encoded in each preserved number, not application FY.
 export function prepareHistoricalIntake(input,{today}={}) {
+  const preservedSettings=validateIntakeSettings(input?.preservedBusinessSettings)
   if(input?.schemaVersion!==1||!nonempty(input.workbookId)||!/^[a-f0-9]{64}$/.test(input.sourceSha256??'')||!nonempty(input.transformVersion)||!Array.isArray(input.rows)||!input.rows.length||input.rows.length>10000||!Array.isArray(input.companies)||!Array.isArray(input.branches)) fail('INPUT_SHAPE')
   if(!/^\d{4}-\d{2}-\d{2}$/.test(today??''))fail('REFERENCE_DATE_REQUIRED')
   fiscalYear(today,1)
@@ -86,5 +88,5 @@ export function prepareHistoricalIntake(input,{today}={}) {
   const paths=documents.map(d=>d.path)
   if(new Set(paths).size!==paths.length)fail('DUPLICATE_DESTINATION')
   if(Object.entries(input.expectedRows).some(([g,count])=>groupCounts[g]!==count))fail('ROW_COUNTS')
-  return {schemaVersion:1,workbookId:input.workbookId,sourceSha256:input.sourceSha256,transformVersion:input.transformVersion,today,documents,summary:{groups:groups.length,companies:companies.size,branches:branches.size,properties:input.rows.length,groupCounts,counters:[...counters].sort().map(([id,lastValue])=>({id,lastValue,nextValue:lastValue+1})),yearDifferences,errors},inputDigest:intakeHash(input),planDigest:intakeHash({documents,today,inputDigest:intakeHash(input)})}
+  return {schemaVersion:1,workbookId:input.workbookId,sourceSha256:input.sourceSha256,transformVersion:input.transformVersion,today,documents,preservedSettings,summary:{groups:groups.length,companies:companies.size,branches:branches.size,properties:input.rows.length,groupCounts,counters:[...counters].sort().map(([id,lastValue])=>({id,lastValue,nextValue:lastValue+1})),yearDifferences,errors},inputDigest:intakeHash(input),planDigest:intakeHash({documents,today,preservedSettings,inputDigest:intakeHash(input)})}
 }

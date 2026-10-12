@@ -4,6 +4,7 @@ import {prepareHistoricalIntake,intakeHash} from './historical-intake-plan.mjs'
 import {documentImage,imageHash,typed} from './default-recovery.mjs'
 import {authorizationDigest,inspectBusinessIntegrity} from './recovery-controller.mjs'
 import {fixedRuntimeState,sameFixedEpoch} from '../../src/domain/fixed-recovery.mjs'
+import {captureIntakeSettings,intakeSettingsHash,restoreIntakeSettings} from './historical-intake-settings.mjs'
 
 const protectedRoots=new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'])
 const hash=value=>intakeHash(typed(value))
@@ -35,7 +36,7 @@ function materialized(plan,journal) {
   })
   for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
   documents.push({path:'prototypeSettings/alerts',data:{warrantyMonths:2,insuranceMonths:2,updatedAt:journal.startedAt}})
-  return documents
+  return restoreIntakeSettings(documents,plan.preservedSettings)
 }
 
 export async function verifyCompletedHistoricalIntake(db,control,auth,{operationId,generation,planHash}) {
@@ -44,6 +45,7 @@ export async function verifyCompletedHistoricalIntake(db,control,auth,{operation
   if(receipt?.status!=='complete'||receipt.operationId!==operationId||receipt.generation!==generation||receipt.planHash!==planHash)deny()
   const image=await documentImage(db)
   if(imageHash(business(image))!==receipt.expectedHash||imageHash(accounts(image))!==receipt.accountHash||await authorizationDigest(db,auth)!==receipt.authorizationHash)deny()
+  if(receipt.settingsHash&&intakeSettingsHash(captureIntakeSettings(image))!==receipt.settingsHash)deny()
   const highWater={};for(const [path,row] of image)if(path.startsWith('warrantyCounters/'))highWater[path.split('/')[1]]=row.fields.lastValue
   await inspectBusinessIntegrity(db,highWater)
   return {image,receiptHash:hash(receipt),authorizationHash:receipt.authorizationHash,highWater}
@@ -78,15 +80,16 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
     await afterCommit('lock')
     let journal=(await receipt.get()).data()
     if(journal?.operationId===operationId) {
-      if(journal.planHash!==planHash||journal.inventoryHash!==inventoryHash||journal.generation!==generation||journal.actorUid!==actorUid||journal.today!==today)deny()
+      if(journal.planHash!==planHash||journal.inventoryHash!==inventoryHash||journal.generation!==generation||journal.actorUid!==actorUid||journal.today!==today||journal.settingsHash!==intakeSettingsHash(plan.preservedSettings))deny()
     }else {
       const image=await documentImage(db);noPortal(image)
       if(imageHash(image)!==inventoryHash)deny()
+      if(intakeSettingsHash(captureIntakeSettings(image))!==intakeSettingsHash(plan.preservedSettings))deny()
       const actor=(await db.doc('staffAccounts/'+actorUid).get()).data()
       if(actor?.enabled!==true||actor.role!=='developer_superuser')deny()
       const deleteManifest=[...business(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))
       if(Buffer.byteLength(JSON.stringify(deleteManifest))>512*1024)deny()
-      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt:Timestamp.now()}
+      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt:Timestamp.now()}
       await db.runTransaction(async tx=>{await guard(tx);tx.set(receipt,initial)});journal=initial
       await afterCommit('journal')
     }
@@ -126,6 +129,7 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
     await verifyAccounts()
     const image=business(await documentImage(db))
     if(image.size!==documents.length||documents.some(row=>image.get(row.path)?.hash!==hash(row.data)))deny()
+    if(intakeSettingsHash(captureIntakeSettings(image))!==journal.settingsHash)deny()
     await inspectBusinessIntegrity(db,Object.fromEntries(plan.summary.counters.map(c=>[c.id,c.lastValue])))
     await db.runTransaction(async tx=>{await guard(tx);tx.update(receipt,{status:'complete',expectedHash:imageHash(image),documents:documents.length,completedAt:Timestamp.now()})})
     await control.runTransaction(async tx=>{if((await tx.get(lock)).data()?.owner!==owner)deny();tx.delete(lock)})

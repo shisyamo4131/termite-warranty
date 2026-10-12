@@ -1,13 +1,15 @@
 import test,{after} from 'node:test'
 import assert from 'node:assert/strict'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
-import {getFirestore} from 'firebase-admin/firestore'
+import {getFirestore,Timestamp} from 'firebase-admin/firestore'
 import {getAuth} from 'firebase-admin/auth'
 import {historicalFixture} from '../helpers/historical-intake.mjs'
 import {prepareHistoricalIntake} from '../../scripts/lib/historical-intake-plan.mjs'
 import {executeHistoricalIntake,inspectHistoricalTarget,verifyCompletedHistoricalIntake} from '../../scripts/lib/historical-intake-execution.mjs'
 import {defaultRecovery} from '../../scripts/lib/default-recovery.mjs'
 import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
+import {documentImage} from '../../scripts/lib/default-recovery.mjs'
+import {captureIntakeSettings} from '../../scripts/lib/historical-intake-settings.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
 after(()=>deleteApp(app))
@@ -39,6 +41,28 @@ test('442 records: reset, import, idempotent rerun, reimport and guarded read-on
   await api.planIntake(21,'fictional-publication',{intakeOperationId:second.operationId,intakePlanHash:planHash,approval:'fictional/intake'})
   assert.equal((await api.publish('fictional-publication','fictional/intake')).phase,'verification')
   assert.equal((await api.publish('fictional-publication','fictional/hs-reopen',{reopen:true})).phase,'normal')
+})
+test('reimport preserves company settings and group recipients exactly, including resumed deletion',async()=>{
+  const options=await fixture(),profile={companyName:'架空会社',updatedAt:new Timestamp(1000,987000),updatedBy:'intake-developer'},billingRecipient={name:'架空請求先',department:'会計',contactPerson:'架空担当',postalCode:'1234567',address1:'架空住所',address2:'架空棟',telephone:'03-1234-5678',email:'billing@example.test'}
+  const group=prepareHistoricalIntake(input,{today}).documents.find(r=>r.path==='warrantyGroups/HSC').data
+  await db.doc('prototypeSettings/companyProfile').set(profile);await db.doc('warrantyGroups/HSC').set({...group,billingRecipient})
+  const preservedInput={...input,preservedBusinessSettings:captureIntakeSettings(await documentImage(db))}
+  options.planHash=prepareHistoricalIntake(preservedInput,{today}).planDigest
+  options.inventoryHash=(await inspectHistoricalTarget(db,control,auth)).inventoryHash
+  await assert.rejects(executeHistoricalIntake(db,control,auth,preservedInput,{...options,afterCommit:async kind=>{if(kind==='delete')throw Error('unknown result')}}))
+  const owner=(await control.doc('recovery/operatorLock').get()).data().owner
+  await executeHistoricalIntake(db,control,auth,preservedInput,{...options,resumeOwner:owner,previousWorkerEnded:true})
+  assert.deepEqual((await db.doc('prototypeSettings/companyProfile').get()).data(),profile)
+  assert.deepEqual((await db.doc('warrantyGroups/HSC').get()).data().billingRecipient,billingRecipient)
+  await verifyCompletedHistoricalIntake(db,control,auth,{operationId:options.operationId,generation:options.generation,planHash:options.planHash})
+  assert.equal((await db.doc('warrantyCounters/HSC_2026').get()).data().lastValue,99)
+})
+test('old input without settings preservation refuses before deleting existing business settings',async()=>{
+  const options=await fixture();await db.doc('prototypeSettings/companyProfile').set({companyName:'保持する架空会社'})
+  options.inventoryHash=(await inspectHistoricalTarget(db,control,auth)).inventoryHash
+  await assert.rejects(executeHistoricalIntake(db,control,auth,input,options))
+  assert.equal((await db.doc('prototypeSettings/companyProfile').get()).data().companyName,'保持する架空会社')
+  assert.equal((await db.doc('propertyWarranties/old-fixture').get()).exists,true)
 })
 test('unknown write result retains owner; wrong owner, changed input and concurrent execution are refused; exact resume succeeds',async()=>{
   const options=await fixture();let interrupted=false
