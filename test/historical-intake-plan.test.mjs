@@ -29,7 +29,7 @@ test('expired initial warranty is a blocking issue instead of automatic extensio
 })
 test('preserved company and billing settings bind the plan; names are not identity and timestamps survive',()=>{
   const original=prepare(fixture()),group=original.documents.find(row=>row.path==='warrantyGroups/HSC').data
-  const profile={companyName:'架空株式会社',updatedAt:new Timestamp(1000,123),updatedBy:'fictional'},recipient={name:'架空請求先',department:'経理'}
+  const profile={companyName:'架空株式会社',bankName:'架空銀行',bankBranchName:'架空支店',bankAccountType:'普通',bankAccountNumber:'0012345',bankAccountHolder:'架空株式会社',updatedAt:new Timestamp(1000,123),updatedBy:'fictional'},recipient={name:'架空請求先',department:'経理'}
   const image=new Map([['prototypeSettings/companyProfile',{fields:profile}],['warrantyGroups/HSC',{fields:{...group,name:'名称は変更可能',billingRecipient:recipient}}]])
   const preserved=captureIntakeSettings(image),input=fixture();input.preservedBusinessSettings=preserved
   const plan=prepare(input);assert.notEqual(plan.planDigest,original.planDigest)

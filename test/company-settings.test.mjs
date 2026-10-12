@@ -4,13 +4,22 @@ import { companyProfileDefaults, billingRecipientDefaults, normalizeCompanyProfi
 import { PROPERTY_READ_ACTIONS, assertRequest } from '../src/domain/recovery.mjs'
 
 test('company settings require only company name and normalize optional contacts', () => {
-  assert.equal(Object.keys(companyProfileDefaults()).length,10)
+  assert.equal(Object.keys(companyProfileDefaults()).length,15)
   assert.throws(()=>normalizeCompanyProfile(),/会社名/)
   assert.deepEqual(normalizeCompanyProfile({}, {requireName:false}),companyProfileDefaults())
   const result=normalizeCompanyProfile({companyName:' 架空会社 ',postalCode:'100-0001',telephone:'03-1234-5678',invoiceRegistrationNumber:'T1234567890123',email:' contact@example.invalid '})
   assert.equal(result.companyName,'架空会社');assert.equal(result.postalCode,'1000001');assert.equal(result.email,'contact@example.invalid')
   assert.equal(result.address2,'')
   for(const patch of [{companyName:5},{postalCode:'1234'},{telephone:'０３'},{fax:'03 1234'},{email:'invalid'},{invoiceRegistrationNumber:'T123'},{address1:'a\nb'}])assert.throws(()=>normalizeCompanyProfile({companyName:'架空会社',...patch}))
+})
+
+test('optional bank details preserve leading zeros, allow partial input and reject non-digit account numbers',()=>{
+  const profile=normalizeCompanyProfile({companyName:'架空会社',bankName:' 架空銀行 ',bankAccountType:'任意種別',bankAccountNumber:'0012345'})
+  assert.equal(profile.bankName,'架空銀行');assert.equal(profile.bankAccountType,'任意種別');assert.equal(profile.bankAccountNumber,'0012345')
+  assert.equal(profile.bankBranchName,'');assert.equal(profile.bankAccountHolder,'')
+  assert.equal(normalizeCompanyProfile({...profile,bankAccountNumber:''}).bankAccountNumber,'')
+  for(const number of ['１２３','12-34','12 34','1.2',123])assert.throws(()=>normalizeCompanyProfile({companyName:'架空',bankAccountNumber:number}))
+  for(const bankName of ['x'.repeat(2001),'架空\n銀行',null])assert.throws(()=>normalizeCompanyProfile({companyName:'架空',bankName}))
 })
 test('billing recipient permits empty/partial values but rejects malformed values and ignores unrelated keys',()=>{
   assert.equal(Object.keys(billingRecipientDefaults()).length,8)

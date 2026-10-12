@@ -1,4 +1,5 @@
-const profileFields = ['companyName','postalCode','address1','address2','telephone','fax','invoiceRegistrationNumber','representativeName','representativeTitle','email']
+export const companyBankFields = ['bankName','bankBranchName','bankAccountType','bankAccountNumber','bankAccountHolder']
+const profileFields = ['companyName','postalCode','address1','address2','telephone','fax','invoiceRegistrationNumber','representativeName','representativeTitle','email',...companyBankFields]
 const recipientFields = ['name','department','contactPerson','postalCode','address1','address2','telephone','email']
 export const companyProfileDefaults = () => Object.fromEntries(profileFields.map(key => [key, '']))
 export const billingRecipientDefaults = () => Object.fromEntries(recipientFields.map(key => [key, '']))
@@ -21,6 +22,7 @@ export function normalizeCompanyProfile(input = {}, { requireName = true } = {})
   const result = normalize(input, profileFields)
   if (requireName && !result.companyName) throw Error('会社名を入力してください。')
   if (result.invoiceRegistrationNumber && !/^T\d{13}$/.test(result.invoiceRegistrationNumber)) throw Error('適格請求書発行事業者番号はTと13桁の数字で入力してください。')
+  if (result.bankAccountNumber && !/^[0-9]+$/.test(result.bankAccountNumber)) throw Error('口座番号は半角数字で入力してください。')
   return result
 }
 export function normalizeBillingRecipient(input = {}) { return normalize(input, recipientFields) }

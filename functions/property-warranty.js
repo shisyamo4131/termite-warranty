@@ -1,5 +1,5 @@
 import { pendingBillingRows } from './domain/billing-output.mjs'
-import { companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
+import { companyBankFields, companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
 import { dashboardCounts } from './dashboard.js'
 import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
@@ -97,17 +97,22 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   if (action === 'companyProfile' || action === 'saveCompanyProfile') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ利用できます。')
     const ref = db.doc('prototypeSettings/companyProfile')
+    const visibleProfile = saved => ({ ...Object.fromEntries(Object.keys(companyProfileDefaults()).map(key => [key, saved[key] ?? ''])), updatedAt: saved.updatedAt?.toDate?.().toISOString() ?? null, updatedBy: saved.updatedBy ?? '', updatedByName: saved.updatedByName ?? '' })
     if (action === 'saveCompanyProfile') {
       manager(a)
       let profile
       try { profile = normalizeCompanyProfile(input.profile) } catch (error) { fail('invalid-argument', error.message) }
-      const updatedAt = Timestamp.now()
-      const value = { ...profile, updatedAt, updatedBy: uid, updatedByName: String(a.displayName ?? '') }
-      await ref.set(value, { merge: true })
-      return { ...value, updatedAt: updatedAt.toDate().toISOString() }
+      // Older clients omit bank fields. Preserve each omitted key; explicit blanks clear it.
+      for (const key of companyBankFields) if (!Object.hasOwn(input.profile, key)) delete profile[key]
+      return db.runTransaction(async tx => {
+        const previous = (await tx.get(ref)).data() ?? {}
+        const value = { ...profile, updatedAt: Timestamp.now(), updatedBy: uid, updatedByName: String(a.displayName ?? '') }
+        tx.set(ref, value, { merge: true })
+        return visibleProfile({ ...previous, ...value })
+      })
     }
     const saved = (await ref.get()).data() ?? {}
-    return { ...Object.fromEntries(Object.keys(companyProfileDefaults()).map(key => [key, saved[key] ?? ''])), updatedAt: saved.updatedAt?.toDate?.().toISOString() ?? null, updatedBy: saved.updatedBy ?? '', updatedByName: saved.updatedByName ?? '' }
+    return visibleProfile(saved)
   }
   if (action === 'dashboard') return dashboardCounts(db,{uid,runtimeGeneration:input.runtimeGeneration})
   if (action === 'alertSettings') return normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())

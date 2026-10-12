@@ -134,7 +134,8 @@ test('full default synchronization preserves current roles, counters and typed r
 test('normal recovery restores company profile and group billing recipient to the selected point including update metadata',async()=>{
  await clean()
  const oldProfile={companyName:'架空旧会社',postalCode:'1000001',address1:'架空住所1',address2:'架空棟',telephone:'03-1234-5678',fax:'',invoiceRegistrationNumber:'T1234567890123',representativeName:'架空代表',representativeTitle:'代表',email:'old@example.invalid',updatedAt:new Timestamp(100,123000),updatedBy:'fictional-old-editor',updatedByName:'架空旧担当'}
- const newProfile={...oldProfile,companyName:'架空現会社',address2:'架空新棟',updatedAt:new Timestamp(200,456000),updatedBy:'fictional-new-editor',updatedByName:'架空新担当'}
+ Object.assign(oldProfile,{bankName:'架空旧銀行',bankBranchName:'架空旧支店',bankAccountType:'普通',bankAccountNumber:'0012345',bankAccountHolder:'架空旧会社'})
+ const newProfile={...oldProfile,companyName:'架空現会社',address2:'架空新棟',bankName:'架空現銀行',bankAccountNumber:'0098765',updatedAt:new Timestamp(200,456000),updatedBy:'fictional-new-editor',updatedByName:'架空新担当'}
  const recipient={name:'架空旧請求先',department:'架空経理部',contactPerson:'架空担当者',postalCode:'1000001',address1:'架空請求先住所',address2:'架空請求先棟',telephone:'03-1111-2222',email:'billing-old@example.invalid'}
  const oldGroup={name:'架空保証',prefix:'RESTORE',fiscalStartMonth:1,enabled:true,billingRecipient:recipient,updatedAt:new Timestamp(110,789000)}
  const newGroup={...oldGroup,billingRecipient:{...recipient,name:'架空現請求先',department:'架空新部署'},updatedAt:new Timestamp(210,987000)}

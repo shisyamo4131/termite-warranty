@@ -5,23 +5,49 @@
     <v-alert type="info" class="mb-4">Wordテンプレートに直接記載した会社情報は自動更新されません。変更後はWordの記載も確認してください。</v-alert>
     <v-alert v-if="error" type="error" class="mb-4">{{ error }}<v-btn v-if="!editing" variant="text" :disabled="working" @click="load(true)">再取得</v-btn></v-alert>
     <v-progress-linear v-if="working" indeterminate class="mb-4" />
-    <v-form v-if="editing" ref="form" :disabled="working" @submit.prevent="save">
-      <h3 class="business-section-title">基本情報</h3>
-      <v-text-field v-model="draft.companyName" label="会社名" required :rules="requiredRules" />
-      <v-text-field v-model="draft.invoiceRegistrationNumber" label="適格請求書発行事業者番号" hint="Tと13桁の数字。登録の有効性を確認する機能ではありません。" persistent-hint :rules="[registrationRule]" />
-      <h3 class="business-section-title">所在地・連絡先</h3>
-      <BusinessContactFields v-model="draft" show-fax />
-      <h3 class="business-section-title">代表者</h3>
-      <v-text-field v-model="draft.representativeTitle" label="代表者肩書" :rules="optionalRules" />
-      <v-text-field v-model="draft.representativeName" label="代表者名" :rules="optionalRules" />
-      <div class="d-flex flex-wrap ga-3"><v-btn variant="outlined" :disabled="working" @click="cancel">変更を取り消す</v-btn><v-btn type="submit" color="primary" variant="flat" :disabled="working">保存</v-btn></div>
-    </v-form>
-    <template v-else-if="store.value.value">
+    <template v-if="store.value.value">
       <dl><div v-for="item in fields" :key="item.key" class="mb-4"><dt class="text-caption text-medium-emphasis">{{ item.label }}</dt><dd class="text-body-1 text-break">{{ store.value.value[item.key] || '未設定' }}</dd></div></dl>
+      <h3 class="business-section-title">振込先</h3>
+      <dl><div v-for="item in bankFields" :key="item.key" class="mb-4"><dt class="text-caption text-medium-emphasis">{{ item.label }}</dt><dd class="text-body-1 text-break">{{ store.value.value[item.key] || '未設定' }}</dd></div></dl>
       <v-btn v-if="store.canEdit()" color="primary" variant="flat" :disabled="working" @click="edit">編集</v-btn>
     </template>
     <p v-if="store.value.value" class="text-caption mt-4">最終更新：{{ updatedLabel }} ／ {{ store.value.value.updatedByName || '—' }}</p>
   </v-card-text></v-card>
+  <v-dialog :model-value="editing" max-width="900" scrollable persistent>
+    <v-card :border="false">
+      <BusinessDialogHeader title="自社情報の編集" icon="companySettings" :busy="working" @close="cancel" />
+      <v-card-text>
+        <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>
+        <v-progress-linear v-if="working" indeterminate class="mb-4" />
+        <v-form ref="form" :disabled="working" @submit.prevent="save">
+          <v-card border :elevation="0" class="dialog-layout-card mb-4"><v-card-text>
+            <h3 class="business-section-title">基本情報</h3>
+            <v-text-field v-model="draft.companyName" label="会社名" required :rules="requiredRules" />
+            <v-text-field v-model="draft.invoiceRegistrationNumber" label="適格請求書発行事業者番号" hint="Tと13桁の数字。登録の有効性を確認する機能ではありません。" persistent-hint :rules="[...optionalRules, registrationRule]" />
+          </v-card-text></v-card>
+          <v-card border :elevation="0" class="dialog-layout-card mb-4"><v-card-text>
+            <h3 class="business-section-title">所在地・連絡先</h3>
+            <BusinessContactFields v-model="draft" show-fax />
+          </v-card-text></v-card>
+          <v-card border :elevation="0" class="dialog-layout-card mb-4"><v-card-text>
+            <h3 class="business-section-title">代表者</h3>
+            <v-text-field v-model="draft.representativeTitle" label="代表者肩書" :rules="optionalRules" />
+            <v-text-field v-model="draft.representativeName" label="代表者名" :rules="optionalRules" />
+          </v-card-text></v-card>
+          <v-card border :elevation="0" class="dialog-layout-card"><v-card-text>
+            <h3 class="business-section-title">振込先</h3>
+            <v-text-field v-model="draft.bankName" label="金融機関名" :rules="optionalRules" />
+            <v-text-field v-model="draft.bankBranchName" label="支店名" :rules="optionalRules" />
+            <v-text-field v-model="draft.bankAccountType" label="預金種別" hint="例：普通" persistent-hint :rules="optionalRules" />
+            <v-text-field v-model="draft.bankAccountNumber" label="口座番号" inputmode="numeric" hint="半角数字で入力してください。先頭の0も保存されます。" persistent-hint :rules="[...optionalRules, accountNumberRule]" />
+            <v-text-field v-model="draft.bankAccountHolder" label="口座名義" :rules="optionalRules" />
+          </v-card-text></v-card>
+        </v-form>
+        <p class="text-caption mt-4">最終更新：{{ updatedLabel }} ／ {{ store.value.value?.updatedByName || '—' }}</p>
+      </v-card-text>
+      <v-card-actions><v-spacer /><v-btn variant="outlined" :disabled="working" @click="cancel">閉じる</v-btn><v-btn color="primary" variant="flat" :disabled="working" @click="save">保存</v-btn></v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -42,9 +68,14 @@ const fields = [
   {key:'telephone',label:'電話番号'}, {key:'fax',label:'FAX番号'}, {key:'email',label:'メールアドレス'},
   {key:'representativeTitle',label:'代表者肩書'}, {key:'representativeName',label:'代表者名'},
 ] as const
+const bankFields = [
+  {key:'bankName',label:'金融機関名'}, {key:'bankBranchName',label:'支店名'},
+  {key:'bankAccountType',label:'預金種別'}, {key:'bankAccountNumber',label:'口座番号'}, {key:'bankAccountHolder',label:'口座名義'},
+] as const
 const dirty = computed(() => editing.value && baseline !== JSON.stringify(draft.value))
 const updatedLabel = computed(() => store.value.value?.updatedAt ? new Date(store.value.value.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '未保存')
 const registrationRule = (value: string) => !value.trim() || /^T\d{13}$/.test(value.trim()) || 'Tと13桁の数字で入力してください。'
+const accountNumberRule = (value: string) => !value.trim() || /^[0-9]+$/.test(value.trim()) || '口座番号は半角数字で入力してください。'
 async function run(action: () => Promise<void>) {
   if (working.value) return
   const token = generation; working.value = true; error.value = ''; emit('busy', true)
@@ -62,8 +93,10 @@ function canLeave() { return !working.value && (!dirty.value || window.confirm('
 function cancel() { if (canLeave()) { editing.value = false; draft.value = companyProfileDefaults(); error.value = '' } }
 async function save() {
   if (!store.canEdit() || working.value) return
+  const token = generation
   if (!(await form.value?.validate())?.valid) { showValidationError(); return }
-  await run(async () => { await store.save(draft.value); editing.value = false; showSnackbar('自社情報を保存しました。', 'success') })
+  if (token !== generation || !editing.value || !store.canEdit()) return
+  await run(async () => { await store.save(draft.value); if (token !== generation) return; editing.value = false; showSnackbar('自社情報を保存しました。', 'success') })
 }
 function beforeUnload(event: BeforeUnloadEvent) { if (dirty.value) { event.preventDefault(); event.returnValue = '' } }
 watch(() => JSON.stringify([profile.value,recoveryRuntime.value]), () => { generation++; editing.value=false; draft.value=companyProfileDefaults(); error.value=''; working.value=false; emit('busy',false) }, {flush:'sync'})

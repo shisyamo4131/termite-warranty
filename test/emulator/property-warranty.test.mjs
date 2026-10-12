@@ -68,6 +68,23 @@ test('company profile is staff-only, administrator saved, and never inferred fro
   assert.deepEqual(await invoke('companyProfile','staff'),saved)
   const replaced=await invoke('saveCompanyProfile','dev',{profile:{companyName:'架空変更'}})
   assert.equal(replaced.postalCode,'');assert.equal(replaced.updatedBy,'dev')
+  const bank={bankName:'架空銀行',bankBranchName:'架空支店',bankAccountType:'普通',bankAccountNumber:'0012345',bankAccountHolder:'架空会社'}
+  await invoke('saveCompanyProfile','admin',{profile:{companyName:'架空会社',...bank}})
+  // Omitted fields from an older client survive, while an explicitly supplied blank clears only that field.
+  const legacy=await invoke('saveCompanyProfile','dev',{profile:{companyName:'旧画面保存'}})
+  for(const [key,value] of Object.entries(bank))assert.equal(legacy[key],value)
+  const partial=await invoke('saveCompanyProfile','admin',{profile:{companyName:'部分保存',bankBranchName:''}})
+  for(const [key,value] of Object.entries(bank))assert.equal(partial[key],key==='bankBranchName'?'':value)
+  await Promise.all([
+    invoke('saveCompanyProfile','admin',{profile:{companyName:'並行旧画面'}}),
+    invoke('saveCompanyProfile','dev',{profile:{companyName:'並行新画面',bankAccountNumber:'0000007'}}),
+  ])
+  assert.equal((await invoke('companyProfile','staff')).bankAccountNumber,'0000007')
+  await target.doc('prototypeSettings/companyProfile').set({privateFutureField:'hidden'},{merge:true})
+  assert.equal(Object.hasOwn(await invoke('companyProfile','staff'),'privateFutureField'),false)
+  assert.equal(Object.hasOwn(await invoke('saveCompanyProfile','admin',{profile:{companyName:'架空'}}),'privateFutureField'),false)
+  await assert.rejects(invoke('saveCompanyProfile','admin',{profile:{companyName:'架空',bankAccountNumber:'１２３'}}),e=>e.code==='invalid-argument')
+  assert.equal((await invoke('companyProfile','staff')).bankAccountNumber,'0000007')
 })
 
 test('group billing recipient survives legacy saves and status changes while portal never receives it',async()=>{

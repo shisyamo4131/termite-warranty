@@ -86,6 +86,46 @@ function contact(t, outcome) {
   t.after(()=>scope.stop())
   return {...result,form,lookups:()=>lookups}
 }
+
+function settingsScreen(t, fetch) {
+  const {store,profile,recoveryRuntime}=harness(t,fetch)
+  const source=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm,'')
+  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const scope=vue.effectScope(),notices=[],confirmations=[]
+  let discard=false
+  const env={...vue,useCompanyProfile:()=>store,useSession:()=>({profile}),useAppSnackbar:()=>({showSnackbar:(...args)=>notices.push(args),showValidationError(){}}),defineEmits:()=>()=>{},defineExpose:()=>{},onMounted:()=>{},onBeforeUnmount:()=>{},companyProfileDefaults,normalizeCompanyProfile,requiredRules:[],optionalRules:[],recoveryRuntime,window:{confirm:message=>{confirmations.push(message);return discard}}}
+  const view=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {edit,cancel,save,canLeave,draft,editing,working,error,form};')(...Object.values(env)))
+  view.form.value={validate:async()=>({valid:true})}
+  t.after(()=>scope.stop())
+  return {...view,profile,notices,confirmations,setDiscard:value=>discard=value}
+}
+
+test('dialog close retains dirty bank edits when discard is declined and cancels without a save when accepted',async t=>{
+  let writes=0
+  const v=settingsScreen(t,async input=>{if(input.action==='saveCompanyProfile')writes++;return {...companyProfileDefaults(),companyName:'架空会社'}})
+  await v.edit();v.draft.value.bankAccountNumber='0012345'
+  v.cancel();assert.equal(v.editing.value,true);assert.equal(v.draft.value.bankAccountNumber,'0012345')
+  v.setDiscard(true);v.cancel();assert.equal(v.editing.value,false);assert.equal(writes,0);assert.equal(v.confirmations.length,2)
+})
+
+test('dialog save failure retains bank draft for retry and in-flight save prevents close and duplicate write',async t=>{
+  let rejectSave,writes=0
+  const v=settingsScreen(t,input=>input.action==='saveCompanyProfile'?(writes++,new Promise((resolve,reject)=>{rejectSave=reject})):Promise.resolve({...companyProfileDefaults(),companyName:'架空会社'}))
+  await v.edit();v.draft.value.bankAccountNumber='0012345'
+  const saving=v.save();await Promise.resolve();assert.equal(v.working.value,true)
+  v.setDiscard(true);v.cancel();await v.save();assert.equal(v.editing.value,true);assert.equal(writes,1)
+  rejectSave(new Error('保存失敗'));await saving
+  assert.match(v.error.value,/保存失敗/);assert.equal(v.draft.value.bankAccountNumber,'0012345');assert.equal(v.editing.value,true);assert.equal(v.working.value,false)
+})
+
+test('identity change while validating prevents stale dialog submission',async t=>{
+  let writes=0,validate
+  const v=settingsScreen(t,async input=>{if(input.action==='saveCompanyProfile')writes++;return {...companyProfileDefaults(),companyName:'架空会社'}})
+  await v.edit();v.form.value={validate:()=>new Promise(resolve=>validate=resolve)}
+  const saving=v.save();v.profile.value={accountType:'staff',role:'house_solution_administrator',uid:'other-admin'}
+  validate({valid:true});await saving
+  assert.equal(writes,0);assert.equal(v.editing.value,false);assert.equal(v.draft.value.companyName,'');assert.equal(v.notices.length,0)
+})
 test('postal lookup never replaces an existing address or building',async t=>{
   const v=contact(t,()=>({state:'current',result:{status:'resolved',address:{prefecture:'架空県',municipality:'架空市',streetTownAndNumber:'架空町'}}}))
   v.form.value.address1='手入力の住所';await v.lookup();assert.equal(v.lookups(),0)
