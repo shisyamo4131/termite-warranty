@@ -51,7 +51,7 @@ html {
   background: rgb(255 255 255 / 12%) !important;
 }
 
-.v-card:not(.lifecycle-card):not(.dialog-layout-card) {
+.v-card:not(.lifecycle-card):not(.dialog-layout-card):not(.company-settings-card) {
   border: 1px solid var(--clear-sky-border);
   box-shadow: 0 3px 12px rgb(38 55 74 / 8%);
 }

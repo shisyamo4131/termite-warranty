@@ -1,18 +1,28 @@
 <template>
   <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon item="companySettings" /><span>設定</span></h1>
-  <v-card max-width="900"><v-card-text>
-    <h2 class="business-section-title">自社情報</h2>
+  <section class="company-settings-display">
+    <div class="d-flex align-center justify-space-between flex-wrap ga-3 mb-4">
+      <h2 class="business-section-title mb-0">自社情報</h2>
+      <v-btn v-if="store.value.value && store.canEdit()" color="primary" variant="flat" :disabled="working" @click="edit">編集</v-btn>
+    </div>
     <v-alert type="info" class="mb-4">Wordテンプレートに直接記載した会社情報は自動更新されません。変更後はWordの記載も確認してください。</v-alert>
     <v-alert v-if="error" type="error" class="mb-4">{{ error }}<v-btn v-if="!editing" variant="text" :disabled="working" @click="load(true)">再取得</v-btn></v-alert>
     <v-progress-linear v-if="working" indeterminate class="mb-4" />
-    <template v-if="store.value.value">
-      <dl><div v-for="item in fields" :key="item.key" class="mb-4"><dt class="text-caption text-medium-emphasis">{{ item.label }}</dt><dd class="text-body-1 text-break">{{ store.value.value[item.key] || '未設定' }}</dd></div></dl>
-      <h3 class="business-section-title">振込先</h3>
-      <dl><div v-for="item in bankFields" :key="item.key" class="mb-4"><dt class="text-caption text-medium-emphasis">{{ item.label }}</dt><dd class="text-body-1 text-break">{{ store.value.value[item.key] || '未設定' }}</dd></div></dl>
-      <v-btn v-if="store.canEdit()" color="primary" variant="flat" :disabled="working" @click="edit">編集</v-btn>
-    </template>
+    <div v-if="store.value.value" class="company-settings-grid">
+      <v-card v-for="section in displaySections" :key="section.title" border :elevation="0" class="company-settings-card" :class="{ 'company-settings-wide': section.title === '振込先' }">
+        <v-card-text>
+          <h3 class="business-section-title">{{ section.title }}</h3>
+          <dl class="company-settings-fields">
+            <div v-for="item in section.fields" :key="item.key" :class="{ 'company-settings-wide': fullWidthFields.includes(item.key) }">
+              <dt class="text-caption text-medium-emphasis mb-1">{{ item.label }}</dt>
+              <dd class="text-body-1">{{ store.value.value[item.key] || '未設定' }}</dd>
+            </div>
+          </dl>
+        </v-card-text>
+      </v-card>
+    </div>
     <p v-if="store.value.value" class="text-caption mt-4">最終更新：{{ updatedLabel }} ／ {{ store.value.value.updatedByName || '—' }}</p>
-  </v-card-text></v-card>
+  </section>
   <v-dialog :model-value="editing" max-width="900" scrollable persistent>
     <v-card :border="false">
       <BusinessDialogHeader title="自社情報の編集" icon="companySettings" :busy="working" @close="cancel" />
@@ -62,16 +72,21 @@ const draft = ref(companyProfileDefaults())
 const editing = ref(false), working = ref(false), error = ref('')
 const form = ref<{validate: () => Promise<{valid: boolean}>} | null>(null)
 let baseline = '', generation = 0
-const fields = [
-  {key:'companyName',label:'会社名'}, {key:'invoiceRegistrationNumber',label:'適格請求書発行事業者番号'},
-  {key:'postalCode',label:'郵便番号'}, {key:'address1',label:'住所1'}, {key:'address2',label:'住所2'},
-  {key:'telephone',label:'電話番号'}, {key:'fax',label:'FAX番号'}, {key:'email',label:'メールアドレス'},
-  {key:'representativeTitle',label:'代表者肩書'}, {key:'representativeName',label:'代表者名'},
+const displaySections = [
+  {title:'会社・代表者',fields:[
+    {key:'companyName',label:'会社名'}, {key:'invoiceRegistrationNumber',label:'適格請求書発行事業者番号'},
+    {key:'representativeTitle',label:'代表者肩書'}, {key:'representativeName',label:'代表者名'},
+  ]},
+  {title:'所在地・連絡先',fields:[
+    {key:'postalCode',label:'郵便番号'}, {key:'address1',label:'住所1'}, {key:'address2',label:'住所2'},
+    {key:'telephone',label:'電話番号'}, {key:'fax',label:'FAX番号'}, {key:'email',label:'メールアドレス'},
+  ]},
+  {title:'振込先',fields:[
+    {key:'bankName',label:'金融機関名'}, {key:'bankBranchName',label:'支店名'},
+    {key:'bankAccountType',label:'預金種別'}, {key:'bankAccountNumber',label:'口座番号'}, {key:'bankAccountHolder',label:'口座名義'},
+  ]},
 ] as const
-const bankFields = [
-  {key:'bankName',label:'金融機関名'}, {key:'bankBranchName',label:'支店名'},
-  {key:'bankAccountType',label:'預金種別'}, {key:'bankAccountNumber',label:'口座番号'}, {key:'bankAccountHolder',label:'口座名義'},
-] as const
+const fullWidthFields: readonly string[] = ['companyName','invoiceRegistrationNumber','address1','address2','email','bankAccountHolder']
 const dirty = computed(() => editing.value && baseline !== JSON.stringify(draft.value))
 const updatedLabel = computed(() => store.value.value?.updatedAt ? new Date(store.value.value.updatedAt).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }) : '未保存')
 const registrationRule = (value: string) => !value.trim() || /^T\d{13}$/.test(value.trim()) || 'Tと13桁の数字で入力してください。'
@@ -104,3 +119,17 @@ onMounted(() => { window.addEventListener('beforeunload', beforeUnload); void lo
 onBeforeUnmount(() => { generation++; window.removeEventListener('beforeunload', beforeUnload) })
 defineExpose({ canLeave })
 </script>
+
+<style scoped>
+.company-settings-display { max-width: 900px; width: 100%; min-width: 0; }
+.company-settings-grid,
+.company-settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.company-settings-card,
+.company-settings-fields > div { min-width: 0; }
+.company-settings-fields dd { margin: 0; overflow-wrap: anywhere; }
+.company-settings-wide { grid-column: 1 / -1; }
+@media (max-width: 600px) {
+  .company-settings-grid,
+  .company-settings-fields { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
