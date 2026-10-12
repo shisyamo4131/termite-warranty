@@ -14,6 +14,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
+| HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | HS確認待ち。保険報告・請求・保証書CSVで、指定月より前の未処理分を含める運用と「済みも含める」の対象範囲を再確認。変更案は未採用・未実装、現行仕様を維持 | House Solution |
 | HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | 診断はDev実受信済み。サービス切替なしで観測継続と決定。通信失敗の原因は未特定 | Project owner / Project |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 月次自動取得・検証・公開・失敗通知を検討。方式未採用／設定未実行 | Project owner |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 保証グループ別・当月以前の未請求抽出はDev反映済み。10/12に1グループ1請求先8項目をオーナーがDev検証し受入れOK。11列CSV維持。グループ間自動合算は追加せず、請求書本体等は後発 | Project / House Solution |
