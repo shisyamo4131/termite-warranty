@@ -30,6 +30,7 @@ test('442 records: reset, import, idempotent rerun, reimport and guarded read-on
   const options=await fixture(),before=await inspectHistoricalTarget(db,control,auth)
   const result=await executeHistoricalIntake(db,control,auth,input,options)
   assert.equal(result.properties,442);assert.equal(result.maintenanceRetained,true)
+  assert.equal((await db.doc('prototypeSettings/insuranceReportQueries').get()).data().version,1)
   assert.equal((await db.collection('propertyWarranties').orderBy('updatedAt','desc').limit(20).get()).size,20)
   assert.equal((await db.doc('propertyWarranties/old-fixture').get()).exists,false)
   assert.equal((await inspectHistoricalTarget(db,control,auth)).authorizationHash,before.authorizationHash)

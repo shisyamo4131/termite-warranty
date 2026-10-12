@@ -242,6 +242,14 @@
       "collectionGroup": "propertyWarranties",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "billingQueryMonths", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
         {
           "fieldPath": "groupId",
           "order": "ASCENDING"

@@ -5,8 +5,10 @@ export function pendingBillingPeriods(row) {
 export function billingProjection(row) {
   return { billingQueryVersion:1, billingPendingMonth:pendingBillingPeriods(row).map(p=>p.billingDate.slice(0,7)).sort()[0] ?? '' }
 }
-export function pendingBillingRows(rows, month) {
-  return rows.flatMap(row=>pendingBillingPeriods(row).filter(p=>p.billingDate.slice(0,7)<=month).map(p=>({...row,
+export function pendingBillingRows(rows, month, { includeDone = false } = {}) {
+  return rows.flatMap(row=>(includeDone && row.status === 'active'
+    ? warrantyTransactions(row).filter(p=>p.identifiable && ['pending','billed'].includes(p.billingState) && p.billingDate.slice(0,7)===month)
+    : pendingBillingPeriods(row).filter(p=>p.billingDate.slice(0,7)<=month)).map(p=>({...row,
     billingKind:p.billingKind,billingDate:p.billingDate,billingEventId:p.id,billingPeriodLabel:p.label,
     billingState:p.billingState,billingStartDate:p.startDate,billingExpiryDate:p.expiryDate})))
     .sort((a,b)=>a.billingDate.localeCompare(b.billingDate)||String(a.warrantyNumber).localeCompare(String(b.warrantyNumber))||a.billingEventId.localeCompare(b.billingEventId))

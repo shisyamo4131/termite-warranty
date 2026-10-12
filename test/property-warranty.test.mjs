@@ -2,8 +2,33 @@ import { nextInsuranceReportLabel } from '../app/utils/insuranceReportDisplay.mj
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { externalKeySettings, normalizeExternalKey } from '../src/domain/external-key.mjs'
-import { monthlyQueryProjection, withInsuranceDefaults, monthlyProjectionMatches } from '../src/domain/monthly-query.mjs'
+import { monthlyQueryProjection, withInsuranceDefaults, monthlyProjectionMatches, selectedMonthToBasisMonth } from '../src/domain/monthly-query.mjs'
 import { initialInsurance, insuranceReportKind, billingRows } from '../src/domain/property-warranty.mjs'
+
+test('selected month is converted once to the prior valid calendar month',()=>{
+  assert.equal(selectedMonthToBasisMonth('2026-11'),'2026-10')
+  assert.equal(selectedMonthToBasisMonth('2026-01'),'2025-12')
+  assert.equal(selectedMonthToBasisMonth('0001-02'),'0001-01')
+  assert.equal(selectedMonthToBasisMonth('9999-12'),'9999-11')
+  for(const month of ['0001-01','0000-02','2026-13','2026-1','',null])assert.throws(()=>selectedMonthToBasisMonth(month))
+})
+
+test('monthly billing and certificates switch from pending backlog to exact-month pending and done',async()=>{
+  const {pendingBillingRows}=await import('../src/domain/billing-output.mjs')
+  const {certificateRows}=await import('../src/domain/warranty-certificate.mjs')
+  const base={status:'active',years:10,applicationDate:'2026-10-01',handoverDate:'2026-10-08',history:[]}
+  const fixtures=['09','10','11'].flatMap(month=>['pending','billed','unknown'].map(state=>({
+    ...base,id:`${month}-${state}`,applicationDate:`2026-${month}-01`,handoverDate:`2026-${month}-08`,
+    billingItems:[{id:'initial',state}],certificateItems:state==='billed'?[{id:'initial',startDate:`2026-${month}-08`,expiryDate:`2036-${month}-07`,issued:true}]:[],
+  })))
+  assert.deepEqual(pendingBillingRows(fixtures,'2026-10').map(row=>row.id),['09-pending','10-pending'])
+  assert.deepEqual(pendingBillingRows(fixtures,'2026-10',{includeDone:true}).map(row=>row.id).sort(),['10-billed','10-pending'])
+  assert.ok(certificateRows(fixtures,'2026-10').every(row=>!row.certificateIssued&&row.certificateMonth<='2026-10'))
+  assert.deepEqual(certificateRows(fixtures,'2026-10',{includeDone:true}).map(row=>row.id).sort(),['10-billed','10-pending','10-unknown'])
+  const extended={...base,years:20,history:[{kind:'extend',requestId:'ext',before:{years:10}}],billingItems:[{id:'initial',state:'pending'},{id:'ext',state:'billed'}]}
+  assert.deepEqual(pendingBillingRows([extended],'2036-10',{includeDone:true}).map(row=>row.billingEventId),['ext'])
+  assert.deepEqual(certificateRows([extended],'2036-10',{includeDone:true}).map(row=>row.certificatePeriodId),['ext'])
+})
 
 test('monthly query ranges equal existing insurance and billing rules across boundaries and legacy states',()=>{
   for(const handoverDate of ['2016-10-01','2016-10-06','2020-02-29','2026-12-31'])for(const years of [10,20,30]){
@@ -382,8 +407,8 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const companyProfileDependencies={useCompanyProfile:()=>({reset:()=>{}}),...(await import('../src/domain/company-settings.mjs'))}
   const notifications=[];const env={useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
-  Object.assign(env,companyProfileDependencies)
-  return new Function(...Object.keys(env),code+';return {businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
+  Object.assign(env,companyProfileDependencies,{selectedMonthToBasisMonth})
+  return new Function(...Object.keys(env),code+';return {rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
 
 test('property editor discards the former name field before saving legacy documents',async()=>{
@@ -530,11 +555,11 @@ test('validation snackbar appears at the top and repeat attempts restart the not
 })
 
 
-test('insurance report sends only month; renewal label ends with warranty but returns after extension',async()=>{
+test('insurance report sends only basis month and completion filter; renewal label ends with warranty but returns after extension',async()=>{
  const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false,companies:[],branches:[],groups:[]}})
  v.tab.value='report';await new Promise(r=>setImmediate(r));calls.length=0
  v.filter.month='2026-10';v.filter.search='hidden';v.filter.companyId='hidden';await v.fetchRows()
- assert.deepEqual(calls.at(-1).filter,{reportMonth:'2026-10'})
+ assert.deepEqual(calls.at(-1).filter,{reportMonth:'2026-09',includeDone:false})
  const row={insuranceReported:true,insuranceEvents:[],expiryDate:'2036-10-05',insuranceExpiryDate:'2036-10-05',insuranceRenewalMonth:'203610'}
  assert.equal(v.insuranceRenewalLabel(row),'次回報告不要（保証延長がなければ）')
  assert.equal(v.insuranceRenewalLabel({...row,insuranceExpiryDate:'2037-10-05'}),'次回報告不要（保証延長がなければ）')
@@ -657,8 +682,8 @@ test('account mail and refresh failures remain truthful without creation success
  assert.equal(v.accountCreated.value,true);assert.equal(v.accountDialog.value,true);assert.match(v.errors.account,/アカウントは作成済み/);assert.match(v.errors.account,/設定メールを送信できません/);assert.match(v.errors.account,/一覧を更新できません/);assert.equal(v.notifications.length,0)
 })
 
-const reportFixture=(id)=>({id,revision:1,reportKind:'new'})
-async function prepareReports(v){v.tab.value='report';await new Promise(r=>setImmediate(r));v.rows.value=[reportFixture('A'),reportFixture('B')];v.selectedKeys.value=['A:::','B:::'];v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))}
+const reportFixture=(id)=>({id,revision:1,reportKind:'new',reportState:'pending',reportTarget:{insurancePeriodId:'initial:1:1',warrantyPeriodId:'initial',startDate:'2026-09-01',expiryDate:'2031-08-31'}})
+async function prepareReports(v){v.tab.value='report';await new Promise(r=>setImmediate(r));v.rows.value=[reportFixture('A'),reportFixture('B')];v.selectedKeys.value=v.rows.value.map(v.rowKey);v.loadedReportMonth.value=selectedMonthToBasisMonth(v.filter.month);v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))}
 
 test('partial report failure retries only remaining selection with the original receipt',async()=>{
  const calls=[];let failed=true;const v=await prototypeViewForTest(async data=>{calls.push(data);if(data.action==='report'&&data.id==='B'&&failed)throw Error('B rejected');return data.action==='list'?{rows:failed?[reportFixture('B')]:[],limited:false}:{}})
@@ -685,7 +710,7 @@ test('ambiguous report commit never reselects a refreshed next interval or chang
  const nextTarget={warrantyPeriodId:'initial',startDate:'2036-10-01',expiryDate:'2041-09-30'}
  for(const changed of [{revision:2,reportTarget:nextTarget},{revision:2,reportTarget:originalTarget},{revision:1,reportTarget:nextTarget}]){
   const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);if(data.action==='report')throw Error('response lost');return {rows:[{...reportFixture('B'),...changed}],limited:false}})
-  v.rows.value=[{...reportFixture('B'),reportTarget:{...originalTarget}}];v.selectedKeys.value=['B:::'];v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))
+  v.rows.value=[{...reportFixture('B'),reportTarget:{...originalTarget}}];v.selectedKeys.value=v.rows.value.map(v.rowKey);v.loadedReportMonth.value=selectedMonthToBasisMonth(v.filter.month);v.reportKey.value=JSON.stringify(v.filter);v.reportConfirm.value=true;await new Promise(r=>setImmediate(r))
   await v.markReports();assert.deepEqual(v.selectedKeys.value,[]);assert.match(v.errors.report,/response lost/);assert.match(v.errors.report,/選択し直してください/)
   await v.markReports();const reports=calls.filter(c=>c.action==='report');assert.equal(reports.length,1);assert.deepEqual(reports[0].reportTarget,originalTarget);assert.equal(v.notifications.length,0);assert.equal(v.reportConfirm.value,true)
  }
@@ -725,7 +750,8 @@ test('certificate issuance is period-specific; selected month includes earlier u
   const row={id:'certificate',status:'active',years:20,handoverDate:'2026-10-06',applicationDate:'2026-09-01',history:[{kind:'extend',requestId:'ext',before:{years:10}}],certificateItems:[initial]}
   assert.deepEqual(certificatePeriods(row).map(p=>p.certificateIssued),[true,false])
   assert.deepEqual(certificateRows([row],'2026-09'),[])
-  assert.equal(certificateRows([row],'2026-10')[0].certificatePeriodId,'initial')
+  assert.equal(certificateRows([row],'2026-10').length,0)
+  assert.equal(certificateRows([row],'2026-10',{includeDone:true})[0].certificatePeriodId,'initial')
   assert.equal(certificateRows([row],'2036-09').length,0)
   assert.equal(certificateRows([row],'2036-10')[0].certificatePeriodId,'ext')
   assert.equal(certificateRows([row],'2036-11')[0].certificatePeriodId,'ext')
@@ -734,7 +760,7 @@ test('certificate issuance is period-specific; selected month includes earlier u
   assert.equal(certificatePeriods({...row,handoverDate:'2026-10-07'})[0].certificateIssued,false)
   const old={...row,certificateItems:[]};assert.equal(certificateRows([old],'2036-10').length,2)
   assert.equal(certificateProjection({...row,status:'cancelled'}).certificatePendingMonth,'')
-  const csv=certificateCsv(certificateRows([{...row,warrantyNumber:'A',name:'架空,物件',companyLabel:'会社',branchLabel:'本店'}],'2026-10'))
+  const csv=certificateCsv(certificateRows([{...row,warrantyNumber:'A',name:'架空,物件',companyLabel:'会社',branchLabel:'本店'}],'2026-10',{includeDone:true}))
   assert.equal(csv.startsWith('\uFEFF"保証書No","物件名","引渡日","担当工務店","担当本支店","住所",'),true)
   assert.equal(csv.split('\r\n')[1].startsWith('"A","架空,物件","2026-10-06","会社","本店","",'),true)
 })

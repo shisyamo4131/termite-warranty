@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { materializeInsuranceState, insurancePeriodStates, insuranceProjection, insuranceProjectionMatches, validateInsuranceState, periodReportSelection, insuranceNoticeExpiry } from '../src/domain/insurance-state.mjs'
+import { materializeInsuranceState, insurancePeriodStates, insuranceProjection, insuranceProjectionMatches, validateInsuranceState, periodReportSelection, insuranceNoticeExpiry, insuranceMonthlyRows, insuranceReportedQueryProjection } from '../src/domain/insurance-state.mjs'
 import { assertInsuranceCapacity, firestoreDocumentBytes, FIRESTORE_DOCUMENT_LIMIT } from '../src/domain/insurance-capacity.mjs'
 import { warrantyNoticeCutoff } from '../src/domain/dashboard.mjs'
 import { coveragePeriods, initialInsurance, alertStartDate, handoverChangeBlockers, extensionUndoPreview } from '../src/domain/property-warranty.mjs'
 import { monthlyQueryProjection } from '../src/domain/monthly-query.mjs'
+import { migrateInsuranceReportQueries } from '../scripts/lib/insurance-report-query-migration.mjs'
 
 function fixture(years=30) {
   const handoverDate='2020-10-01',periods=coveragePeriods(handoverDate,years)
@@ -23,6 +24,100 @@ function undoWaive(row,index) {
   const period=row.insurancePeriods[index]
   return materializeInsuranceState({...row,insuranceWaiverEvents:[...row.insuranceWaiverEvents,{kind:'undoWaive',id:`undo-${period.waiverId}`,targetId:period.waiverId,periodId:period.id,actorUid:'staff',at:'2026-10-10T00:00:00.000Z'}]},{reconcile:true})
 }
+
+function recordedReport(row,index,reportKind,id=`known${index}`) {
+  const period=row.insurancePeriods[index]
+  return materializeInsuranceState({...row,insuranceReported:true,insuranceEvents:[...row.insuranceEvents,{kind:'report',reportKind,requestId:id,insurancePeriodId:period.id,warrantyPeriodId:period.warrantyPeriodId,startDate:period.startDate,expiryDate:period.expiryDate,month:'2099-12'}]},{reconcile:true})
+}
+
+test('insurance exact-month mode keeps original target month and saved late-first report period',()=>{
+  const pending=fixture(10)
+  assert.equal(insuranceMonthlyRows([pending],'2025-10').rows[0].reportTarget.startDate,'2025-10-01')
+  assert.equal(insuranceMonthlyRows([pending],'2025-10').rows[0].reportBasisMonth,'2020-10')
+  assert.equal(insuranceMonthlyRows([pending],'2025-10',{includeDone:true}).rows.length,0)
+  const done=recordedReport(pending,1,'new')
+  assert.deepEqual(insuranceReportedQueryProjection(done).insuranceReportedQueryMonths,['2020-10'])
+  const rows=insuranceMonthlyRows([done],'2020-10',{includeDone:true}).rows
+  assert.equal(rows.length,1);assert.equal(rows[0].reportState,'reported');assert.equal(rows[0].reportKind,'new')
+  assert.equal(rows[0].reportTarget.startDate,'2025-10-01');assert.equal(rows[0].reportId,'known1')
+  assert.equal(insuranceMonthlyRows([done],'2099-12',{includeDone:true}).rows.length,0)
+  assert.deepEqual(insuranceReportedQueryProjection({...done,status:'cancelled'}).insuranceReportedQueryMonths,[])
+  const undone=materializeInsuranceState({...done,insuranceEvents:[...done.insuranceEvents,{kind:'undoReport',requestId:'undo',targetRequestId:'known1'}]},{reconcile:true})
+  assert.deepEqual(insuranceReportedQueryProjection(undone).insuranceReportedQueryMonths,[])
+})
+
+test('insurance renewal uses the day before start; waived and unconfirmed records never become done rows',()=>{
+  let row=recordedReport(fixture(10),0,'new')
+  const pending=insuranceMonthlyRows([row],'2025-09',{includeDone:true}).rows
+  assert.equal(pending.length,1);assert.equal(pending[0].reportState,'pending');assert.equal(pending[0].reportBasisMonth,'2025-09')
+  row=recordedReport(row,1,'renewal')
+  assert.deepEqual(insuranceReportedQueryProjection(row).insuranceReportedQueryMonths,['2020-10','2025-09'])
+  assert.equal(insuranceMonthlyRows([row],'2025-10',{includeDone:true}).rows.length,0)
+  assert.equal(insuranceMonthlyRows([row],'2025-09',{includeDone:true}).rows[0].reportTarget.startDate,'2025-10-01')
+  const bad={...row,insuranceEvents:row.insuranceEvents.map(event=>({...event,reportKind:'unknown'}))}
+  assert.deepEqual(insuranceReportedQueryProjection(bad).insuranceReportedQueryMonths,[])
+  assert.deepEqual(insuranceMonthlyRows([bad],'2025-09',{includeDone:true}),{rows:[],unclassifiedCount:1})
+  const waived=waive(fixture(10),0)
+  assert.equal(insuranceMonthlyRows([waived],'2020-10',{includeDone:true}).rows.length,0)
+  const review={...fixture(10),insuranceHistoryIncomplete:true}
+  assert.equal(insuranceMonthlyRows([review],'2020-10').rows[0].reportState,'review')
+  assert.equal(insuranceMonthlyRows([review],'2020-10').unclassifiedCount,0)
+  assert.deepEqual(insuranceMonthlyRows([review],'2020-10',{includeDone:true}),{rows:[],unclassifiedCount:1})
+})
+
+function migrationMemory(row, beforeTransaction=()=>{}) {
+  const values=new Map([['propertyWarranties/fixture',structuredClone(row)],['_recovery/access',{phase:'normal',databaseId:'(default)',generation:1}]])
+  let transactions=0
+  const snapshot=path=>({id:path.split('/').at(-1),ref:db.doc(path),exists:values.has(path),data:()=>structuredClone(values.get(path))})
+  const db={
+    doc:path=>({path,get:async()=>snapshot(path)}),
+    collection:collection=>{let after='';const query={orderBy:()=>query,limit:()=>query,startAfter:cursor=>{after=cursor.id;return query},get:async()=>{const docs=[...values.keys()].filter(path=>path.startsWith(collection+'/')&&path.split('/').at(-1)>after).sort().slice(0,100).map(snapshot);return {docs,size:docs.length}}};return query},
+    runTransaction:async callback=>{beforeTransaction(++transactions,values);const writes=[];const result=await callback({get:async ref=>snapshot(ref.path),set:(ref,value)=>writes.push(()=>values.set(ref.path,structuredClone(value))),update:(ref,patch)=>writes.push(()=>values.set(ref.path,{...values.get(ref.path),...structuredClone(patch)}))});writes.forEach(write=>write());return result},
+  }
+  return {db,values}
+}
+
+test('reported projection excludes malformed period boundaries and missing or duplicate report identities',()=>{
+  const row=recordedReport(fixture(10),0,'new')
+  const legacy=structuredClone(row);delete legacy.insuranceEvents[0].insurancePeriodId
+  assert.deepEqual(insuranceReportedQueryProjection(legacy).insuranceReportedQueryMonths,['2020-10'])
+  for(const change of [
+    value=>{value.insurancePeriods[0].startDate='2020-10-02';value.insuranceEvents[0].startDate='2020-10-02'},
+    value=>{value.insurancePeriods[0].reportId='';value.insuranceEvents[0].requestId=''},
+    value=>{value.insuranceEvents.push({...value.insuranceEvents[0],startDate:'2025-10-01'})},
+    value=>{value.insurancePeriods.push({...value.insurancePeriods[0]})},
+    value=>{value.insuranceEvents[0].insurancePeriodId=value.insurancePeriods[1].id},
+    value=>{value.insuranceEvents.push({...value.insuranceEvents[0],requestId:'other-report'})},
+    value=>{value.insuranceWaiverEvents.push({kind:'waive',id:'conflict',periodId:value.insurancePeriods[0].id})},
+  ]){
+    const invalid=structuredClone(row);change(invalid)
+    assert.deepEqual(insuranceReportedQueryProjection(invalid).insuranceReportedQueryMonths,[])
+  }
+})
+
+test('reported-query migration repairs only added fields, re-reads current records and is idempotent',async()=>{
+  const original={...fixture(10),revision:7,updatedAt:'unchanged',billingPendingMonth:'unrelated-corrupt-projection'}
+  const {db,values}=migrationMemory(original,(number,data)=>{
+    if(number===2)data.set('propertyWarranties/fixture',{...recordedReport(original,0,'new'),revision:8})
+  })
+  assert.deepEqual(await migrateInsuranceReportQueries(db),{scanned:1,changed:1,applied:false})
+  assert.equal(values.has('prototypeSettings/insuranceReportQueries'),false)
+  assert.deepEqual(await migrateInsuranceReportQueries(db,{apply:true,generation:1}),{scanned:1,changed:1,applied:true})
+  const saved=values.get('propertyWarranties/fixture')
+  assert.equal(saved.revision,8);assert.equal(saved.updatedAt,'unchanged');assert.equal(saved.billingPendingMonth,'unrelated-corrupt-projection')
+  assert.deepEqual(saved.insuranceReportedQueryMonths,['2020-10']);assert.equal(saved.insuranceReportedQueryVersion,1)
+  assert.equal(values.get('prototypeSettings/insuranceReportQueries').version,1)
+  assert.equal((await migrateInsuranceReportQueries(db,{apply:true,generation:1})).changed,0)
+})
+
+test('reported-query migration cannot publish after phase or generation changes including final publication',async()=>{
+  for(const stage of [1,2,3])for(const change of [{phase:'verification'},{generation:2}]){
+    const {db,values}=migrationMemory(fixture(10),(number,data)=>{if(number===stage)data.set('_recovery/access',{...data.get('_recovery/access'),...change})})
+    await assert.rejects(migrateInsuranceReportQueries(db,{apply:true,generation:1}),/Recovery state changed/)
+    assert.notEqual(values.get('prototypeSettings/insuranceReportQueries')?.version,1)
+    if(stage<3)assert.equal(values.get('propertyWarranties/fixture').insuranceReportedQueryVersion,undefined)
+  }
+})
 test('new periods have identity, saved migration has no day-dependent guessed past states',()=>{
   const row=fixture(10)
   assert.deepEqual(row.insurancePeriods.map(p=>[p.id,p.state]),[['initial:1:1','pending'],['initial:1:2','pending']])

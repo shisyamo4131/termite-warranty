@@ -13,6 +13,7 @@ test('442 fictional records preserve numbers, initial states, deterministic IDs 
   assert.equal(plan.summary.properties,442);assert.deepEqual(plan.summary.errors,[])
   const values=plan.documents.filter(r=>r.path.startsWith('propertyWarranties/')).map(r=>r.data)
   assert.deepEqual(values.map(v=>v.warrantyNumber),input.rows.map(v=>v.warrantyNumber))
+  for(const value of values){assert.equal(value.insuranceReportedQueryVersion,1);assert.deepEqual(value.insuranceReportedQueryMonths,[])}
   for(const v of values){assert.equal(v.years,10);assert.equal(v.billingItems[0].state,'billed');assert.equal(v.certificateItems[0].issued,true);assert.equal(v.insurancePeriods.length,2);assert.ok(v.insurancePeriods.every(p=>p.state==='pending'));assert.equal(v.receivedRecordId,undefined);assert.deepEqual(v.history,[])}
 })
 test('counters follow preserved number year and reserved gaps, not application year',()=>{

@@ -13,9 +13,9 @@ export function certificateProjection(row) {
     certificateQueryMonths: [...new Set(periods.map(p => p.certificateMonth))].sort(),
     certificatePendingMonth: periods.filter(p => !p.certificateIssued).map(p => p.certificateMonth).sort()[0] ?? '' }
 }
-export function certificateRows(rows, month) {
+export function certificateRows(rows, month, { includeDone = false } = {}) {
   return rows.filter(row => row.status === 'active').flatMap(row => certificatePeriods(row)
-    .filter(p => p.certificateMonth === month || p.certificateMonth < month && !p.certificateIssued)
+    .filter(p => includeDone ? p.certificateMonth === month : p.certificateMonth <= month && !p.certificateIssued)
     .map(p => ({ ...row, certificatePeriodId: p.id, certificatePeriodLabel: p.label, certificateStartDate: p.startDate,
       certificateExpiryDate: p.expiryDate, certificateIssued: p.certificateIssued, certificateIdentifiable: p.identifiable,
       certificateMonth: p.certificateMonth })))

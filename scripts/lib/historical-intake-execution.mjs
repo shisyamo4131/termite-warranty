@@ -34,7 +34,7 @@ function materialized(plan,journal) {
     }
     return {path:row.path,data}
   })
-  for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
+  for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceReportQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
   documents.push({path:'prototypeSettings/alerts',data:{warrantyMonths:2,insuranceMonths:2,updatedAt:journal.startedAt}})
   return restoreIntakeSettings(documents,plan.preservedSettings)
 }

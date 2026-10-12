@@ -1,7 +1,7 @@
 import { pendingBillingRows } from './domain/billing-output.mjs'
 import { companyBankFields, companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
 import { dashboardCounts } from './dashboard.js'
-import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState } from './domain/insurance-state.mjs'
+import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState, insuranceMonthlyRows } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
 import { certificatePeriods, certificateRows } from './domain/warranty-certificate.mjs'
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
@@ -126,25 +126,26 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   if (action === 'certificateList' || action === 'billingList') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     if (!validMonth(input.month)) fail('invalid-argument', '対象年月を指定してください。')
+    if (input.includeDone !== undefined && typeof input.includeDone !== 'boolean') fail('invalid-argument', '処理済みの表示条件を確認してください。')
+    const includeDone = input.includeDone === true
     const groupId = id(input.groupId)
     const group = (await db.doc(`warrantyGroups/${groupId}`).get()).data()
     if (!group || group.enabled === false) fail('failed-precondition', '有効な保証グループを選択してください。')
     if (action === 'billingList') {
       if ((await db.doc('prototypeSettings/billingQueries').get()).data()?.version !== 1) fail('failed-precondition', '請求一覧の準備中です。開発側へ確認してください。')
-      const page = await db.collection('propertyWarranties').where('groupId','==',groupId).where('billingPendingMonth','>','').where('billingPendingMonth','<=',input.month).get()
-      return {rows:pendingBillingRows(rows(page), input.month)}
+      const collection = db.collection('propertyWarranties').where('groupId','==',groupId)
+      if (includeDone && (await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version !== 1) fail('failed-precondition', '月別検索の準備中です。開発側へ確認してください。')
+      const page = await (includeDone ? collection.where('billingQueryMonths','array-contains',input.month) : collection.where('billingPendingMonth','>','').where('billingPendingMonth','<=',input.month)).get()
+      return {rows:pendingBillingRows(rows(page), input.month, {includeDone})}
     }
     if ((await db.doc('prototypeSettings/certificateQueries').get()).data()?.version !== 1) fail('failed-precondition', '保証書一覧の準備中です。開発側へ確認してください。')
     const collection = db.collection('propertyWarranties').where('groupId','==',groupId)
-    const snapshots = await Promise.all([
-      collection.where('certificateQueryMonths', 'array-contains', input.month).get(),
-      collection.where('certificatePendingMonth', '>', '').where('certificatePendingMonth', '<', input.month).get()
-    ])
-    const unique = new Map(snapshots.flatMap(page => rows(page)).map(row => [row.id, row]))
-    return { rows: certificateRows([...unique.values()], input.month) }
+    const page = await (includeDone ? collection.where('certificateQueryMonths','array-contains',input.month) : collection.where('certificatePendingMonth','>','').where('certificatePendingMonth','<=',input.month)).get()
+    return { rows: certificateRows(rows(page), input.month, {includeDone}) }
   }
   if (action === 'list' || action === 'propertyList') {
     const f = input.filter ?? {}
+    if (f.includeDone !== undefined && typeof f.includeDone !== 'boolean') fail('invalid-argument', '処理済みの表示条件を確認してください。')
     if (action === 'propertyList') {
       if (Object.keys(f).some(key => key !== 'warrantyNumber') || (f.warrantyNumber != null && typeof f.warrantyNumber !== 'string')) fail('invalid-argument', '物件・保証一覧は保証番号の完全一致検索のみ利用できます。')
       f.warrantyNumber = (f.warrantyNumber ?? '').trim()
@@ -158,9 +159,11 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (f.warrantyNumber?.trim()) query = query.where('warrantyNumber', '==', f.warrantyNumber.trim())
     if ((f.reportMonth || f.billingMonth) && !a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     const monthly = !!(f.reportMonth || f.billingMonth)
+    const monthlyBaseQuery = query
     if (monthly) {
       if (f.reportMonth && f.billingMonth || !validMonth(f.reportMonth || f.billingMonth)) fail('invalid-argument', '対象年月を指定してください。')
       if ((await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version !== 1) fail('failed-precondition', '月別検索の準備中です。開発側へ確認してください。')
+      if (f.reportMonth && f.includeDone === true && (await db.doc('prototypeSettings/insuranceReportQueries').get()).data()?.version !== 1) fail('failed-precondition', '報告済みの月別検索の準備中です。開発側へ確認してください。')
       query = f.reportMonth
         ? query.where('insuranceQueryStart', '<=', f.reportMonth).where('insuranceQueryEnd', '>=', f.reportMonth)
         : query.where('billingQueryMonths', 'array-contains', f.billingMonth)
@@ -168,23 +171,26 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const filtered = ['reportMonth','billingMonth','warrantyNumber','handoverMissing', 'alertKind', 'search', 'companyId', 'branchId', 'groupId', 'fiscalYear', 'status', 'expiryBefore', 'from', 'to','applicationFrom','applicationTo','handoverFrom','handoverTo'].some(k => typeof f[k] === 'string' && f[k].trim())
     for (const key of ['application','handover']) if (f[`${key}From`] && f[`${key}To`] && f[`${key}From`] > f[`${key}To`]) fail('invalid-argument','日付の開始・終了を確認してください。')
     if (!filtered) query = query.limit(20)
-    let result = rows(await query.get()).map(withInsurance).filter(row => matchesProperty(row, f))
+    const snapshots = await Promise.all([query.get(), ...(f.reportMonth && f.includeDone === true ? [monthlyBaseQuery.where('insuranceReportedQueryMonths','array-contains',f.reportMonth).get()] : [])])
+    const unique = new Map(snapshots.flatMap(page=>rows(page)).map(row=>[row.id,row]))
+    let result = [...unique.values()].map(withInsurance).filter(row => matchesProperty(row, f))
+    let unclassifiedCount = 0
     if (monthly) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     if (f.alertKind) {
       const settings = normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())
       result = result.filter(row => expiryAlertEligible(row, f.alertKind, japanDate(), settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
       if (f.alertKind === 'warranty' && f.notification !== 'all') result = result.filter(row => row.warrantyNotified === (f.notification === 'done'))
     }
-    if (f.reportMonth) result = result.map(row => { const kind = row.insuranceNeedsReview && row.status === 'active' ? 'review' : insuranceReportKind(row, f.reportMonth); const reportTarget = kind && kind !== 'review' ? insuranceReportTarget(row, f.reportMonth) : null; return {...row, reportTarget, reportKind: kind && !reportTarget ? 'review' : kind} }).filter(row => row.reportKind)
+    if (f.reportMonth) ({rows:result,unclassifiedCount} = insuranceMonthlyRows(result, f.reportMonth, {includeDone:f.includeDone === true}))
     if (f.billingMonth) result = billingRows(result, f.billingMonth)
     if (f.from || f.to) result = reportRows(result, f.from, f.to, f.includeCancelled === true)
-    if (a.staff && input.omitReferenceLabels === true) return { rows: result, limited: !filtered }
+    if (a.staff && input.omitReferenceLabels === true) return { rows: result, limited: !filtered, ...(f.reportMonth ? {unclassifiedCount} : {}) }
     // Resolve labels for the displayed result without unbounded master reads or child listeners.
     const paths = [...new Set(result.flatMap(row => [`constructionCompanies/${row.constructionCompanyId}`, ...(row.branchId ? [`companyBranches/${row.branchId}`] : [])]))]
     const names = new Map()
     for(let i=0;i<paths.length;i+=100) for(const doc of await db.getAll(...paths.slice(i,i+100).map(path=>db.doc(path)))) names.set(doc.ref.path,doc.data()?.name ?? '')
     result = result.map(row=>({...row,companyLabel:names.get(`constructionCompanies/${row.constructionCompanyId}`),branchLabel:row.branchId ? names.get(`companyBranches/${row.branchId}`) : '未指定'}))
-    return { rows: result.map(row => visibleInsurance(row,a.staff)), limited: !filtered }
+    return { rows: result.map(row => visibleInsurance(row,a.staff)), limited: !filtered, ...(f.reportMonth ? {unclassifiedCount} : {}) }
   }
   if (action === 'detail') {
     const snapshot = await db.doc(`propertyWarranties/${id(input.id)}`).get()

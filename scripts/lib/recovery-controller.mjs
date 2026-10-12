@@ -130,6 +130,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   const monthlyReady = (await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version === 1
   const certificateReady = (await db.doc('prototypeSettings/certificateQueries').get()).data()?.version === 1
   const billingReady = (await db.doc('prototypeSettings/billingQueries').get()).data()?.version === 1
+  const insuranceReportReady = (await db.doc('prototypeSettings/insuranceReportQueries').get()).data()?.version === 1
   const insuranceReady = (await db.doc('prototypeSettings/insuranceStates').get()).data()
   const dashboardReady = (await db.doc('prototypeSettings/dashboard').get()).data()
   if (dashboardReady?.version === 1 && (insuranceReady?.version !== 1 || insuranceReady.generation !== dashboardReady.generation || insuranceReady.operationId !== dashboardReady.operationId)) throw new RecoveryError('Dashboard readiness requires reconciliation.')
@@ -143,7 +144,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
       const value = row.data()
       if ((insuranceReady?.version === 1 || value.insuranceStateVersion !== undefined) && (validateInsuranceState(value, insuranceReady?.version === 1 ? {today} : {}).length || !insuranceProjectionMatches(value))) throw new RecoveryError('Insurance periods and dashboard projections require reconciliation before recovery publication.')
       const expected = monthlyQueryProjection(value)
-      const required = [...(monthlyReady ? ['monthlyQueryVersion','insuranceQueryStart','insuranceQueryEnd','billingQueryMonths'] : []), ...(certificateReady ? ['certificateQueryVersion','certificateQueryMonths','certificatePendingMonth'] : []), ...(billingReady ? ['billingQueryVersion','billingPendingMonth'] : [])]
+      const required = [...(monthlyReady ? ['monthlyQueryVersion','insuranceQueryStart','insuranceQueryEnd','billingQueryMonths'] : []), ...(certificateReady ? ['certificateQueryVersion','certificateQueryMonths','certificatePendingMonth'] : []), ...(billingReady ? ['billingQueryVersion','billingPendingMonth'] : []), ...(insuranceReportReady ? ['insuranceReportedQueryVersion','insuranceReportedQueryMonths'] : [])]
       if (required.some(key=>JSON.stringify(value[key]) !== JSON.stringify(expected[key]))) throw new RecoveryError('Monthly query projections require reconciliation before recovery publication.')
       if (!['draft','active','cancelled'].includes(value.status) || !companies.has(value.constructionCompanyId)
         || value.branchId && branches.get(value.branchId) !== value.constructionCompanyId || value.warrantyNumber && !groups.has(value.groupId)) throw new RecoveryError('Restored property references or lifecycle require verification.')

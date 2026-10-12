@@ -11,3 +11,6 @@ export function insuranceReportingCandidates(row:Record<string,any>):InsurancePe
 export function periodReportSelection(row:Record<string,any>,month:string):{kind:string;target:Record<string,any>|null}
 export function periodMonthlyRange(row:Record<string,any>):{insuranceQueryStart:string;insuranceQueryEnd:string}
 export function insuranceNoticeExpiry(row:Record<string,any>):string
+export function confirmedInsuranceReportRows(row:Record<string,any>):Array<Record<string,any>>
+export function insuranceReportedQueryProjection(row:Record<string,any>):{insuranceReportedQueryVersion:number;insuranceReportedQueryMonths:string[]}
+export function insuranceMonthlyRows(rows:Array<Record<string,any>>,month:string,options?:{includeDone?:boolean}):{rows:Array<Record<string,any>>;unclassifiedCount:number}

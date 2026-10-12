@@ -1,5 +1,5 @@
 import { calculateExpiryDate, calculateExtensionStartDate } from './warranty.mjs'
-import { activeInsuranceReports, warrantyTransactions } from './property-warranty.mjs'
+import { activeInsuranceReports, insuranceReportKind, insuranceReportTarget, warrantyTransactions } from './property-warranty.mjs'
 
 export const INSURANCE_STATE_VERSION = 1
 export const INSURANCE_OPERATION_PROTOCOL = 1
@@ -162,4 +162,59 @@ export function insuranceNoticeExpiry(row) {
   if (!target || target.startDate === row.handoverDate) return ''
   const date = new Date(`${target.startDate}T00:00:00Z`); date.setUTCDate(date.getUTCDate() - 1)
   return date.toISOString().slice(0,10)
+}
+
+function reportingBasisMonth(row, kind, startDate) {
+  if (kind === 'new') return validDate(row.handoverDate) ? row.handoverDate.slice(0,7) : ''
+  if (kind !== 'renewal' || !validDate(startDate) || startDate === '0001-01-01') return ''
+  const previous = new Date(`${startDate}T00:00:00Z`)
+  previous.setUTCDate(previous.getUTCDate() - 1)
+  return previous.toISOString().slice(0,7)
+}
+
+// Re-output uses saved report kind and exact period identity, never the current
+// next-report candidate or the month in which an operator marked it reported.
+export function confirmedInsuranceReportRows(row) {
+  if (row.status !== 'active') return []
+  const reports = activeInsuranceReports(row), periods = insurancePeriodStates(row), warranties = warrantyTransactions(row)
+  let expected
+  try { expected = skeleton(row,row.insuranceBasisRevision ?? 1) } catch { return [] }
+  return periods.filter(period => period.state === 'reported').flatMap(period => {
+    const shape = expected.find(value=>value.id===period.id)
+    if (!shape || ['warrantyPeriodId','basisRevision','half','startDate','expiryDate'].some(key=>period[key]!==shape[key]) || periods.filter(value=>value.id===period.id).length!==1) return []
+    if (typeof period.reportId !== 'string' || !period.reportId || reports.filter(report=>report.requestId===period.reportId).length!==1) return []
+    if (activeInsuranceWaivers(row).some(waiver=>waiver.periodId===period.id)) return []
+    const matches = reports.filter(report => matching(report,period))
+    const report = matches[0], warranty = warranties.find(value => value.id === period.warrantyPeriodId)
+    if (matches.length !== 1 || report.requestId !== period.reportId || !warranty?.identifiable || !validDate(period.startDate) || !validDate(period.expiryDate)) return []
+    if (report.insurancePeriodId !== undefined && report.insurancePeriodId !== period.id) return []
+    const reportBasisMonth = reportingBasisMonth(row, report.reportKind, period.startDate)
+    if (!reportBasisMonth) return []
+    return [{...row, reportState:'reported', reportId:report.requestId, reportKind:report.reportKind, reportBasisMonth,
+      reportTarget:{insurancePeriodId:period.id,warrantyPeriodId:warranty.id,warrantyPeriodLabel:warranty.label,warrantyStartDate:warranty.startDate,warrantyExpiryDate:warranty.expiryDate,startDate:period.startDate,expiryDate:period.expiryDate}}]
+  })
+}
+
+export function insuranceReportedQueryProjection(row) {
+  return {insuranceReportedQueryVersion:1,insuranceReportedQueryMonths:[...new Set(confirmedInsuranceReportRows(row).map(value=>value.reportBasisMonth))].sort()}
+}
+
+export function insuranceMonthlyRows(rows, month, {includeDone=false}={}) {
+  let unclassifiedCount = 0
+  const result = rows.flatMap(row => {
+    if (row.status !== 'active') return []
+    const kind = row.insuranceNeedsReview ? 'review' : insuranceReportKind(row,month)
+    const target = kind && kind !== 'review' ? insuranceReportTarget(row,month) : null
+    const reportKind = kind && !target ? 'review' : kind
+    const reportBasisMonth = target ? reportingBasisMonth(row,kind.replace(/^past-/,''),target.startDate) : ''
+    const confirmed = includeDone ? confirmedInsuranceReportRows(row) : []
+    // Count unclassifiable candidate properties, not all unknown records in the database.
+    const unknownReport = includeDone && activeInsuranceReports(row).some(report => !confirmed.some(value=>value.reportId===report.requestId))
+    if (includeDone && (reportKind === 'review' || unknownReport || target && !reportBasisMonth)) unclassifiedCount++
+    const pending = reportKind && (!includeDone || target && reportBasisMonth === month)
+      ? [{...row,reportKind,reportTarget:target,reportState:reportKind === 'review' ? 'review' : 'pending',...(reportBasisMonth ? {reportBasisMonth} : {})}]
+      : []
+    return [...pending,...confirmed.filter(value=>value.reportBasisMonth === month)]
+  })
+  return {rows:result,unclassifiedCount}
 }
