@@ -23,8 +23,8 @@
     <div class="business-selection-bar">
     <v-checkbox :model-value="allSelected" label="全ページの対象を選択" :disabled="working || dirty || !rows.length" hide-details @update:model-value="selectAll" />
     <div class="d-flex flex-wrap ga-2">
-      <v-btn variant="outlined" :disabled="!selectedRows.length || working || dirty || !referencesReady" @click="download">選択した{{ selectedRows.length }}期間をCSV出力</v-btn>
-      <v-btn v-if="!readOnly" variant="flat" color="primary" :disabled="!pendingRows.length || working || dirty" @click="confirm=true">{{ billing ? `${pendingLabel}${pendingRows.length}期間を${doneLabel}にする` : '発行済みにする' }}</v-btn>
+      <v-btn variant="outlined" :disabled="!selectedRows.length || working || dirty || !referencesReady" @click="download">CSV出力</v-btn>
+      <v-btn v-if="!readOnly" variant="flat" color="primary" :disabled="!pendingRows.length || working || dirty" @click="confirm=true">{{ doneLabel }}にする</v-btn>
     </div>
     </div>
     <v-table class="business-list-table" density="compact" fixed-header><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
