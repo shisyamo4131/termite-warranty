@@ -14,7 +14,6 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
-| HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | HS確認待ち。保険報告・請求・保証書CSVで、指定月より前の未処理分を含める運用と「済みも含める」の対象範囲を再確認。変更案は未採用・未実装、現行仕様を維持 | House Solution |
 | HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | 診断はDev実受信済み。サービス切替なしで観測継続と決定。通信失敗の原因は未特定 | Project owner / Project |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 月次自動取得・検証・公開・失敗通知を検討。方式未採用／設定未実行 | Project owner |
 | HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 保証グループ別・当月以前の未請求抽出はDev反映済み。10/12に1グループ1請求先8項目をオーナーがDev検証し受入れOK。11列CSV維持。グループ間自動合算は追加せず、請求書本体等は後発 | Project / House Solution |
@@ -35,6 +34,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
+| HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | 2026-10-12 | Project owner | 指定月の前月を基準に、通常は過去を含む未処理、済みを含める時は前月だけの未処理・処理済みを採用。チェック時は過去未処理も除外。確定仕様反映・未実装。HSからの別途回答とは区別 |
 | HSC-006 | [ダッシュボードの仕様整理](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-10 | Project owner | Q30で詳細設計を確定し、後続承認でDev導入済み。追加指示で保険期間を古い順へ変更し、一覧選択の余白を除去。検証・受入はロードマップDB-04〜06 |
 | HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-07 | House Solution / Project owner | 物件名に統合、6b2573dでDev反映・移行済み |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | 2026-10-08 | Project owner | Firestore採用確定。ADR0038。Dev計測は別作業 |
