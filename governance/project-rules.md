@@ -7,7 +7,7 @@
 
 ## Project and Current Scope
 
-The project is for House Solution Co., Ltd. and its termite-warranty operations. The repository remains in requirements discovery; only the facts recorded in `docs/specification.md` and `docs/requirements/` are confirmed. Implementation scope is intentionally open until explicitly approved.
+The project is for House Solution Co., Ltd. and its termite-warranty operations. Confirmed requirements and approved implementation scope are recorded in `docs/specification.md` and `docs/requirements/`; current delivery status and remaining work are recorded in `docs/roadmaps/`, with implemented operations and verification evidence in `docs/operations.md`. Follow those task-routed authorities instead of treating an earlier discovery phase as the current state. Additional implementation scope still requires explicit approval.
 
 ## Required Reading and Sources of Truth
 
@@ -88,6 +88,17 @@ Customer and home-related information is expected to be handled, but its exact f
 - メール送信・投稿・外部資料編集・購入・配備・権限変更・破壊的操作等は、その操作と対象を含む明示承認が必要。既に承認された対象・範囲を重ねて質問せず、範囲外・対象不明・承認不足の操作だけを止める。その他のネットワーク利用は別途承認を要する。
 
 ## Project-specific Implementation and Verification
+
+### 検証データ・採番変更を実運用へ残さない
+
+2026-10-10のオーナー指示により、次を検証の準備・実施・完了条件とする。実運用に使うデータを取り込んだDevも対象に含む。
+
+- 更新・採番を伴う検証は、原則としてLocal／エミュレーター等の隔離した検証環境と架空データで行う。実運用データや共用の採番管理を、検証の都合で消費・変更しない。
+- 実データのあるDev等で更新検証が必要な場合は、開始前に対象環境、検証専用レコードの識別方法、関連記録、検証前の実データ・採番値、終了後の削除／復元方法、競合時の停止条件を確定する。外部書込み・物理削除・採番復元について既存の承認が対象と範囲を満たすことも確認する。安全に後片付けできない検証は開始せず、隔離環境で代替する。この規則自体は実データの削除や無制限の番号巻戻しを許可しない。
+- 検証終了時は、検証専用物件だけでなく、それに由来する操作記録・番号予約・外部キー予約・関連データ・業務設定変更も確認し、承認範囲内で除去／復元する。「取消済み」「無効」「非表示」にしただけで、検証データや検証による番号消費を実運用へ残して完了としない。検証の証跡は機密値を含めず運用記録へ残し、業務データに代用させない。
+- 採番の復元前に、検証後の実業務登録・同時更新・番号の外部利用・他レコードからの参照がないことを確認する。検証だけが原因の変更と証明できる範囲に限って、関連記録の削除と採番復元を一括確定する等、競合を防ぐ。実業務の番号を再利用したり、最新の採番値を検証前の値で無条件に上書きしたりしない。不明・競合があれば復元を止め、残存影響と必要な判断を報告する。
+- 検証用レコード・番号・予約を、原資料、正式な取込み入力、初期値、再取込み計画へ混入させない。同じ確定原資料の再取込みでは、検証前に確認した採番開始値になることを計画の再生成で検証する。原資料や実業務記録が変わった場合は、その正しい番号を優先して再照合し、過去の開始値を強制しない。
+- 完了報告前に、検証対象と関連記録の残存なし、実データの不変または承認された復元、採番の次番号、再取込み時の開始値を読取りで再確認し、方法・結果・残件を既存の運用記録へ保存する。再確認のために実番号をもう一度消費しない。後片付けと照合が終わるまで検証全体を完了扱いにしない。
 
 The approved prototype stack is a Nuxt SPA with Vuetify, Firebase Hosting, Firestore with application-maintained N-Gram search indexes, Firebase Authentication email/password sign-in using browser-session persistence, and Cloud Functions for Firebase for Firebase Admin SDK account management. Exact local-prototype dependency versions are authoritative in `package.json` and `package-lock.json`; do not infer real Firebase project IDs, deployment configuration, production dependency promotion, or production database selection from them. Local verification uses only the fictional `demo-termite-warranty` identifier and required emulators. Firestore access has one bounded authorization exception: the signed-in account must be enabled, so immediate account disable is enforceable. PostgreSQL may replace Firestore only through a recorded architecture decision and an updated schema/migration assessment. The dependency-free domain slice is verified with `npm test`; additional runtime and integration commands become confirmed only after successful local execution and policy registration. Use the project-owned policy as the machine-readable source; classify impact before work. Governance scaffolding, migration, local contract/tool changes, effective permission/agent-policy, and release/deploy work require comprehensive validation. Owner-approved reference-target clarification alone follows `project-guidance-metadata` in the policy when capability, approval/safety boundaries, executable configuration, and verification behavior are unchanged; mixed or uncertain impact keeps the broader gates. Record each selected command and exit status independently; never use status-masking command chains as completion evidence.
 

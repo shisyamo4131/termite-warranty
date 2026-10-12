@@ -35,7 +35,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
-| HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | 2026-10-12 | Project owner | 指定月の前月を基準に、通常は過去を含む未処理、済みを含める時は前月だけの未処理・処理済みを採用。チェック時は過去未処理も除外。確定仕様反映・未実装。HSからの別途回答とは区別 |
+| HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | 2026-10-12 | Project owner | 指定月の前月を基準に、通常は過去を含む未処理、済みを含める時は前月だけの未処理・処理済みを採用。チェック時は過去未処理も除外。確定仕様・実装・検証・Dev反映済み。ブラウザ操作確認は未実施。HSからの別途回答とは区別 |
 | HSC-006 | [ダッシュボードの仕様整理](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-10 | Project owner | Q30で詳細設計を確定し、後続承認でDev導入済み。追加指示で保険期間を古い順へ変更し、一覧選択の余白を除去。検証・受入はロードマップDB-04〜06 |
 | HSC-039 | [物件名と施主名の関係](house-solution-confirmations/HSC-039-property-homeowner-name.md) | 2026-10-07 | House Solution / Project owner | 物件名に統合、6b2573dでDev反映・移行済み |
 | HSC-022 | [Production database selection](house-solution-confirmations/HSC-022-production-database-selection.md) | 2026-10-08 | Project owner | Firestore採用確定。ADR0038。Dev計測は別作業 |

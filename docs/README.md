@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [HS会社設定・保証グループ請求先・保証書CSVの確定設計](design/company-settings-and-document-csv.md)：自社10項目＋振込先5項目・編集ダイアログ、請求先8項目、共通21列と年月日分割、再取込み時の保全。請求先はDev受入れOK。自社情報の表示は「分類カード」を採用。[検証・Dev反映記録](operations.md)。
+
 - [ダッシュボード検討・実装ロードマップ](roadmaps/dashboard.md)：質疑による指標定義から集計設計・検証・受入まで。[詳細設計](design/dashboard.md)はQ30で確定。実装・Local検証・Dev導入済み。ログイン後の操作確認・業務受入は残る。
 
 - [UH加盟店コードの確認用PDF](../deliverables/uh-code-review-2026-10-09/README.md)：コード昇順で全重複50組100行を掲載した5ページの一覧。修正順序・状況判断はHSに委ねる。10月9日送付済みの当時の重複一覧。修正後のコード重複は解消、所属の残件は受領資料台帳を参照。
@@ -7,12 +9,12 @@
 - [過去物件取込みの確認資料](../deliverables/historical-intake-review-2026-10-09/README.md)：回答前の5ページPDF・回答用Googleフォームと回答後の状態。HSC2件・SHS3件は確定、UH追加一覧の重複と所属対応等は継続確認。
 - [過去物件取込みロードマップ](roadmaps/historical-property-intake.md)：資料確定から一括処理・再取込み・Dev検証・HS試験までの工程と完了条件。
 
-- [過去物件のDev初期化・一括取込み準備](runbooks/historical-property-intake.md)：10月9日受領442件の点検、不足事項、再実行手順。取込みは未実施。
+- [過去物件のDev初期化・一括取込み](runbooks/historical-property-intake.md)：442件の取込み・全件照合・通常再開・開発検証済み。実行結果、検証物件の削除と次番号100への訂正、次のHS試験運用。
 
-- [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・仮6列・保存／導入契約。
+- [保証書CSV・期間別発行管理](design/warranty-certificates.md)：月別抽出・保存／導入契約と、採用済み共通21列への実装。旧仮6列の経緯は区別して保持。
 
 - [Dev／Prod環境設定・権限仕様](requirements/environment-configuration.md)：実設定と構築時の照合条件。
-- [保険／請求の月別取得・移行](design/monthly-queries.md)：月条件、検索用項目、まとめ読み。
+- [保険／請求の月別取得・移行](design/monthly-queries.md)：HSC-042の前月基準・処理済み表示、検索用項目の限定補完、互換性・差戻し手順。保証書を含む3一覧の共通設計。
 
 - [Prod準備・Dev容量／検索／CSV実測（2026-10-08）](design/evidence/prod-readiness-2026-10-08.md)
 
@@ -84,7 +86,7 @@ For project-specific verification or operations, select the applicable procedure
 | Work type | Required documents | Additional implementation or evidence |
 | --- | --- | --- |
 | Delegate or act on package, repository, environment, deploy, or data identifiers | Authoritative specification, manifest, data contract, release evidence, or operations source | Verify exact source/location/command and value in the current turn; stop on mismatch before state change |
-| Select validation for a daily change | [検証方針JSON](../governance/verification-policy.json)、[検証の進め方](operations.md#検証の進め方)と同書の検証マトリクス | 変更分類から必須ゲートを選び、[証拠の有効性](operations.md#evidence-validity-and-retry)で今回実行・有効証拠再利用・未充足を判定。[記録先](operations.md#検証結果と文書の記録先)に結果と省略理由をまとめる |
+| Select validation for a daily change or Dev deployment | [検証方針JSON](../governance/verification-policy.json)、[目的別・変更別判断と現行ツールの制約](operations.md#dev反映で確認する目的と範囲)、[検証の進め方](operations.md#検証の進め方) | 実差分・依存・配備対象から必要ゲートを選び、[証拠の有効性](operations.md#evidence-validity-and-retry)で今回実行・再利用・未充足を判定。データ移行と成果物／環境照合を区別し、理由を[既存記録](operations.md#検証結果と文書の記録先)へ残す |
 | Plan or report the 2026 delivery | `docs/specification.md`, `docs/requirements/delivery-and-technology.md`, and `docs/roadmaps/2026-initial-delivery.md` | Record only verified progress; revise milestone scope, evidence, and risks together when the plan changes |
 | バックアップ・復旧の作業／残件確認 | [操作手順](runbooks/backup-recovery.md)の現在の例外と該当手順、[検証／実行記録](design/evidence/recovery-implementation-2026-10-06.md)の対象版・実行分 | 設計変更時は[設計索引](design/README.md)から該当設計・仕様へ進む。過去の成功記録と現在の復元可能性を区別する |
 | 共通CSV取込み・住所統合・外部キーの作業／受入確認 | [共通設計](design/property-bulk-import.md)、[検証／Dev実行記録](design/evidence/common-import-address-2026-10-07.md)の該当箇所 | 資料の再照合は[受領資料台帳](requirements/source-materials.md)の既存結果と資料の更新を確認。UH固有の検討は[入口](design/uh-integration-proposal-2026-10-06.md)から該当論点へ進む |

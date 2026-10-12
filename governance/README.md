@@ -30,7 +30,8 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Delivery milestones and verified progress | [2026 initial-delivery roadmap](../docs/roadmaps/2026-initial-delivery.md) |
 | Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |
 | Shared alert and input design, including future screens | [Clear Sky theme](../docs/design/clear-sky-theme.md) and [project rules](project-rules.md#shared-ui-design-rules) |
-| Verification policy | [verification-policy.json](verification-policy.json) and [operations](../docs/operations.md) |
+| Verification selection and evidence reuse | [verification-policy.json](verification-policy.json), [Dev反映の目的別・変更別判断／現行ツールの制約](../docs/operations.md#dev反映で確認する目的と範囲), and [evidence validity / retry](../docs/operations.md#evidence-validity-and-retry); selecting the comprehensive gates does not itself require rerunning every command |
+| 検証データ・採番変更の隔離と後片付け | [project rules](project-rules.md#検証データ採番変更を実運用へ残さない) |
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
 | User-authored UI component collaboration | [custom UI component runbook](../docs/runbooks/custom-ui-component-collaboration.md) and [decision 0021](../docs/decisions/0021-user-authored-ui-component-collaboration.md) |
 

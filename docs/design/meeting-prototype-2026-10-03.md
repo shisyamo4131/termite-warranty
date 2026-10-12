@@ -1,5 +1,25 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-12 報告済み保険の月別検索用保存契約
+
+HSC-042の実装に伴い、物件へ `insuranceReportedQueryVersion:1` と `insuranceReportedQueryMonths:string[]` を追加する。報告イベント・保険期間の対応を確認できる有効な報告済み対象月だけを重複なく昇順保存し、対象なしは空配列。報告種別newは引渡月、renewalは対象期間開始日前日の月を使い、実際の操作月は使わない。既存履歴の書換え・不明状態の補完はしない。
+
+新しい準備印は `prototypeSettings/insuranceReportQueries.version`。補完中0、全件照合後1。既存月別投影のversionを上げず、準備印のない旧像では新しい処理済み表示だけを閉じる。新準備印がversion=1の復元では追加値の一致を検査する。通常の業務保存・各取込みは共通計算で同時更新する。保存の詳細・限定移行・差戻しは[月別取得設計](monthly-queries.md#2026-10-12-実装設計と導入手順)、実施済みかどうかは[運用記録](../operations.md)を参照。
+
+## 2026-10-12 自社情報・請求先の追加保存契約
+
+同日の追加指示で、自社情報に文字列 `bankName`（金融機関名）、`bankBranchName`（支店名）、`bankAccountType`（預金種別）、`bankAccountNumber`（口座番号）、`bankAccountHolder`（口座名義）を追加する。1口座・全任意、通常の文字列上限と制御文字禁止を適用。口座番号は半角数字のみで先頭ゼロを保持する。旧保存で指定しなかった銀行項目は取引内で既存値を維持し、明示空欄で消去。取得・保存の返却は既存10項目と追加5項目・更新情報だけを返す。再取込みの文書全体保全と通常復旧に含む。既存データの書換えや実口座値の自動投入は不要。
+
+[確定設計](company-settings-and-document-csv.md)を実装。`prototypeSettings/companyProfile` は会社情報1件。文字列 `companyName`、`postalCode`、`address1`、`address2`、`telephone`、`fax`、`invoiceRegistrationNumber`、`representativeName`、`representativeTitle`、`email` と、保存側の `updatedAt:Timestamp`、`updatedBy:UID`、`updatedByName:string` を持つ。会社名のみ必須、任意値の空欄は空文字。郵便番号は7桁、電話/FAXは半角数字・ハイフン、登録番号はT＋13桁の形式を確認する。連絡先の実在・登録の有効性は判定しない。
+
+`propertyPrototype` の `companyProfile` でHSが参照し、`saveCompanyProfile {profile}` で開発者・HS管理者が保存する。返却の更新日時はISO文字列または未設定null。未登録は空欄、同時編集は最後の保存を採用。復旧の確認段階では許可された管理者の参照だけを許可する。既存の直接DB書込みに関する境界は変えない。工務店には取得操作を公開しない。
+
+`warrantyGroups/{id}.billingRecipient` に `name`、`department`、`contactPerson`、`postalCode`、`address1`、`address2`、`telephone`、`email` の文字列8項目を保存する。全空欄・部分入力を許容。旧更新でまとまり全体を省略したときは保持し、個別項目の省略も保持、明示空文字で消去する。工務店のcatalogは既存の公開必要項目だけを返し、請求先や将来の未公開項目を丸ごと返さない。
+
+通常復旧では両設定も復旧時点へ戻す。過去物件の再取込みは `preservedBusinessSettings` の型付き保全像を入力に含め、計画・開始時・中断再開・完了時に照合する。グループは固定IDと変更不可の接頭辞・年度開始月で対応付け、名前一致による推測、不明ID、重複、不一致は停止する。会社情報の更新日時・更新者を保持し、取込み実行者で上書きしない。`_recovery/historicalIntake.settingsHash` も完了証跡に含む。[操作手順](../runbooks/historical-property-intake.md)。
+
+既存データへの一括書換えは不要。実装の検証・Dev導入状況は[運用記録](../operations.md)を参照する。
+
 ## 2026-10-10 初期過去物件の出典・投入契約
 
 専用初期投入は通常の増分CSVとは分離する。`propertyWarranties`のIDは保証グループと既存保証番号から決定し、`historicalIntakeSource`にworkbookId、sourceSha256、transformVersion、sheet、元row、rowHash、operationIdを保持する。HSC／SHSに架空の外部キーや通常CSV用receivedRecordIdを付けない。UHは既存契約NoとexternalKeyReservationsを保持する。通常編集では出典を引き継ぎ、原資料の差替えは別の検証済み再取込みとする。

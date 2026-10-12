@@ -1,5 +1,279 @@
 # Operations
 
+## 2026-10-12 月別3一覧の実装・Dev導入
+
+オーナーがHSC-042の実装・検証・Dev反映を承認。主担当は設計・レビュー・文書、Medium担当がサーバー／画面の独立実装・試験・配備を行う。[実装設計](design/monthly-queries.md#2026-10-12-実装設計と導入手順)と[保存契約](design/meeting-prototype-2026-10-03.md#2026-10-12-報告済み保険の月別検索用保存契約)を追加。実装・包括検証・Dev反映・公開版照合を完了。ブラウザ操作確認は未実施。開始時の基準HEADは `cf7395440b0c76a46156aaa151ce500b51c467cc`。
+
+変更分類は文書・画面・業務処理・保存契約／移行・配備の和集合。包括7ゲートと対象の期間／状態／移行回帰を実施する。検証実行・結果・終了コードは完了後に記録する。最大保証期間の調査は別件で[HSC-043](requirements/house-solution-confirmations/HSC-043-group-warranty-year-limit.md)へ記録した。グループ設定や保証年数の変更は実装対象外。
+
+事前読取は `node tmp/company-settings-release-target.mjs`、`node scripts/default-recovery.mjs observe --project termite-warranty-dev --control recovery-control --revision cf7395440b0c76a46156aaa151ce500b51c467cc --dev-inspect`、`node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control` の各終了0。normal世代13・protocol2・処理中なし。Hostingは `sites/termite-warranty-dev/versions/976cc72545bf2e05`、Functions21 ACTIVEで前回正式照合版と一致。業務777文書・物件442・保持スタッフ3・HSC次番号100。追加投影の補完を行うため全業務hashそのものの不変は完了条件とせず、追加値と準備印を除いた業務値・アカウント・所属・採番・履歴の不変を照合する。Devでの検証物件の追加・採番操作・通常利用停止は行わない。
+
+既存の他件文書差分を保持。新しい恒久的構成判断はなくADR・ガバナンス変更は不要。影響する仕様・要件・設計／保存契約・運用・変更履歴・利用説明・ロードマップだけを整合させ、進捗の数値加点はしない。新規要検討事項は正規索引に登録する。配備の差戻しは設計の準備印閉鎖と旧版配備に従う。
+
+独立レビューで、保存済みの保険期間IDの矛盾と、同じ期間への別IDによる重複報告を処理済みとして扱う穴を検出。対象期間の実形状・識別子・有効報告の一意性・報告不要との非重複を検査する修正と回帰試験を追加した。IDを持たない旧記録の互換は維持する。修正後の読取再レビューは阻害なし。UIの月変換・選択解除・未処理限定更新・読取専用境界も独立レビューで阻害なし。
+
+ブラウザ確認はChromeとIABの接続がともに利用不可。再確認時の一覧も空で、IABへのLocalタブ作成は利用不可の応答だった。画面描画・実ダウンロードは未確認として保持する。LocalはHTTP 200を確認し、正式検証のため所有者がNuxtだけ停止した（意図的中断の終了1）。専用ポート解放とAuth／Firestore／Functionsの継続稼働確認は終了0、既存架空データは保持。
+
+補完前の追加値除外比較は `node tmp/monthly-business-baseline.mjs` 終了0。物件442件の追加2項目と新準備印は全て未存在。追加2項目と正確な準備印1文書だけを除外した業務集合hashは元の集合hashと一致。本文はメモリ内だけで扱い、ignored証跡には件数・照合値だけを保存した。補完後も同じ除外規則で比較する。
+
+最終ソースの新規検証：`npx --offline npm@11.19.1 test` は415成功・2スキップ（既存Windows symlink制約）・失敗0、終了0。同 `run typecheck`、同 `run build`（9ルート）、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` は各終了0。追加UI回帰 `node --test test/list-undo-ui.test.mjs test/insurance-period-display.test.mjs` は9成功・失敗／スキップ0、終了0。`pwsh -NoProfile -File scripts/check-governance.ps1` と `git diff --check` も終了0（後続文書更新後のgovernanceは再実行する）。検証前後のruntime286ファイルのhash一致。
+
+同 `run test:rules` の初回は終了1。既存LocalのAuthポート使用中により起動前に停止し、試験は未実行。既存プロセスを検証runnerから停止したり、固定ポートのガードを緩めたりしていない。包括ゲート未完了・Dev未反映として、別管理のLocal保全手順を確認する。
+
+Local保全の事前確認として全Firestore／Authを読み、本文を出さず照合値を作る操作は、自動承認レビューに拒否された。理由は、全件アクセスについて具体的な対象・範囲への承認が確認できないこと。拒否された操作は実行されていない。別経路で迂回せず、オーナーへこのプロジェクトのLocal業務DB・動作設定用DB・ログイン用アカウントのPC内退避、一時停止、試験後の復帰と照合を明示した。2026-10-12、保全が必要な理由の説明後にオーナーが「退避を許可します」と承認。退避と完全性の確認ができるまでデータ保持中のエミュレーターは停止しない。CLIソース上、標準Firestore退避の要求先は(default)であり、別の動作設定用DBを含む完全保全を推測で保証しない。Devの実データはこの退避の対象外。実行結果は後続で記録する。
+
+Local保全実行：`demo-termite-warranty` の(default)15文書、test-fixed-control 1文書、Auth 1アカウント・tenant 0を、ignored `tmp/local-preserve-monthly-20261012-01` へ退避した。型付き全階層退避と標準exportを併用し、再読取りの全内容hash、退避ファイルhash、標準export全6ファイルのhash一致を確認。helper構文・snapshot・標準export・export照合・disk hash・再読取り照合は各終了0。本人限定ACLの設定時にprivilege警告と終了1があったが、独立した全16entryのACL読取りでは他ユーザー許可なしを確認、終了0。データ本文・アカウント情報は追跡文書へ記録しない。
+
+確認後、所有sessionだけをCtrl+Cで停止（意図的終了1）。停止後検査は終了0で、専用8ポート解放と所有Nuxt／Firebase／Javaプロセスの終了を確認。試験runnerが既存Localを強制停止したものではない。復帰・復帰後照合は未実施。Authのアカウント値は保全対象だが、既存ブラウザのログイン継続は保証しない。
+
+退避後のRules試験初回は174成功・1失敗・skip 0、終了1。追加した保険報告検索の復元互換試験で、架空物件が参照する本支店を専用DBに作成していなかったため、既存の参照整合検査により拒否された。実装の検査を緩めず、試験データだけを補完して再実行する。runner終了後の専用8ポート解放確認は終了0。成功扱いにせず、Dev配備は保留を維持する。
+
+試験データの本支店作成1行だけを追加し、主担当がレビュー。Rules再実行は175成功・失敗／skip 0、終了0（shared 173、isolated-import 2、各worker終了0）。報告済み検索・限定移行・旧復元像の互換・新準備印の破損拒否まで確認した。runner正常停止と独立した全8ポート解放確認も終了0。最終286ファイルの比較差は当該試験1ファイルだけで、他の成功ゲートの失効条件に該当しないため再利用する。証拠はignored `tmp/monthly-final-rules-retry2.log` と `tmp/monthly-final-source-hashes-rules-final.json`。アプリ側の整合検査・承認境界は変更していない。
+
+レビュー済み実装23ファイルを `19adab6cd04cb2aad8200f3310ff8d0000e47430` に記録し、runtime対象の未記録差分なしを確認。文書更新後のgovernanceと差分検査は各終了0。既存の他件文書差分は保持する。Dev導入はこの版を対象に、実環境の再読取りと設計上の順序で開始する。配備完了・Local復帰完了の証拠は後続記録と区別する。
+
+Local復帰の途中確認：標準importで業務DBの全型付き値は一致したが、Authの全値hashは一致せず、追加の制御DB復元前に停止した（restore-control終了1）。差はlastRefreshAt、passwordUpdatedAt、validSince、disabledの4項目。主担当が使用中Firebase CLIの `lib/emulator/auth/index.js` と `operations.js` を確認し、標準importは更新時刻・トークン有効化時刻を取込み時刻へ置換し、lastRefreshAtをコピーせず、disabledをboolean化することを確認した。
+
+Authへ時刻の書戻しは行わない。元の全値hash不一致は保持し、差が上記の仕様どおりであること、取込み時刻との整合、その他のアカウント全値・設定・tenant集合の一致を別途確認する。物件／制御DBは従来どおり全型付き業務値の完全一致を要求する。これは既存ログインの継続を保証しない当初の復帰範囲に沿う照合で、アカウント・パスワード・権限の変更を許容するものではない。照合と復帰の完了は後続で記録する。
+
+Local元像の復帰・独立照合は完了。追加helperの構文、制御DBの空確認後create-only復帰、別コマンドでの再読取りは各終了0。業務15文書・制御1文書の全型付き値hashは原像一致。Auth 1アカウント・tenant 0は上記4項目だけの変換を確認し、disabledの未設定→false、lastRefreshAtの消失、時刻2項目の秒／ミリ秒整合と起動プロセスの実時刻範囲内を検査した。正確な取込みイベント時刻はログがなく、プロセスの起動～観測時刻による範囲確認である。他の全アカウント値・設定・tenant集合は厳密一致。Authへの追加書込みなし。Firestore自身の作成／更新メタデータは変化しており、業務フィールドの不変と区別する。元退避は保持し、新機能のLocal検索項目補完は復帰確認の後に別工程で行う。
+
+Dev導入実行（対象版 `19adab6cd04cb2aad8200f3310ff8d0000e47430`）：配備前の再読取りでnormal世代13・業務777文書／物件442／スタッフ3・HSC次番号100と前回のhash一致を確認した。以下は各終了0。
+
+| 操作 | 結果 |
+| --- | --- |
+| `npx --offline npm@11.19.1 run build:recovery-release -- --revision 19adab6cd04cb2aad8200f3310ff8d0000e47430` | 正式な公開成果物生成 |
+| `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only firestore:indexes --non-interactive` | 必要索引を配備。初回は作成中、後続読取で20設定すべてREADY・一致 |
+| 同CLI `deploy --project termite-warranty-dev --only functions --non-interactive` | Functions反映。正式functionsReleaseProofにより21関数・21ソースarchiveと最新traffic一致 |
+| `node scripts/default-recovery.mjs observe --project termite-warranty-dev --control recovery-control --revision 19adab6cd04cb2aad8200f3310ff8d0000e47430 --dev-inspect` | 配備完了の観測から314秒経過後、normal13・処理中なし |
+| `node scripts/insurance-report-query-migration.mjs --project termite-warranty-dev` | 補完前442件要追加、適用後の再調査は要追加0件 |
+| 同移行CLI `--project termite-warranty-dev --apply --writers-drained --generation 13 --revision 19adab6cd04cb2aad8200f3310ff8d0000e47430` | 442件へ新2項目だけ補完、新準備印version=1 |
+| `node tmp/monthly-query-live-check.mjs` | 基準月2025-12／2026-01／09／10／11×処理済みOFF／ON。請求・保証書は有効3グループ。計70条件で実検索の対象集合と全物件から業務判定した期待集合が一致。画面操作や実CSVダウンロードの証拠とは区別 |
+| 同Firebase CLI `deploy --project termite-warranty-dev --only hosting --non-interactive` | 新公開版 `sites/termite-warranty-dev/versions/b65719c70e30d2d2` |
+
+前後比較は `node tmp/monthly-business-baseline.mjs`、`node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control`、`node tmp/company-settings-release-target.mjs` と照合処理で各終了0。新2項目と新準備印だけを除いた全業務hash・アカウントhash・所属hashは一致、HSC次番号100。新準備印1文書分で業務文書は777→778（スタッフ込み780→781）、物件442は不変。保険報告・請求・発行履歴、業務revision・更新日時、採番を変更していない。Devに検証データは追加していない。公開ファイルの最終正式照合は別途後続記録で判定する。
+
+最終正式照合：`node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 19adab6cd04cb2aad8200f3310ff8d0000e47430 --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/976cc72545bf2e05 --dev-inspect` は初回終了0・全10項目pass。normal世代13、2DBの所在地・Rules、処理中0・lockなし、20索引READY、Functions21ソース、Hosting1,005ファイルの一致を確認。`ready:false` は読取検査が更新許可を発行しない意味であり、失敗ではない。Hosting件数は初回未掲載だったが、30秒待機後に実値1,005と全内容一致を確認してから正式照合を行った。索引診断helperの初回は比較時の正規化不足／CREATINGで終了2。正式検査の規則に合わせた読取helperの修正とREADY待ち後は終了0。正式validatorの緩和・推測補完は行っていない。
+
+最終前後比較は終了0。実装286ファイルのhash変化なし、追加検索値以外の全業務・アカウント・所属hash一致、物件442・スタッフ3・HSC次番号100を再確認。IAM・Auth・バックアップ・保守モード・Prod・ガバナンス設定の変更なし。差戻しは未実行。設計に従い、新準備印を0へ閉じてからレビュー済み旧Hosting／Functionsへ戻し、再導入時に補完・照合する。
+
+確定実装23ファイルは当該コミットの一覧を正本とする。画面2ファイル、`functions/property-warranty.js`、`firestore.indexes.json`、保険／請求／保証書／月変換のdomain 8ファイル、移行・復旧・取込み・seedのscripts 5ファイル、関係test 6ファイル。仕様・要件・設計／保存契約・移行／復旧手順・環境仕様・変更履歴・利用説明・ロードマップ・HSC-042を更新した。最大保証期間は別のHSC-043に記録済みで制御変更なし。既存の他件文書差分は保持し、アプリ対象の未記録差分はない。
+
+残る制約：検証担当からブラウザproviderを利用できず、既存タブへの明示接続も失敗した。主担当ではIABの存在を観測できたが、Medium担当による実画面操作・実CSVダウンロードの今回の証拠はない。自動試験・実Firestore照合・正式配備照合を、画面受入れ完了とは扱わない。Localは元像照合後に検索用2項目と準備印だけ補完し、その他の業務・制御・Auth値不変、再調査の補完残件0を各終了0で確認した。元の退避証跡は保持する。利用者はDevを再読み込みし、指定年月の前月を対象に3一覧を確認できる。
+
+Local通常再開：Medium担当が既存エミュレーターとnormal世代1・新準備印1を再確認し、`npx --offline npm@11.19.1 run dev` でNuxtを再開。HTTP 200・配信設定のdemo project・専用loopback接続先を確認した（実runtime読取、ポート確認、HTTP／配信検査は各終了0）。Nuxt／エミュレーターは利用可能のまま稼働を維持し、seedや物件追加は行っていない。watch起動の型検査表示0 errorsは、終了コード付きの正式typecheckに代用しない。既存タブでは再読み込み・必要に応じて再ログインする。
+
+## 2026-10-12 月別3一覧の前月基準を採用（文書のみ）
+
+オーナーが指定月の前月を基準にする新方式を提示して採用。通常は前月以前の未処理、処理済みを含める場合は前月だけの未処理・処理済みで、さらに古い未処理も除外する。[確定仕様](specification.md#2026-10-12-月別3一覧の前月基準処理済み表示)と[決定記録HSC-042](requirements/house-solution-confirmations/HSC-042-monthly-list-carryover.md)を参照。新規請求の基準が申込日であることは現行の仕様・`warrantyTransactions` 実装で確認。更新・延長の基準日を変える指示はなく維持する。
+
+今回は仕様書、検索・一覧、保険報告、月別取得設計、保証書設計、利用者説明、確認事項と索引、変更履歴、本節だけを更新する。アプリ・Dev・データの変更なし。データ契約・移行・互換の詳細設計は未完了で、ロードマップの進捗加点・ADR・ガバナンス変更は行わない。文書のみの検証はgovernance-checkと差分確認をMedium担当へ依頼し、主担当がレビューする。現行公開版は下記のボタン変更版のまま。以前の「抽出案は未採用」という記録は当時の状態として区別する。
+
+## 2026-10-12 保険報告用一覧のボタン表記
+
+保証書・請求に続き、保険報告用一覧を「CSV出力」「報告済みにする」へ揃える明示指示。基準 `5f7d7eaef6630ee2538d36cab05cdae46c2c50d8`、対象は `app/components/MeetingPrototype.vue` の2文言のみ。件数表示・選択条件・CSV内容・報告処理を維持。実装・検証・Dev反映はMedium担当、レビュー・文書は主担当。検証・Dev反映・公開版正式照合まで完了。同時依頼の3一覧の抽出方法は調査・提案のみで、採用・実装と扱わない。
+
+UI・文書・配備の包括7ゲートを選択。新規実行と直前証拠の再利用は失効条件・実差分で判断する。既存Localデータ・エミュレーターを保持し、Dev業務更新・採番変更は行わない。変更文書は仕様、保険報告要件、利用者説明、変更履歴、本節。データ契約・ADR・ロードマップ・索引・ガバナンスは意味・構成・進捗の変更がなく対象外。既存差分を保持し、差戻しは直前のレビュー済みHostingを再配備する。
+
+主担当が対象行の2文言のみの変更と画面画像をレビュー。Medium担当はLocalで未選択0件時の両ボタン無効、既存架空物件1件の選択時の両ボタン有効、選択解除後の無効を確認した。件数表示も維持。対象の `git diff --check` は終了0。実ダウンロード・報告登録・データ投入は行わず、担当Nuxtだけ停止（意図的Ctrl+C終了1、専用ポート解放の確認終了0）。
+
+実装1ファイルを `6cdbd8be8885dd08e1a306f5ff7e4ea71500c43c` に記録。新規 `npx --offline npm@11.19.1 run typecheck`、同 `run build`（9ルート）、`pwsh -NoProfile -File scripts/check-governance.ps1`、`git diff --check` は各終了0。対象コンポーネントに依存する既存試験 `node --test test/property-warranty.test.mjs test/list-undo-ui.test.mjs test/warranty-organization-ui.test.mjs` は67成功・失敗／スキップ0、終了0。検証前後の対象ファイルSHA-256一致も確認。
+
+包括ゲートの残りは直前の `npx --offline npm@11.19.1 test`（408成功・2スキップ、失敗0）、同 `run test:rules`（174成功・スキップ0）、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` の各終了0を再利用。処理・保存・試験・依存・設定・実行環境・検証方針が不変で各失効対象に該当しないため。必須ゲート省略なし。governance-tools追加回帰の対象変更もなし。
+
+Medium担当のDev実行は以下すべて終了0。主担当も最終正式照合結果を確認した。
+
+- `npx --offline npm@11.19.1 run build:recovery-release -- --revision 6cdbd8be8885dd08e1a306f5ff7e4ea71500c43c`：確定公開成果物を生成。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only hosting --non-interactive`：1,003ローカルファイル配備、公開版 `sites/termite-warranty-dev/versions/976cc72545bf2e05`。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 6cdbd8be8885dd08e1a306f5ff7e4ea71500c43c --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/eec15e876477dea3 --dev-inspect`：初回全10項目pass。Hosting1,005ファイル・Functions21ソース・索引19・normal世代13・処理中／ロックなし。読取専用の `ready:false` は更新許可を付与しない意味。
+- `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control`、`node tmp/company-settings-release-target.mjs` と比較処理：前後とも業務777文書・物件442件・スタッフ3件、HSC次番号100。業務・アカウント・所属のハッシュ、Functions21の版・状態・環境設定不変。
+
+事前の `node tmp/ins-label-hosting-diagnostic.mjs` は全ファイル一致とHosting側の件数未掲載を確認。限定待機後の読取で `fileCount=1005` と全内容一致を確認してから正式照合を実施した。診断各終了0、検査緩和・値の補完・再配備なし。Functions・実業務データ・採番の更新なし。実装以外の既存差分は保持し、Devの再読込みで確認できる。
+
+## 2026-10-12 CSV一覧のボタン表記
+
+オーナー指示により、保証書CSVは「CSV出力」「発行済みにする」、請求用一覧は「CSV出力」「請求済みにする」へ統一した。共有画面のボタン表示2箇所だけが対象。件数欄・確認画面・有効条件・CSV内容・更新処理は維持。実装・検証・Dev反映はMedium担当、レビュー・文書更新は主担当が実施。基準は `7d64ec92b42fa6ae33d2fbe409d54e5d10c02819`。検証・Dev配備・公開版の正式照合は完了。
+
+UI・文書・配備の包括7ゲートを選択し、失効した型検査・ビルド・文書整合は新規実行、その他は実差分と直前の成功証拠を照合して再利用可否を判断する。Local／Devの業務データ・採番は変更しない。反映文書は仕様、保証書設計、月別請求設計、利用者説明、変更履歴、本節。データ契約・ADR・ロードマップ・索引・ガバナンスは対象の意味や構成・進捗を変更しないため更新不要。差戻しはレビュー済みの前版Hostingへ戻す。既存の他の文書差分は保持する。
+
+主担当は `app/components/WarrantyCertificateManagement.vue` の2行変更をレビューし、イベント・条件式・処理が不変であることを確認。Medium担当のLocal画面確認では、保証書は未選択で両ボタン無効、発行済みの初回を選ぶとCSVだけ有効。請求は未選択で両ボタン無効、未請求1期間の選択で両方有効、対象年月変更で選択が解除され両方無効。対象件数を維持し、主担当も両画面の画像を確認した。実出力・状態更新は今回行っていない。対象差分検査は終了0。担当所有のNuxtだけ停止し、Localの既存データとエミュレーターは保持した（意図的Ctrl+C終了1、ポート確認終了0）。
+
+実装1ファイルを `5f7d7eaef6630ee2538d36cab05cdae46c2c50d8` に記録。Medium担当の新規検証 `npx --offline npm@11.19.1 run typecheck`、同 `run build`（9ルート生成）、`pwsh -NoProfile -File scripts/check-governance.ps1`、`git diff --check` は各終了0。検証前後の対象ファイルSHA-256一致も終了0で確認した。
+
+包括7ゲートのうち、`npx --offline npm@11.19.1 test` の直前408成功・2スキップ・失敗0、同 `run test:rules` の174成功・スキップ0、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` の各終了0を再利用。今回は表示文字だけで各ゲートの失効対象・保存処理・試験・依存・実行環境は不変、旧文言に依存する既存試験もないため。必要ゲート省略なし。governance-toolsは入力対象の変更がなく発火対象外。
+
+Medium担当が以下を実行し、各終了0。主担当も正式照合の最終10項目passと配備後の集計証拠をレビューした。
+
+- `npx --offline npm@11.19.1 run build:recovery-release -- --revision 5f7d7eaef6630ee2538d36cab05cdae46c2c50d8`：確定版を生成。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only hosting --non-interactive`：1,003ローカルファイルを配備、公開版 `sites/termite-warranty-dev/versions/eec15e876477dea3`。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 5f7d7eaef6630ee2538d36cab05cdae46c2c50d8 --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/4cfea7d1964e143e --dev-inspect`：最終全10項目pass、Hosting1,005ファイル、Functions21ソース、索引19、normal世代13、処理中・ロックなし。読取専用の `ready:false` は更新許可を付与しない意味。
+- `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control` と `node tmp/company-settings-release-target.mjs`：配備前後とも業務777文書・物件442件・スタッフ3件、HSC次番号100。業務・アカウント・所属の3ハッシュとFunctions21の版・設定が一致し、比較処理も終了0。今回のHosting以外に配備・業務更新なし。
+
+初回正式照合は終了0でもHostingがblockedのため通過扱いにしなかった。読取診断で全1,005ファイルの内容・状態の一致と公開版の `fileCount` 欠落を確認し、限定再観測で `fileCount=1005` を確認後、同じ正式照合を1回だけ再実行して成功。検証緩和・値の補完・再配備はしていない。実装以外の既存文書差分は保持。利用者はDevを再読み込みして両一覧を確認できる。
+
+## 2026-10-12 自社情報の分類カード採用
+
+オーナーが「分類カード」を明示採用し、実装・検証・Dev反映を引き続きMedium担当へ、レビュー・文書を主担当へ割り当てた。縦一列の表示を会社・代表者／所在地・連絡先／振込先の3カードへ整理する。[確定設計](design/company-settings-and-document-csv.md#2026-10-12-表示レイアウト分類カードの採用)を正本とし、下の3案未選定という記録は採用前の状態とする。
+
+基準は `e243b2a2fdc13740d1a7d91f21f5a41663334ce5`。改修・レビュー・選定検証・Dev反映と正式照合は完了。全15項目、編集ダイアログ・保存処理・権限・データ契約を維持した。包括7ゲートを選択し、UI／CSS変更で失効する型検査・ビルド・文書整合は新規実行、保存・Functions等の不変範囲は直前の成功証拠を条件確認して再利用した。Localは既存架空データを維持して画面確認し、Devのデータ・採番は更新していない。配備はHostingだけで、Functionsは再配備していない。
+
+反映文書は仕様、会社設定設計、共通UI設計、マスタ要件、利用者説明、初期納品ロードマップ、文書索引、変更履歴、本節。保存・移行・権限・恒久的な構成判断に変更はなく、データ契約・ADR・未決台帳・ガバナンスは今回変更しない。既存文書差分は保持し、ロードマップの進捗加点はしない。検証・レビュー・配備結果を本節へ記録する。
+
+主担当レビュー：変更は `app/components/CompanySettings.vue` と `app/assets/clear-sky-theme.css` の48行追加・19行削除。3カードの項目は4／6／5で重複・欠落なし。新しいカード専用クラスだけを独自の影から除外し、他画面のカード・既存ダイアログ・保存処理は不変。長文に対して幅0まで縮小できるグリッドと `overflow-wrap:anywhere` を確認。Medium実装担当の `npm run typecheck`、`node --test test/company-settings-ui.test.mjs`（10成功）、対象差分検査は各終了0。
+
+Medium担当のLocal実画面確認：PC実測1920pxで上段442px×2と下段900px、カードの項目4／6／5。600pxではカード・項目とも1列、全15項目の「未設定」、横はみ出しなし。3カードの枠1px・影の各寸法0、上部編集から15項目の既存ダイアログを開き、無変更で閉じられることを確認。主担当も両スクリーンショットをレビューした。390pxを要求した操作は実際には600pxだったため390px成功と記録しない。
+
+Localの会社情報は未保存で、UIから未保存状態へ戻す操作がないため、今回の表示確認だけのために架空値を保存して残すことはしなかった。長文・一般担当者の実画面は今回未実施。長文は上記ソースレビュー、保存後の共有値更新と一般担当者の保存不可は今回の既存UI試験、実保存・再表示は下記の直前検証結果を利用する。未保存変更の破棄確認後の実画面は前回からの未確認範囲として維持する。Localのデータとエミュレーターを保持して、ビルド前に担当者自身のNuxtだけ停止（意図的Ctrl+C終了1）。専用アプリポート解放とエミュレーター稼働継続の検査は終了0。
+
+最終実装2ファイルを `7d64ec92b42fa6ae33d2fbe409d54e5d10c02819` に記録。Medium検証担当は対象2ファイルのSHA-256不変と、保存・Functions・Rules・seed・依存・設定・検証方針に変更がないことを独立確認（各終了0）。主担当の文書と既存差分はコミットへ混ぜず保持する。
+
+| 選定ゲートのコマンド | 今回の扱い・結果 | 終了コード |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 新規実行、文書・生成整合成功。追加記録後の結果は完了報告にも記載 | 0 |
+| `npx --offline npm@11.19.1 test` | 新規408成功・2スキップ（既存Windows symlink制約）、失敗0 | 0 |
+| `npx --offline npm@11.19.1 run typecheck` | 新規成功 | 0 |
+| `npx --offline npm@11.19.1 run build` | 新規9ルート生成成功 | 0 |
+| `npx --offline npm@11.19.1 run test:rules` | 下記直前の174成功・失敗／スキップ0を再利用 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 下記直前の成功を再利用 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 下記直前の成功を再利用 | 0 |
+| `git diff --check` | 新規成功（改行形式の警告のみ） | 0 |
+
+包括7ゲートの省略なし。再利用3件は各ゲートの失効対象に今回の表示テンプレート・項目分類・CSSが含まれず、対応する処理・保存・試験・設定・Node/npmが不変と確認したため。ドメイン試験は変更したコンポーネントを読む既存試験を含むため新規実行した。governance-toolsの追加試験はツール／方針の変更がなく発火対象外。今回の検証のために稼働中エミュレーターを再初期化していない。
+
+Dev実行・照合はMedium担当、結果のレビューは主担当が実施。次の各コマンドは終了0。
+
+- `npx --offline npm@11.19.1 run build:recovery-release -- --revision 7d64ec92b42fa6ae33d2fbe409d54e5d10c02819`：確定版の公開成果物生成。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only hosting --non-interactive`：1,003ローカル公開ファイルを配備。公開版 `sites/termite-warranty-dev/versions/4cfea7d1964e143e`。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision 7d64ec92b42fa6ae33d2fbe409d54e5d10c02819 --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/bb0d9f87b8f80ae5 --dev-inspect`：最終全10項目pass、Functions21ソース・Hosting1,005ファイル・索引19・normal世代13・処理中／占有なし。読取専用なので `ready:false` は更新実行許可を付与しない意味。
+- `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control` と `node tmp/company-settings-release-target.mjs`：今回取得した配備前後の業務777文書・物件442件・スタッフ3件、HSC次番号100、全21関数の名前・稼働版・環境設定が不変。比較処理も終了0。inventoryHash=`13327d661a61ab317108372aaf9589339be609d87019d20a56e26673d16fb4ed`、accountHash=`e0150d3871f2058222b9b78bc17bfbf8354ebcd614d404c0601f34df3240dfc1`、authorizationHash=`cb90793bfacdde71a1a7d8c9addce5ed4a595848c72a4b493cdcf9f620ece70f` が一致。
+
+初回の正式照合はコマンド終了0だがHostingがblockedだったため成功扱いにしていない。読取診断 `node tmp/cards-release-hosting-diagnostic.mjs` は全1,005ファイルの一意性・内容・状態の一致と、Hosting版の `fileCount` 欠落を確認（終了0）。限定した再観測で `fileCount=1005` の出現と一致を確認した後、同じ正式照合を1回だけ再実行して通過した。ファイル数の代入、照合の緩和、再配備はしていない。
+
+配備・正式照合後、Medium担当が `npx --offline npm@11.19.1 run dev` でNuxtだけを再起動し、`http://127.0.0.1:23600/` を利用可能なまま残した。HTTP 200・ポート確認は終了0。Nuxt PID20716、元のEmulator PID29944／Firestore PID21840の稼働を確認。既存タブで3カード・15項目未設定・最終更新未保存を再確認し、架空物件1件も維持。seed／fixture再投入・設定保存はしていない。ユーザーはDevを再読み込みし「その他業務 ＞ 設定」で確認できる。主担当の文書差分と先行差分は未コミットのまま保持し、実装2ファイルは上記確定版に記録済み。
+
+## 2026-10-12 振込先・ダイアログ・保証書再出力確認
+
+オーナー追加指示による改修。設計・レビュー・文書は主担当、実装・検証・Dev反映は推論Mediumの担当へ分離した。振込先5項目と旧画面からの省略値保持、自社情報編集の共通ダイアログ化、保証書ボタンの「発行済みにする」への簡略化が対象。請求CSV・保証書21列・発行済みの条件は維持する。自社情報表示の3案（分類カード／会社台帳／項目別ナビ）は未選定であり、自動採用していない。
+
+保証グループ請求先8項目はオーナーがDevで検証し、今回「受入れOK」と回答。前節に残した当機能の受入れ待ちは解消した。自社情報とWord差込み等の受入れまで拡張しない。
+
+AIRの請求書見本を読み、銀行名・支店名・預金種別・口座番号・口座名義の5項目を確認。実口座値を登録せず、モックとLocalは架空値だけを使用。Devの実業務データ・採番を試験に使わず、権限・Rules・バックアップ停止設定・依存版も変更しない。
+
+基準は `fed0b64d98cc9d5851b2f4208792868a6b0d90e2`。主担当レビューで銀行項目未指定の旧保存を保持する取引処理、返却項目の限定、保存中・未保存の閉じる制御、期間別CSVの既存条件を確認。UI／処理／保存契約／配備の和集合で包括7ゲートを選定。Medium担当の最終検証は以下の通り。対象10ファイルの検証中の内容不変もSHA-256比較で確認（終了0）。
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 文書・生成整合成功。追加記録後の最終確認は完了報告にも記載 | 0 |
+| `npx --offline npm@11.19.1 test` | 408成功・2スキップ（既存Windows symlink制約）、失敗0 | 0 |
+| `npx --offline npm@11.19.1 run typecheck` | 成功 | 0 |
+| `npx --offline npm@11.19.1 run build` | 9ルート生成成功 | 0 |
+| `npx --offline npm@11.19.1 run test:rules` | 174成功・失敗／スキップ0、エミュレーター停止済み | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `git diff --check` | 成功（改行形式の警告のみ） | 0 |
+
+初回の単体試験は制限環境側のnpmキャッシュ不足（ENOTCACHED）で終了1。承認済み既存キャッシュを利用した同一コマンドの再実行が上記の成功結果。必須ゲート省略なし。governance-toolsの追加試験は入力対象のツール・方針を変更していないため対象外。Rulesでは旧画面からの項目省略・明示空欄・並行保存・先頭ゼロ・全角数字拒否、通常復旧の振込先保持を含めた。
+
+レビュー済みの実装・試験10ファイルだけを `e243b2a2fdc13740d1a7d91f21f5a41663334ce5` に記録（133行追加・24行削除）。対象は `app/components/CompanySettings.vue`、`app/components/WarrantyCertificateManagement.vue`、`functions/property-warranty.js`、`src/domain/company-settings.mjs`、同 `.d.mts`、`test/company-settings.test.mjs`、`test/company-settings-ui.test.mjs`、`test/emulator/property-warranty.test.mjs`、`test/emulator/default-recovery.test.mjs`、`test/historical-intake-plan.test.mjs`。文書と先行作業の差分はコミットへ混ぜず保持。配備と正式照合は完了し、Local再提供は下記の実測で区別する。
+
+Dev配備・照合はMedium担当が実行し、主担当が結果を確認した。各コマンドの終了コードは0。
+
+- `npx --offline npm@11.19.1 run build:recovery-release -- --revision e243b2a2fdc13740d1a7d91f21f5a41663334ce5`：配備版を確定して生成。
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only functions --non-interactive`：21関数更新。
+- 同コマンドの `--only hosting`：1,003ローカル公開ファイルを配備。公開版 `sites/termite-warranty-dev/versions/bb0d9f87b8f80ae5`。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision e243b2a2fdc13740d1a7d91f21f5a41663334ce5 --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/d859957f3892191e --dev-inspect`：最終全10項目pass。Functions21個別ソース、Hosting1,005ファイル（Firebase管理2ファイルを含む）、索引19、normal・世代13、処理中／占有なしを確認。読取専用の `ready:false` は更新許可を付与しない意味。
+- `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control` と `node tmp/company-settings-release-target.mjs`：前後の業務777文書・物件442件・保持スタッフ3件、HSC次番号100、Functions21 ACTIVEと環境設定が不変。比較処理も終了0。inventoryHash=`13327d661a61ab317108372aaf9589339be609d87019d20a56e26673d16fb4ed`、accountHash=`e0150d3871f2058222b9b78bc17bfbf8354ebcd614d404c0601f34df3240dfc1`、authorizationHash=`cb90793bfacdde71a1a7d8c9addce5ed4a595848c72a4b493cdcf9f620ece70f` が一致。旧配備時の776文書を今回の比較元へ流用していない。
+
+初回の正式照合はコマンド自体は終了0だったが、Hostingのファイル識別条件がblockedで、成功扱いにしなかった。読取診断 `node tmp/bank-final-hosting-diagnostic.mjs`（終了0）で件数・一意性・状態・全hash一致を確認してから、同一の正式照合を1回再実行して通過。初回の詳細値は記録されておらず正確な原因は不明。配備直後の管理情報反映の可能性は推測に留める。照合条件の緩和・再配備・業務データ修復は行っていない。
+
+Local操作確認：架空グループ「架空CSV確認用」、架空番号 `LOCAL-16-001` は初回発行済み・20年延長済み。対象月2016-10で初回の発行済み行を選び、CSV出力ボタンは有効・発行済み更新は無効。ダウンロードしたCSV（BOM付き657 bytes）を照合し、開始2016-10-08・満了2026-10-07・年数10で、最新満了2036-10-07へ置換されないことを確認。2026-10で検索した延長未発行行はCSVと発行済み操作が有効。専用fixture構文、準備・期間照合、CSV照合はいずれも終了0。
+
+自社情報の実画面で架空振込先5項目の保存・再表示と `0012345` の先頭ゼロ保持を確認した。変更後に閉じると破棄確認が表示されたが、ブラウザ操作ツールのダイアログ制御が応答しなくなり、画面での破棄確定結果は未確認。受諾・拒否の処理はユニット試験で確認済み。全体検証のためLocalを意図的に停止（Ctrl+Cによる各終了1、失敗試験ではない）し、専用ポートが解放されたことを終了0で確認した。
+
+提供用Localは全検証・Dev正式照合の後にMedium担当が再起動し、利用者が操作できる状態で残した。`npx --offline npm@11.19.1 run emulators:start` → `node tmp/certificate-period-demo-fixture.mjs` → `npx --offline npm@11.19.1 run dev` の順。専用の `demo-termite-warranty` とループバックだけを用い、fixtureは架空物件1件と期間状態の検査まで終了0。HTTP 200・ポート確認も終了0。画面 `http://127.0.0.1:23600/` で「保証書CSV／架空CSV確認用／2016-10」を表示し、初回発行済み行を選択済み。CSV出力有効・発行更新無効を再確認した。延長分は2026-10。架空ログインは会話で案内し、実資格情報を使っていない。Nuxt PID7952・Emulator PID29944・Firestore PID21840は提供時生存。新しい操作用タブを用い、応答しない旧確認ダイアログは触れずに残した。提供後のPC／プロセス停止を超えた常時稼働は保証しない。
+
+表示候補は会話用の架空見本であり、本画面へ未採用。3案と入力名／表示名・操作処理、変更破棄確認・フォーカス制御を静的に点検し、見本のJS構文検査は終了0。ブラウザが見本ファイルの表示を拒否したため回避せず、実描画・幅別の最終確認は未実施。アプリ本体のLocal操作確認とは区別する。
+
+関連文書は仕様、会社設定設計、データ契約、保証書設計、マスタ要件、利用者説明、初期納品ロードマップ、HSC-010と索引、文書マップ、変更履歴。再取込みの全設定保全手順はそのまま追加振込先を含み、別移行を追加しない。ガバナンス・環境設定・HSC-015の先行差分を保持。新たなアーキテクチャ判断はなくADRは追加しない。主画面改善案の選択は次の利用者判断として残る。
+
+## 2026-10-12 会社設定・請求先・保証書CSVの実装とDev反映
+
+オーナーが確定仕様に沿った実装・独立作業の分担・検証・Dev反映を明示承認。対象は自社情報10項目、保証グループの請求先8項目、保証書CSV共通21列、工務店向け非公開、再取込み時の保全。請求CSV11列、Word固定文字、実データ・採番を変えない。実装・包括検証・Dev反映と公開版照合は完了。この節が下の仕様確定時点の状態に優先する。
+
+変更分類はUI・アプリ処理・データ契約／再取込み・配備の和集合。包括7ゲートを選び、架空データのLocalで保存・権限・復旧・中断再開を検証する。Prod、実再取込み、実会社情報の推測入力、Dev試験レコード作成・採番消費は対象外。依存版・Rules・ガバナンスは変更しない。既存の未コミット文書変更を保持する。
+
+配備前のDev読取：`default-recovery.mjs observe` は通常状態、世代13、業務DB `(default)` と別制御DB `recovery-control` の一致、処理中・占有なしを確認（exit 0）。制限環境での失敗後、承認済みDev参照として通常環境で実行した。`historical-intake.mjs inspect` は業務776文書・物件442・スタッフ3を確認（exit 0）。削除予定という旧CLI項目名を持つが、inspectは読取り専用で削除しない。全件照合値は `7cf5ba1c8b4e4cde858a7796db2d915738914a29d42dadfd728d8172889495eb`。配備後も同値を確認する。
+
+独立レビュー：会社設定／請求先の保存・公開境界、保証書CSV、再取込み保全は重大指摘なし。UIレビューで再取得時の古い保持値利用を指摘し、強制再取得と失敗／成功の回帰試験を追加。一般担当者の架空試験役割も実際の `general_staff` に合わせた。
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `npx --offline npm@11.19.1 test` | 404成功・2スキップ（既存Windows symlink制約）。初回の26失敗は既存画面試験の追加依存・メニュー期待値を修正して解消 | 0 |
+| `npx --offline npm@11.19.1 run typecheck` | 最終UI修正後に成功 | 0 |
+| `npx --offline npm@11.19.1 run build` | 公開画面生成成功 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 新規会社設定を含むFunctions構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 文書・生成整合成功。最終記録後にも再確認する | 0 |
+| `npx --offline npm@11.19.1 run test:rules` | 174成功・失敗0。初回の1失敗は架空日時をFirestoreのマイクロ秒精度に合わせて解消 | 0 |
+
+Local画面検証：架空の管理者で自社情報の保存、変更取消で元の値に戻ること、保証グループの請求先名・部署・担当者の保存を確認。幅390pxでも説明・長い住所が折り返す。試験用エミュレーターは終了0で停止し、架空値はDevへ保存していない。UI試験の末尾空行整理後、`node --test test/company-settings-ui.test.mjs` 7成功・終了0、`git diff --cached --check` 終了0。動作変更がないため他の検証結果を再利用する。
+
+実装・試験24ファイルを `fed0b64d98cc9d5851b2f4208792868a6b0d90e2` に記録。対象の全ファイルは当該コミットの変更一覧を正本とする。既存文書差分はこのコミットへ含めず保持。`build:recovery-release -- --revision fed0b64d98cc9d5851b2f4208792868a6b0d90e2` は終了0。
+
+配備・照合（各終了コード0）：
+
+- `node node_modules/firebase-tools/lib/bin/firebase.js deploy --project termite-warranty-dev --only functions --non-interactive`：21関数更新成功。
+- 同コマンドの `--only hosting`：1,003ローカル公開ファイルを配備。公開版は `sites/termite-warranty-dev/versions/d859957f3892191e`。
+- `node scripts/default-recovery.mjs preflight --project termite-warranty-dev --control recovery-control --revision fed0b64d98cc9d5851b2f4208792868a6b0d90e2 --generation 13 --source "(default)" --site termite-warranty-dev --hosting-provider-version sites/termite-warranty-dev/versions/f89e05f6343c466d --dev-inspect`：全10項目pass。21関数のソース・実稼働版、Hosting1,005ファイル、Rules、19索引、通常世代13、処理中／占有なしを照合。読取り専用なので `ready:false` は更新実行許可を発行しない意味。初回は `--hosting-provider-version` を省略し、Firebaseが追加する2ファイルで不一致となった。配備前の実確認版を指定して正式照合を完了した。
+- `node scripts/historical-intake.mjs inspect --project termite-warranty-dev --control recovery-control`：業務776文書・物件442・スタッフ3、inventory/account/authorizationの照合値が配備前と一致。試験データや設定の追加なし。
+- 読取り専用の管理API／Firestore確認：全21関数ACTIVE、バックアップ停止設定は不変、HSC_2026の次番号100。
+
+Devのログイン画面表示を確認。認証済みDevセッションがないため、Devでの管理画面操作は未確認。保存・取消・請求先操作はLocalで確認し、Devの実値入力は行っていない。利用者は再読み込み後、管理者で「その他業務 ＞ 設定」と保証グループの請求先を入力する。更新した文書は下記仕様確定17文書に現行データ契約 `docs/design/meeting-prototype-2026-10-03.md` を加えた18文書。ガバナンス、環境設定、HSC-015の先行差分は保持。新たな恒久判断はなくADRは追加せず、初期納品進捗は加点しない。ガバナンス専用回帰は対象ツール・ポリシー未変更のため発火対象外、包括7ゲートの省略なし。
+
+保存契約は[現行データ契約](design/meeting-prototype-2026-10-03.md#2026-10-12-自社情報請求先の追加保存契約)、操作条件・差戻しは[確定設計](design/company-settings-and-document-csv.md)、再取込みの準備は[手順](runbooks/historical-property-intake.md)。差戻しでは設定値を削除せず、旧再取込みを使わない。新CSV用Wordの対応は旧6列へ戻した場合に再確認が必要。既存の復旧・全件照合が新設定も保持することを専用の架空試験へ追加した。業務受入・編集可能Wordでの差込み確認は別途残る。
+
+## 2026-10-12 会社設定・請求先・CSVの仕様確定（製品未変更）
+
+オーナー採用の[確定設計](design/company-settings-and-document-csv.md)を仕様・関連要件へ反映。自社10項目、請求先8項目、保証書共通21列、選択期間の再出力、再取込み時の設定保全を確定した。現行Devは会社設定/請求先機能なし・保証書CSV6列・請求CSV11列のまま。実装、配備、実データ入力、Word編集、再取込みは今回行わない。
+
+追加設定がある状態での再取込みには[設定保全への手順改修](runbooks/historical-property-intake.md#2026-10-12-追加設定の保全条件採用手順改修は未着手)が必要。自社情報を変えてもWordの固定文字は変わらず、請求書本体の生成・自動送信は追加していない。文書のみの変更として文書整合・差分を検査し、コマンド結果は当該タスクの完了報告で記録する。
+
+今回の反映先は次の17文書。各文書にある先行差分は保持し、未コミット。HSC-015、環境設定、ガバナンスの先行変更は今回変更していない。
+
+- 仕様・設計・索引・履歴：`docs/specification.md`、`docs/design/company-settings-and-document-csv.md`、`docs/design/warranty-certificates.md`、`docs/README.md`、`CHANGELOG.md`。
+- 関連要件・採用記録：`docs/requirements/master-management.md`、`docs/requirements/search-and-list.md`、`docs/requirements/security-and-access.md`、`docs/requirements/user-explanation-items.md`、`docs/requirements/house-solution-confirmations/HSC-010-payer-contracting-party.md`、`docs/requirements/house-solution-confirmations/HSC-037-warranty-groups.md`、`docs/requirements/house-solution-confirmations.md`。
+- 運用・工程：`docs/operations.md`、`docs/runbooks/historical-property-intake.md`、`docs/runbooks/backup-recovery.md`、`docs/roadmaps/historical-property-intake.md`、`docs/roadmaps/2026-initial-delivery.md`。
+
+分類はdocumentation-only。製品の実装済み保存形式・具体的な保存名・型・権限設定・移行処理は変えていないため、実装データ契約・製品テスト・配備用ゲートは今回変更/実行しない。保存情報の意味・保全条件は確定設計に記録し、具体化は実装段階に反映する。追加の独立したアーキテクチャ選択やガバナンス変更はないため、新規ADR/ガバナンス生成は不要。提供進捗の加点なし。読取レビューCONFIRM-SET-3/CONFIRM-BILL-3は重大指摘なし。
+
+## 2026-10-10 検証データ・採番の後片付けを完了条件化
+
+オーナー指示を[プロジェクト規則](../governance/project-rules.md#検証データ採番変更を実運用へ残さない)へ反映。更新・採番試験は隔離環境を優先し、実データのあるDev等では検証前に対象・比較元・削除／復元・競合防止と承認範囲を確定する。取消や非表示で検証データと番号消費を残さず、関連記録も後片付けし、実データ・次番号・同じ原資料の再取込み開始値を読取確認して初めて検証完了とする。実業務の採番変更や外部利用を巻き戻す許可ではない。今回のHSC次番号100への訂正は[実行記録](runbooks/historical-property-intake.md#2026-10-10-検証物件の削除次番号100への訂正)を参照。
+
+変更範囲は`governance/project-rules.md`、`governance/README.md`、本節、`CHANGELOG.md`。独立読取レビューGOV-CLEANUP-2は阻害指摘なし。`render-governance.ps1 -Apply`は終了0・生成差分0、AGENTSからの既存のproject-rules必読経路を維持。分類はgovernance-permissions-agents、包括7ゲートを全て新規実行した。アプリ・保存契約・製品要件・ADR・ロードマップの新規変更はなく、先行作業の文書差分を保持。Dev操作・配備・Git pushなし、変更は未コミット。
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 生成物・文書・規則の整合成功 | 0 |
+| `npm test` | 386成功、既存のシンボリックリンク作成権限による2skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 169成功、skip0、エミュレーター終了確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+制限環境での初回`npm test`は378成功・7失敗・3skipで終了1。通常のローカル権限で再実行して上記最終結果を確認し、初回を成功扱いにしていない。必須ゲート省略なし。renderer・validator・検証方針自体は変更しておらず、入力条件付きgovernance-tools追加試験は対象外。
+
+## 2026-10-10 過去物件442件のDev実取込み
+
+オーナーの実行指示後、実行版`cf024b49d68dade823a3f0bac472000c14723f20`を確定。DevのFunctionsとHostingを揃え、正式照合全項目pass後、世代10→11で停止、業務1,115文書を初期化、442物件とマスタ・予約・採番・設定を含む776文書を投入。保持スタッフ3・Auth不変、全件期待像一致。専用公開計画を封印し、正式配備照合を再実施してverification・世代12へ公開した。各実行は終了0。[コマンド・hash・結果・失敗と再確認](runbooks/historical-property-intake.md#2026-10-10-実取込みの実行記録)。
+
+別のオーナー了承後、正式reopenとobserveは各終了0、通常利用（normal・世代13）へ復帰。実ダッシュボード439／439／0／0、保険442行・保証書4行・請求1行の各CSV照合、代表物件の詳細と架空1件の本登録・採番・検索・編集・請求状態更新・取消を確認。取込み442件は検証前後で全内容不変。検証物件HSC-26-100と関連4記録は追加の明示指示で物理削除済み。HSCの次番号は100へ訂正し、同じ原資料の再取込みでも100になることを確認。処理ログの対象時間帯で失敗0、HI-06完了。HS試験運用は未実施。[通常再開・検証の範囲と証拠](runbooks/historical-property-intake.md#2026-10-10-通常再開残る開発検証)。アプリ変更なし、今回の結果文書は未コミット。
+
+今回の製品要件・保存形式・ADR・UI・権限の新規変更なし。検証用補助スクリプトの末尾空行だけ修正し、対応lockを再生成・専用10試験・governance-checkで確認。先行改修とガバナンスは各独立レビュー後に分離統合し、既存包括検証を失効条件に従って再利用、公開用ビルドとクラウド正式照合は新規実行。Prod、Auth、IAM、バックアップ自動取得の設定は変更なし。
+
+実行結果の反映先は本書、取込みrunbook／roadmap、backup-recovery手順、環境仕様、仕様書、docs索引、HSC-015と台帳の対応行、初期納品roadmap、CHANGELOGの11文書。新たな製品仕様・保存契約・ADR追加は不要。文書整合検査`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各終了0。コード・実行版を保ったまま結果文書だけ未コミット、pushなし。
+
 ## 2026-10-10 過去物件取込みの実行準備
 
 オーナーの「アカウント以外のDevデータを初期化して取込み準備」の指示に対応。確定原資料442件と所属・欠番・年度別採番を非公開計画へ変換し、マスタ作成、初期化、過去番号保持投入、中断再開、全件照合、既存公開手順への接続を整備した。対象とコマンドは[取込み手順](runbooks/historical-property-intake.md#2026-10-10-取込み計画と実行準備)。本作業ではDev停止・削除・投入・配備は行っていない。
@@ -812,15 +1086,7 @@ The same JSON is the sole runtime-profile authority for compatibility-sensitive 
 
 Every literal `.ps1` path in a gate command must identify an existing script. The managed project validator's canonical path is `scripts/check-governance.ps1`.
 
-| Change class | Path or impact triggers | Iteration checks | Targeted regression | Completion gates | Release-only gates | Omittable when unaffected |
-| --- | --- | --- | --- | --- | --- | --- |
-| `documentation-only` | Markdown, help text, indexes; no executable/config/data behavior | Project-defined direct docs gate IDs | Project-defined affected navigation gate IDs | Project-defined docs completion gate IDs | None unless packaging docs | application, UI runtime, data, governance, build/deploy |
-| `ui-css-layout` | styles, templates, components, visual or interaction layout; no data-contract change | Project-defined focused UI gate IDs | Project-defined component/browser/visual/accessibility gate IDs | Project-defined UI completion gate IDs | Artifact/browser matrix only when releasing | data/schema/migration and governance gates when untouched |
-| `application-logic` | executable business or integration logic | Project-defined focused static/unit gate IDs | Project-defined service/domain/integration gate IDs | Project-defined application completion gate IDs | Release artifact gates only when releasing | unrelated data, UI, governance, deploy gates |
-| `data-contract-schema-migration` | schema, serialization, persistence meaning, compatibility, migration | Project-defined focused contract/schema gate IDs | Project-defined compatibility/migration/reader-writer gate IDs | Project-defined data safety and application gate IDs | Real migration/deploy gates only when authorized | unrelated UI and governance gates |
-| `project-guidance-metadata` | descriptive guidance, phase/progress, metadata, links/history; owner-approved reference-target clarification only with no capability, approval/safety boundary, executable configuration, or verification behavior change | Project-defined diff/static gate IDs | Project-defined narrow documentation gates | Project-defined narrow documentation gates | none | comprehensive, application, build, and runtime gates |
-| `governance-permissions-agents` | local governance contract/tool changes or effective permission, approval, safety, authority, delegation/Git integration, callback semantics, effective active-task instruction or agent authority, governance migration, verification behavior; excludes only the bounded reference-target clarification below | Project-defined syntax/render gate IDs | Project-defined governance/routing gate IDs | Comprehensive governance/repository gate IDs | Installation/publication gates only when authorized | クラスによる省略なし。有効な成功証拠の再利用は下記手順で判断 |
-| `build-release-deploy` | build configuration, packaging, release, install, deploy target or procedure | Project-defined configuration gate IDs | Project-defined build/package gate IDs | Project-defined artifact/rollback gate IDs | Publish/install/deploy/environment acceptance gate IDs | unrelated product/data gates only when impact analysis proves exclusion |
+クラスごとの具体的なゲートは、直下のJSON生成要約だけで管理する。配備は包括ゲートを選定し、[目的別・変更別の判断](#dev反映で確認する目的と範囲)と[証拠の有効性](#evidence-validity-and-retry)で今回実行／再利用を分ける。旧説明表の「unrelated gatesを省略可能」は、配備時の選定ゲートを外す意味ではない。
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
 - Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; unknownImpactGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]
@@ -868,6 +1134,41 @@ The inclusion graph must be acyclic and may not reference an unknown gate. When 
 子試験のexitに加え、対象ファイル・完全一致の試験名・成功1件・対象skipなし・当該実行の結果であること、Emulator終了後のポート解放を検査する。対象0件や異常終了は失敗。除外された他試験のskipは通常の絞込みとして区別する。この結果は反復中の証拠で、選定された全体の `npm run test:rules` を代替しない。対象追加時は独立した準備・後始末を確認し、兄弟試験に依存する場合は既存のファイル単位／全体検証へ戻す。
 
 Dev配備の正式照合では、失敗時の `diagnostic.stage`／`reasonCode`、HTTP失敗時の数値 `httpStatus` を確認する。設定のオブジェクトキー順だけは同値として扱うが、項目・値・型・配列順の差、来歴・hash不一致、途中の版変更は引き続き拒否する。未知例外はunknown／blockedのまま。生の例外文・URL・設定値・認証情報は診断へ出さず、blockedを自動再試行して成功扱いにしない。今回の診断追加だけでは過去のHosting初回失敗の原因は確定しない。
+
+### Dev反映で確認する目的と範囲
+
+2026-10-12のオーナー指示による、既存の範囲限定・証拠再利用方針の運用整理。クラス／ゲートIDと失効条件は[検証方針JSON](../governance/verification-policy.json)、証拠の扱いは下記を正とする。共通契約・JSON・生成要約は変更しない。配備では包括7ゲートを選定するが、全コマンドの新規実行を意味しない。一方、復旧・移行の個別手順や現行CLI内部の必須検査を、この説明だけで飛ばさない。現在できる限定と、ツール改修後に可能になる限定を分ける。
+
+PMの実行前判断は既存の作業記録に「実差分／生成物・配備先 → 今回実行／再利用する証拠と不変の根拠／非対象と理由／不足情報・未充足」を短くまとめる。別の台帳や一律の追加チェックリストは作らない。ファイル名や「文言変更」という依頼名だけで判定せず、イベント・条件式・依存・生成されたFunctionsソース・配信設定・未コミット差分も確認する。不明点はまずその入力・対象・前回証拠を読む。それでも影響を限定できなければ包括ゲートを選び、必要な調査が終わるまで外部操作へ進まない。
+
+| 確認目的 | 今回実施する条件と確認対象 | 再利用・非対象の条件／失効条件 |
+| --- | --- | --- |
+| 機能・回帰 | 実差分と依存先の動作・境界・権限を確認。UI変更なら当該表示と操作条件、保存変更なら保存・競合・復元互換を対象にする | コード・生成物・試験／fixture・runner・依存・関係設定・ランタイムが証拠取得後に不変なら成功証拠を再利用。影響しない試験を失敗対応で巻き戻さない。変更に依存する試験はJSONの列挙外でも再取得 |
+| 配備成果物の同一性 | 実際に公開する成果物が、レビュー・検証した版かを照合。Hostingはsite／live版・全path/hash・配信設定、Functions変更ならsource／revision／traffic等 | 旧版の照合で新公開版を証明しない。固定成果物の証拠には入力・生成環境・出力hash・来歴が必要。現行CLIは同一プロセスのfresh-build証拠を要求し、過去のbuild成功を渡して省略する経路はない |
+| 環境設定 | 対象project／DB／site、接続先、変更した設定と新機能に必要な索引・Rulesを確認。LocalとDevの差を明記 | ローカル設定不変だけではクラウド不変を証明できない。変更しない領域の詳細証拠は、現在の版・設定識別子・世代と整合し、失効していない範囲で再利用候補。現行preflight内の一括照合は下記の制約を維持 |
+| データ保全 | 今回の操作にデータ書込み・採番・復元・稼働停止の経路がある場合、影響対象と保持対象を操作前後で照合 | Hostingの文字だけの変更で、更新コード・設定・配備対象・検証操作にもデータ変更経路がないと確認できれば、別途の全業務／Auth走査・退避復帰を常例にしない。不明な書込み、事故、移行、保守状態変更では影響範囲を再評価。過去のhashで現在の可変データの不変を主張しない |
+| データ移行 | 保存・検索投影・索引の互換変更に応じ、旧処理の収束、対象調査、限定補完、再実行・部分失敗・保持値・準備印を確認 | 移行のない変更では非対象。既存補完の完了証拠は対象集合・投影版・更新処理・準備印等が有効な場合だけ使う。旧writerの再稼働、復元、移行仕様変更、競合・未完了があれば再調査。必要な実データ照合をLocalの成功で代用しない |
+
+| 実差分のケース | 必須の判断・今回確認 | 非対象・再利用と拡大条件 |
+| --- | --- | --- |
+| 表示・文言のみ | UIの型／生成と当該表示・操作条件、文書整合。Dev反映時は包括ゲートを選定し、公開成果物・対象環境を確認 | 不変のdomain／Rules／Functions・seed構文の成功証拠は再利用。移行・採番実操作・全業務像照合は変更経路がなければ非対象。イベント・取得条件・生成ソース・設定・依存が変われば該当クラスを追加 |
+| 業務ロジック・Functions・Rules | 変更した処理と依存先の回帰・認証／権限・保存整合、該当構文、実配備された版と設定。Dev固有の接続／動作はLocalと差がある部分を確認 | 無関係なUI・seed等は有効証拠を再利用。Functions配備だけを理由にデータ移行を追加しない。保存互換・索引・既存writerへ影響すれば次行を併用 |
+| 索引・保存形式・既存データ移行 | 上記に加え、承認済み設計の索引READY、旧writer収束、補完・保持値の前後比較、再実行・差戻し・公開順序を満たす | 不変の検査証拠だけ再利用。追加投影を変更するのに全業務hashの完全不変を要求せず、許可した追加項目と正確な対象以外の不変を検査。旧版復帰・データ再投入・競合で移行証拠を再評価 |
+| 影響不明 | 差分、依存、生成元、配備対象、実行環境・証拠不足を先に特定。解決後は上の該当範囲へ分類 | 調査後も不明ならJSONの包括fallback。包括試験は対象不明の配備や無承認のデータ操作の許可にはならない |
+
+Localでの機能成功とDev固有の確認を混同しない。配備されたバイト列、接続先、実索引のREADY、実データの追加投影・旧writer収束はLocalでは証明できない。一方、その差に関係しない業務シナリオをDevの実データ更新で再演する必要はない。確認のために実番号を消費せず、[検証データ保全規則](../governance/project-rules.md#検証データ採番変更を実運用へ残さない)を適用する。
+
+#### 現行ツールの制約と別途改修候補
+
+- **正式照合の範囲選択は未実装**：[preflight](../scripts/lib/default-recovery-preflight.mjs)はDB／marker／ロック／2種Rules／索引を照合し、[releaseProof](../scripts/lib/default-recovery-release-proof.mjs)はFunctionsとHostingの両方を実行する。Hostingだけの正式経路や、子結果を次の呼出しへ安全に引き継ぐ機能はない。HostingのfileCount反映待ちだけでも再呼出しは広く走る。改修までは必須内部検査を削らず、その再実行をツール制約として記録する。正式preflightと、別コマンドの全業務像走査は区別する。
+- **ビルド証拠の受渡しは未実装**：[build helper](../scripts/lib/default-recovery-build.mjs)は入力・環境と出力hashを照合するが、証拠はプロセス内WeakMapのみ。[CLI](../scripts/default-recovery.mjs)の正式照合は再度generateする。通常build、公開用build、preflightのbuildを安全に一本化するには、改ざん・古い入力・異なる環境／revisionを拒否する成果物受渡しとゲート包含の検証が必要。現行JSONのincludesは空であり、見かけ上同じgenerateを呼ぶだけでapp-buildを充足したと扱わない。
+- **自動試験と常用Localの分離は未実装**：[test-emulators](../scripts/lib/test-emulators.mjs)は常用Localと同じ[LOCAL_RUNTIME](../src/config/local-emulator.mjs)／firebase.jsonの固定ポートを要求する。使用中の拒否は正しい保全動作。退避・停止・復帰を通常の試験準備にせず、必要ゲートと再利用可否を先に判断し、必要なら環境競合として報告する。既存Localへの接続・強制停止・ポートガード解除で通さない。独立ポート・project／DB・一時設定・生成物の分離、既存データ不変と確実な後始末を検証する改修を別途提案する。
+- GitHubの[配備workflow](../.github/workflows/deploy-development.yml)も7検査を固定実行し、手動起動時はFirestore／Functions／Hostingを一括配備する。[TR-003](design/tr-003-verification-deploy-gates.md)が固定ゲートと成果物引渡しを契約化しているため、ローカルの再利用説明でCIを迂回しない。今回の直近手動配備の遅さをCI実行のせいにはしない。CIの範囲選択は契約・検査器を含む別件。
+
+#### 2026-10-12の実例への適用
+
+- **保険報告ボタン文言**：上の同日記録とGitの対象差分（6cdbd8b…）は表示文字のみ。型・build・文書・該当UI確認を実施し、domain／Rules／Functions・seed構文の4ゲートを再利用しており、既存方針は機能していた。Hosting公開の同一性確認は必要。Functions21／索引19等の再照合とpreflight内再buildは現行ツールの固定範囲。別途実施した全業務777文書等の前後走査はpreflightの一部ではなく、文字変更からは必要性が導けない。データ変更経路がないことを確認して非対象とする。短縮時間は未実測。
+- **月別3一覧の検索**：同日記録とGitの対象差分（19adab6…）は画面だけでなくFunctions・索引・domain・移行・復元互換・試験を含む。[導入設計](design/monthly-queries.md#保存互換性差戻し)の索引READY、新Functions、旧writer最大300秒の収束、442件の追加2項目補完と保持値照合、Hosting公開は固有の必要工程。待機を一律削除しない。失敗したfixtureの1行修正後、Rulesだけ再取得し他の成功証拠を再利用した判断は妥当。常用Localの退避復帰はこの移行の本質的要件ではなく試験環境の競合から派生。画面操作・実CSV確認の未実施は、自動試験や70条件の実検索照合では埋まらない。
 
 ### Evidence Validity and Retry
 
