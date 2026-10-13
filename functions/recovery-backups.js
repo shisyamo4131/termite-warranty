@@ -9,6 +9,7 @@ import { logger } from 'firebase-functions'
 import { resolveRecovery } from './recovery-runtime.js'
 import { backupHealth, assertPrivateAuthBucket } from './domain/backup-health.mjs'
 import { measureFirestoreOperation } from './firestore-metrics.js'
+import { runtimeIdentity } from './production-identities.js'
 
 const enabled = defineBoolean('RECOVERY_BACKUP_AUTOMATION', { default: false })
 const bucketName = defineString('RECOVERY_AUTH_BACKUP_BUCKET', { default: '' })
@@ -79,7 +80,7 @@ export async function exportPrivateAuthSnapshot(control, { force = false, auth =
     await control.runTransaction(async tx => { const held=await tx.get(lock);if(held.data()?.owner===owner)tx.delete(lock) })
   }
 }
-export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', schedule: '0 10 * * *', timeZone: 'Asia/Tokyo', retryCount: 0 }, () => measureFirestoreOperation('recoveryBackupMonitor', null, async () => {
+export const recoveryBackupMonitor = onSchedule({ region: 'asia-northeast1', schedule: '0 10 * * *', timeZone: 'Asia/Tokyo', retryCount: 0, ...runtimeIdentity('backup') }, () => measureFirestoreOperation('recoveryBackupMonitor', null, async () => {
   if (!enabled.value()) return
   let control, authStatus = 'unavailable'
   try {

@@ -1,5 +1,6 @@
 import {verifyProductionBundle,stageProductionBundle} from './lib/production-release-bundle.mjs'
 import {inspectProductionRelease} from './lib/production-release-inspection.mjs'
+import {proofDiagnostic} from './lib/default-recovery-diagnostics.mjs'
 try {
   if(process.argv.length!==4||!['local','stage','predeploy','cloud'].includes(process.argv[2]))throw Error('Explicit verification mode required.')
   const options={directory:process.argv[3],target:JSON.parse(process.env.PRODUCTION_TARGET_JSON??''),revision:process.env.GITHUB_SHA,digest:process.env.PRODUCTION_RELEASE_DIGEST}
@@ -10,4 +11,4 @@ try {
     const result=await inspectProductionRelease(bundle,{providerVersion:process.env.PRODUCTION_PROVIDER_VERSION,predeploy:process.argv[2]==='predeploy'})
     console.log(JSON.stringify(result));if(!result.ready)process.exitCode=1
   }
-}catch{console.error('Production release verification refused or incomplete. No Cloud writes performed.');process.exitCode=1}
+}catch(error){console.error(JSON.stringify({ready:false,cloudWrites:false,...proofDiagnostic(error,'release-proof')}));process.exitCode=1}

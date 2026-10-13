@@ -1,5 +1,29 @@
 # Operations
 
+## 2026-10-13 通常Prod配備の実行主体と基盤準備
+
+オーナーがmain pushによる通常配備とバックアップ環境の完成を継続目標に指定。バックアップ・PITR・Auth退避bucketの具体案には「まだ実行しない」と回答したため、保護設定は変更しない。通知先は指定済み（実アドレスは保存しない）。[実行順と簡易検証](runbooks/production-bootstrap-review.md#main自動配備バックアップ環境の完成目標2026-10-13)。
+
+承認されたCloud Functions／Cloud Build／Artifact Registry／Cloud Run／Cloud Scheduler／Eventarcの6 APIをProdで有効化し、各services GETが200／ENABLEDで一致。batchEnable要求は応答operation名のLocal形式判定でexit 1になったが、変更要求を再送せず6件を独立GETして確認（exit 0）。Google管理のサービスエージェント生成・標準権限は今回の承認範囲。`prod-business`、`prod-backup`、`prod-diagnostics` の3 SAを作成。businessの直後GET不一致とgetIamPolicyのHTTP方式誤りを読取りで調査し、公式Discoveryに合わせPOST読取りへ訂正。最終3件の所属・有効状態・SA policy binding 0・user-managed key 0を確認（exit 0）。project IAMにも3 SAのbindingなし。
+
+Cloud Build defaultServiceAccount GETは200で `projects/988295873733/serviceAccounts/988295873733-compute@developer.gserviceaccount.com` を返した。API有効化に伴いこの既定SAへ `roles/editor` が自動付与されたことをproject IAM読戻しで発見。まだ配備に使っていない。build用の限定権限への置換は未承認・未実行の残件。既存配備SAはHosting管理／API利用のみ、通常配備IAMは未変更。公開、業務DB／Auth書込み、バックアップ変更なし。
+
+Local変更：Prod実行SAを業務19／backup1／認証診断1へ分離。SDKの実際の21 endpoint定義をimportして全件一致確認（exit 0、Cloud書込みなし）。bundleから期待SAを導出し、Functions／Cloud Run service／revision一致を必須にした。通常配備の読取り失敗は安全な工程・HTTP状態だけを保存し、自動再配備をしない。専用運用probeはmetadata・固定文書・最大1件の運用中記録だけを読み、存在フラグを出力。空DBを初期化済みとは表示しない。
+
+最終アプリ変更に対する検証（この節の文書編集後はgovernanceだけ再検証）：
+
+| command | result | exit |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 生成物・検証方針の整合成功 | 0 |
+| `npm test` | 473成功・2skip。Rulesと並行した途中実行は共有lock競合で2失敗。Rules終了後の単独再実行で成功 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功。Prod公開の証拠ではない | 0 |
+| `npm run test:rules` | 隔離Emulator201成功・停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 全Functions構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+影響分類はapplication-logic、build-release-deploy、governance-permissions-agentsの和。包括7ゲートを選択し、省略なし。型検査／build／Rules／構文後の編集は配備診断スクリプト・単体試験・文書のみで、その5ゲートのinvalidatedByに該当しないため成功証拠を再利用。業務仕様・データ形状・ADRは変更なし。main統合、Prod固有build、実認証、通常公開の実証はまだ未完了。PDFの目標日は変えず、保護設定の再承認と実Cloudゲート後に残工数を再判定する。
+
 ## 2026-10-13 Firebase通知の照合・運用権限の着手
 
 本人が今回指定した個人Gmail接続のprofile一致を確認し、今回に限り通常のAIR参照先ルールに優先して読み取った。2026/08/12〜10/14のFirebase／Firestore／Hosting検索に加え、迷惑メール・ゴミ箱を含む`in:anywhere`検索を実施。Firestoreの個別検索は0件、Hosting／Filestore関連の仕様通知は2件。個人メールアドレス・本文・課金情報はリポジトリへ保存しない。

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13 通常Prod配備・運用認証の後続準備
+
+- 固定対象・読取り専用の運用認証probeと手動workflowを追加。空DBでの認証成功と初期化未了を区別し、応答本文をログに出さない。
+- Prod Functionsの業務／backup／認証診断を異なる実行SAへ分離し、配備後のFunctions・Cloud Run service・revisionのSA一致を検査。
+- 通常配備の照合失敗に安全な工程・HTTP状態を残す。実公開・IAMは別確認。日次backup・PITR・退避bucketの具体構成は本人指示で実行保留。
+
 ## 2026-10-13 Firebase通知照合と運用権限準備
 
 - Hostingサイト作成変更とGKE Filestore通知を確認し、今回の公開後照合失敗に直接関連する根拠がないことを記録。

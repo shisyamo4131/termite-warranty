@@ -7,6 +7,7 @@ import { reportClientMetrics } from './client-metrics.js'
 import { createAuthDiagnosticReceiver } from './auth-diagnostics.js'
 import { setGlobalOptions } from 'firebase-functions/v2'
 import { assertApprovedPrototypeRuntime } from './local-runtime.js'
+import { runtimeIdentity } from './production-identities.js'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from './recovery-runtime.js'
 import { PROPERTY_READ_ACTIONS } from './domain/recovery.mjs'
 import { propertyPrototypeOperation } from './property-warranty.js'
@@ -38,11 +39,11 @@ export { recoveryBackupMonitor } from './recovery-backups.js'
 
 const onCall = (name, options, handler) => {
   if (!handler) { handler = options; options = {} }
-  return nativeOnCall(options, request => measureFirestoreOperation(name, request.data?.action, () => handler(request)))
+  return nativeOnCall({ ...options, ...runtimeIdentity('business') }, request => measureFirestoreOperation(name, request.data?.action, () => handler(request)))
 }
 export const reportFirestoreMetrics = onCall('reportFirestoreMetrics', request => reportClientMetrics(request, observedFirestore(getFirestore(), 'business', 'telemetry')))
 // No business-data access and no Auth requirement: failed login is the observed event.
-export const reportAuthDiagnostics = nativeOnCall({ maxInstances: 2, timeoutSeconds: 10 }, createAuthDiagnosticReceiver())
+export const reportAuthDiagnostics = nativeOnCall({ maxInstances: 2, timeoutSeconds: 10, ...runtimeIdentity('diagnostics') }, createAuthDiagnosticReceiver())
 
 export const propertyBulkImport = onCall('propertyBulkImport', { timeoutSeconds: 300 }, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')

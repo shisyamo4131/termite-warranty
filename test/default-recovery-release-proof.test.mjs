@@ -62,6 +62,24 @@ test('production environment must agree on Functions and both Cloud Run definiti
     assert.equal((await releaseProof(f))[0].status,mode==='valid'?'pass':'blocked')
   }
 })
+test('Prod proof binds Functions, Cloud Run service and revision to the expected runtime identity',async()=>{
+  for(const mode of ['valid','function','service','revision','missing']){
+    const f=fixture(),identity='prod-business@fictional-dev.iam.gserviceaccount.com'
+    f.inputs.expectedRuntimeIdentities={one:identity,two:identity}
+    for(const fn of f.functions){
+      fn.serviceConfig.serviceAccountEmail=identity
+      f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service).template.serviceAccount=identity
+      f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service+'/revisions/'+fn.serviceConfig.revision).serviceAccount=identity
+    }
+    const fn=f.functions[0]
+    if(mode==='function')fn.serviceConfig.serviceAccountEmail='foreign'
+    if(mode==='service')f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service).template.serviceAccount='foreign'
+    if(mode==='revision')f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service+'/revisions/'+fn.serviceConfig.revision).serviceAccount='foreign'
+    if(mode==='missing')delete f.inputs.expectedRuntimeIdentities.one
+    assert.equal((await releaseProof(f))[0].status,mode==='valid'?'pass':'blocked')
+  }
+})
+
 test('partial Functions, wrong provenance/control and unstable Cloud Run stay blocked',async()=>{
   for(const alter of [f=>f.functions.pop(),f=>f.functions[0].buildConfig.sourceProvenance.resolvedStorageSource.generation='',f=>f.functions[0].serviceConfig.environmentVariables.RECOVERY_CONTROL_DATABASE='wrong',f=>f.functions[0].state='DEPLOYING',f=>{const run=f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service);run.observedGeneration='1'},f=>{const run=f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service);run.trafficStatuses[0].percent=99},f=>{f.readArchive=async()=>zip(new Map([...f.inputs.sourceFiles,['extra.js',Buffer.from('x')]]))}]){const f=fixture();alter(f);const result=await releaseProof(f);assert.deepEqual(result.map(c=>c.status),['blocked','pass']);assert.ok(!JSON.stringify(result).includes('private canary'))}
 })

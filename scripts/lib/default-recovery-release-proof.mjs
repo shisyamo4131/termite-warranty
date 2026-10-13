@@ -99,6 +99,8 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     if(!match||![project,projectNumber].includes(match[1])||match[2]!==inputs.region||f.state!=='ACTIVE'||f.environment!=='GEN_2'||names.includes(match[3])||!inputs.functionNames.includes(match[3]))fail()
     names.push(match[3])
     const build=f.buildConfig,service=f.serviceConfig
+    const expectedIdentity=inputs.expectedRuntimeIdentities?.[match[3]]
+    if(inputs.expectedRuntimeIdentities&&(!expectedIdentity||service?.serviceAccountEmail!==expectedIdentity))fail()
     if(build?.entryPoint!==match[3]||build.runtime!=='nodejs22'||service?.environmentVariables?.RECOVERY_CONTROL_DATABASE!==control||service.allTrafficOnLatestRevision!==true)fail()
     if(Object.entries(inputs.expectedEnvironment??{}).some(([key,value])=>service.environmentVariables[key]!==value))fail()
     const source=build.sourceProvenance?.resolvedStorageSource??build.source?.storageSource
@@ -111,9 +113,11 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     if(run.name!==runName||run.reconciling===true||!/^[1-9]\d*$/.test(String(run.generation))||String(run.observedGeneration)!==String(run.generation)||run.terminalCondition?.state!=='CONDITION_SUCCEEDED'||revisionName(runName,run.latestReadyRevision)!==rev||revisionName(runName,run.latestCreatedRevision)!==rev||run.conditions?.some(c=>c.state!=='CONDITION_SUCCEEDED'))fail()
     for(const traffic of [run.traffic,run.trafficStatuses]){if(!Array.isArray(traffic)||traffic.length!==1||traffic[0].percent!==100||traffic[0].tag||traffic[0].revision&&revisionName(runName,traffic[0].revision)!==rev||!traffic[0].revision&&traffic[0].type!=='TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST')fail()}
     controlEnvironment(run.template?.containers,control,inputs.expectedEnvironment)
+    if(expectedIdentity&&run.template?.serviceAccount!==expectedIdentity)fail()
     const revision=await request(`https://run.googleapis.com/v2/${rev}`)
     if(revision.name!==rev||revision.reconciling===true||!revision.conditions?.some(c=>c.type==='Ready'&&c.state==='CONDITION_SUCCEEDED')||revision.conditions.some(c=>c.state!=='CONDITION_SUCCEEDED'))fail()
     controlEnvironment(revision.containers,control,inputs.expectedEnvironment)
+    if(expectedIdentity&&revision.serviceAccount!==expectedIdentity)fail()
   }
   if(canonical(names.sort())!==canonical(inputs.functionNames))fail()
   // Recheck the complete provider snapshot, retaining raw environments only in memory.

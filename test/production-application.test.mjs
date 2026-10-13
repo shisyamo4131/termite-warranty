@@ -6,12 +6,29 @@ import {join} from 'node:path'
 import {parse,stringify} from 'yaml'
 import {hostedTarget,validateHostedOptions} from '../functions/deployment-target.js'
 import {assertApprovedPrototypeRuntime,resolveProjectId} from '../functions/local-runtime.js'
+import {runtimeIdentity,productionFunctionIdentity} from '../functions/production-identities.js'
 import {hostingHash} from '../scripts/lib/default-recovery-release-proof.mjs'
 import {writeProductionBundle,verifyProductionBundle,recoveryParameters,stageProductionBundle} from '../scripts/lib/production-release-bundle.mjs'
 import {productionReadAllowed,inspectProductionRelease} from '../scripts/lib/production-release-inspection.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
+import {proofDiagnostic} from '../scripts/lib/default-recovery-diagnostics.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',site:'fictional-site',appId:'1:123456:web:aaaa',control:'recovery-control',serviceAccount:'deploy@fictional-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/123456/locations/global/workloadIdentityPools/fictional/providers/github',repositoryId:'123',ownerId:'456'}
 const revision='a'.repeat(40),parameters={RECOVERY_BACKUP_AUTOMATION:'false',RECOVERY_AUTH_BACKUP_BUCKET:'',RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE:'',RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE:''}
+
+test('Prod runtime identities separate backup and diagnostic authority without changing Dev',async()=>{
+  const env={GCLOUD_PROJECT:target.project,TERMITE_DEPLOYMENT_ENVIRONMENT:'production',TERMITE_PRODUCTION_PROJECT:target.project}
+  for(const role of ['business','backup','diagnostics'])assert.deepEqual(runtimeIdentity(role,env),{serviceAccount:`prod-${role}@${target.project}.iam.gserviceaccount.com`})
+  assert.deepEqual(runtimeIdentity('backup',{}),{})
+  assert.equal(productionFunctionIdentity('recoveryBackupMonitor',target.project),runtimeIdentity('backup',env).serviceAccount)
+  assert.equal(productionFunctionIdentity('reportAuthDiagnostics',target.project),runtimeIdentity('diagnostics',env).serviceAccount)
+  assert.equal(productionFunctionIdentity('propertyPrototype',target.project),runtimeIdentity('business',env).serviceAccount)
+  for(const patch of [{TERMITE_PRODUCTION_PROJECT:undefined},{GCLOUD_PROJECT:'termite-warranty-dev'},{FUNCTIONS_EMULATOR:'true'},{FIRESTORE_EMULATOR_HOST:'localhost:1'}])assert.throws(()=>runtimeIdentity('backup',{...env,...patch}))
+  assert.throws(()=>runtimeIdentity('unknown',env))
+  const index=await readFile(new URL('../functions/index.js',import.meta.url),'utf8'),backup=await readFile(new URL('../functions/recovery-backups.js',import.meta.url),'utf8')
+  assert.match(index,/nativeOnCall\(\{ \.\.\.options, \.\.\.runtimeIdentity\('business'\)/)
+  assert.match(index,/reportAuthDiagnostics = nativeOnCall\(.*runtimeIdentity\('diagnostics'\)/)
+  assert.match(backup,/onSchedule\(.*runtimeIdentity\('backup'\)/)
+})
 test('browser builds bind exact production project/app while preserving default Dev and rejecting unknown configurations',()=>{
   assert.equal(hostedTarget().project,'termite-warranty-dev')
   const prod=hostedTarget({environment:'production',project:target.project,appId:target.appId})
@@ -34,6 +51,7 @@ test('verified bundle preserves both DB configurations, Functions environment an
   const root=await mkdtemp(join(tmpdir(),'prod-bundle-'));t.after(()=>rm(root,{recursive:true,force:true}))
   const f=fixture(join(root,'release')),result=await writeProductionBundle(f),bundle=await verifyProductionBundle({...f,digest:result.digest})
   assert.equal(bundle.inputs.expectedEnvironment.TERMITE_PRODUCTION_PROJECT,target.project)
+  assert.equal(bundle.inputs.expectedRuntimeIdentities.one,`prod-business@${target.project}.iam.gserviceaccount.com`)
   const config=JSON.parse(bundle.files.get('firebase.json'));assert.equal(config.firestore.length,2);assert.equal(config.firestore[1].database,target.control);assert.equal(config.functions.predeploy,undefined)
   assert.equal(bundle.inputs.hostingFiles.get('/index.html'),f.inputs.hostingFiles.get('/index.html'))
   const copy=join(root,'deploy')
@@ -65,6 +83,16 @@ test('production inspection scopes API reads and rejects missing baseline or wro
   await assert.rejects(()=>inspectProductionRelease({target}),/baseline/)
   await assert.rejects(()=>inspectProductionRelease({target},{providerVersion:`sites/${target.site}/versions/prior`,credentials:{credential:{getAccessToken:async()=>({access_token:'fictional'})}},fetcher:async()=>new Response(JSON.stringify({projectId:target.project,projectNumber:'999'}))}),/identity/)
 })
+test('production read failures preserve safe HTTP diagnostics without response bodies or retries',async()=>{
+  let calls=0
+  const options={providerVersion:`sites/${target.site}/versions/prior`,credentials:{credential:{getAccessToken:async()=>({access_token:'fictional'})}},fetcher:async()=>{calls++;return new Response('private response',{status:403})},predeploy:true}
+  await assert.rejects(()=>inspectProductionRelease({target},options),error=>{
+    assert.deepEqual(proofDiagnostic(error),{stage:'api-read',reasonCode:'http-error',httpStatus:403})
+    assert.ok(!error.message.includes('private response'));return true
+  })
+  assert.equal(calls,1)
+})
+
 test('predeploy refuses missing or foreign foundation before any deployment and accepts existing exact targets',async()=>{
   const providerVersion=`sites/${target.site}/versions/prior`,credentials={credential:{getAccessToken:async()=>({access_token:'fictional'})}}
   for(const mode of ['valid','missing','location','site','baseline']){

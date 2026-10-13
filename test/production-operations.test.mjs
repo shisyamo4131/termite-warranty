@@ -81,3 +81,4 @@ test('restore submission with unknown outcome retains journal and exclusion; onl
   assert.equal((await dispatchProductionOperation(status,{...c,provider:{operation:async()=>({done:true}),recoveryPoint:async()=> '2026-10-13T00:00:00Z'}})).restoreDone,true)
   assert.equal(rows.has(target.control+'/recovery/operatorLock'),false)
 })
+import './production-operator-probe.test.mjs'

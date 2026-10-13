@@ -1,6 +1,7 @@
 import {operatorCredentials} from './operator-credentials.mjs'
 import {releaseProof,ARCHIVE_LIMIT} from './default-recovery-release-proof.mjs'
 import {infrastructureChecks} from './default-recovery-preflight.mjs'
+import {proofFetch,proofFailure} from './default-recovery-diagnostics.mjs'
 export function productionReadAllowed(url,target){
   try{
     const u=new URL(url),p=u.pathname
@@ -22,13 +23,12 @@ export async function inspectProductionRelease(bundle,{providerVersion,credentia
   const read=async(url,{publicRead=false,max=4*1024*1024}={})=>{
     if(publicRead?url!==`https://${target.site}.web.app/__/firebase/init.json`:!productionReadAllowed(url,target))throw Error('Unapproved production read.')
     const headers=publicRead?{}:{Authorization:`Bearer ${(await auth.credential.getAccessToken()).access_token}`}
-    const response=await fetcher(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(60000)})
-    if(!response.ok)throw Error('Production read failed.')
+    const response=await proofFetch(fetcher,url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(60000)},publicRead?'public-config-read':'api-read')
     const chunks=[];let size=0
     for await(const chunk of response.body){size+=chunk.length;if(size>max)throw Error('Read budget exceeded.');chunks.push(Buffer.from(chunk))}
     return Buffer.concat(chunks,size)
   }
-  const request=async url=>JSON.parse((await read(url)).toString())
+  const request=async url=>{const bytes=await read(url);try{return JSON.parse(bytes.toString())}catch{throw proofFailure('api-read','invalid-response')}}
   const identity=await request(`https://firebase.googleapis.com/v1beta1/projects/${target.project}`)
   if(identity.projectId!==target.project||String(identity.projectNumber)!==target.projectNumber)throw Error('Production project identity mismatch.')
   if(predeploy){

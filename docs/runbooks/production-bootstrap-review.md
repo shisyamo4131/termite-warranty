@@ -1,5 +1,30 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## main自動配備・バックアップ環境の完成目標（2026-10-13）
+
+同日オーナーが「mainへのpushで正常配備」「バックアップに必要な環境の完成」を継続作業のゴールとし、簡単な検証の実施を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。準備だけで完了としない。既存の公開・IAM直前確認と、延期した課金保護設定の具体確認は維持する。通知先は本人指定の開発側宛先で確定、将来変更可能。実アドレスはリポジトリへ保存しない。
+
+### 保護設定の先行実行案（本人指示で実行保留）
+
+この具体構成を提示したところ、同日本人が「保護設定はまだ実行しない」と回答。以下は未実行の準備案として保持し、日次backup・PITR・bucketの実変更は行わない。通常配備の準備は継続する。バックアップ環境の完成を達成済みとはしない。
+
+- 対象は確認済み `termite-warranty-prod` の `(default)`（東京）。日次backupを1件、保持 `2592000s`（30日）、PITRを有効化。2026-10-13の実GETでは予定0件・PITR無効。設定後に同じAPIを読戻す。初回backupの生成・PITR履歴蓄積は設定完了と区別する。
+- Auth退避bucketの提案名は `termite-warranty-prod-auth-backups-988295873733`。未作成。作成直前に名前衝突を確認し、同名が別projectに存在したら止める。東京・Standard・公開アクセス防止enforced・統一アクセス有効・`auth/`だけ30日削除、soft deleteは無効の案。ハッシュ設定は別prefix `configuration/` に非公開保存し、この削除規則へ含めない。保管・PITR・実行には従量費用が発生する。
+- この単位では業務文書・Authユーザー・Rules・アプリ公開を変更しない。設定応答が不明なら読取りで調べ、POSTを再送しない。差戻しは日次予定／PITRの停止を別判断し、取得済み像は削除しない。bucketは検証後も保持する。
+
+### 通常配備の実装・設定順
+
+1. Localでは業務 `prod-business`、backup `prod-backup`、診断 `prod-diagnostics` の同project SAへFunctionsを明示的に結び付ける。3 SAは個別承認で作成し、権限なし・長期鍵なしを読戻した。Dev／Localの既存設定は維持。Functions・Cloud Run service・実配信revisionの3か所で実行SA一致を照合する。
+2. 運用専用読取りprobeは `.github/workflows/verify-production-operator.yml` と `scripts/production-operator-probe.mjs`。固定metadataと2DBの限定パスを読み、存在フラグだけを出す。空DBの読取り成功を初期化成功にしない。前節の汎用observe案をこの専用probeへ置換。候補5権限はIAM queryTestablePermissionsの13ページで全件GA・custom role対応を確認した。実SAでの読取りは未実証。
+3. 着手時に未有効だったCloud Functions／Cloud Build／Artifact Registry／Cloud Run／Cloud Scheduler／Eventarcは、個別承認後に有効化・読戻し済み。runtimeと配備の必要IAMを確定し、具体設定を承認提示する。既定Editorを付けない。Firebase CLI 15.29.0のFunctions配備経路には独自build SAの設定箇所を確認できず、build主体はAPI有効化後の実値とCLI対応を照合する。独自build SAで配備可能とはまだ表示しない。
+4. mainへ通常アプリをPR統合し、7ゲート・Prod成果物検証・同SHA受渡しを実行。enable、保護設定、provider基準版を照合してから公開承認を提示。PR保護を迂回してmainへ直接pushしない。
+5. 初回の通常配備と続くmain更新で、workflow成功だけでなくRules／索引／全Functions／Hostingの実一致を確認する。配備後に失敗した場合は自動再配備せず読取り診断する。ロールバックは保守Hosting表示を含め、DB書込みとの互換性を確認してから行う。
+6. バックアップは日次予定・PITR有効、非公開bucket、Authハッシュ設定退避、監視メール到達、初回Auth保存・読戻し、日次backup READYを別々に記録。実データの削除・Auth復元はこの検証へ含めない。空DB／未初期化で監視が停止する条件を解消する必要があり、設定だけで取得成功とはしない。
+
+簡易検証項目：正規mainの短期認証、許可外条件の拒否、別projectへの接続拒否、3主体の配備後一致、main更新の正常配備、日次予定とPITR読戻し、bucket公開拒否、Auth退避読戻し、失敗通知到達。各項目はLocal試験・実設定・実動作を分けて記録する。
+
+参考：[Functionsの実行SA](https://firebase.google.com/docs/functions/manage-functions#set_service_account)、[build主体と権限](https://docs.cloud.google.com/functions/docs/building)、[通知先変更](https://docs.cloud.google.com/monitoring/alerts/using-channels-api)。
+
 ## 運用権限とFunctions実行主体の具体化（2026-10-13、着手）
 
 状態：以下は未承認・未適用の権限候補と実証手順。本人の「優先1を作業開始」に基づく棚卸し・準備で、IAM付与やFunctions配備の承認ではない。実SA一覧・IAM、`production-operations.mjs`／`default-recovery.mjs`／`functions/index.js`／`recovery-backups.js`とAuth呼出しを確認した。
