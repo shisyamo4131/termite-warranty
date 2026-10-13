@@ -1,5 +1,37 @@
 # Operations
 
+## 2026-10-14 Hosting件数診断と再配備なし照合の準備
+
+本人の「進めてください」を受け、件数診断を一覧不足／version集計不一致へ分離し、非秘密の3件数と観測回数だけを記録する。未定義／不正な集計値や任意の例外文は出力しない。合格条件・限定再確認回数は維持する。通常公開用と同じ配備SAで、保存済みCI成果物を使うmain手動の読取り専用workflow／認証前guardを追加。main統合・実SA照合は未実施で、公開・IAM・GitHub変数・バックアップ設定は変更していない。[実行手順と承認境界](runbooks/production-bootstrap-review.md#通常公開版の再配備なし照合2026-10-14準備)。
+
+Local focused `node --test test/default-recovery-release-proof.test.mjs test/production-application.test.mjs` は34成功、`npm test` は482成功・2skip、各exit 0。固定記録を使った既存CI bundleの独立ローカル照合はSHA・digest・target一致、Hosting1003ファイル、exit 0。build-release-deploy／検証動作変更の包括7ゲートを選択し、残りと最終状態をPR CIで確認する。実Cloud照合をLocal単体の成功で代用しない。
+
+業務仕様、データ形状、ADR、governance方針は不変。実環境の変更がなく、日程条件・残9〜14時間もまだ変わらないため環境仕様・既存PDFは据え置く。手順・成果物索引・roadmap・changelogへ準備状態を反映する。
+
+## 2026-10-13 main更新による通常Prod自動配備
+
+本人がPR #9 head `3f636450f4989d2277ea93e02f81e8e70f72d030` のmain統合・通常enable再開・Hosting／21 Functions／Rules・索引／Schedulerの配備と照合を文章で承認（同日、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。PRの包括7ゲート成功、実headとbase、target全9項目、保護automation=false／他3項目空、保守基準版、production環境変数0を再確認。通常enable=trueを読戻し、保護を迂回せずexact headを通常mergeした（各command exit 0）。mainは `44010df1438c5fe7081b48df4b628f1f3f80f2ed`。
+
+実pushによる[Prod run 38415660463](https://github.com/shisyamo4131/termite-warranty/actions/runs/38415660463)が起動した。手動再実行ではない。verify job `115359271875` は包括7ゲートとProd成果物の生成・照合・保存に成功。bundle digestは `55a6d1f2f9d22133dc0c9c3a2f089958c80014ca1e963397eea36bd3ea9c7407`、1085ファイル、artifact `11824537784`。配備job `115364215670` は配備step成功（exit 0）後、同じ配備SAでの5項目照合のうちHostingだけが `hosting-files / file-count-mismatch` で失敗（exit 1）。最大4回・5秒間隔の限定再確認でも解消しなかった。Rules 2件・索引・21 Functions／21 source archivesは一致、資格情報後処理は成功。
+
+失敗直後に通常enable=falseへ戻し読戻し（各exit 0）。再配備なし。現在の公開版は `sites/termite-warranty-prod/versions/f523fd35d51c6809`、releaseTimeは `2026-10-13T14:54:09.556Z`。後続GETでversionのfileCount=1005、全ファイル一覧1005・全ACTIVE・重複0、21 Functions ACTIVEを確認（exit 0）。バックアップ関数のautomation=false／他3項目空、PITR無効・日次backup予定0も実GETで確認（exit 0）。日次backup・PITR・Auth bucketの本人保留を維持し、初期化・管理者・正式投入は行っていない。
+
+実artifactをconnector経由で取得し、ZIP SHA-256 `dd99e7d7eec2d94305772db780e7d00410cc1cea98a72b8ecb21816e8d6c7f51` と上記bundle digestを検証。期待アプリ1003ファイル＋既定init 2ファイル=1005。既存Local CLI認証による独立読取りでは全5項目が成功し、Hostingは1回目で一致（exit 0）。これは配備SAでの直後CI成功を代替しない。失敗時刻を含む14:53〜14:56 UTCのHosting監査ログ読取りは参照時点で0件・次ページなし（exit 0）。監査設定は変更していない。
+
+確定した原因範囲は件数比較であり、hash・未知状態・重複・設定不一致とは区別できた。ただし現在の診断は「一覧件数と期待件数」「version集計件数と一覧件数」を同じ理由へまとめるため、失敗時のどちらが不一致か、その値は未確定。反映待ちの可能性は残るが確定原因にしない。次はこの2比較を分離し、非秘密の3件数を診断に残すことと、同じ配備SAで配備を伴わない読取り照合を行う経路を具体化する。集計メタデータを合否条件から外す変更や再配備を独断で実施しない。
+
+| main verify command | result | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+| `npm test` | 480成功、0skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 201成功、Emulator停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+build-release-deployの包括7ゲートを選択、省略なし。各独立stepの結果とログをGitHub connectorで確認。同じmain更新のDev CIも成功し、Dev配備はskip。今回停止後の変更は運用記録・関連文書・日程PDFだけで、実装・workflow・依存・業務仕様・データ契約・ADR・governance方針は変更しない。アプリ側の成功証拠は失効条件に該当せず再利用するが、外部配備の完了gateは失敗のまま。main自動配備完成・バックアップ環境完成は未達。
+
 ## 2026-10-13 通常Prod公開とHosting照合の追加対策
 
 本人の文章による追加承認（同日、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）を受け、Cloud Billing APIだけを有効化。要求送信後のoperation名検査はexit 1となったが、POSTを再送せずoperationの完了・エラーなし、service ENABLED、billingEnabled=trueをGET確認（exit 0）。請求先・プラン・IAM・未使用Extensions APIは変更していない。

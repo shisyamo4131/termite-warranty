@@ -1,8 +1,20 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 通常公開版の再配備なし照合（2026-10-14準備）
+
+新しい [inspect-production-application workflow](../../.github/workflows/inspect-production-application.yml) はmainの手動起動だけに限定する。公開用と同じproduction環境・配備SA・排他グループを使用し、通常enableが明示的にfalseでなければ認証前に停止する。GitHub tokenへ過去runのartifact取得用actions:readを指定するが、Cloud IAMは追加しない。初回使用にはこのworkflowのmain統合と読取り実行について本人の文章承認を得る。以前のPR #9の公開承認を新PRへ転用しない。
+
+1. [公開成果物の固定記録](../../deliverables/production-bootstrap-2026-10-13/published-release.json)と、実際の公開版・main・配備停止を再確認する。記録は公開元SHA、成功verifyから保存したartifact ID／run ID／bundle digest、初回保守provider基準版を固定する。実行workflowのSHAと公開元SHAは別々に検証し、GITHUB_SHAを上書きしない。
+2. 認証前に固定target全9項目をGitHub変数と比較し、repo／owner ID・main・production・手動起動・enable=false・provider版の一致を要求する。artifactをID指定で取得し、ダウンロード検証とbundleの全byte／target／SHA／digest照合を通す。再build、代替artifactの選択、入力による任意コマンド指定はできない。
+3. 既存WIFでprod-deployerとして短期認証し、保存成果物と2DB Rules・索引・21 Functions・HostingをGETだけで比較する。取得したアプリコードは実行しない。成功／失敗のどちらでも認証actionの資格情報後処理を確認する。失敗時にdeploy jobを再実行しない。
+4. Hostingは期待件数・取得一覧件数・version集計件数・観測回数を記録し、一覧不足と集計不一致を別理由にする。欠落／不正な集計値は数値へ推測変換せずmissing／invalidとnullで表示する。全path／hash／ACTIVE／設定／同一公開版の合格条件、最大4回・各5秒の読取りは維持する。
+5. 今の状態で同SAの読取りが成功しても、過去の失敗時の件数や「反映遅延」を確定したことにはならない。通常enable再開・新main配備は別の具体承認とし、公開直後CIの成功まで自動配備完成とはしない。
+
+参照artifactの期限は実GitHub metadataで **2026-10-14 14:51:59 UTC（同日23:51:59 JST）**。期限切れ／削除なら認証前に停止し、再生成や再配備で埋めない。保存ZIPの採用が必要な場合は保存済みdigest・来歴・受渡し経路を別途レビューする。バックアップ保留・初期化／管理者／正式投入未実施は維持。今回の準備だけでは日程や残9〜14時間を短縮せず、既存PDFは据え置く。
+
 ## 通常公開後の照合修正と再開条件（2026-10-13）
 
-Cloud Billing APIは本人承認後に有効化・読戻し済み。同一main成果物の通常公開は成功したが、CI直後のHosting照合が失敗し通常enable=false。独立読取りの5項目は全成功。最新の実状態・限定再確認処理・証拠は[運用記録](../operations.md#2026-10-13-通常prod公開とhosting照合の追加対策)を正本とする。以下のAPI承認待ち・保守公開のみの記述は先行時点の記録。
+10/14追記：下記1〜3は本人の追加承認後に実施済み。PR #9をmain `44010df` へ通常mergeし、実pushで配備は成功。直後Hosting照合は限定再確認後も件数不一致となり、4に従ってenable=falseへ戻し再配備せず停止した。独立読取りは全5項目一致。失敗時の一覧／期待／version集計の3件数は未確定で、次は診断の分離と配備SAによる再配備なしの照合経路を具体化する。[最新証拠](../operations.md#2026-10-13-main更新による通常prod自動配備)。下の旧承認待ち・保守公開のみは先行記録。バックアップの保留は継続する。
 
 1. 修正PRの最終head、包括7ゲート、固定target、現在main、公開版、保守基準版、保護停止パラメータを照合する。
 2. 旧PR #9の文書限定headから範囲が変わるため、統合・通常enable再開・main更新による配備を具体的に提示し、本人の文章回答を得る。スマートフォン利用のため質問UIを使わない。

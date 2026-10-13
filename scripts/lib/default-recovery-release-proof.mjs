@@ -127,7 +127,7 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
 }
 export async function hostingReleaseProof({project,projectNumber,site,request,inputs,settle=false,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}) {
   let stage='hosting-site'
-  const fail=(reason='identity-mismatch')=>{throw proofFailure(stage,reason)}
+  const fail=(reason='identity-mismatch',counts)=>{throw proofFailure(stage,reason,undefined,counts)}
   if(typeof site!=='string'||!/^[-a-z0-9]+$/.test(site))fail()
   const description=await request(`https://firebasehosting.googleapis.com/v1beta1/projects/${project}/sites/${site}`)
   if(![`projects/${project}/sites/${site}`,`projects/${projectNumber}/sites/${site}`].includes(description.name))fail()
@@ -145,14 +145,17 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
       let pending=false
       for(const file of files){if(typeof file.path!=='string'||seen.has(file.path))fail();if(!inputs.hostingFiles.has(file.path)||inputs.hostingFiles.get(file.path)!==file.hash)fail('hash-mismatch');if(file.status==='EXPECTED')pending=true;else if(file.status!=='ACTIVE')fail();seen.add(file.path)}
       if(pending)fail('file-not-active')
-      if(seen.size!==inputs.hostingFiles.size||String(version.fileCount)!==String(seen.size))fail('file-count-mismatch')
+      const reportedValid=/^(0|[1-9]\d*)$/.test(String(version.fileCount??''))&&Number.isSafeInteger(Number(version.fileCount))&&Number(version.fileCount)<=10000
+      const fileCounts={expected:inputs.hostingFiles.size,listed:seen.size,reported:reportedValid?Number(version.fileCount):null,reportedState:reportedValid?'value':version.fileCount===undefined?'missing':'invalid',observation}
+      if(seen.size!==inputs.hostingFiles.size)fail('file-list-count-mismatch',fileCounts)
+      if(String(version.fileCount)!==String(seen.size))fail('file-metadata-count-mismatch',fileCounts)
       stage='hosting-stability'
       const latest=await request(channelURL)
       if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail('snapshot-changed')
-      return {files:seen.size,...(settle?{observations:observation}:{})}
+      return {files:seen.size,...(settle?{observations:observation,fileCounts}:{})}
     } catch(error) {
       const diagnostic=proofDiagnostic(error)
-      if(!settle||observation===4||diagnostic.stage!=='hosting-files'||!['file-count-mismatch','file-not-active'].includes(diagnostic.reasonCode))throw error
+      if(!settle||observation===4||diagnostic.stage!=='hosting-files'||!['file-list-count-mismatch','file-metadata-count-mismatch','file-not-active'].includes(diagnostic.reasonCode))throw error
       // Retry only GET verification, never deployment. Pin the original live release.
       stage='hosting-stability'
       const current=await request(channelURL)
