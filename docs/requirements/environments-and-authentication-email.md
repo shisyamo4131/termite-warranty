@@ -1,5 +1,9 @@
 # Environments and Authentication Email
 
+## 2026-10-13 初期所有・引継ぎ順序の更新
+
+ProdはA（開発者個人アカウント）で組織なしとして先行構築し、後日HSへ引き継ぐ。HSの管理ルールが不明な段階でWorkspaceを用意しない。下記の「初期からHS所有」「HS管理者紐付け後に請求登録」という順序は置換する。初期請求先はAの既存Cloud Billingアカウントを使用し、後日HS側へ変更する方針で確定。実行前に既存請求先の実ID・利用権限・有効状態を照合する。オーナー交代とFirestore保持／読み書き／旧オーナー拒否はSpark試験で検証済み、請求先変更と組織移行は未検証。HS最終管理・開発者の同等保守権限は維持し、[Prod手順](../runbooks/production-bootstrap-review.md)のB／H工程に従う。実Prod構築・引継ぎは未実施。
+
 ## 2026-10-08 オーナー決定による現在の状態
 
 本番DBはFirestore確定。HS所有・Dev分離・東京リージョンを維持。Prod workflowは構築情報が揃ってから、PITR等は構築後に設定。HS管理者のメールは受領、正式氏名確定は資料台帳に記録済み。開発者はHS管理者と同等の権限、通知先はオーナーGoogleアカウント。Firebaseへの管理者メール紐付け後に請求登録、予算設定は後発。[構築情報の不足一覧](../operations.md#2026-10-08-prod構築前の整理)。旧条件付きFirestore・最小権限のみという記述はこの決定で置換する。Prodの実識別子・IAM・課金・通知設定はまだ未実施。
@@ -8,7 +12,7 @@
 
 - Provide the mid-September 2026 prototype in a development environment.
 - Use separate Firebase projects for the development and production environments.
-- The development Firebase project is owned by the developer. House Solution owns and contractually controls the production Firebase/Google Cloud project and billing; its project ID, accounts, IAM bindings, and settings are recorded during provisioning.
+- The development Firebase project is owned by the developer. Production is initially provisioned by account A without an organization, then handed over to House Solution for final project and billing control under the 2026-10-13 amendment above. Use the existing Cloud Billing account of A initially, then change the billing association to HS. Billing reassignment remains unverified and is separate from project ownership. Record actual project ID, accounts, IAM bindings, and settings during provisioning and handover.
 - The provisioned and verified development Firebase project ID is `termite-warranty-dev`; its registered web app is `TermiteWarranty Dev Web`, its Hosting site is `termite-warranty-dev`, and its default Firestore location is `asia-northeast1` (Tokyo). These identifiers do not authorize or imply any production target.
 - Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. If Firestore is selected for production under HSC-022, production Firestore and Functions use `asia-northeast1`. Production uses the Blaze plan.
 - Production provisioning and implementation remain pending. The adopted operation plan covers environment-fixed deployment workflows, environment-specific authentication, verified artifacts, concurrency protection, rollback, monitoring, backups, and recovery; exact project settings and recorded identifiers are created during provisioning.
