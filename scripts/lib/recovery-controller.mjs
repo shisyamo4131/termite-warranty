@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from '../../src/domain/external-key.mjs'
+import { insuranceNoticeProjectionMatches } from '../../src/domain/insurance-notice-query.mjs'
 import { monthlyQueryProjection } from '../../src/domain/monthly-query.mjs'
 import { validateInsuranceState, insuranceProjectionMatches } from '../../src/domain/insurance-state.mjs'
 import { FieldPath } from 'firebase-admin/firestore'
@@ -130,6 +131,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
   const monthlyReady = (await db.doc('prototypeSettings/monthlyQueries').get()).data()?.version === 1
   const certificateReady = (await db.doc('prototypeSettings/certificateQueries').get()).data()?.version === 1
   const billingReady = (await db.doc('prototypeSettings/billingQueries').get()).data()?.version === 1
+  const insuranceNoticeReady = (await db.doc('prototypeSettings/insuranceNoticeQueries').get()).data()?.version === 1
   const insuranceReportReady = (await db.doc('prototypeSettings/insuranceReportQueries').get()).data()?.version === 1
   const insuranceReady = (await db.doc('prototypeSettings/insuranceStates').get()).data()
   const dashboardReady = (await db.doc('prototypeSettings/dashboard').get()).data()
@@ -143,6 +145,7 @@ export async function inspectBusinessIntegrity(db, highWater = {}) {
     for (const row of page.docs) {
       const value = row.data()
       if ((insuranceReady?.version === 1 || value.insuranceStateVersion !== undefined) && (validateInsuranceState(value, insuranceReady?.version === 1 ? {today} : {}).length || !insuranceProjectionMatches(value))) throw new RecoveryError('Insurance periods and dashboard projections require reconciliation before recovery publication.')
+      if (insuranceNoticeReady && !insuranceNoticeProjectionMatches(value)) throw new RecoveryError('Insurance notice projections require reconciliation before recovery publication.')
       const expected = monthlyQueryProjection(value)
       const required = [...(monthlyReady ? ['monthlyQueryVersion','insuranceQueryStart','insuranceQueryEnd','billingQueryMonths'] : []), ...(certificateReady ? ['certificateQueryVersion','certificateQueryMonths','certificatePendingMonth'] : []), ...(billingReady ? ['billingQueryVersion','billingPendingMonth'] : []), ...(insuranceReportReady ? ['insuranceReportedQueryVersion','insuranceReportedQueryMonths'] : [])]
       if (required.some(key=>JSON.stringify(value[key]) !== JSON.stringify(expected[key]))) throw new RecoveryError('Monthly query projections require reconciliation before recovery publication.')

@@ -2,6 +2,7 @@ import {createHash, randomUUID} from 'node:crypto'
 import {FieldPath, Timestamp} from 'firebase-admin/firestore'
 import {materializeInsuranceState, insuranceProjection, validateInsuranceState} from '../../src/domain/insurance-state.mjs'
 import {assertInsuranceCapacity} from '../../src/domain/insurance-capacity.mjs'
+import {insuranceNoticeProjection} from '../../src/domain/insurance-notice-query.mjs'
 import {monthlyQueryProjection} from '../../src/domain/monthly-query.mjs'
 import {fixedRuntimeState, sameFixedEpoch} from '../../src/domain/fixed-recovery.mjs'
 import {typed} from './default-recovery.mjs'
@@ -10,7 +11,7 @@ const digest=value=>createHash('sha256').update(JSON.stringify(typed(value))).di
 const jstDate=at=>new Date(new Date(at).getTime()+9*3600000).toISOString().slice(0,10)
 export function prepareDashboardRow(row,{at,documentPath}) {
   const next=materializeInsuranceState(row,{at,sourceFingerprint:digest(row)})
-  Object.assign(next,monthlyQueryProjection(next),insuranceProjection(next))
+  Object.assign(next,monthlyQueryProjection(next),insuranceProjection(next),insuranceNoticeProjection(next))
   if(row.insuranceStateVersion!==1) {
     if(!Number.isSafeInteger(row.revision??0)||(row.revision??0)<0||(row.revision??0)>=Number.MAX_SAFE_INTEGER)throw Error('Invalid revision')
     next.revision=(row.revision??0)+1

@@ -14,7 +14,7 @@ export function fiscalYear(date, startMonth) {
   const [year, month] = date.split('-').map(Number)
   return year - (month < startMonth ? 1 : 0)
 }
-export function normalizeWarrantyPrefix(value) { return String(value ?? '').trim().replace(/-+$/, '') }
+export function normalizeWarrantyPrefix(value) { return String(value ?? '').trim() }
 export function warrantyNumber(group, date, sequence) {
   if (!Number.isSafeInteger(sequence) || sequence < 1) throw new Error('採番値が不正です。')
   const prefix = normalizeWarrantyPrefix(group.prefix)
@@ -137,6 +137,21 @@ export function nextInsurancePeriod(row) {
 export function applicationWarnings(fields, today = japanDate()) {
   return [fields.applicationDate > today ? '申込日が未来です。' : '', fields.handoverDate && fields.applicationDate > fields.handoverDate ? '申込日が引渡日より後です。' : ''].filter(Boolean)
 }
+// Application dates belong to individual extension operations, not the property.
+export function normalizeExtensionApplication(input) {
+  const date = input.extensionApplicationDate
+  if (typeof date !== 'string' || !date) throw new Error('延長申込日を入力してください。')
+  try { calculateExpiryDate(date, 1) } catch { throw new Error('延長申込日は正しい年月日で入力してください。') }
+  const reason = input.reason ?? ''
+  if (typeof reason !== 'string' || reason.length > 2000) throw new Error('理由は2000文字以内で入力してください。')
+  return { extensionApplicationDate: date, reason: reason.trim() }
+}
+export function extensionApplicationDeadline(startDate) {
+  calculateExpiryDate(startDate, 1)
+  const date = new Date(`${startDate.slice(0, 7)}-01T00:00:00Z`)
+  date.setUTCDate(0)
+  return date.toISOString().slice(0, 10)
+}
 // Keep original events; undo events point to the extension they reverse.
 export function activeExtensions(row) {
   const history = row.history ?? []
@@ -167,7 +182,7 @@ export function warrantyTransactions(row) {
       : []
     const id = index ? event ? event.requestId : received.length === 1 ? received[0].id : null : 'initial'
     const saved = (row.billingItems ?? []).find(b => b.id === id)
-    return { ...period, id: id || `unknown-${index}`, label: index ? `延長${index}` : '初回', billingKind: index ? '延長' : '新規', billingDate: index ? period.startDate : row.applicationDate || '', billingState: saved?.state || 'unknown', identifiable: !!id }
+    return { ...period, id: id || `unknown-${index}`, label: index ? `延長${index}` : '初回', billingKind: index ? '延長' : '新規', billingDate: index ? event?.extensionApplicationDate || period.startDate : row.applicationDate || '', extensionApplicationDate: index ? event?.extensionApplicationDate || '' : '', extensionApplicationDateMissing: !!index && !event?.extensionApplicationDate, extensionReason: index ? event?.reason || '' : '', billingState: saved?.state || 'unknown', identifiable: !!id }
   })
 }
 export function activeInsuranceReports(row) {

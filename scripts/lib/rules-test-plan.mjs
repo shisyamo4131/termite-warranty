@@ -14,6 +14,7 @@ export const rulesWorkers = Object.freeze([
     'test/emulator/dashboard-migration.test.mjs',
     'test/emulator/historical-intake.test.mjs',
     'test/emulator/property-address-migration.test.mjs','test/emulator/property-name-migration.test.mjs',
+    'test/emulator/extension-application-migration.test.mjs',
     'test/emulator/recovery.test.mjs','test/emulator/fixed-runtime.test.mjs','test/emulator/default-recovery.test.mjs',
   ])}),
   Object.freeze({id:'isolated-import',files:Object.freeze(['test/emulator/isolated-property-import.test.mjs'])}),

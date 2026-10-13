@@ -1,10 +1,11 @@
+import '../helpers/emulator-runtime.mjs'
 import { test,after } from 'node:test'
 import assert from 'node:assert/strict'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
 import {getFirestore} from 'firebase-admin/firestore'
 import {inspectPropertyAddresses,applyPropertyAddresses,rollbackPropertyAddresses} from '../../scripts/lib/property-address-migration.mjs'
-if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:28080')throw Error('Fictional emulator required')
-const app=initializeApp({projectId:'demo-termite-warranty'},'address-migration-test'),db=getFirestore(app),control=getFirestore(app,'test-address-control')
+if(process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:38080')throw Error('Fictional emulator required')
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'address-migration-test'),db=getFirestore(app),control=getFirestore(app,'test-address-control')
 after(()=>deleteApp(app))
 async function fixture(){
  for(const store of [db,control])for(const root of await store.listCollections())await store.recursiveDelete(root)

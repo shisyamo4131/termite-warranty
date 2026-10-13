@@ -1,16 +1,17 @@
+import {insuranceNoticeProjection,insuranceNoticeProjectionMatches} from '../../src/domain/insurance-notice-query.mjs'
 import assert from 'node:assert/strict'
 import {after,test} from 'node:test'
 import {randomUUID} from 'node:crypto'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
-import {getFirestore,Timestamp} from 'firebase-admin/firestore'
+import {getFirestore,Timestamp,FieldValue} from 'firebase-admin/firestore'
 import {propertyPrototypeOperation} from '../../functions/property-warranty.js'
-import {coveragePeriods,initialInsurance,insuranceReportTarget,latestInsuranceReport} from '../../src/domain/property-warranty.mjs'
+import {coveragePeriods,initialInsurance,insuranceReportTarget,latestInsuranceReport,expiryAlertEligible} from '../../src/domain/property-warranty.mjs'
 import {materializeInsuranceState,insuranceProjection,validateInsuranceState} from '../../src/domain/insurance-state.mjs'
-import {monthlyQueryProjection} from '../../src/domain/monthly-query.mjs'
-import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
+import {monthlyQueryProjection,withInsuranceDefaults} from '../../src/domain/monthly-query.mjs'
+import {LOCAL_RUNTIME,localRuntimeHost} from '../helpers/emulator-runtime.mjs'
 
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw Error('Dedicated fictional emulator required')
-const app=initializeApp({projectId:'demo-termite-warranty'},'dashboard-insurance-test')
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'dashboard-insurance-test')
 const auth={} // These business operations do not perform Auth administration.
 const today='2026-10-10', now='2026-10-10T03:00:00.000Z'
 let sequence=0
@@ -33,7 +34,7 @@ async function fixture(t) {
   await batch.commit()
   const invoke=(action,input={},uid='hs')=>propertyPrototypeOperation(auth,db,{operationProtocol:1,runtimeGeneration:1,action,...input},uid)
   const get=async id=>(await db.doc('propertyWarranties/'+id).get()).data()
-  const mutate=async(action,id,extra={},uid='hs')=>invoke(action,{id,revision:(await get(id)).revision,requestId:randomUUID(),...extra},uid)
+  const mutate=async(action,id,extra={},uid='hs')=>{const result=await invoke(action,{id,revision:(await get(id)).revision,requestId:randomUUID(),...extra},uid);assert.equal(insuranceNoticeProjectionMatches(await get(id)),true);return result}
   return {db,invoke,get,mutate}
 }
 
@@ -52,7 +53,7 @@ function waived(row,index) {
   return materializeInsuranceState({...row,insuranceWaiverEvents:[...row.insuranceWaiverEvents,{id:`fictional-waiver-${index}`,kind:'waive',periodId:period.id,startDate:period.startDate,expiryDate:period.expiryDate,reason:'架空の報告不要理由',actorUid:'hs',at:now}]},{reconcile:true})
 }
 async function put(db,id,row) {
-  await db.doc('propertyWarranties/'+id).set({...row,...monthlyQueryProjection(row),...insuranceProjection(row)})
+  await db.doc('propertyWarranties/'+id).set({...row,...monthlyQueryProjection(row),...insuranceProjection(row),...insuranceNoticeProjection(row)})
 }
 function aggregateProbe(db) {
   const queries=[]
@@ -69,6 +70,116 @@ function aggregateProbe(db) {
     const value=target[key];return typeof value==='function'?value.bind(target):value
   }})}
 }
+
+function propertyReadProbe(db, afterRead = async () => {}) {
+  const reads = []
+  const wrap = query => new Proxy(query, {get(target, key) {
+    if (key === 'get') return async (...args) => {
+      const result = await target.get(...args)
+      reads.push(result.size)
+      await afterRead(reads.length)
+      return result
+    }
+    if (['where','orderBy','limit'].includes(key)) return (...args) => wrap(target[key](...args))
+    const value = target[key]; return typeof value === 'function' ? value.bind(target) : value
+  }})
+  return {reads, db: new Proxy(db, {get(target, key) {
+    if (key === 'collection') return name => name === 'propertyWarranties' ? wrap(target.collection(name)) : target.collection(name)
+    const value = target[key]; return typeof value === 'function' ? value.bind(target) : value
+  }})}
+}
+
+test('pending warranty list reads only candidates and preserves all pages, timestamp precision, IDs and legacy exclusions', async t => {
+  const {db, invoke} = await fixture(t)
+  for (let index = 0; index < 25; index++) await put(db, `eligible-${index}`, property('2016-10-01', {updatedAt:new Timestamp(100, index % 3)}))
+  for (const [id, patch] of [
+    ['future', {expiryDate:'2046-01-01'}], ['done', {warrantyNotified:true}],
+    ['cancelled', {status:'cancelled'}], ['final', {maxYears:10}],
+    ['stale-positive', {status:'cancelled',warrantyNoticePending:true}],
+  ]) await put(db, id, property('2016-10-01', patch))
+  // A stale positive must still pass the original business predicate.
+  await db.doc('propertyWarranties/stale-positive').update({warrantyNoticePending:true})
+  const missing = property('2016-10-01'); delete missing.updatedAt
+  await put(db, 'missing-updated', missing)
+  await put(db, 'null-updated', property('2016-10-01', {updatedAt:null}))
+  const input = {action:'list',filter:{alertKind:'warranty',notification:'pending'},omitReferenceLabels:true}
+  const probe = propertyReadProbe(db)
+  const optimized = await propertyPrototypeOperation(auth, probe.db, input, 'hs')
+  assert.deepEqual(probe.reads, [28])
+  assert.equal(optimized.rows.length, 26)
+  assert.equal(optimized.limited, false)
+  assert.equal(optimized.rows.at(-1).id, 'null-updated')
+  const marker = (await db.doc('prototypeSettings/dashboard').get()).data()
+  await db.doc('prototypeSettings/dashboard').delete()
+  const baselineProbe = propertyReadProbe(db)
+  await assert.rejects(propertyPrototypeOperation(auth, baselineProbe.db, input, 'hs'),{code:'failed-precondition'})
+  assert.deepEqual(baselineProbe.reads, [])
+  await assert.rejects(propertyPrototypeOperation(auth, baselineProbe.db, {...input,filter:{...input.filter,status:'active'}}, 'hs'),{code:'invalid-argument'})
+  assert.deepEqual(baselineProbe.reads, [])
+  // Test-only reference scan preserves the old full-response comparison without a product fallback.
+  const reference = (await db.collection('propertyWarranties').orderBy('updatedAt','desc').orderBy('__name__','desc').get()).docs.map(d=>withInsuranceDefaults({...d.data(),id:d.id})).filter(r=>expiryAlertEligible(r,'warranty',today,2)&&r.warrantyNotified===false)
+  assert.deepEqual(optimized.rows, reference)
+  await db.doc('prototypeSettings/dashboard').set(marker)
+  for (const filter of [
+    {alertKind:'warranty',notification:'all'}, {alertKind:'warranty',notification:'done'},
+    {alertKind:'warranty',notification:'pending',groupId:'fictional-group'},
+  ]) {
+    const other = propertyReadProbe(db)
+    await assert.rejects(propertyPrototypeOperation(auth, other.db, {...input, filter}, 'hs'),{code:'invalid-argument'})
+    assert.deepEqual(other.reads, [])
+  }
+  const company = propertyReadProbe(db)
+  const scoped = await propertyPrototypeOperation(auth, company.db, input, 'company')
+  assert.deepEqual(company.reads, [28])
+  assert.equal(scoped.rows.length, 26)
+  assert.deepEqual((await invoke('list',{filter:input.filter,omitReferenceLabels:true},'general')).rows, optimized.rows)
+})
+
+test('warranty candidate read keeps initial settings and never falls back on migration changes', async t => {
+  const {db} = await fixture(t)
+  await put(db, 'near', property('2016-10-01'))
+  await put(db, 'later', property('2017-01-01'))
+  const input = {action:'list',filter:{alertKind:'warranty',notification:'pending'},omitReferenceLabels:true}
+  const changing = propertyReadProbe(db, async count => {
+    if (count === 1) await db.doc('prototypeSettings/alerts').update({warrantyMonths:12})
+  })
+  const result = await propertyPrototypeOperation(auth, changing.db, input, 'hs')
+  assert.deepEqual(changing.reads, [1])
+  assert.deepEqual(result.rows.map(row => row.id), ['near'])
+  await db.doc('prototypeSettings/dashboard').update({operationId:'different'})
+  const unready = propertyReadProbe(db)
+  await assert.rejects(propertyPrototypeOperation(auth, unready.db, input, 'hs'),{code:'failed-precondition'})
+  assert.deepEqual(unready.reads, [])
+  await db.doc('prototypeSettings/dashboard').update({operationId:'fictional-ready'})
+  const revoked = propertyReadProbe(db, async count => {
+    if (count === 1) await db.doc('prototypeSettings/dashboard').delete()
+  })
+  await assert.rejects(propertyPrototypeOperation(auth, revoked.db, input, 'hs'),{code:'failed-precondition'})
+  assert.deepEqual(revoked.reads, [2])
+})
+
+test('notice queries omit missing search fields without rescue, writes or unrelated property reads',async t=>{
+  const {db}=await fixture(t)
+  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
+  await put(db,'warranty-valid',property('2016-10-01'))
+  await put(db,'warranty-missing',property('2016-10-01'))
+  await db.doc('propertyWarranties/warranty-missing').update({warrantyNoticePending:FieldValue.delete()})
+  await put(db,'insurance-valid',reported(property('2021-10-01'),0))
+  await put(db,'insurance-missing',reported(property('2021-10-01'),0))
+  await db.doc('propertyWarranties/insurance-missing').update({insuranceNoticeQueryExpiry:FieldValue.delete()})
+  const missingIds=['warranty-missing','insurance-missing']
+  const before=await Promise.all(missingIds.map(async id=>(await db.doc('propertyWarranties/'+id).get()).data()))
+  for(const count of [0,30]){
+    for(let i=0;i<count;i++)await put(db,'unrelated-'+i,property('2046-10-01'))
+    for(const [filter,expected] of [[{alertKind:'warranty',notification:'pending'},'warranty-valid'],[{alertKind:'insurance'},'insurance-valid']]){
+      const probe=propertyReadProbe(db)
+      const result=await propertyPrototypeOperation(auth,probe.db,{action:'list',filter,omitReferenceLabels:true},'hs')
+      assert.deepEqual(result.rows.map(row=>row.id),[expected])
+      assert.deepEqual(probe.reads,[1])
+    }
+  }
+  assert.deepEqual(await Promise.all(missingIds.map(async id=>(await db.doc('propertyWarranties/'+id).get()).data())),before)
+})
 
 test('dashboard approved six-property example returns four counts and exact target sets without property reads or writes',async t=>{
   const {db}=await fixture(t)
@@ -222,6 +333,7 @@ test('undoing an earlier waiver restores its monthly target even after a future 
 
 test('insurance notice skips a waived middle period and excludes initial unreported properties',async t=>{
   const {db,invoke}=await fixture(t)
+  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
   let extended=property('2026-10-01',{years:20,periods:coveragePeriods('2026-10-01',20),expiryDate:'2046-09-30',maxYears:30,history:[{kind:'register',requestId:'fictional-register',date:'2026-10-01'},{kind:'extend',requestId:'fictional-extension',date:'2036-10-01',before:{years:10}}]})
   extended=waived(reported(extended,0),1)
   await put(db,'skip-middle',extended)
@@ -278,4 +390,62 @@ test('unknown cancelled insurance cannot be restored and unpublished legacy unre
   await db.doc('prototypeSettings/insuranceStates').set({version:1,generation:1,operationId:'fictional-ready'})
   await assert.rejects(mutate('notify','unknown-active',{notified:false}),e=>e.code==='failed-precondition')
   assert.deepEqual(await get('unknown-active'),unpublished)
+})
+
+
+test('insurance notice query preserves full response and reduces property reads, with legacy and missing timestamp compatibility',async t=>{
+  const {db,invoke}=await fixture(t)
+  for(let i=0;i<24;i++)await put(db,`notice-${i}`,reported(property('2021-10-01',{updatedAt:new Timestamp(1000,i)}),0))
+  await put(db,'first-unreported',property('2021-10-01'))
+  await put(db,'future',reported(property('2026-10-01'),0))
+  await put(db,'all-reported',reported(reported(property('2021-10-01'),0),1))
+  await put(db,'waived',waived(reported(property('2021-10-01'),0),1))
+  await put(db,'null',reported(property('2021-10-01',{updatedAt:null}),0))
+  const missing=reported(property('2021-10-01'),0);delete missing.updatedAt;await put(db,'missing',missing)
+  const legacy={status:'active',handoverDate:'2021-10-01',updatedAt:Timestamp.fromMillis(1000)}
+  await db.doc('propertyWarranties/legacy').set({...legacy,...insuranceNoticeProjection(legacy)})
+  const input={action:'list',filter:{alertKind:'insurance'},omitReferenceLabels:true}
+  const unready=propertyReadProbe(db)
+  await assert.rejects(propertyPrototypeOperation(auth,unready.db,input,'hs'),{code:'failed-precondition'})
+  assert.deepEqual(unready.reads,[])
+  const old=propertyReadProbe(db)
+  await assert.rejects(propertyPrototypeOperation(auth,old.db,{...input,filter:{...input.filter,status:'active'}},'hs'),{code:'invalid-argument'})
+  assert.deepEqual(old.reads,[])
+  const baseline={rows:(await db.collection('propertyWarranties').orderBy('updatedAt','desc').orderBy('__name__','desc').get()).docs.map(d=>withInsuranceDefaults({...d.data(),id:d.id})).filter(r=>expiryAlertEligible(r,'insurance',today,2)),limited:false}
+  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
+  const measured=propertyReadProbe(db),result=await propertyPrototypeOperation(auth,measured.db,input,'hs')
+  assert.deepEqual(measured.reads,[27]);assert.equal(result.rows.length,26);assert.deepEqual(result,baseline)
+  assert.equal(result.rows.at(-1).id,'null')
+  const extra=propertyReadProbe(db);await assert.rejects(propertyPrototypeOperation(auth,extra.db,{...input,filter:{alertKind:'insurance',status:'active'}},'hs'),{code:'invalid-argument'});assert.deepEqual(extra.reads,[])
+  await assert.rejects(invoke('list',{filter:input.filter},'company'),e=>e.code==='permission-denied')
+  assert.deepEqual((await invoke('list',{filter:input.filter,omitReferenceLabels:true},'general')),baseline)
+  const changing=propertyReadProbe(db,async count=>{if(count===1)await db.doc('prototypeSettings/insuranceNoticeQueries').update({version:0})})
+  await assert.rejects(propertyPrototypeOperation(auth,changing.db,input,'hs'),{code:'failed-precondition'});assert.deepEqual(changing.reads,[27])
+})
+
+test('insurance notice projection follows waiver, undo, cancellation and restoration in the business transaction',async t=>{
+  const {db,get,mutate}=await fixture(t)
+  await put(db,'lifecycle',reported(property('2021-10-01'),0))
+  const period=(await get('lifecycle')).insurancePeriods[1]
+  for(const [action,input,expiry] of [
+    ['waiveInsurance',{insurancePeriodId:period.id,reason:'fictional'},''],
+    ['undoInsuranceWaiver',{insurancePeriodId:period.id},'2026-09-30'],
+    ['cancel',{reason:'fictional',confirmCancellation:true},''],
+    ['restore',{reason:'fictional'},'2026-09-30'],
+  ]) {await mutate(action,'lifecycle',input);const row=await get('lifecycle');assert.equal(insuranceNoticeProjectionMatches(row),true);assert.equal(row.insuranceNoticeQueryExpiry,expiry)}
+})
+
+
+test('insurance candidate query uses starting settings and Japanese date and propagates query failures',async t=>{
+  const {db}=await fixture(t)
+  await put(db,'near-insurance',reported(property('2021-10-01'),0))
+  await put(db,'later-insurance',reported(property('2022-01-01'),0))
+  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
+  const input={action:'list',filter:{alertKind:'insurance'},omitReferenceLabels:true}
+  const changed=propertyReadProbe(db,async count=>{if(count===1)await db.doc('prototypeSettings/alerts').update({insuranceMonths:12})})
+  assert.equal((await propertyPrototypeOperation(auth,changed.db,input,'hs')).rows.length,1);assert.deepEqual(changed.reads,[1])
+  const dateChanged=propertyReadProbe(db,async count=>{if(count===1)t.mock.timers.setTime(new Date('2026-10-10T15:00:00Z').getTime())})
+  assert.equal((await propertyPrototypeOperation(auth,dateChanged.db,input,'hs')).rows.length,2);assert.deepEqual(dateChanged.reads,[2])
+  const failed=propertyReadProbe(db,async()=>{throw Error('fictional query failure')})
+  await assert.rejects(propertyPrototypeOperation(auth,failed.db,input,'hs'),/fictional query failure/)
 })

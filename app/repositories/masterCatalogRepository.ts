@@ -1,6 +1,4 @@
-import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
-const { getDocs } = createMeasuredFirestore('masterCatalog')
-import { collection, type DocumentData, type Firestore } from 'firebase/firestore'
+import type { DocumentData, Firestore } from 'firebase/firestore'
 import { selectActiveMasterCatalog } from '../../src/domain/case-filters.mjs'
 import type { MasterCatalog, MasterCollection, MasterOption, QueryDocument } from '../types/prototype-data.ts'
 
@@ -33,19 +31,13 @@ export interface MasterCatalogSource {
   getCollection(name: MasterCollection): Promise<QueryDocument[]>
 }
 
-export const createFirestoreMasterCatalogSource = (firestore: Firestore): MasterCatalogSource => ({
-  async getCollection(name) {
-    const snapshot = await getDocs(collection(firestore, name))
-    return documentsFromSnapshot(snapshot.docs)
-  },
+// Retain explicit failures for stale callers; never silently return partial candidates.
+export const createFirestoreMasterCatalogSource = (_firestore: Firestore): MasterCatalogSource => ({
+  async getCollection(_name) { throw new Error('旧マスタ全件取得は利用できません。') },
 })
 
-export const loadAllMasterCatalog = async (source: MasterCatalogSource): Promise<MasterCatalog> => {
-  const entries = await Promise.all(masterCollections.map(async name => [
-    name,
-    (await source.getCollection(name)).map(toMasterOption),
-  ] as const))
-  return Object.fromEntries(entries) as MasterCatalog
+export const loadAllMasterCatalog = async (_source: MasterCatalogSource): Promise<MasterCatalog> => {
+  throw new Error('旧マスタ全件取得は利用できません。')
 }
 
 export const selectActiveMasters = (allMasters: MasterCatalog) =>

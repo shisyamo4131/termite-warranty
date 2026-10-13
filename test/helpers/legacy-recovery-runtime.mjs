@@ -1,5 +1,6 @@
+import './emulator-runtime.mjs'
 // Historical controller regression only; never imported by deployed Functions.
-if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:28080' || process.env.FIREBASE_AUTH_EMULATOR_HOST !== '127.0.0.1:29099') throw new Error('Legacy fixture requires dedicated fictional emulators.');
+if (process.env.FIRESTORE_EMULATOR_HOST !== '127.0.0.1:38080' || process.env.FIREBASE_AUTH_EMULATOR_HOST !== '127.0.0.1:39099') throw new Error('Legacy fixture requires dedicated fictional emulators.');
 import { randomUUID } from 'node:crypto'
 import { getFirestore } from 'firebase-admin/firestore'
 import { defineString } from 'firebase-functions/params'
@@ -9,7 +10,7 @@ import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RECOVERY_ROLES, runtimeStat
 const controlDatabase = defineString('RECOVERY_CONTROL_DATABASE', { default: '' })
 const db = id => id === '(default)' ? getFirestore() : getFirestore(id)
 export async function resolveRecovery() {
-  if (db('(default)').projectId !== 'demo-termite-warranty') throw new Error('Legacy fixture requires fictional project.')
+  if (db('(default)').projectId !== 'demo-termite-warranty-test') throw new Error('Legacy fixture requires fictional project.')
   // The default database is a permanent activation anchor. Loss of configuration
   // after activation cannot silently put Admin SDK operations back on the old DB.
   const anchor = await db('(default)').doc(ACTIVATION_PATH).get()

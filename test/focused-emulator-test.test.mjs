@@ -5,6 +5,8 @@ import {resolve} from 'node:path'
 import {createServer} from 'node:net'
 import {mkdtemp,mkdir,writeFile,readFile,access,rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
+import {randomUUID} from 'node:crypto'
+import {prepareTestStage,populateTestStage,cleanupTestStage} from '../scripts/lib/test-emulator-stage.mjs'
 import {focusedProfile,focusedEventResult,assertFocusedResult,readFocusedReceipt,assertFocusedEnvironment,
   assertEmulatorPortsFree,runFocused,runNode} from '../scripts/test-rules-focused.mjs'
 
@@ -28,7 +30,7 @@ test('focused receipts reject no tests, foreign runs and duplicates',()=>{
 test('focused environments cannot attach to existing emulators or real projects',()=>{
  assert.doesNotThrow(()=>assertFocusedEnvironment({}))
  for(const env of [{FIRESTORE_EMULATOR_HOST:'127.0.0.1:28080'},{GCLOUD_PROJECT:'real-project'},{NODE_OPTIONS:'--require secret'}])assert.throws(()=>assertFocusedEnvironment(env))
- const child={FIRESTORE_EMULATOR_HOST:'127.0.0.1:28080',FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:29099',FIREBASE_EMULATOR_HUB:'127.0.0.1:24400'}
+ const child={FIRESTORE_EMULATOR_HOST:'127.0.0.1:38080',FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:39099',FIREBASE_EMULATOR_HUB:'127.0.0.1:34400',GCLOUD_PROJECT:'demo-termite-warranty-test',GOOGLE_CLOUD_PROJECT:'demo-termite-warranty-test',TERMITE_TEST_RUN:'12345678-1234-1234-1234-123456789abc'}
  assert.doesNotThrow(()=>assertFocusedEnvironment(child,{child:true}))
  assert.throws(()=>assertFocusedEnvironment({...child,FIREBASE_AUTH_EMULATOR_HOST:'localhost:9099'},{child:true}))
 })
@@ -38,29 +40,56 @@ test('port guard refuses an occupied local port without stopping its owner',asyn
  try {await assert.rejects(()=>assertEmulatorPortsFree([server.address().port]));assert.ok(server.listening)}
  finally {await new Promise(ok=>server.close(ok))}
 })
-test('focused orchestration preserves preparation/child failures and validates cleanup',async()=>{
- let calls=0,checks=0
- await assert.rejects(()=>runFocused('excel-dates',{root,env:{},checkPorts:async()=>{checks++},run:async()=>{calls++;return {code:1}}}))
- assert.equal(calls,1);assert.equal(checks,1)
- for(const mode of ['child-failure','no-receipt','cleanup-failure','success']) {
-  let cliConfig
-  calls=0;checks=0
+test('focused orchestration isolates generated files and preserves failures',async()=>{
+ let launched=false;
+ await assert.rejects(()=>runFocused('excel-dates',{root,env:{},prepare:async()=>{throw Error('preparation failure')},run:async()=>{launched=true},checkPorts:async()=>{}}));
+ assert.equal(launched,false);
+ const shared=await readFile(resolve(root,'firebase.json'));
+ for(const mode of ['child-failure','functions-failure','no-receipt','cleanup-failure','success']) {
+  let stage,cliConfig,checks=0;
   const action=()=>runFocused('excel-dates',{root,env:{},checkPorts:async()=>{if(++checks===3&&mode==='cleanup-failure')throw Error('still occupied')},
-   run:async(args,{env})=>{
-    if(++calls===1)return {code:0}
-    cliConfig=env.XDG_CONFIG_HOME
-    assert.deepEqual(JSON.parse(await readFile(resolve(cliConfig,'configstore/firebase-tools.json'),'utf8')),{usage:false})
-    assert.ok(args.includes('demo-termite-warranty'));assert.ok(!args.some(a=>a.includes('--import')||a.includes('--export')))
-    return {code:mode==='child-failure'?1:0,output:mode==='no-receipt'?'': 'FOCUSED_RESULT '+JSON.stringify({profile:'excel-dates',nonce:env.FOCUSED_TEST_NONCE,passed:1,failed:0,selectedSkipped:0,unexpected:0})}
-   }})
-  if(mode==='success')assert.equal((await action()).passed,1);else await assert.rejects(action)
-  assert.equal(checks,3)
-  await assert.rejects(()=>access(cliConfig))
+   run:async(args,{env,root:cwd})=>{
+    stage=cwd;cliConfig=env.XDG_CONFIG_HOME;
+    assert.equal(env.TERMITE_TEST_RUN,env.FOCUSED_TEST_NONCE);
+    assert.deepEqual(JSON.parse(await readFile(resolve(cliConfig,'configstore/firebase-tools.json'),'utf8')),{usage:false});
+    const config=JSON.parse(await readFile(resolve(stage,'firebase.json'),'utf8'));
+    assert.equal(config.emulators.firestore.port,38080);assert.equal(config.emulators.firestore.websocketPort,39150);
+    assert.equal(config.functions.source,'functions');assert.equal(config.hosting,undefined);
+    assert.ok(args.includes('demo-termite-warranty-test'));assert.ok(!args.some(a=>a.includes('--import')||a.includes('--export')));
+    await access(resolve(stage,'functions/domain/recovery.mjs'));
+    return {code:mode==='child-failure'?1:0,stderr:mode==='functions-failure'?'Failed to load function definition':'',output:mode==='no-receipt'?'': 'FOCUSED_RESULT '+JSON.stringify({profile:'excel-dates',nonce:env.FOCUSED_TEST_NONCE,passed:1,failed:0,selectedSkipped:0,unexpected:0})};
+   }});
+  if(mode==='success')assert.equal((await action()).passed,1);else await assert.rejects(action);
+  assert.equal(checks,3);
+  if(mode==='cleanup-failure'){
+   await access(stage);
+   const {cleanupTestStage}=await import('../scripts/lib/test-emulator-stage.mjs');
+   const nonce=JSON.parse(await readFile(resolve(stage,'owner.json'),'utf8')).nonce;
+   await cleanupTestStage({stage,parent:resolve(root,'tmp/emulator-runs'),lock:resolve(root,'tmp/emulator-runs/active.lock'),nonce});
+  }
+  await assert.rejects(()=>access(stage));
  }
- let launched=false
- await assert.rejects(()=>runFocused('excel-dates',{root,env:{},checkPorts:async()=>{throw Error('occupied')},run:async()=>{launched=true}}))
- assert.equal(launched,false)
-})
+ assert.deepEqual(await readFile(resolve(root,'firebase.json')),shared);
+ await assert.rejects(()=>runFocused('excel-dates',{root,env:{},checkPorts:async()=>{throw Error('occupied')},run:async()=>{launched=true}}));
+ assert.equal(launched,false);
+});
+
+test('stage lock excludes a second runner and direct imports use only the owned generated Functions',async()=>{
+ const nonce=randomUUID(),owned=await prepareTestStage(root,nonce);
+ try {
+  await assert.rejects(()=>prepareTestStage(root,randomUUID()),{code:'EEXIST'});
+  await populateTestStage(owned,root);
+  await assert.rejects(()=>cleanupTestStage({...owned,nonce:randomUUID()}),/ownership/);
+  await writeFile(resolve(owned.stage,'functions/local-runtime.js'),'export const onlyInStage = 42;');
+  const env={...process.env,TERMITE_TEST_RUN:nonce,TERMITE_TEST_STAGE:owned.stage,
+   GCLOUD_PROJECT:'demo-termite-warranty-test',GOOGLE_CLOUD_PROJECT:'demo-termite-warranty-test',
+   FIRESTORE_EMULATOR_HOST:'127.0.0.1:38080',FIREBASE_AUTH_EMULATOR_HOST:'127.0.0.1:39099',FIREBASE_EMULATOR_HUB:'127.0.0.1:34400'};
+  delete env.NODE_TEST_CONTEXT;
+  const args=['--import','./scripts/lib/test-functions-register.mjs','--input-type=module','-e',"import {onlyInStage} from './functions/local-runtime.js'; if(onlyInStage!==42)throw Error('wrong source');"];
+  assert.equal((await runNode(args,{root,env,echo:false})).code,0);
+  assert.notEqual((await runNode(args,{root,env:{...env,FIRESTORE_EMULATOR_HOST:'127.0.0.1:28080'},echo:false})).code,0);
+ } finally {await cleanupTestStage(owned);}
+});
 
 test('real Node reporter rejects zero matches, selected skip and failed tests',async()=>{
  const directory=await mkdtemp(resolve(tmpdir(),'focused-reporter-'))

@@ -4,12 +4,11 @@ import { defineString } from 'firebase-functions/params'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { ACCESS_PATH, RUNTIME_PATH, RECOVERY_ROLES } from './domain/recovery.mjs'
 import { fixedRuntimeState, assertFixedRequest, sameFixedEpoch } from './domain/fixed-recovery.mjs'
-import { resolveProjectId } from './local-runtime.js'
+import { isLocalPrototypeRuntime } from './local-runtime.js'
 import { observedFirestore } from './firestore-metrics.js'
 
 // Explicit fictional fixture configuration, never a live missing-config fallback.
-const fixtureControl = process.env.FUNCTIONS_EMULATOR === 'true' && resolveProjectId() === 'demo-termite-warranty'
-  && process.env.FIRESTORE_EMULATOR_HOST === '127.0.0.1:28080' ? 'test-fixed-control' : ''
+const fixtureControl = isLocalPrototypeRuntime() ? 'test-fixed-control' : ''
 const controlDatabase = defineString('RECOVERY_CONTROL_DATABASE', { default: fixtureControl })
 const db = id => observedFirestore(id === '(default)' ? getFirestore() : getFirestore(id), id === '(default)' ? 'business' : 'control', 'recovery')
 export async function resolveRecovery() {

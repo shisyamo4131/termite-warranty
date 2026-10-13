@@ -23,6 +23,7 @@ export const subscribeCaseList = (
   cursor?: ListCursor,
   complete = false,
 ) => {
+  if (complete) throw new Error('旧一覧の全件取得は利用できません。')
   const cases = new Map<string, Record<string, unknown>>()
   const warranties = new Map<string, Record<string, unknown>[]>()
   const catalogMasters = new Map<MasterCollection, Map<string, Record<string, unknown>>>()
@@ -120,13 +121,13 @@ export const subscribeCaseList = (
       catalogMasters.set(name, new Map(documents.map(item => [item.id, item.data])))
       masterReady.add(name)
       emit()
-    }, fail, undefined, complete))
+    }, fail, undefined))
   }
 
   parentUnsubscribes.push(source.subscribeCases(documents => {
     if (!active) return
     try {
-      nextCursor = complete ? null : listCursorFromDocuments(documents)
+      nextCursor = listCursorFromDocuments(documents)
     } catch (cause) {
       fail(cause)
       return
@@ -138,9 +139,9 @@ export const subscribeCaseList = (
       warranties.set(item.id, readCaseListWarranties(item.data))
     }
     casesReady = true
-    if (!complete) replaceReferences(documents)
+    replaceReferences(documents)
     emit()
-  }, fail, cursor, complete))
+  }, fail, cursor))
 
   emit()
 

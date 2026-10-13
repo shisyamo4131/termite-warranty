@@ -1,3 +1,7 @@
+import {prepareInsuranceNoticeRow} from '../scripts/lib/insurance-notice-migration.mjs'
+import { insuranceNoticeProjection, insuranceNoticeProjectionMatches } from '../src/domain/insurance-notice-query.mjs'
+import { withInsuranceDefaults } from '../src/domain/monthly-query.mjs'
+import { expiryAlertEligible } from '../src/domain/property-warranty.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { materializeInsuranceState, insurancePeriodStates, insuranceProjection, insuranceProjectionMatches, validateInsuranceState, periodReportSelection, insuranceNoticeExpiry, insuranceMonthlyRows, insuranceReportedQueryProjection } from '../src/domain/insurance-state.mjs'
@@ -234,4 +238,35 @@ test('capacity uses UTF8 and field/map overhead, reserves entire cancellation co
   const padding=FIRESTORE_DOCUMENT_LIMIT-size.bytes-10
   assert.throws(()=>assertInsuranceCapacity({...row,padding:'x'.repeat(padding)},options),/容量/)
   assert.equal(row.insuranceWaiverEvents.length,3)
+})
+
+
+test('insurance notice projection preserves legacy normalization and period-based eligibility across calendar boundaries',()=>{
+  const rows=[fixture(),report(fixture(),0),waive(report(fixture(),0),1),undoWaive(waive(report(fixture(),0),1),1),
+    {status:'active',handoverDate:'2020-02-29'}, {status:'active',insuranceExpiryDate:'2026-02-28'},
+    {status:'cancelled',insuranceExpiryDate:'2026-02-28'}, {status:'draft'}]
+  for(const row of rows){
+    const projection=insuranceNoticeProjection(row),saved={...row,...projection}
+    assert.equal(insuranceNoticeProjectionMatches(saved),true)
+    assert.equal(insuranceNoticeProjectionMatches({...saved,insuranceNoticeQueryExpiry:'wrong'}),false)
+    for(const date of ['2025-02-28','2026-01-31','2026-02-28','2026-10-10','2028-02-29','2031-09-30','2040-10-01'])for(let months=1;months<=12;months++){
+      assert.equal(!!projection.insuranceNoticeQueryExpiry && projection.insuranceNoticeQueryExpiry<=warrantyNoticeCutoff(date,months),expiryAlertEligible(withInsuranceDefaults(row),'insurance',date,months))
+    }
+  }
+  assert.equal(insuranceNoticeProjection(fixture()).insuranceNoticeQueryExpiry,'')
+  assert.equal(insuranceNoticeProjection(report(fixture(),0)).insuranceNoticeQueryExpiry,'2025-09-30')
+  assert.equal(insuranceNoticeProjection(waive(report(fixture(),0),1)).insuranceNoticeQueryExpiry,'2030-09-30')
+  for(const row of [{status:'draft',insuranceStateVersion:2},{status:'active',insuranceExpiryDate:'2026-02-30'}])assert.throws(()=>insuranceNoticeProjection(row))
+})
+
+
+test('notice migration reserves waiver undo capacity and blocks oversized legacy rows',()=>{
+  const documentPath='propertyWarranties/capacity',at='2026-10-10T00:00:00Z'
+  let row=waive(report(fixture(),0),1)
+  row={...row,...monthlyQueryProjection(row),...insuranceProjection(row),...insuranceNoticeProjection(row),notes:''}
+  const size=assertInsuranceCapacity(row,{documentPath,today:'2026-10-10'})
+  row.notes='x'.repeat(FIRESTORE_DOCUMENT_LIMIT-size.maximumBytes+1)
+  assert.ok(firestoreDocumentBytes(row,documentPath)<=FIRESTORE_DOCUMENT_LIMIT)
+  assert.throws(()=>prepareInsuranceNoticeRow(row,{documentPath,at}),/容量/)
+  assert.throws(()=>prepareInsuranceNoticeRow({status:'draft',notes:'x'.repeat(FIRESTORE_DOCUMENT_LIMIT)},{documentPath,at}),/容量/)
 })

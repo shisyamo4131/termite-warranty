@@ -49,34 +49,36 @@ test('property list queries the exact warranty number in the database and preser
   assert.equal((await propertyPrototypeOperation({}, db, { action: 'propertyList', filter: { warrantyNumber: 'QA-26-1' } }, 'user')).rows.length, 0)
   for (const filter of [{ search: '架空' }, { groupId: 'g' }, { warrantyNumber: 123 }]) await assert.rejects(propertyPrototypeOperation({}, db, { action: 'propertyList', filter }, 'admin'), { code: 'invalid-argument' })
 })
-test('default catalog remains freshest 20, filtered candidates beyond twenty stay complete with fewer reads', async () => {
+test('retired HS catalog rejects default, search and hierarchy before master reads', async () => {
   const db = database()
-  let result = await propertyPrototypeOperation({}, db, { action: 'catalog' }, 'admin')
-  assert.equal(result.companies.length, 20); assert.equal(result.branches.length, 20)
-  db.queries.length = 0
-  result = await propertyPrototypeOperation({}, db, { action: 'catalog', groupId: 'g', companyId: 'match-0' }, 'admin')
-  assert.equal(result.companies.length, 25); assert.equal(result.branches.length, 25)
-  assert.equal(result.companies.find(c => c.id === 'match-0').enabled, false)
-  assert.equal(result.branches.find(c => c.id === 'match-0').enabled, false)
-  assert.deepEqual(db.queries.map(q => [q.name, q.fetched]), [['constructionCompanies', 25], ['companyBranches', 25], ['warrantyGroups', 1]])
-  assert.deepEqual(db.queries[0].conditions, [['defaultGroupId', '==', 'g']])
-  assert.deepEqual(db.queries[1].conditions, [['constructionCompanyId', '==', 'match-0']])
+  for (const input of [{}, {search:''}, {search:'Found'}, {groupId:'g'}, {companyId:'match-0'}, {purpose:'companyOptions'}, {purpose:'referenceStore'}]) {
+    await assert.rejects(propertyPrototypeOperation({}, db, {action:'catalog',...input}, 'admin'), e=>['invalid-argument','failed-precondition'].includes(e.code))
+    assert.deepEqual(db.queries, [])
+    assert(db.reads.every(path=>path.startsWith('staffAccounts/')))
+  }
 })
-test('company search purpose skips all branch reads while preserving search matches and legacy shape', async () => {
-  const db = database()
-  const result = await propertyPrototypeOperation({}, db, { action: 'catalog', search: 'Found', purpose: 'companyOptions' }, 'admin')
-  assert.equal(result.companies.length, 25); assert.deepEqual(result.branches, [])
-  assert.equal(db.queries.some(q => q.name === 'companyBranches'), false)
-  assert.equal(result.groups.length, 1)
+
+test('portal catalog retains only the scoped reference store request and rejects extra conditions', async () => {
+  const db=database()
+  db.records.set('constructionCompanyAccounts/user',{enabled:true,role:'construction_company',constructionCompanyId:'match-0',scope:'branch',branchId:'match-3'})
+  const result=await propertyPrototypeOperation({},db,{action:'catalog',purpose:'referenceStore'},'user')
+  assert.deepEqual(result.companies.map(c=>c.id),['match-0'])
+  assert.deepEqual(result.branches.map(c=>c.id),['match-3'])
+  assert.equal(result.groups.length,1)
+  db.queries.length=0
+  for(const input of [{},{purpose:'referenceStore',companyId:'other-0'},{purpose:'referenceStore',search:''},{purpose:'unknown'}])await assert.rejects(propertyPrototypeOperation({},db,{action:'catalog',...input},'user'),{code:'invalid-argument'})
+  assert.deepEqual(db.queries,[])
 })
-test('company/branch account scope cannot request another company and still limits default branch lookup', async () => {
-  const db = database()
-  db.records.set('constructionCompanyAccounts/user', { enabled: true, role: 'construction_company', constructionCompanyId: 'match-0', scope: 'branch', branchId: 'match-3' })
-  const result = await propertyPrototypeOperation({}, db, { action: 'catalog' }, 'user')
-  assert.deepEqual(result.companies.map(c => c.id), ['match-0'])
-  assert.deepEqual(result.branches.map(c => c.id), ['match-3'])
-  await assert.rejects(propertyPrototypeOperation({}, db, { action: 'catalog', companyId: 'other-0' }, 'user'), { code: 'permission-denied' })
+
+test('portal catalog rejects malformed account scope before master queries', async () => {
+  const db=database()
+  for(const patch of [{constructionCompanyId:''},{constructionCompanyId:'bad/path'},{scope:'branch',branchId:''},{scope:'branch',branchId:'bad/path'}]){
+    db.records.set('constructionCompanyAccounts/user',{enabled:true,role:'construction_company',constructionCompanyId:'match-0',scope:'company',...patch})
+    await assert.rejects(propertyPrototypeOperation({},db,{action:'catalog',purpose:'referenceStore'},'user'),{code:'permission-denied'})
+  }
+  assert.deepEqual(db.queries,[])
 })
+
 test('company/branch saves read the reference only once in the transaction and retain missing/disabled validation', async () => {
   const db = database()
   const address = { prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '架空1' }
@@ -108,4 +110,14 @@ test('disabled masters reject stale edits and reenable only their state without 
     await propertyPrototypeOperation({},db,{action,id:key,name:'Changed',...fields},'admin')
     assert.equal(db.records.get(`${collection}/${key}`).name,'Changed')
   }
+})
+
+
+test('prefix overflow fails before equality query or write',async()=>{
+ const db=database(),before=new Map(db.records)
+ await assert.rejects(propertyPrototypeOperation({},db,{action:'saveGroup',id:'long',name:'架空',prefix:'A'.repeat(1500),fiscalStartMonth:1},'admin'),{code:'invalid-argument'})
+ assert.deepEqual(db.queries,[]);assert.deepEqual(db.records,before)
+ db.records.set('warrantyGroups/long',{enabled:false,prefix:'A'.repeat(1500)})
+ await assert.rejects(propertyPrototypeOperation({},db,{action:'reenableMaster',kind:'group',id:'long'},'admin'),{code:'failed-precondition'})
+ assert.deepEqual(db.queries,[]);assert.equal(db.records.get('warrantyGroups/long').enabled,false)
 })

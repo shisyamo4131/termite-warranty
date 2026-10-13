@@ -1,4 +1,5 @@
 import { insuranceProjection, insurancePeriodStates } from './insurance-state.mjs'
+import { insuranceNoticeProjection } from './insurance-notice-query.mjs'
 import { monthlyQueryProjection } from './monthly-query.mjs'
 
 export const FIRESTORE_DOCUMENT_LIMIT = 1048576
@@ -26,7 +27,7 @@ export function assertInsuranceCapacity(row, { documentPath, today }) {
   for (let mask = 1; mask < 2 ** cancellable.length; mask++) {
     const selected = cancellable.filter((_, index) => mask & (1 << index))
     let candidate = { ...row, insurancePeriods: row.insurancePeriods.map(period => selected.some(target => target.id === period.id) ? { id:period.id,warrantyPeriodId:period.warrantyPeriodId,basisRevision:period.basisRevision,half:period.half,startDate:period.startDate,expiryDate:period.expiryDate,state:'pending' } : period), insuranceWaiverEvents: [...row.insuranceWaiverEvents, ...selected.map(period => ({ kind:'undoWaive',id:'x'.repeat(128),targetId:period.waiverId,periodId:period.id,actorUid:'x'.repeat(128),at:'9999-12-31T23:59:59.999Z' }))] }
-    candidate = { ...candidate, ...insuranceProjection(candidate), ...monthlyQueryProjection(candidate) }
+    candidate = { ...candidate, ...insuranceProjection(candidate), ...monthlyQueryProjection(candidate), ...insuranceNoticeProjection(candidate) }
     maximumBytes = Math.max(maximumBytes, firestoreDocumentBytes(candidate, documentPath))
   }
   if (maximumBytes > FIRESTORE_DOCUMENT_LIMIT) throw new Error('保険記録を安全に保存する容量が不足しています。開発側へ確認してください。')

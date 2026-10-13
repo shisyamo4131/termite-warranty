@@ -5,11 +5,11 @@ import { getFirestore,Timestamp,GeoPoint } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { defaultRecovery,documentImage,imageHash } from '../../scripts/lib/default-recovery.mjs'
 import { authorizationDigest,scanDatabase,recoveryController } from '../../scripts/lib/recovery-controller.mjs'
-import { LOCAL_RUNTIME,localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME,localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 import { inspectPropertyAddresses,applyPropertyAddresses,rollbackPropertyAddresses } from '../../scripts/lib/property-address-migration.mjs'
 import {fixtureTasks} from '../helpers/fixture-tasks.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated fictional emulator required')
-const app=initializeApp({projectId:'demo-termite-warranty'},'default-sync-test'),auth=getAuth(app),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'default-sync-test'),auth=getAuth(app),database=id=>id==='(default)'?getFirestore(app):getFirestore(app,id)
 const target=database('(default)'),source=database('test-sync-source'),control=database('test-sync-control'),revision='b'.repeat(40)
 const api=defaultRecovery({database,auth,controlId:'test-sync-control',revision})
 after(async()=>deleteApp(app))

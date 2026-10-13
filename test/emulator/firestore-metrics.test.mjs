@@ -7,12 +7,12 @@ import { initializeApp as webApp, deleteApp as deleteWebApp } from 'firebase/app
 import { getAuth, connectAuthEmulator, createUserWithEmailAndPassword } from 'firebase/auth'
 import { getFunctions, connectFunctionsEmulator, httpsCallable } from 'firebase/functions'
 import { measureFirestoreOperation, observedFirestore } from '../../functions/firestore-metrics.js'
-import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../helpers/emulator-runtime.mjs'
 
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw Error('Dedicated fictional emulator required')
-const app = initializeApp({ projectId: 'demo-termite-warranty' }, 'metrics-test')
+const app = initializeApp({ projectId: 'demo-termite-warranty-test' }, 'metrics-test')
 const db = getFirestore(app)
-const client = webApp({ projectId: 'demo-termite-warranty', apiKey: 'demo-only-key' }, 'metrics-test')
+const client = webApp({ projectId: 'demo-termite-warranty-test', apiKey: 'demo-only-key' }, 'metrics-test')
 const auth = getAuth(client), functions = getFunctions(client, 'asia-northeast1')
 const path = 'constructionCompanies/metrics-observation-fixture'
 let uid
@@ -88,7 +88,7 @@ test('HTTP telemetry callable accepts bounded aggregate and rejects text dimensi
 })
 
 test('auth diagnostics HTTP callable accepts anonymous failure and rejects arbitrary fields', async () => {
-  const endpoint = `${localRuntimeUrl(LOCAL_RUNTIME.functionsPort)}/demo-termite-warranty/asia-northeast1/reportAuthDiagnostics`
+  const endpoint = `${localRuntimeUrl(LOCAL_RUNTIME.functionsPort)}/demo-termite-warranty-test/asia-northeast1/reportAuthDiagnostics`
   const input = { version: 1, rows: [{ id: crypto.randomUUID(), at: Date.now(), stage: 'sign_in', code: 'auth/network-request-failed', online: false }] }
   const send = data => fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'http://127.0.0.1:23600' }, body: JSON.stringify({ data }) })
   const accepted = await send(input)

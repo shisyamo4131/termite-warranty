@@ -23,9 +23,9 @@ import {
   CaseEditConflictError,
   updateCaseTransaction,
 } from '../../app/gateways/caseCommandGateway.ts'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
   throw new Error(`Case edit tests require the dedicated local emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }

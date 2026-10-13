@@ -3,6 +3,7 @@ import { externalKeySettings } from './domain/external-key.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
 import { Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
+import { insuranceNoticeProjection } from './domain/insurance-notice-query.mjs'
 import { monthlyQueryProjection } from './domain/monthly-query.mjs'
 import { materializeInsuranceState, insuranceProjection } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
@@ -90,14 +91,19 @@ export async function propertyBulkImportOperation(db, input, uid) {
       return { count: parsed.rows.length, externalKeyLabel: keyLabel, rows: [], errors, previewHash: hash(JSON.stringify({ digest, errors })) }
     }
     const branches = new Map()
-    // Read this company's branches once and compare complete codes, including long values.
-    const companyBranches = (await tx.get(db.collection('companyBranches').where('constructionCompanyId', '==', companyId))).docs
     const codes = [...new Set(parsed.rows.map(row => row.branchCode))]
     const reservations = await readImportDocuments(tx, codes.map(code => db.doc(`branchCodeReservations/${hash(companyId + '\0' + code)}`)))
+    const branchIds = new Set()
     for (const code of codes) {
-      const active = companyBranches.filter(row => row.data().branchCode === code && row.data().enabled !== false)
       const reservation = reservations.get(`branchCodeReservations/${hash(companyId + '\0' + code)}`).data()
-      if (active.length === 1 && reservation?.constructionCompanyId === companyId && reservation.branchCode === code && reservation.branchId === active[0].id) branches.set(code, { ...active[0].data(), id: active[0].id })
+      if (reservation?.constructionCompanyId === companyId && reservation.branchCode === code && typeof reservation.branchId === 'string' && /^[\w-]{1,128}$/.test(reservation.branchId)) branchIds.add(reservation.branchId)
+    }
+    const branchDocuments = await readImportDocuments(tx, [...branchIds].map(id => db.doc(`companyBranches/${id}`)))
+    for (const code of codes) {
+      const reservation = reservations.get(`branchCodeReservations/${hash(companyId + '\0' + code)}`).data()
+      if (reservation?.constructionCompanyId !== companyId || reservation.branchCode !== code || !branchIds.has(reservation.branchId)) continue
+      const branch = branchDocuments.get(`companyBranches/${reservation.branchId}`)?.data()
+      if (branch && branch.constructionCompanyId === companyId && branch.branchCode === code && branch.enabled !== false) branches.set(code, { ...branch, id: reservation.branchId })
     }
     const keys = new Map()
     const keyReservations = await readImportDocuments(tx, [...new Set(parsed.rows.map(row => row.externalKey))].map(key => db.doc(`externalKeyReservations/${hash(key)}`)))
@@ -139,7 +145,7 @@ export async function propertyBulkImportOperation(db, input, uid) {
         if (insurance) Object.assign(value, insurance)
         Object.assign(value,materializeInsuranceState(value,{newRegistration:true}))
         Object.assign(value,insuranceProjection(value))
-        Object.assign(value, monthlyQueryProjection(value))
+        Object.assign(value, monthlyQueryProjection(value), insuranceNoticeProjection(value))
         try { assertInsuranceCapacity(value,{documentPath:refs[index].path,today}) } catch (error) { errors.push(reason(row,'保険記録',error.message)) }
         plans.push({ row, ref: refs[index], branchLabel: branch ? `${branch.name}（${row.branchCode}）` : '', value })
       }

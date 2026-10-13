@@ -1,5 +1,5 @@
 export function isolatedImportDatabase(getFirestore, app, id) {
-  if (app.options.projectId !== 'demo-termite-warranty' || !['test-external-keys','test-import-volume'].includes(id)) {
+  if (app.options.projectId !== 'demo-termite-warranty-test' || !['test-external-keys','test-import-volume'].includes(id)) {
     throw new Error('Isolated import tests cannot access shared databases.')
   }
   return getFirestore(app, id)

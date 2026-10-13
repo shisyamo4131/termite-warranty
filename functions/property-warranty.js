@@ -1,6 +1,9 @@
+import { normalizeExtensionApplication } from './domain/property-warranty.mjs'
 import { pendingBillingRows } from './domain/billing-output.mjs'
 import { companyBankFields, companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
 import { dashboardCounts } from './dashboard.js'
+import { pendingWarrantyCandidates, warrantyNoticeOrder } from './warranty-notice-query.js'
+import { propertyListFilter } from './property-list-filter.js'
 import { activeInsuranceWaivers, materializeInsuranceState, insuranceProjection, validateInsuranceState, insuranceMonthlyRows } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
 import { certificatePeriods, certificateRows } from './domain/warranty-certificate.mjs'
@@ -9,6 +12,8 @@ import { createHash } from 'node:crypto'
 import { externalKeySettings, normalizeExternalKey } from './domain/external-key.mjs'
 import { normalizeBranchCode } from './domain/branch-code.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
+import { insuranceNoticeProjection } from './domain/insurance-notice-query.mjs'
+import { insuranceNoticeCandidates } from './insurance-notice-query.js'
 import { monthlyQueryProjection, validMonth, withInsuranceDefaults } from './domain/monthly-query.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
@@ -37,25 +42,20 @@ function visibleInsurance(row, staff) {
   const { insuranceWaiverEvents, insuranceMigration, ...visible } = row
   return visible
 }
-async function catalog(db, a, search = '', groupId = '', companyId = '', purpose = '') {
-  if ((groupId || companyId) && !a.staff) fail('permission-denied', '階層の管理はHS担当者のみ利用できます。')
-  if (groupId) id(groupId)
-  if (companyId) id(companyId)
-  let companyQuery = db.collection('constructionCompanies')
-  if (groupId) companyQuery = companyQuery.where('defaultGroupId', '==', groupId)
-  companyQuery = companyQuery.orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
-  const companies = a.staff ? await (search || groupId ? companyQuery : companyQuery.limit(20)).get() : await db.collection('constructionCompanies').where(FieldPath.documentId(), '==', a.constructionCompanyId).get()
-  let branches = db.collection('companyBranches')
-  if (companyId) branches = branches.where('constructionCompanyId', '==', companyId)
-  if (!a.staff) branches = branches.where('constructionCompanyId', '==', a.constructionCompanyId)
-  if (!a.staff && a.scope === 'branch') branches = branches.where(FieldPath.documentId(), '==', a.branchId)
+async function catalog(db, a, input) {
+  const allowed = ['action', 'purpose', 'runtimeGeneration', 'runtimeProtocol', 'operationProtocol']
+  if (input.purpose !== 'referenceStore' || Object.keys(input).some(key => !allowed.includes(key))) fail('invalid-argument', '旧マスタ取得は利用できません。画面を再読み込みしてください。')
+  if (a.staff) fail('failed-precondition', 'HSの参照マスタは共有Storeから取得してください。')
+  if (typeof a.constructionCompanyId !== 'string' || !/^[\w-]{1,128}$/.test(a.constructionCompanyId) || a.scope === 'branch' && (typeof a.branchId !== 'string' || !/^[\w-]{1,128}$/.test(a.branchId))) fail('permission-denied', '所属情報を確認してください。')
+  const companies = await db.collection('constructionCompanies').where(FieldPath.documentId(), '==', a.constructionCompanyId).get()
+  let branches = db.collection('companyBranches').where('constructionCompanyId', '==', a.constructionCompanyId)
+  if (a.scope === 'branch') branches = branches.where(FieldPath.documentId(), '==', a.branchId)
   branches = branches.orderBy('updatedAt','desc').orderBy(FieldPath.documentId(),'desc')
-  if (!search && !companyId && purpose !== 'referenceStore') branches = branches.limit(20)
-  const matching = items => search ? items.filter(row => row.name.includes(search)) : items
+  const groupId = companies.docs[0]?.data()?.defaultGroupId
+  const group = groupId ? await db.doc(`warrantyGroups/${id(groupId)}`).get() : null
   return {
-    companies: matching(rows(companies)).filter(row => !groupId || row.defaultGroupId === groupId),
-    branches: matching(purpose === 'companyOptions' ? [] : rows(await branches.get())).filter(row => !companyId || row.constructionCompanyId === companyId),
-    groups: a.staff ? rows(await db.collection('warrantyGroups').get()) : await (async()=>{const groupId=companies.docs[0]?.data()?.defaultGroupId;if(!groupId)return [];const group=await db.doc(`warrantyGroups/${groupId}`).get();return group.exists ? [portalWarrantyGroup(group.data(),group.id)] : []})(),
+    companies: rows(companies), branches: rows(await branches.get()),
+    groups: group?.exists ? [portalWarrantyGroup(group.data(),group.id)] : [],
   }
 }
 
@@ -81,11 +81,7 @@ async function reserveBranchCode(db, tx, ref, old, value) {
   // Missing/corrupt active reservations need explicit repair, not silent release.
   if (previousCode && old?.enabled !== false && !ownsPrevious) fail('failed-precondition', '本支店コードの管理情報を確認してください。')
   if (held && (held.branchId !== ref.id || held.branchCode !== value.branchCode || held.constructionCompanyId !== value.constructionCompanyId)) fail('already-exists', '同じ工務店内で本支店コードが重複しています。')
-  if (newRef) {
-    // Compare full codes in the company scope; indexed values may truncate long codes.
-    const matching = await tx.get(db.collection('companyBranches').where('constructionCompanyId','==',value.constructionCompanyId))
-    if (matching.docs.some(row => row.id !== ref.id && row.data().enabled !== false && row.data().branchCode === value.branchCode)) fail('already-exists', '同じ工務店内で本支店コードが重複しています。')
-  }
+  // The existing code reservation serializes competing owners, including long codes.
   // Editing an inactive branch must never delete another branch's reservation.
   if (ownsPrevious && previousRef.path !== newRef?.path) tx.delete(previousRef)
   if (newRef) tx.set(newRef, { constructionCompanyId:value.constructionCompanyId, branchCode:value.branchCode, branchId:ref.id })
@@ -122,7 +118,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     await db.doc('prototypeSettings/alerts').set({ ...settings, updatedAt: Timestamp.now() })
     return settings
   }
-  if (action === 'catalog') return catalog(db, a, String(input.search ?? '').trim(), input.groupId || '', input.companyId || '', input.purpose || '')
+  if (action === 'catalog') return catalog(db, a, input)
   if (action === 'certificateList' || action === 'billingList') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     if (!validMonth(input.month)) fail('invalid-argument', '対象年月を指定してください。')
@@ -144,12 +140,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     return { rows: certificateRows(rows(page), input.month, {includeDone}) }
   }
   if (action === 'list' || action === 'propertyList') {
-    const f = input.filter ?? {}
-    if (f.includeDone !== undefined && typeof f.includeDone !== 'boolean') fail('invalid-argument', '処理済みの表示条件を確認してください。')
-    if (action === 'propertyList') {
-      if (Object.keys(f).some(key => key !== 'warrantyNumber') || (f.warrantyNumber != null && typeof f.warrantyNumber !== 'string')) fail('invalid-argument', '物件・保証一覧は保証番号の完全一致検索のみ利用できます。')
-      f.warrantyNumber = (f.warrantyNumber ?? '').trim()
-    }
+    const f = propertyListFilter(action, input.filter)
+    if (!a.staff && (typeof a.constructionCompanyId !== 'string' || !/^[\w-]{1,128}$/.test(a.constructionCompanyId) || a.scope === 'branch' && (typeof a.branchId !== 'string' || !/^[\w-]{1,128}$/.test(a.branchId)))) fail('permission-denied', '所属情報を確認してください。')
     if (f.alertKind && !['warranty','insurance'].includes(f.alertKind)) fail('invalid-argument', '案内の種類が不正です。')
     if (f.alertKind === 'insurance' && !a.staff) fail('permission-denied', '保険満了案内はHS担当者のみ閲覧できます。')
     if ((f.reportMonth || f.alertKind === 'insurance') && (await db.doc('prototypeSettings/insuranceStates').get()).data()?.version !== 1) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
@@ -168,22 +160,22 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         ? query.where('insuranceQueryStart', '<=', f.reportMonth).where('insuranceQueryEnd', '>=', f.reportMonth)
         : query.where('billingQueryMonths', 'array-contains', f.billingMonth)
     } else query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
-    const filtered = ['reportMonth','billingMonth','warrantyNumber','handoverMissing', 'alertKind', 'search', 'companyId', 'branchId', 'groupId', 'fiscalYear', 'status', 'expiryBefore', 'from', 'to','applicationFrom','applicationTo','handoverFrom','handoverTo'].some(k => typeof f[k] === 'string' && f[k].trim())
-    for (const key of ['application','handover']) if (f[`${key}From`] && f[`${key}To`] && f[`${key}From`] > f[`${key}To`]) fail('invalid-argument','日付の開始・終了を確認してください。')
+    const filtered = !!(monthly || f.warrantyNumber || f.alertKind)
     if (!filtered) query = query.limit(20)
-    const snapshots = await Promise.all([query.get(), ...(f.reportMonth && f.includeDone === true ? [monthlyBaseQuery.where('insuranceReportedQueryMonths','array-contains',f.reportMonth).get()] : [])])
+    const notice = f.alertKind === 'warranty' ? await pendingWarrantyCandidates(db, f, a) : f.alertKind === 'insurance' ? await insuranceNoticeCandidates(db, f, a.staff) : null
+    if (f.alertKind && !notice) fail('invalid-argument', 'この検索条件には対応していません。画面を再読み込みしてください。')
+    const snapshots = notice ? [notice.snapshot] : await Promise.all([query.get(), ...(f.reportMonth && f.includeDone === true ? [monthlyBaseQuery.where('insuranceReportedQueryMonths','array-contains',f.reportMonth).get()] : [])])
     const unique = new Map(snapshots.flatMap(page=>rows(page)).map(row=>[row.id,row]))
     let result = [...unique.values()].map(withInsurance).filter(row => matchesProperty(row, f))
+    if (notice) result = result.filter(row => Object.hasOwn(row, 'updatedAt')).sort(warrantyNoticeOrder)
     let unclassifiedCount = 0
     if (monthly) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     if (f.alertKind) {
-      const settings = normalizeAlertSettings((await db.doc('prototypeSettings/alerts').get()).data())
-      result = result.filter(row => expiryAlertEligible(row, f.alertKind, japanDate(), settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
-      if (f.alertKind === 'warranty' && f.notification !== 'all') result = result.filter(row => row.warrantyNotified === (f.notification === 'done'))
+      result = result.filter(row => expiryAlertEligible(row, f.alertKind, notice.basisDate, notice.settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
+      if (f.alertKind === 'warranty') result = result.filter(row => row.warrantyNotified === false)
     }
     if (f.reportMonth) ({rows:result,unclassifiedCount} = insuranceMonthlyRows(result, f.reportMonth, {includeDone:f.includeDone === true}))
     if (f.billingMonth) result = billingRows(result, f.billingMonth)
-    if (f.from || f.to) result = reportRows(result, f.from, f.to, f.includeCancelled === true)
     if (a.staff && input.omitReferenceLabels === true) return { rows: result, limited: !filtered, ...(f.reportMonth ? {unclassifiedCount} : {}) }
     // Resolve labels for the displayed result without unbounded master reads or child listeners.
     const paths = [...new Set(result.flatMap(row => [`constructionCompanies/${row.constructionCompanyId}`, ...(row.branchId ? [`companyBranches/${row.branchId}`] : [])]))]
@@ -214,8 +206,9 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       if (old.enabled !== false) fail('failed-precondition', '現在の状態を取得し直してください。')
       if (input.kind === 'company' && !(await tx.get(db.doc(`warrantyGroups/${id(old.defaultGroupId)}`))).exists) fail('not-found', '保証グループが見つかりません。')
       if (input.kind === 'group') {
-        const all = await tx.get(db.collection('warrantyGroups'))
-        if (all.docs.some(row => row.id !== ref.id && normalizeWarrantyPrefix(row.data().prefix) === normalizeWarrantyPrefix(old.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
+        if (typeof old.prefix !== 'string' || old.prefix.length > 1499) fail('failed-precondition', '接頭辞は1499文字以内である必要があります。')
+        const matching = await tx.get(db.collection('warrantyGroups').where('prefix', '==', old.prefix))
+        if (matching.docs.some(row => row.id !== ref.id)) fail('already-exists', '同じ接頭辞のグループが存在します。')
       }
       if (input.kind === 'branch') {
         let branchCode
@@ -243,6 +236,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       for (const k of ['telephone','fax']) value[k] = String(input[k] ?? '').trim()
     } else {
       value.prefix = normalizeWarrantyPrefix(input.prefix)
+      if (value.prefix.length > 1499) fail('invalid-argument', '接頭辞は1499文字以内で入力してください。')
       value.fiscalStartMonth = Number(input.fiscalStartMonth)
       if (!Number.isInteger(value.fiscalStartMonth) || value.fiscalStartMonth < 1 || value.fiscalStartMonth > 12 || !/^[A-Z0-9-]*$/.test(value.prefix)) fail('invalid-argument', '接頭辞または年度開始月が不正です。')
       value.template = 'sample'
@@ -291,8 +285,9 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
           Object.assign(value, fieldSettings)
         } catch (error) { if (error instanceof HttpsError) throw error; fail('invalid-argument', error.message) }
         if (old && (normalizeWarrantyPrefix(old.prefix) !== normalizeWarrantyPrefix(value.prefix) || old.fiscalStartMonth !== value.fiscalStartMonth)) fail('failed-precondition', '登録済みグループの接頭辞・年度開始月は変更できません。')
-        const all = await tx.get(db.collection('warrantyGroups'))
-        if (all.docs.some(d => d.id !== ref.id && normalizeWarrantyPrefix(d.data().prefix) === normalizeWarrantyPrefix(value.prefix))) fail('already-exists', '同じ接頭辞のグループが存在します。')
+        // Keep the equality query and write in the same transaction, including empty results.
+        const matching = await tx.get(db.collection('warrantyGroups').where('prefix', '==', value.prefix))
+        if (matching.docs.some(d => d.id !== ref.id)) fail('already-exists', '同じ接頭辞のグループが存在します。')
         if (old) value.prefix = old.prefix // Keep legacy storage; issued numbers are never rewritten.
       }
       if (action === 'saveCompany') {
@@ -554,6 +549,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       // Insurance period, reported state and last report are intentionally untouched.
     } else if (action === 'extend') {
       if (!old.handoverDate || old.status !== 'active' || old.years + 10 > old.maxYears) fail('failed-precondition', '延長できません。状態と最長保証期間を確認してください。')
+      try { normalizeExtensionApplication(input) } catch (error) { fail('invalid-argument', error.message) }
       next.years = old.years + 10
       next.periods = coveragePeriods(old.handoverDate, next.years)
       next.expiryDate = next.periods.at(-1)?.expiryDate ?? ''
@@ -572,7 +568,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
     }
     const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
-    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
+    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'extend' ? normalizeExtensionApplication(input) : {}), ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
     // Separate receipts provide replay safety without introducing a business report/notice history.
     if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
     tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,createdAt:now})
@@ -593,7 +589,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       if (errors.length) fail('failed-precondition',errors.join('\n'))
       Object.assign(next,insuranceProjection(next))
     } catch (error) { fail('failed-precondition',error.message) }
-    Object.assign(next, monthlyQueryProjection(next))
+    Object.assign(next, monthlyQueryProjection(next), insuranceNoticeProjection(next))
     try { assertInsuranceCapacity(next,{documentPath:ref.path,today:date}) } catch (error) { fail('resource-exhausted',error.message) }
     tx.set(ref, next)
     return { id: ref.id }

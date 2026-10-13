@@ -1,6 +1,25 @@
 {
   "indexes": [
     {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "constructionCompanyId", "order": "ASCENDING" },
+        { "fieldPath": "warrantyNoticePending", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "constructionCompanyId", "order": "ASCENDING" },
+        { "fieldPath": "branchId", "order": "ASCENDING" },
+        { "fieldPath": "warrantyNoticePending", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "properties",
       "queryScope": "COLLECTION",
       "fields": [

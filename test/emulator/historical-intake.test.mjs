@@ -7,11 +7,11 @@ import {historicalFixture} from '../helpers/historical-intake.mjs'
 import {prepareHistoricalIntake} from '../../scripts/lib/historical-intake-plan.mjs'
 import {executeHistoricalIntake,inspectHistoricalTarget,verifyCompletedHistoricalIntake} from '../../scripts/lib/historical-intake-execution.mjs'
 import {defaultRecovery} from '../../scripts/lib/default-recovery.mjs'
-import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
+import {LOCAL_RUNTIME,localRuntimeHost} from '../helpers/emulator-runtime.mjs'
 import {documentImage} from '../../scripts/lib/default-recovery.mjs'
 import {captureIntakeSettings} from '../../scripts/lib/historical-intake-settings.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Fictional emulator required')
-const app=initializeApp({projectId:'demo-termite-warranty'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
 after(()=>deleteApp(app))
 const state={protocol:2,generation:21,phase:'recovering',databaseId:'(default)',controlDatabaseId:'test-historical-control'}
 const today='2026-10-10',input=historicalFixture(),planHash=prepareHistoricalIntake(input,{today}).planDigest

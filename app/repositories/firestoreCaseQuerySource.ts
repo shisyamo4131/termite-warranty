@@ -2,7 +2,7 @@ import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
 const { onSnapshot } = createMeasuredFirestore('caseQuery')
 import { collection, doc, documentId, query, where, type Firestore } from 'firebase/firestore'
 import type { ListCursor, MasterCollection, QueryDocument } from '../types/prototype-data.ts'
-import { createBoundedListQuery, createOrderedListQuery, REFERENCE_QUERY_CHUNK_SIZE } from './boundedListQuery.ts'
+import { createBoundedListQuery, REFERENCE_QUERY_CHUNK_SIZE } from './boundedListQuery.ts'
 import { documentsFromSnapshot } from './masterCatalogRepository.ts'
 
 type Unsubscribe = () => void
@@ -20,11 +20,8 @@ export interface CaseQuerySource {
 
 export const createFirestoreCaseQuerySource = (firestore: Firestore): CaseQuerySource => ({
   subscribeMaster(name, onDocuments, onError, cursor, complete = false) {
-    const masterQuery = complete
-      ? name === 'branches'
-        ? collection(firestore, name)
-        : createOrderedListQuery(collection(firestore, name))
-      : createBoundedListQuery(collection(firestore, name), cursor)
+    if (complete) throw new Error('旧一覧の全件取得は利用できません。')
+    const masterQuery = createBoundedListQuery(collection(firestore, name), cursor)
     return onSnapshot(
       masterQuery,
       snapshot => onDocuments(documentsFromSnapshot(snapshot.docs)),
@@ -45,10 +42,9 @@ export const createFirestoreCaseQuerySource = (firestore: Firestore): CaseQueryS
     )
   },
   subscribeCases(onDocuments, onError, cursor, complete = false) {
+    if (complete) throw new Error('旧一覧の全件取得は利用できません。')
     return onSnapshot(
-      complete
-        ? createOrderedListQuery(collection(firestore, 'cases'))
-        : createBoundedListQuery(collection(firestore, 'cases'), cursor),
+      createBoundedListQuery(collection(firestore, 'cases'), cursor),
       snapshot => onDocuments(documentsFromSnapshot(snapshot.docs)),
       onError,
     )

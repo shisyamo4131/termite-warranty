@@ -7,9 +7,9 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { deleteApp, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
-import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 const password = 'Demo-only-password-123'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw new Error('Company portal tests require the local emulator.')
 

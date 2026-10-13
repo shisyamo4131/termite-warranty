@@ -14,9 +14,9 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { createBoundedListQuery, createOrderedListQuery, listCursorFromDocuments } from '../../app/repositories/boundedListQuery.ts'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
   throw new Error(`Bounded-list integration tests require the dedicated local Firestore emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }

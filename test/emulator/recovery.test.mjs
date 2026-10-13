@@ -5,12 +5,12 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { recoveryController, scanDatabase, authorizationDigest, inspectBusinessIntegrity } from '../../scripts/lib/recovery-controller.mjs'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH } from '../../src/domain/recovery.mjs'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from '../helpers/legacy-recovery-runtime.mjs'
 import { exportPrivateAuthSnapshot, recordFirestoreBackupObservation, recoveryBackupMonitor } from '../../functions/recovery-backups.js'
 import { restoreMissingAuth, loadAuthAuthority, missingAuthPlan } from '../../scripts/lib/auth-recovery.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort) || process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Dedicated emulators required')
-const app=initializeApp({projectId:'demo-termite-warranty'})
+const app=initializeApp({projectId:'demo-termite-warranty-test'})
 const database=id=>id==='(default)' ? getFirestore(app) : getFirestore(app,id)
 const source=database('(default)'),control=database('test-control'),target=database('test-restored'),auth=getAuth(app),revision='a'.repeat(40)
 after(async()=>{delete process.env.RECOVERY_CONTROL_DATABASE;await source.doc(ACTIVATION_PATH).delete();await source.doc(ACCESS_PATH).delete();await deleteApp(app)})
@@ -24,8 +24,8 @@ test('missing Auth repair imports fictional missing UID only, fences maintenance
   await repairControl.doc(RUNTIME_PATH).set(runtime);await business.doc(ACCESS_PATH).set(runtime);await source.doc(ACTIVATION_PATH).set({controlDatabaseId:'test-auth-control'})
   const users=['auth-preserved','auth-missing'].map((uid,i)=>({uid,email:`${i?'missing':'preserved'}@example.invalid`,disabled:false,displayName:'historic',providerData:[{providerId:'password'}],passwordHash:'ZmFrZQ==',passwordSalt:'c2FsdA=='}))
   for(const [i,u] of users.entries())await business.doc(`staffAccounts/${u.uid}`).set({email:u.email,role:'general_staff',enabled:i===0})
-  const snapshot={schemaVersion:1,hashConfigurationEvidence:'fictional/hash',users},configuration={schemaVersion:1,project:'demo-termite-warranty',hashConfig:{algorithm:'SCRYPT',signerKey:'ZmFrZQ==',saltSeparator:'',rounds:8,memoryCost:14}}
-  const options={database,auth,controlId:'test-auth-control',project:'demo-termite-warranty',revision,generation:10,operationId:'auth-repair-success',approval:'fictional/separate-auth-approval',snapshot,configuration}
+  const snapshot={schemaVersion:1,hashConfigurationEvidence:'fictional/hash',users},configuration={schemaVersion:1,project:'demo-termite-warranty-test',hashConfig:{algorithm:'SCRYPT',signerKey:'ZmFrZQ==',saltSeparator:'',rounds:8,memoryCost:14}}
+  const options={database,auth,controlId:'test-auth-control',project:'demo-termite-warranty-test',revision,generation:10,operationId:'auth-repair-success',approval:'fictional/separate-auth-approval',snapshot,configuration}
   await assert.rejects(restoreMissingAuth(options)) // normal business must stay untouched
   assert.equal((await auth.getUser('auth-preserved')).displayName,'current preserved')
   const stopped={...runtime,phase:'recovering'};await repairControl.doc(RUNTIME_PATH).set(stopped);await business.doc(ACCESS_PATH).set(stopped)
@@ -164,11 +164,11 @@ test('isolated recovery fences stale calls, drains leases, checks accounts and r
   // The monitor now resolves only the fixed public marker; historical cutover
   // assertions above/below remain a separate test-only controller regression.
   await source.doc(ACCESS_PATH).set({protocol:2,phase:'normal',generation:4,databaseId:'(default)',controlDatabaseId:'test-control'})
-  process.env.GCLOUD_PROJECT='demo-termite-warranty'
+  process.env.GCLOUD_PROJECT='demo-termite-warranty-test'
   process.env.RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE='fictional/notification'
   credential.getAccessToken=async()=>({access_token:'fictional-test-token',expires_in:3600})
   globalThis.fetch=async url=>{
-    assert.ok(String(url).startsWith('https://firestore.googleapis.com/v1/projects/demo-termite-warranty/'))
+    assert.ok(String(url).startsWith('https://firestore.googleapis.com/v1/projects/demo-termite-warranty-test/'))
     return {ok:true,json:async()=>String(url).includes('/backups')?{backups:[]}:{locationId:'fictional-location'}}
   }
   try {

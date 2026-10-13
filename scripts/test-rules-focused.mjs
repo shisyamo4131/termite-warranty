@@ -55,7 +55,7 @@ async function main(args) {
   assertFocusedEnvironment(process.env,{child:true})
   if(!/^[0-9a-f-]{36}$/.test(process.env.FOCUSED_TEST_NONCE??''))throw Error('Parent run identity missing.')
   const pattern='^'+profile.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'$'
-  const result=await runNode(['--test','--test-concurrency=1','--test-name-pattern='+pattern,
+  const result=await runNode(['--import','./scripts/lib/test-functions-register.mjs','--test','--test-concurrency=1','--test-name-pattern='+pattern,
     '--test-reporter=./scripts/lib/focused-test-reporter.mjs',profile.file],{root,env:{...process.env,FOCUSED_TEST_PROFILE:id}})
   if(result.code!==0)throw Error('Focused child test failed.')
   readFocusedReceipt(result.output,id,process.env.FOCUSED_TEST_NONCE)

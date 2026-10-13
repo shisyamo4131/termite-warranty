@@ -1,4 +1,5 @@
 import {randomUUID} from 'node:crypto'
+import {TEST_RUNTIME,isIsolatedTestEnvironment} from '../../functions/test-emulator-profile.js'
 import {Timestamp} from 'firebase-admin/firestore'
 import {prepareHistoricalIntake,intakeHash} from './historical-intake-plan.mjs'
 import {documentImage,imageHash,typed} from './default-recovery.mjs'
@@ -11,7 +12,7 @@ const hash=value=>intakeHash(typed(value))
 const deny=()=>{throw Error('HISTORICAL_INTAKE_REFUSED: inspect private evidence; maintenance is retained')}
 const accounts=image=>new Map([...image].filter(([path])=>protectedRoots.has(path.split('/')[0])))
 const business=image=>new Map([...image].filter(([path])=>!protectedRoots.has(path.split('/')[0])))
-function target(db,control){if(db.projectId!==control.projectId||!['termite-warranty-dev','demo-termite-warranty'].includes(db.projectId)||db.databaseId!=='(default)'||control.databaseId==='(default)')deny()}
+function target(db,control){if(db.projectId!==control.projectId||(!['termite-warranty-dev','demo-termite-warranty'].includes(db.projectId)&&!(db.projectId===TEST_RUNTIME.projectId&&isIsolatedTestEnvironment()))||db.databaseId!=='(default)'||control.databaseId==='(default)')deny()}
 function noPortal(image){if([...image.keys()].some(p=>['constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'].includes(p.split('/')[0])))deny()}
 function closed(raw,access,control,generation){const state=fixedRuntimeState(raw);if(state.phase!=='recovering'||state.generation!==generation||state.controlDatabaseId!==control.databaseId||!sameFixedEpoch(state,fixedRuntimeState(access)))deny()}
 function prepared(input,today,planHash){const plan=prepareHistoricalIntake(input,{today});if(plan.summary.errors.length||plan.planDigest!==planHash)deny();return plan}
@@ -34,7 +35,7 @@ function materialized(plan,journal) {
     }
     return {path:row.path,data}
   })
-  for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceReportQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
+  for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceReportQueries','insuranceNoticeQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
   documents.push({path:'prototypeSettings/alerts',data:{warrantyMonths:2,insuranceMonths:2,updatedAt:journal.startedAt}})
   return restoreIntakeSettings(documents,plan.preservedSettings)
 }

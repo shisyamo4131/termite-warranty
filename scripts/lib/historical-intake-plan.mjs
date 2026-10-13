@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto'
 import {normalizeProperty,coveragePeriods,initialInsurance,fiscalYear,initialGroups} from '../../src/domain/property-warranty.mjs'
 import {normalizeExternalKey} from '../../src/domain/external-key.mjs'
 import {materializeInsuranceState,insuranceProjection,validateInsuranceState} from '../../src/domain/insurance-state.mjs'
+import {insuranceNoticeProjection} from '../../src/domain/insurance-notice-query.mjs'
 import {monthlyQueryProjection} from '../../src/domain/monthly-query.mjs'
 import {assertInsuranceCapacity} from '../../src/domain/insurance-capacity.mjs'
 import {validateIntakeSettings} from './historical-intake-settings.mjs'
@@ -69,7 +70,7 @@ export function prepareHistoricalIntake(input,{today}={}) {
     const source={workbookId:input.workbookId,sourceSha256:input.sourceSha256,transformVersion:input.transformVersion,sheet:group.id,row:row.sourceRow,rowHash:intakeHash(row)}
     let value={...fields,constructionCompanyId:company.id,branchId:branch.id,groupId:group.id,groupName:group.name,fiscalYear:applicationYear,warrantyNumber:row.warrantyNumber,externalKey,status:'active',years:10,periods,startDate:fields.handoverDate,expiryDate:periods[0].expiryDate,...initialInsurance(fields.handoverDate),warrantyNotified:false,insuranceEvents:[],insuranceHistoryIncomplete:false,billingItems:[{id:'initial',...periods[0],state:'billed'}],certificateItems:[{id:'initial',...periods[0],issued:true}],history:[],revision:1,historicalIntakeSource:source}
     value=materializeInsuranceState(value,{newRegistration:true})
-    Object.assign(value,insuranceProjection(value),monthlyQueryProjection(value))
+    Object.assign(value,insuranceProjection(value),monthlyQueryProjection(value),insuranceNoticeProjection(value))
     if(validateInsuranceState(value,{today}).length)fail('INSURANCE_STATE')
     assertInsuranceCapacity(value,{documentPath:'propertyWarranties/'+id,today})
     add('propertyWarranties',id,value)

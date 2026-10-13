@@ -6,7 +6,7 @@
       <v-row><v-col cols="12" sm="8"><div class="text-caption">保証開始日 ～ 現在の満了日</div><div class="text-h6">{{ row.startDate }} ～ {{ row.expiryDate }}</div></v-col><v-col cols="12" sm="4"><div class="text-caption">通算保証年数／最長保証期間</div><div class="text-h6">{{ row.years }}年／{{ row.maxYears }}年</div></v-col></v-row>
       <v-divider class="my-4" />
       <div v-for="(period,index) in transactions" :key="period.id" class="period-row">
-        <div><div class="font-weight-bold mb-1">{{ period.label }}</div><div>{{ period.startDate }} ～ {{ period.expiryDate }}</div></div>
+        <div><div class="font-weight-bold mb-1">{{ period.label }}</div><div>{{ period.startDate }} ～ {{ period.expiryDate }}</div><template v-if="index"><p class="mt-2">延長申込日：{{ period.extensionApplicationDate || '未確認（移行前）' }}</p><p v-if="period.extensionReason" class="waiver-reason">理由：{{ period.extensionReason }}</p></template></div>
         <div v-if="showBilling"><div class="text-caption mb-1">請求状態</div><v-chip size="small" :color="period.billingState==='billed' ? 'success' : 'default'">{{ billingLabel(period.billingState) }}</v-chip></div>
         <div><div class="text-caption mb-1">保証満了案内</div><v-chip v-if="index===transactions.length-1" size="small" :color="row.warrantyNotified ? 'success' : 'default'">{{ row.warrantyNotified ? '案内済み' : '未案内' }}</v-chip><span v-else>—</span></div>
         <div><div class="text-caption mb-1">保証書</div><v-chip size="small" :color="period.certificateIssued ? 'success' : 'default'">{{ period.identifiable ? period.certificateIssued ? '発行済み' : '未発行' : '要確認（期間記録不足）' }}</v-chip></div>

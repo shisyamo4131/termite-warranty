@@ -1,9 +1,10 @@
+import '../helpers/emulator-runtime.mjs'
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {initializeApp} from 'firebase-admin/app'
 import {getFirestore} from 'firebase-admin/firestore'
 import {inspectPropertyNames,migratePropertyNames} from '../../scripts/lib/property-name-migration.mjs'
-const app=initializeApp({projectId:'demo-termite-warranty'},'name-migration-tests'),db=getFirestore(app),control=getFirestore(app,'name-migration-control')
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'name-migration-tests'),db=getFirestore(app),control=getFirestore(app,'name-migration-control')
 const state={protocol:2,phase:'normal',generation:10,databaseId:'(default)',controlDatabaseId:'name-migration-control'}
 const ref=db.doc('propertyWarranties/fictional-name-migration'),operationId='fictional-name-operation'
 async function fixture(){for(const store of [db,control])for(const root of await store.listCollections())await store.recursiveDelete(root);await control.doc('recovery/runtime').set(state);await db.doc('_recovery/access').set(state);await ref.set({name:'架空物件',ownerName:'架空物件',ownerTelephone:'03-0000-0000',revision:3,history:[{before:{ownerName:'架空旧名'}}],warrantyNumber:'FICTION-001'});const p=await inspectPropertyNames(db);return {operationId,generation:10,planHash:p.hash}}

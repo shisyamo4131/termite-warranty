@@ -6,7 +6,7 @@ import {rulesWorkers,validateRulesInventory,readRulesReceipt,assertRulesResult} 
 const root=fileURLToPath(new URL('..',import.meta.url))
 export async function runRulesWorkers({run=runNode,env=process.env,directory=root,serial=false}={}) {
   const launch=async worker=>{
-    const result=await run(['--test','--test-concurrency=1','--test-reporter=./scripts/lib/rules-test-reporter.mjs',...worker.files],
+    const result=await run(['--import','./scripts/lib/test-functions-register.mjs','--test','--test-concurrency=1','--test-reporter=./scripts/lib/rules-test-reporter.mjs',...worker.files],
       {root:directory,env:{...env,RULES_TEST_WORKER:worker.id}})
     if(result.code!==0)throw Error(worker.id+' worker exited with code '+result.code)
     const receipt=readRulesReceipt(result.output,worker,env.FOCUSED_TEST_NONCE)

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { TEST_RUNTIME, isIsolatedTestEnvironment } from '../../functions/test-emulator-profile.js'
 import { Firestore, FieldPath, Timestamp, GeoPoint } from 'firebase-admin/firestore'
 import { RecoveryError, ACCESS_PATH, RUNTIME_PATH, databaseId } from '../../src/domain/recovery.mjs'
 import { fixedRuntimeState, sameFixedEpoch } from '../../src/domain/fixed-recovery.mjs'
@@ -96,7 +97,7 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
   databaseId(controlId)
   if(controlId==='(default)'||!/^[a-f0-9]{40}$/.test(revision))deny()
   const target=database('(default)'),control=database(controlId),runtime=control.doc(RUNTIME_PATH),marker=target.doc(ACCESS_PATH),lock=control.doc('recovery/operatorLock'),guard=target.doc('_recovery/apply')
-  async function deployment(){if(target.projectId==='demo-termite-warranty')return;if(typeof verifyDeployment!=='function'||await verifyDeployment()!==true)deny()}
+  async function deployment(){if(target.projectId==='demo-termite-warranty'||target.projectId===TEST_RUNTIME.projectId&&isIsolatedTestEnvironment())return;if(typeof verifyDeployment!=='function'||await verifyDeployment()!==true)deny()}
   const planRef=id=>control.doc(`defaultRecoveryPlans/${id}`)
   const ids=(id,approval)=>{if(!/^[\w-]{8,80}$/.test(id)||approval&&!/^[\w./:-]{4,160}$/.test(approval))deny()}
   async function stopped(generation,{migration=false}={}) {

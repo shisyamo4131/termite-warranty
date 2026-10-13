@@ -7,13 +7,13 @@ import {propertyPrototypeOperation as propertyOperation} from '../../functions/p
 import {propertyBulkImportOperation as bulkOperation} from '../../functions/property-bulk-import.js'
 import {CSV_TEMPLATE_HEADERS} from '../../src/domain/property-bulk-import.mjs'
 import {inspectBusinessIntegrity} from '../../scripts/lib/recovery-controller.mjs'
-import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
+import {LOCAL_RUNTIME,localRuntimeHost} from '../helpers/emulator-runtime.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from '../helpers/isolated-import.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw Error('Dedicated emulator required')
 // Legacy import scenarios represent the current supported client request format.
 const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,input.action==='reenableMaster'?input:{operationProtocol:1,...input},uid)
 const propertyBulkImportOperation=(db,input,uid)=>bulkOperation(db,{operationProtocol:1,...input},uid)
-const app=initializeApp({projectId:'demo-termite-warranty'},'isolated-import-test')
+const app=initializeApp({projectId:'demo-termite-warranty-test'},'isolated-import-test')
 const getFirestore=(app,id)=>isolatedImportDatabase(adminFirestore,app,id),auth=isolatedImportAuth
 const fields={name:'架空物件',postalCode:'1000001',address:'東京都千代田区1-1',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-01',maxYears:20,constructionCompanyId:'meeting-co',branchId:'meeting-branch'}
 after(()=>deleteApp(app))
@@ -63,11 +63,32 @@ test('manual external keys and CSV share reservations, immutable settings and re
   assert.ok((await bulk('preview','branch-probe')).errors.some(e=>e.field==='本支店コード'))
   await reservationRef.set(reservation)
   await target.doc('companyBranches/direct-duplicate').set({...legacyBranch,name:'不正な直接重複'})
-  const ambiguous=await bulk('preview','branch-probe')
-  assert.ok(ambiguous.errors.some(e=>e.field==='本支店コード'))
-  await assert.rejects(bulk('commit','branch-probe',{confirmed:true,previewHash:ambiguous.previewHash}))
+  // Unsupported direct writes are detected by integrity inspection, not per-import scans.
+  assert.deepEqual((await bulk('preview','branch-probe')).errors,[])
+  await assert.rejects(inspectBusinessIntegrity(target),/Duplicate branch code/)
   await target.doc('companyBranches/direct-duplicate').delete()
+  for(const corrupt of [{branchId:'bad/path'},{branchId:'missing'},{branchCode:'0002'},{constructionCompanyId:'other'}]) {
+    await reservationRef.set({...reservation,...corrupt})
+    assert.ok((await bulk('preview','branch-probe')).errors.some(e=>e.field==='本支店コード'))
+  }
+  await reservationRef.set(reservation)
   assert.equal((await target.collection('propertyImportReceipts').get()).size,0)
+  const measuredReads=[]
+  const measured=new Proxy(target,{get(t,k){
+    if(k==='runTransaction')return (fn,...args)=>t.runTransaction(tx=>fn(new Proxy(tx,{get(t,k){
+      if(k==='get')return ref=>{assert.notEqual(ref._queryOptions?.collectionId,'companyBranches','CSV must not scan branches');return t.get(ref)}
+      if(k==='getAll')return (...refs)=>{measuredReads.push(...refs.map(ref=>ref.path).filter(path=>/^(companyBranches|branchCodeReservations)\//.test(path)));return t.getAll(...refs)}
+      const value=t[k];return typeof value==='function'?value.bind(t):value
+    }})),...args)
+    const value=t[k];return typeof value==='function'?value.bind(t):value
+  }})
+  const boundedPreview=()=>propertyBulkImportOperation(measured,{action:'preview',groupId:'G',companyId:'C',csv:csv('bounded-one')+'\r\n'+csv('bounded-two').split('\r\n')[1],requestId:'bounded-preview'},'key-admin')
+  assert.deepEqual((await boundedPreview()).errors,[])
+  assert.equal(measuredReads.length,2)
+  for(let i=0;i<30;i++)await invoke('saveBranch',{id:'unrelated-'+i,name:'対象外',constructionCompanyId:'C',branchCode:'other-'+i})
+  measuredReads.length=0
+  assert.deepEqual((await boundedPreview()).errors,[])
+  assert.equal(measuredReads.length,2)
   for(const character of ['\t','\n','\r','\u007f']) {
     const key=`invalid${character}key`
     const roots=['propertyWarranties','externalKeyReservations','propertyImportSources','propertyImportReceipts','warrantyCounters']

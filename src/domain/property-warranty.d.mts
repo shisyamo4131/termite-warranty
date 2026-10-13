@@ -29,3 +29,6 @@ export function activeInsuranceReports(row:Record<string,any>):Array<Record<stri
 export function latestInsuranceReport(row:Record<string,any>):Record<string,any>|null
 export function insuranceReportTarget(row:Record<string,any>,month:string,today?:string):Record<string,any>|null
 export function handoverChangeBlockers(row:Record<string,any>|null):string[]
+
+export function normalizeExtensionApplication(input:Record<string,unknown>):{extensionApplicationDate:string;reason:string}
+export function extensionApplicationDeadline(startDate:string):string

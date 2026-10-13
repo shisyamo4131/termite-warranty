@@ -1,3 +1,4 @@
+import {migrateInsuranceNotices} from './lib/insurance-notice-migration.mjs'
 import { migrateBillingQueries } from './lib/billing-query-migration.mjs'
 import { migrateInsuranceReportQueries } from './lib/insurance-report-query-migration.mjs'
 import { migrateDashboard } from './lib/dashboard-migration.mjs'
@@ -306,6 +307,7 @@ if (!(await renewalWorkItemRef.get()).exists) {
 
 await migrateDashboard(firestore, getFirestore(app, fixedRuntime.controlDatabaseId), {generation:fixedRuntime.generation,operationId:'local-dashboard-seed'})
 await migrateInsuranceReportQueries(firestore, {apply:true,generation:fixedRuntime.generation})
+await migrateInsuranceNotices(firestore, getFirestore(app, fixedRuntime.controlDatabaseId), {generation:fixedRuntime.generation,operationId:'local-insurance-notice-seed'})
 
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
 console.log(`Seeded local contractor account: ${builderEmail} (${builderUser.uid})`)

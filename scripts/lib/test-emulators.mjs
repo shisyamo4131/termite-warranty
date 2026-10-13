@@ -1,15 +1,15 @@
 import {spawn} from 'node:child_process'
 import {createServer} from 'node:net'
 import {randomUUID} from 'node:crypto'
-import {readFile,mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises'
-import {resolve,join,dirname,basename} from 'node:path'
-import {tmpdir} from 'node:os'
+import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {LOCAL_RUNTIME,localRuntimeHost} from '../../src/config/local-emulator.mjs'
+import {TEST_RUNTIME as LOCAL_RUNTIME,testRuntimeHost as localRuntimeHost,isIsolatedTestEnvironment} from '../../functions/test-emulator-profile.js'
+import {prepareTestStage,populateTestStage,cleanupTestStage} from './test-emulator-stage.mjs'
 
-export const DEMO_PROJECT='demo-termite-warranty'
+export const DEMO_PROJECT=LOCAL_RUNTIME.projectId
 export const emulatorPorts=[LOCAL_RUNTIME.authPort,LOCAL_RUNTIME.firestorePort,LOCAL_RUNTIME.functionsPort,
-  LOCAL_RUNTIME.emulatorHubPort,LOCAL_RUNTIME.emulatorLoggingPort,LOCAL_RUNTIME.emulatorUiPort,9150]
+  LOCAL_RUNTIME.emulatorHubPort,LOCAL_RUNTIME.emulatorLoggingPort,LOCAL_RUNTIME.emulatorUiPort,LOCAL_RUNTIME.websocketPort,
+  LOCAL_RUNTIME.eventarcPort,LOCAL_RUNTIME.tasksPort]
 
 export function assertFocusedEnvironment(env,{child=false}={}) {
   const expected={FIRESTORE_EMULATOR_HOST:localRuntimeHost(LOCAL_RUNTIME.firestorePort),
@@ -20,6 +20,8 @@ export function assertFocusedEnvironment(env,{child=false}={}) {
   }
   for(const key of ['GCLOUD_PROJECT','GOOGLE_CLOUD_PROJECT'])if(env[key]!==undefined&&env[key]!==DEMO_PROJECT)throw Error('Non-demo project environment refused.')
   if(env.NODE_OPTIONS)throw Error('Unreviewed Node options refused.')
+  if(child && !isIsolatedTestEnvironment(env))throw Error('Isolated test profile is required.')
+  if(!child && (env.TERMITE_TEST_RUN || env.TERMITE_TEST_STAGE))throw Error('Nested test runner refused.')
 }
 
 export async function assertEmulatorPortsFree(ports=emulatorPorts) {
@@ -48,38 +50,27 @@ export async function runNode(args,{root,env,echo=true}={}) {
   })
 }
 
-export async function runEmulatorCommand(script,{root=fileURLToPath(new URL('../..',import.meta.url)),env=process.env,run=runNode,checkPorts=assertEmulatorPortsFree}={}) {
+export async function runEmulatorCommand(script,{root=fileURLToPath(new URL('../..',import.meta.url)),env=process.env,run=runNode,checkPorts=assertEmulatorPortsFree,prepare=populateTestStage}={}) {
   if(!['node scripts/test-rules.mjs --child','node scripts/test-rules.mjs --child --serial','node scripts/test-rules-focused.mjs --child excel-dates'].includes(script))throw Error('Unreviewed emulator command.');assertFocusedEnvironment(env)
-  const config=JSON.parse(await readFile(join(root,'firebase.json'),'utf8'))
-  for(const [name,port] of Object.entries({auth:LOCAL_RUNTIME.authPort,firestore:LOCAL_RUNTIME.firestorePort,
-    functions:LOCAL_RUNTIME.functionsPort,hub:LOCAL_RUNTIME.emulatorHubPort,logging:LOCAL_RUNTIME.emulatorLoggingPort,ui:LOCAL_RUNTIME.emulatorUiPort})) {
-    if(config.emulators?.[name]?.host!==LOCAL_RUNTIME.host||config.emulators[name].port!==port)throw Error('Emulator configuration changed; focused profile needs review.')
-  }
-  if(config.emulators.firestore.websocketPort!==undefined&&config.emulators.firestore.websocketPort!==9150)throw Error('Unreviewed websocket port.')
   await checkPorts()
-  const nonce=randomUUID(),childEnv={...env,GCLOUD_PROJECT:DEMO_PROJECT,GOOGLE_CLOUD_PROJECT:DEMO_PROJECT,FOCUSED_TEST_NONCE:nonce}
-  const prepared=await run(['scripts/prepare-functions-deploy.mjs'],{root,env:childEnv})
-  if(prepared.code!==0)throw Error('Functions preparation failed; emulators were not started.')
-  // Recheck immediately before Firebase; its own port/startup guard is also retained.
-  await checkPorts()
-  const temporaryRoot=resolve(tmpdir()),configRoot=await mkdtemp(join(temporaryRoot,'termite-focused-config-'))
+  const nonce=randomUUID(),owned=await prepareTestStage(root,nonce)
+  const childEnv={...env,GCLOUD_PROJECT:DEMO_PROJECT,GOOGLE_CLOUD_PROJECT:DEMO_PROJECT,FOCUSED_TEST_NONCE:nonce,
+    TERMITE_TEST_RUN:nonce,TERMITE_TEST_STAGE:owned.stage,METADATA_SERVER_DETECTION:'none'}
   let result
   try {
-    // A fresh CLI config avoids account-wide settings and telemetry-dependent exit failures.
-    await mkdir(join(configRoot,'configstore'))
-    await writeFile(join(configRoot,'configstore/firebase-tools.json'),JSON.stringify({usage:false}))
-    result=await run(['node_modules/firebase-tools/lib/bin/firebase.js','emulators:exec','--project',DEMO_PROJECT,
-      '--only','auth,firestore,functions','--non-interactive',script],
-      {root,env:{...childEnv,XDG_CONFIG_HOME:configRoot}})
+    await prepare(owned,root)
+    await checkPorts()
+    const [entry,...options]=script.slice('node '.length).split(' ')
+    if(/["\r\n%]/.test(root))throw Error('Unsupported shell path for emulator child.')
+    const command=`node "${join(root,entry)}" ${options.join(' ')}`
+    result=await run([join(root,'node_modules/firebase-tools/lib/bin/firebase.js'),'emulators:exec','--project',DEMO_PROJECT,
+      '--only','auth,firestore,functions','--non-interactive',command],
+      {root:owned.stage,env:{...childEnv,XDG_CONFIG_HOME:join(owned.stage,'cli')}})
   } finally {
-    try {
-      // Never kill another process to make cleanup appear successful.
-      await checkPorts()
-    } finally {
-      if(dirname(configRoot)!==temporaryRoot||!basename(configRoot).startsWith('termite-focused-config-'))throw Error('Temporary config cleanup scope mismatch.')
-      await rm(configRoot,{recursive:true,force:true})
-    }
+    // Preserve the stage and lock if shutdown is incomplete. Never kill foreign listeners.
+    await checkPorts()
+    await cleanupTestStage(owned)
   }
-  if(result.code!==0)throw Error('Focused emulator command failed; completion evidence unavailable.')
+  if(result.code!==0 || /Failed to load function definition|could not be analyzed successfully/.test(result.output+'\n'+result.stderr))throw Error('Focused emulator command failed; completion evidence unavailable.')
   return {...result,nonce}
 }

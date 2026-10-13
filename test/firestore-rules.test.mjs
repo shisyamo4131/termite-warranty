@@ -18,10 +18,10 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from './helpers/emulator-runtime.mjs'
 import { fixtureRuntime } from './helpers/fixed-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
   throw new Error(`Firestore Rules tests require the dedicated local emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }

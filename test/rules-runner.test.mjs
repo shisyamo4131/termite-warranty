@@ -22,7 +22,7 @@ test('every rules/emulator file belongs to exactly one reviewed worker',async()=
 })
 
 test('isolated imports reject default/foreign DBs and every Auth access',()=>{
-  const app={options:{projectId:'demo-termite-warranty'}},called=[]
+  const app={options:{projectId:'demo-termite-warranty-test'}},called=[]
   const get=(...args)=>{called.push(args);return 'named-db'}
   for(const id of ['test-external-keys','test-import-volume'])assert.equal(isolatedImportDatabase(get,app,id),'named-db')
   for(const id of [undefined,'(default)','test-sync-control','other'])assert.throws(()=>isolatedImportDatabase(get,app,id))

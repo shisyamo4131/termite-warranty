@@ -4,6 +4,53 @@ import { test } from 'node:test'
 import { externalKeySettings, normalizeExternalKey } from '../src/domain/external-key.mjs'
 import { monthlyQueryProjection, withInsuranceDefaults, monthlyProjectionMatches, selectedMonthToBasisMonth } from '../src/domain/monthly-query.mjs'
 import { initialInsurance, insuranceReportKind, billingRows } from '../src/domain/property-warranty.mjs'
+import { pendingWarrantyCandidates, warrantyNoticeOrder } from '../functions/warranty-notice-query.js'
+import { propertyListFilter } from '../functions/property-list-filter.js'
+
+test('property list accepts only bounded or explicit business query shapes',()=>{
+  for(const f of [undefined,{}, {warrantyNumber:' X '},{alertKind:'warranty',notification:'pending'},{alertKind:'insurance'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
+  for(const f of [null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
+  assert.throws(()=>propertyListFilter('propertyList',{reportMonth:'2026-10'}),{code:'invalid-argument'})
+  const original={warrantyNumber:' X '};assert.deepEqual(propertyListFilter('propertyList',original),{warrantyNumber:'X'});assert.equal(original.warrantyNumber,' X ')
+})
+
+test('warranty notice candidates keep starting conditions and reject migration changes without fallback', async t => {
+  t.mock.timers.enable({apis:['Date'],now:new Date('2026-02-28T03:00:00Z')})
+  const filters = [], snapshot = {docs:[]}
+  const saved = [{warrantyMonths:2,insuranceMonths:2},{version:1,generation:1,operationId:'ready'},{version:1,generation:1,operationId:'ready'}]
+  let reads = 0, onRead = () => {}
+  const query = {where(...args){filters.push(args); return this},async get(){reads++;onRead();return snapshot}}
+  const paths=['prototypeSettings/alerts','prototypeSettings/insuranceStates','prototypeSettings/dashboard']
+  const db = {doc:path=>path,async getAll(...refs){return refs.map(path=>{const value=saved[paths.indexOf(path)];return {exists:true,updateTime:{seconds:value.stamp??1,nanoseconds:0},data:()=>value}})},collection:()=>query}
+  const filter = {alertKind:'warranty',notification:'pending'}
+  const result = await pendingWarrantyCandidates(db,filter,{staff:true})
+  assert.equal(result.snapshot,snapshot)
+  assert.deepEqual(filters,[['warrantyNoticePending','==',true],['expiryDate','<=','2026-04-30']])
+  assert.equal(result.basisDate,'2026-02-28')
+  for (const f of [{...filter,notification:'all'},{...filter,reportMonth:'2026-02'}]) assert.equal(await pendingWarrantyCandidates(db,f,{staff:true}),null)
+  await assert.rejects(pendingWarrantyCandidates(db,filter,{staff:false}),{code:'permission-denied'})
+  assert.equal(reads,1)
+  saved[2] = {...saved[2],operationId:'mismatch'}
+  await assert.rejects(pendingWarrantyCandidates(db,filter,{staff:true}),{code:'failed-precondition'})
+  assert.equal(reads,1)
+  saved[2] = {...saved[2],operationId:'ready'}
+  onRead=()=>{t.mock.timers.setTime(new Date('2026-03-01T03:00:00Z').getTime());saved[0]={warrantyMonths:12,stamp:2}}
+  const changed=await pendingWarrantyCandidates(db,filter,{staff:true})
+  assert.equal(changed.snapshot,snapshot)
+  assert.equal(changed.basisDate,'2026-02-28')
+  assert.equal(changed.settings.warrantyMonths,2)
+  assert.equal(reads,2)
+  onRead=()=>{saved[2]={...saved[2],stamp:2,version:0}}
+  await assert.rejects(pendingWarrantyCandidates(db,filter,{staff:true}),{code:'failed-precondition'})
+  assert.equal(reads,3)
+})
+
+test('warranty notice display order preserves timestamp nanoseconds, null and UTF8 ID ties', () => {
+  const row=(id,seconds,nanoseconds)=>({id,updatedAt:{seconds,nanoseconds}})
+  const values=[{id:'null',updatedAt:null},row('old',-1,0),row('a',10,0),row('b',10,0),row('nano',10,1)]
+  assert.deepEqual(values.sort(warrantyNoticeOrder).map(value=>value.id),['nano','b','a','old','null'])
+  assert.ok(warrantyNoticeOrder(row('\u{10000}',10,0),row('\uE000',10,0))<0)
+})
 
 test('selected month is converted once to the prior valid calendar month',()=>{
   assert.equal(selectedMonthToBasisMonth('2026-11'),'2026-10')
@@ -381,8 +428,8 @@ test('session read failure releases loading, retry works, stale login cannot rep
 })
 
 
-test('prefix separator is automatic, omitted when empty, compatible with legacy trailing hyphens',()=>{
-  for(const prefix of ['HSC','HSC-','HSC--',' HSC- '])assert.equal(warrantyNumber({prefix,fiscalStartMonth:1},'2026-10-01',1),'HSC-26-001')
+test('prefix separator is automatic and preserves distinct trailing hyphens',()=>{
+  for(const [prefix,expected] of [['HSC','HSC-26-001'],['HSC-','HSC--26-001'],['HSC--','HSC---26-001'],[' HSC- ','HSC--26-001']])assert.equal(warrantyNumber({prefix,fiscalStartMonth:1},'2026-10-01',1),expected)
   assert.equal(warrantyNumber({prefix:'',fiscalStartMonth:1},'2026-10-01',1000),'26-1000')
   assert.equal(warrantyNumber({prefix:'AB-CD',fiscalStartMonth:4},'2026-03-31',1),'AB-CD-25-001')
 })
@@ -857,4 +904,45 @@ test('business navigation preserves role and recovery boundaries and blocks busy
   ui.profile.value={accountType:'construction_company'}
   assert.deepEqual(ui.businessNavigation.value.map(x=>x.value),['properties','alerts'])
   assert.equal(ui.managementNavigation.value.length,0)
+})
+
+
+test('extension application date validates required calendar input and optional reason; deadline is previous month end', async () => {
+  const {normalizeExtensionApplication,extensionApplicationDeadline}=await import('../src/domain/property-warranty.mjs')
+  for(const extensionApplicationDate of [undefined,'','2026-02-30','2026-2-01','not-date']) assert.throws(()=>normalizeExtensionApplication({extensionApplicationDate}))
+  assert.deepEqual(normalizeExtensionApplication({extensionApplicationDate:'2000-02-29'}),{extensionApplicationDate:'2000-02-29',reason:''})
+  assert.equal(normalizeExtensionApplication({extensionApplicationDate:'2026-01-01',reason:' 確認済み '}).reason,'確認済み')
+  assert.throws(()=>normalizeExtensionApplication({extensionApplicationDate:'2026-01-01',reason:'a'.repeat(2001)}))
+  assert.throws(()=>normalizeExtensionApplication({extensionApplicationDate:'2026-01-01',reason:12}))
+  assert.equal(extensionApplicationDeadline('2036-03-10'),'2036-02-29')
+  assert.equal(extensionApplicationDeadline('2035-03-01'),'2035-02-28')
+  assert.equal(extensionApplicationDeadline('2036-01-31'),'2035-12-31')
+  assert.equal('2035-12-31'>extensionApplicationDeadline('2036-01-31'),false)
+  assert.equal('2036-01-01'>extensionApplicationDeadline('2036-01-31'),true)
+})
+
+test('extension billing follows its application date through projections, CSV, undo and re-extension without moving coverage', async () => {
+  const {warrantyTransactions}=await import('../src/domain/property-warranty.mjs')
+  const {pendingBillingRows,billingCsv}=await import('../src/domain/billing-output.mjs')
+  const row={status:'active',handoverDate:'2026-10-01',applicationDate:'2026-09-01',years:20,
+    history:[{kind:'extend',requestId:'e1',before:{years:10},date:'2036-11-01',extensionApplicationDate:'2036-08-31',reason:''}],
+    billingItems:[{id:'initial',state:'billed'},{id:'e1',state:'pending'}]}
+  const period=warrantyTransactions(row)[1]
+  assert.equal(period.startDate,'2036-10-01');assert.equal(period.billingDate,'2036-08-31')
+  assert.equal(period.extensionApplicationDateMissing,false)
+  const projection=monthlyQueryProjection(row)
+  assert.equal(projection.billingPendingMonth,'2036-08')
+  assert.deepEqual(projection.billingQueryMonths,['2026-09','2036-08'])
+  assert.equal(pendingBillingRows([row],'2036-07').length,0)
+  const rows=pendingBillingRows([row],'2036-08');assert.equal(rows.length,1)
+  assert.match(billingCsv(rows),/"延長","2036-08-31"/)
+  assert.equal(pendingBillingRows([row],'2036-10',{includeDone:true}).length,0)
+  const undone={...row,years:10,history:[...row.history,{kind:'undoExtend',targetRequestId:'e1'}]}
+  assert.equal(pendingBillingRows([undone],'2036-12').length,0)
+  const again={...undone,years:20,history:[...undone.history,{kind:'extend',requestId:'e2',before:{years:10},extensionApplicationDate:'2036-11-01'}],billingItems:[...row.billingItems,{id:'e2',state:'pending'}]}
+  assert.equal(warrantyTransactions(again)[1].id,'e2')
+  assert.equal(monthlyQueryProjection(again).billingPendingMonth,'2036-11')
+  const legacy={...row,history:[{kind:'extend',requestId:'e1',before:{years:10},date:'2036-08-31'}]}
+  assert.equal(warrantyTransactions(legacy)[1].extensionApplicationDateMissing,true)
+  assert.equal(warrantyTransactions(legacy)[1].billingDate,'2036-10-01')
 })
