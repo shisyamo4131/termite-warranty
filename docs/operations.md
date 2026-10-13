@@ -1,5 +1,21 @@
 # Operations
 
+## 2026-10-14 Prodバックアップ設定の解除
+
+本人がHS試行でスキーマ変更の可能性があるため設定解除を指示（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。先行作成したProd `(default)` の日次30日予定1件を削除、PITRを無効化し、空・全世代objectなし・automation=false・退避先参照空を確認したAuth bucketを削除した。業務DB、業務文書、Authアカウント、既存IAMは変更していない。バックアップ専用IAM・Auth退避・通知の追加設定は実施しない。
+
+対象は記録済みtargetとFirebase実project ID／number、DB東京、bucket所属で照合。`node tmp/remove-prod-protection.mjs inspect` と `apply` は各exit 0。PITR更新応答はdone=true。最初のverifyはoperation後続GETが404でexit 1だったため、更新を再送せず実資源の独立読戻しで確認。修正後 `node tmp/remove-prod-protection.mjs verify` はexit 0、PITR `POINT_IN_TIME_RECOVERY_DISABLED`、日次予定0、取得済みbackup0、bucket不存在、自動処理falseを確認。既存backupの削除は行っていない（0件）。解除検証はCloud実読取り、アプリ包括検証は進行中の通常配備CIで別判定する。
+
+HS試行後のスキーマ確認まで再設定を行わない。現在の目標はmain pushの正常自動配備。正式提供前の保護・初回成功・通知・復元互換性の要件は維持し、後発作業へ移す。実装・データ契約・恒久的な保護方式・権限方針を変更していないためADR／データ契約は変更しない。以下の「既存資源を保持」は解除指示前の経緯。
+
+## 2026-10-14 包括承認と目標変更
+
+本人の全必要作業承認を受け、通常enable=trueを設定・読戻し（各exit 0）、診断追加済みmain `a6e55b7` のProd run `38448379933` を全体再実行（command exit 0）。配備・照合結果は別途確認する。
+
+同承認に基づき(default)の日次30日保持予定1件・PITR、東京非公開Auth bucket `termite-warranty-prod-auth-backups-988295873733` を作成。適用・独立読戻し各exit 0。PITR operationはdone=true、公開禁止enforced・統一アクセス・auth/だけ30日削除・soft delete無効を確認した。日次backup実体は参照時0件。秘密値・Authユーザー・業務文書は扱っていない。
+
+続いて本人が日次backup／PITR／Auth退避先を現在目標から除外し後発へ変更。指示到着時、backup専用role・bindingは未適用（対応権限の読取り確認だけ）、Auth退避・通知設定も未実施。以後の保護作業を止め、既存設定を無断解除／削除せず保持する。現在目標はmain push正常配備のみ。作成済み保護資源の保存費用が停止したことを意味しない。
+
 ## 2026-10-14 PR #10統合と配備SAによる読取り照合
 
 本人がPR #10 head `f75b664759ac64e5bb04038774f61734cb0db0c1` のmain統合と、通常配備停止中のProd読取り照合を文章承認（2026-10-14、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。実head／main、包括7ゲート成功、通常／保守enable=false、公開artifact期限内を再確認し、通常merge（exit 0）。mainは `a6e55b784aab48bf203ddd02ccedaf4291aa3c9e`、検証済みPRとのtree差分0。公開・IAM・保護設定の承認は含まない。
