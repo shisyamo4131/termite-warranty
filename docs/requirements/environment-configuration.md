@@ -1,5 +1,26 @@
 # Dev／Prod 環境設定・権限仕様
 
+## 2026-10-13 Prod配備認証の初期設定
+
+空基盤作成後の同日追加承認で実設定。GitHub APIでrepository ID `1363463339`、owner ID `72244713`、対象 `shisyamo4131/termite-warranty` を確認。gcloudでProdはACTIVE・project number `988295873733`・parentなし、2DBとも東京Native・PITR／削除保護無効を読戻し。Auth承認domainは `termite-warranty-prod.firebaseapp.com`、`termite-warranty-prod.web.app` と `localhost`。今回は変更していない。
+
+| 項目 | 設定・読戻し結果 |
+| --- | --- |
+| 配備SA | `prod-deployer@termite-warranty-prod.iam.gserviceaccount.com` |
+| プロジェクトrole | 配備SAに `roles/firebasehosting.admin` と `roles/serviceusage.serviceUsageConsumer` のみ。前者にFirebase project／client設定読取りを含む。DB実データを読める広いFirebase Viewerは追加しない |
+| 運用SA | `prod-operator@termite-warranty-prod.iam.gserviceaccount.com`。プロジェクトrole・SAへの接続bindingなし。まだ運用可能ではない |
+| WIF provider | `projects/988295873733/locations/global/workloadIdentityPools/github-production/providers/github`、ACTIVE。targetのaudienceはこの値へ `//iam.googleapis.com/` を前置 |
+| issuer／制限 | `https://token.actions.githubusercontent.com`。repository／owner不変IDが上記と一致、ref=`refs/heads/main`、sub=`repo:shisyamo4131/termite-warranty:environment:production`、eventはpush／workflow_dispatchだけ |
+| 属性mapping | google.subject=sub、attribute.repository_id=repository_id、attribute.repository_owner_id=repository_owner_id、attribute.ref=ref（右辺はいずれもassertion） |
+| SA binding | 上記poolのattribute.repository_id=`1363463339` のprincipalSetだけに、配備SAの `roles/iam.workloadIdentityUser`。運用SAへのbindingなし |
+| 長期鍵 | 両SAのuser-managed key一覧は空。作成しない |
+| 必須認証API | IAM、IAM Credentials、STSを有効化。Resource Managerは既存有効 |
+| GitHub production環境 | 新規作成、custom branch policyはmainのbranch 1件のみ。レビュー待ち／待機時間は追加しない。repository Actions variablesは空で、Prod CI未有効 |
+
+実OIDC交換・短期token更新・別job認証・拒否試験・初回公開は未実証。mainはAPIのprotected=falseで、確認時SHAは `b45382f6ef92e9ab897cee59b1164766375aaa70`。production環境のmain制限はmain自体の変更保護とは異なる。保護方針、mainへのレビュー済みworkflow統合、認証だけを行う試験を次の承認単位にする。通常Functions／DB配備権限、Functions実行SA、運用SAの認証経路は残件。初期設定を通常アプリ配備可能と表示しない。既存9項目の識別子は揃ったが、実行用targetの登録／CI変数設定はまだ行わない。
+
+信頼条件は[Google公式WIF手順](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)の不変ID利用・属性条件・SA偽装方式に沿って構成（同日参照）。構成読戻しと実認証の成功を区別する。以下の過去節の未設定記述は本節の範囲で更新する。
+
 ## 2026-10-13 Prod空基盤の実作成
 
 オーナーがDevと同じ本人環境でのProd土台作成、下記名・ID、Firebase標準URL、Blazeと既存「Firebase のお支払い」への関連付けを承認。Chromeの実Firebaseコンソールで作成結果を確認した。請求先を後日切替可能であることは着手上の前提であり、移管実証ではない。個人メール・請求アカウントID・APIキーは記録しない。

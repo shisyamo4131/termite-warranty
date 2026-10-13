@@ -1,6 +1,6 @@
 # Documentation Map
 
-現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加指示で認証・通常配備CI・Prod接続に加え、初期化・管理者・初回投入・復旧／バックアップのLocal実装・事前検証を実施。実Cloudの構築・配備は未実施。以下の「実装未着手」は前工程の記録。
+現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加承認で空のProd基盤とHosting限定配備SA／WIF・GitHub production環境を作成・読戻し。認証・通常配備CI・Prod接続、初期化・管理者・初回投入・復旧／バックアップのLocal実装・事前検証は実施済み。実認証・初回公開・通常アプリ配備・運用SA権限・提供前保護は未了。以下の「実Cloud構築未実施」「実装未着手」は前工程の記録。
 
 - [Prod対応棚卸し・具体手順](design/production-readiness-inventory-2026-10-13.md)：環境判定・独自CLI認証・初回初期化／Hosting照合・復旧・CIの対応箇所、棚卸し時点の推定と10月23日構築の条件。現在の実装状態・残工数8〜10時間は上記roadmapを参照。実Cloud構築は未実施。
 

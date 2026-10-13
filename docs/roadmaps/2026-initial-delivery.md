@@ -1,5 +1,7 @@
 # 2026 Initial-Delivery Roadmap
 
+2026-10-13追加：ProdのHosting限定配備SA／制限付きWIF／main限定production環境を実設定・読戻し。実認証と初回公開は未実施、main保護未設定を確認。次は保護方針・workflow統合と認証専用試験の具体化。通常アプリ配備・運用認証・HS受入れは残る。[現状](production-readiness.md#現在地配備認証の初期設定後2026-10-13)。日程PDF・作業枠・納品gateは据え置く。
+
 ## 2026-10-13 Prod空基盤の先行作成
 
 本人承認によりProd project・Blaze関連付け・Web／Hosting・東京の空2DB・メール認証を先行作成。SA／WIF／IAM・初回公開・業務配備・投入は未了。日次backup／PITRは本人指示で後回しとし、提供前の保護gateは維持する。[現在地と工数判断](production-readiness.md#現在地空基盤の先行作成後2026-10-13)。22日までの8〜10時間は安全側の作業枠として維持し、23日3〜4時間／月末納品の条件付き目標とPDF日程は変更しない。HS日程未合意、部分加点なしの0%は不変。

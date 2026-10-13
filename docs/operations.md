@@ -1,5 +1,25 @@
 # Operations
 
+## 2026-10-13 Prod配備認証の初期設定・読戻し
+
+同タスクのオーナーが「進めてください」に続き、2SA、Hosting管理（サイト削除権限を含む）／Firebase設定読取り／API利用、限定WIF、main限定production環境を具体的に承認。運用SAへの権限・接続、アプリ配備・CI有効化は除外。本人の既存gcloud／gh認証を使用し、秘密値・個人メールは取得／記録しない。初回sandboxではgh通信とgcloudローカル設定アクセスが失敗（各exit 1）、承認済み昇格で読取り・設定を実行した。Cloudエラーを成功に置き換えたものではない。
+
+実設定と残件は[環境仕様](requirements/environment-configuration.md#2026-10-13-prod配備認証の初期設定)。Firebase ViewerはDB実データreadも含むとrole定義で判明したため付与せず、Hosting Adminに含むproject／client設定readを使用。Dev・業務DB・Authユーザー・保護設定・mainソースは変更なし。GitHubへの変更はproduction環境とmain branch policyだけ、Actions変数一覧は空。
+
+| 実コマンド群（対象・条件は環境仕様） | 結果／個別exit |
+| --- | --- |
+| `gcloud projects describe`、`firestore databases list`、`services list --enabled`、`iam service-accounts list`、`iam workload-identity-pools list` | Prod識別子／parentなし／東京Native 2DB／事前API／既存SA／poolなしを確認、各0 |
+| `gcloud services enable` | IAM・IAM Credentials・STS有効化成功、0 |
+| `gcloud iam service-accounts create` ×2、`iam workload-identity-pools create`、`providers create-oidc` | 作成成功、各0 |
+| `gcloud projects add-iam-policy-binding` ×2、`iam service-accounts add-iam-policy-binding` | 承認済み2role・限定WIF binding登録、各0 |
+| `gh api --method PUT .../environments/production`、`--method POST .../deployment-branch-policies` | main限定environment作成成功、各0 |
+| `gcloud ... providers describe`、`projects get-iam-policy`（専用SA限定）、`iam service-accounts get-iam-policy` ×2、`keys list --managed-by=user` ×2 | 条件・role・binding一致、運用bindingなし、両SA長期鍵なし、各0 |
+| `gh api .../deployment-branch-policies`、`.../branches/main`、`.../actions/variables` | main branch 1件、main protected=false、変数なし、各0 |
+
+分類はgovernance-permissions-agents／build-release-deploy／documentation-only、包括7ゲートを選定。ソースは `031e1bfe5679d2843acc9e39d530f47c1bba4509` から文書のみ変更。下記 `397b5423b84df168c8ed7c69aeb33d89fb726dd3` のLocal6ゲートはpolicyのinvalidatedByに該当するソース／依存／runtime変更がなく再利用（npm test、npm run typecheck、npm run build、npm run test:rules、node scripts/check-functions-syntax.mjs、node --check scripts/seed-emulator.mjs、各exit 0）。CloudのIAM変更は実読戻しで検証し、実OIDC認証を証明したとは扱わない。governance-checkとdiff整合は今回文書の最終状態で実行する。
+
+文書検証：`pwsh -NoProfile -File scripts/check-governance.ps1` は整合成功・exit 0、`git diff --check` はexit 0。証拠追記後にも両コマンドを再実行する。実認証・token更新・許可外拒否・初回公開は未実証であり、認証整備全体の完了ではない。通常配備／運用に必要な権限・main保護・workflow統合が残る。仕様／データ契約／ADRの要件変更なし。現在地は環境仕様・runbook・両roadmap・index・changelogへ反映し、日程／工数枠変更の根拠がないためPDF据え置き。
+
 ## 2026-10-13 Prod空基盤の先行作成
 
 根拠はタスク `01a133e7-092f-71f0-b5e7-43a8b7833ab9` の同日オーナー指示と個別回答。Devと同じ本人Firebase環境で空のProdを先行作成する承認、名／ID・標準URL、Blaze／既存請求先、メール／パスワード認証の承認を得た。日次backup／PITRは「DBだけ作成し、保護設定は後で行う」と明示されたため有効化しない。課金・保護設定の自動承認レビュー停止後、Blazeは追加承認で実行、保護設定は撤回して空DBのみ作成した。

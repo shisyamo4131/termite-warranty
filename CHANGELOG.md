@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-13 Prod配備認証の初期設定
+
+- 個別承認で配備／運用SAを分離、Hosting限定の配備権限、repository／owner不変ID・main・productionに限定したWIF、GitHubのmain限定production環境を設定・読戻し。長期鍵・運用SA権限はなし。
+- main保護の未充足を確認。実認証試験・初回公開・通常アプリ配備は未実施として残件へ反映。日程・保護gateは維持。
+
 ## 2026-10-13 Prod空基盤の先行作成
 
 - 本人承認でProd project・既存請求先のBlaze・Web／Hosting・東京の空2DB・メール／パスワード認証を作成。実値と残る権限／認証／配備ゲートを環境仕様・運用手順へ記録。
