@@ -1,6 +1,6 @@
 # Documentation Map
 
-2026-10-13最新：Prod保守表示を承認後に公開し、内容・版をGET確認。直後のCI照合は失敗し、enable解除・再配備なしで同SAの独立読取り再照合に成功。原因未確定を残し、残工数11〜17時間と既存PDFへ反映。[現在地](roadmaps/production-readiness.md)、[公開後手順](runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。
+2026-10-13最新：Prod保守表示を承認後に公開し、内容・版をGET確認。直後のCI照合は失敗し、enable解除・再配備なしで同SAの独立読取り再照合に成功。追加調査では詳細記録がなく原因特定不能。本人指示で「公開直後のタイムラグ」扱いとして調査を閉じ、残工数10〜15時間と既存PDFへ反映（原因未実証）。[現在地](roadmaps/production-readiness.md)、[公開後手順](runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。
 
 2026-10-13最新：初回保守公開workflowを必須CI成功後に限定統合。公開enableは未設定、実公開は別承認。[現在地](roadmaps/production-readiness.md)と[実行手順](runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)を参照。
 

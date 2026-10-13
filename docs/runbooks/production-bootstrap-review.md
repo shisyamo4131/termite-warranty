@@ -4,9 +4,9 @@
 
 オーナーがmain `1564f07427b63a2d73776542eb28341d166c9d7a` の保守HTML、3変数登録、run `38381393703` 全体の再実行、照合後enable解除を承認。attempt 2は公開まで成功したが直後の照合は失敗し、enableをfalseへ戻した。再配備・削除・IAM変更は行わない。GETでは保守版 `sites/termite-warranty-prod/versions/a377bd20176a2ac5` と期待内容が一致し、既存CLI認証で同じ照合関数も成功。初回CI失敗の原因は未確定。
 
-同じ配備SA／WIFで再公開せず確認する `.github/workflows/inspect-production-bootstrap.yml` を[PR #7](https://github.com/shisyamo4131/termite-warranty/pull/7)で追加。main・production・手動起動だけを許可し、既存の照合関数を実行する。受入条件・hash・公開物は変更しない。必須CI成功後main `21f41565fee5ea25396e924f7e0cd5d1770f3c30` へ統合し、[run 38383742806](https://github.com/shisyamo4131/termite-warranty/actions/runs/38383742806)で同じ基準版の読取り照合が全step成功。enable falseを再確認した。最初のCI失敗原因は未確定のまま残す。公開版のsource SHAは1564f074のまま。新main pushでもenable falseと承認SHA不一致で公開を拒否する。
+同じ配備SA／WIFで再公開せず確認する `.github/workflows/inspect-production-bootstrap.yml` を[PR #7](https://github.com/shisyamo4131/termite-warranty/pull/7)で追加。main・production・手動起動だけを許可し、既存の照合関数を実行する。受入条件・hash・公開物は変更しない。必須CI成功後main `21f41565fee5ea25396e924f7e0cd5d1770f3c30` へ統合し、[run 38383742806](https://github.com/shisyamo4131/termite-warranty/actions/runs/38383742806)で同じ基準版の読取り照合が全step成功。enable falseを再確認した。保存済みCIログ・監査ログ・照合コードを調査したが、失敗箇所の詳細記録がなく原因は特定不能。同じ配備SAの独立照合成功を踏まえ、オーナー指示で「公開直後のタイムラグ」として運用上処理し、調査残件を閉じた。タイムラグは原因の実証ではなく、元runのfailureは維持する。公開版のsource SHAは1564f074のまま。新main pushでもenable falseと承認SHA不一致で公開を拒否する。
 
-残工数は11〜17時間の暫定推定へ更新。初回保守公開2〜3時間を外し、初回CI照合失敗の原因・再照合手順確認1〜2時間を追加。日付は変更せず、22日までの残認証・統合・入力成立を23日構築の条件とする。PDFも公開済み／原因未確定を分けて更新。業務利用開始、通常アプリ配備、運用IAM、バックアップ／PITRは未実施。
+追加調査を終了し、残工数は11〜17から10〜15時間の暫定推定へ更新。調査枠1〜2時間を外す。日付は変更せず、22日までの残認証・統合・入力成立を23日構築の条件とする。PDFも公開済み／タイムラグ扱い（原因未実証）を分けて更新。業務利用開始、通常アプリ配備、運用IAM、バックアップ／PITRは未実施。
 
 ## 初回保守公開の限定統合（2026-10-13）
 

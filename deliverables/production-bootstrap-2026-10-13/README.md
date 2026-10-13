@@ -1,6 +1,6 @@
 # Prod初回保守公開のレビュー用成果物
 
-2026-10-13追記：本成果物と全byte一致するmain生成物から保守表示を公開済み。公開版・3ファイル・hash・設定・Web構成のGET照合は一致。直後のCI照合失敗の原因は未確定で、公開enableはfalseへ戻し再公開せず確認する。[現在地・証拠](../../docs/runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。業務アプリ公開ではない。
+2026-10-13追記：本成果物と全byte一致するmain生成物から保守表示を公開済み。公開版・3ファイル・hash・設定・Web構成のGET照合は一致。公開enableはfalseへ戻し、再公開せず同じ配備SAの独立照合に成功。直後のCI失敗は追加調査でも特定不能のため、本人指示で「公開直後のタイムラグ」扱いとして調査終了（原因未実証）。[現在地・証拠](../../docs/runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。業務アプリ公開ではない。
 
 2026-10-13、準備のみ。公開・GitHub設定・IAM変更なし。生成元はレビュー基準 `55ff33b57a490a0da6ad2cf38db94c858a722cea` の `scripts/prepare-production-bootstrap.mjs`。対象値は環境仕様と同日の管理API確認に基づく非秘密情報で、実行許可ではない。
 
