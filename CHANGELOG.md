@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13 main保護・Prod認証識別子の訂正
+
+- mainにPR・必須CI・最新main同期・管理者適用等の保護を設定。業務アプリ全体を統合せず、認証専用4ファイルと限定修正を通常PRで統合。
+- 実認証で判明したGitHubのimmutable subjectとの不一致を、認証probe・試験・WIF条件へ反映。所有者／repository ID・main・production制限と既存roleは維持。配備・業務データ操作なし。実試験結果は運用記録を参照。
+- 最終runで短期認証・別job再認証・production環境なし拒否が全成功。初回公開・通常配備・運用認証・提供前保護は残件として維持。
+
 ## 2026-10-13 Prod認証専用試験の準備
 
 - 配備なしの手動認証workflow、固定対象の短期認証・別job再認証・environment不一致拒否テストを準備。資格情報は保存／出力しない。

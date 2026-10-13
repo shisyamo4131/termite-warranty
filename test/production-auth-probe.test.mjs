@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {checkContext,probe,target} from '../scripts/production-auth-probe.mjs'
 const env={GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',GITHUB_REPOSITORY:target.repository,GITHUB_REPOSITORY_ID:target.repositoryId,GITHUB_REPOSITORY_OWNER_ID:target.ownerId,GITHUB_SHA:'a'.repeat(40),ACTIONS_ID_TOKEN_REQUEST_URL:'https://runner.actions.githubusercontent.com/token',ACTIONS_ID_TOKEN_REQUEST_TOKEN:'fictional-request-token'}
 const now=()=>1700000000000
-const jwt=mode=>['header',Buffer.from(JSON.stringify({iss:'https://token.actions.githubusercontent.com',aud:target.audience,repository_id:target.repositoryId,repository_owner_id:target.ownerId,ref:'refs/heads/main',event_name:'workflow_dispatch',sub:`repo:${target.repository}:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`,exp:1700000600})).toString('base64url'),'signature'].join('.')
+const jwt=mode=>['header',Buffer.from(JSON.stringify({iss:'https://token.actions.githubusercontent.com',aud:target.audience,repository_id:target.repositoryId,repository_owner_id:target.ownerId,ref:'refs/heads/main',event_name:'workflow_dispatch',sub:`repo:shisyamo4131@72244713/termite-warranty@1363463339:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`,exp:1700000600})).toString('base64url'),'signature'].join('.')
 function server(mode,override={}) {
   const calls=[]
   const fetcher=async(url,options)=>{
@@ -31,11 +31,17 @@ test('successful probe performs two fresh exchanges and only metadata GETs',asyn
 })
 test('negative probe requires attribute-condition rejection, not just any failure',async()=>{
   const s=server('deny');assert.equal((await probe('deny',{env,now,fetcher:s.fetcher})).reason,'provider-attribute-condition-rejected');assert.equal(s.calls.length,2)
-  for(const body of [{error:'invalid_grant',error_description:'expired token'},{access_token:'unexpected-token'},{error:'permission_denied'}]){
+  const unauthorized=server('deny',{match:u=>u.includes('sts.googleapis.com'),body:{error:'unauthorized_client',error_description:'The given credential is rejected by the attribute condition.'},status:400})
+  assert.equal((await probe('deny',{env,now,fetcher:unauthorized.fetcher})).oauthErrorCode,'unauthorized_client')
+  for(const body of [{error:'invalid_grant',error_description:'expired token'},{error:'unauthorized_client',error_description:'other reason'},{error:'unauthorized_client',error_description:'The given credential is rejected by the attribute condition.',access_token:'unexpected-token'},{error:'other',error_description:'attribute condition'},{access_token:'unexpected-token'},{error:'permission_denied'}]){
     const bad=server('deny',{match:u=>u.includes('sts.googleapis.com'),body,status:400});await assert.rejects(()=>probe('deny',{env,now,fetcher:bad.fetcher}))
   }
 })
 test('wrong resource identity and untrusted token claims fail without leaking bodies',async()=>{
+  const oldSubjectJwt=['header',Buffer.from(JSON.stringify({...JSON.parse(Buffer.from(jwt('allow').split('.')[1],'base64url').toString()),sub:`repo:${target.repository}:environment:production`})).toString('base64url'),'signature'].join('.')
+  const old=server('allow',{match:u=>u.includes('actions.githubusercontent.com'),body:{value:oldSubjectJwt}})
+  await assert.rejects(()=>probe('allow',{env,now,fetcher:old.fetcher}),/check=subject/)
+  assert.equal(old.calls.length,1)
   for(const override of [{match:u=>u.includes('firebasehosting'),body:{name:'another-site'}},{match:u=>u.includes('actions.githubusercontent.com'),body:{value:jwt('deny')}},{match:u=>u.includes('iamcredentials'),body:{accessToken:'secret-value',expireTime:'2000-01-01'}}]){
     const s=server('allow',override);await assert.rejects(()=>probe('allow',{env,now,fetcher:s.fetcher}),e=>!e.message.includes('secret-value'))
   }

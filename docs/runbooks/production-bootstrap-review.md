@@ -1,5 +1,11 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## main保護適用後の認証確認（2026-10-13）
+
+オーナーの追加承認に基づき、以下の4ファイル限定PRとmain保護を適用。診断・識別子訂正も限定PRとして必須CI成功後に通常mergeした。GitHubの実OIDC設定はimmutable subjectであり、旧形式を想定していた初期条件を訂正した。現在のsubjectは `repo:shisyamo4131@72244713/termite-warranty@1363463339:environment:production`。repo／owner ID・main・production・event制限は維持する。GitHubの設定を旧形式へ変更しない。[結果と実行証拠](../operations.md#2026-10-13-認証識別子の訂正)、[実設定](../requirements/environment-configuration.md)。
+
+最終run `38376243684` で短期認証・別job再認証・production環境なし拒否が全成功。次工程は初回保守公開の具体的な成果物・対象・差戻しのレビュー。配備承認前に公開しない。通常アプリ差分のmain統合、通常配備／運用SAの権限、期限切れ更新と別ref／repo／eventの実拒否はこの認証試験とは別の残件。以下の「実設定待ち／未保護」は適用前の記録である。
+
 ## main保護・認証専用試験の適用案（2026-10-13、実設定待ち）
 
 手動専用 `.github/workflows/verify-production-auth.yml`、依存追加なしの `scripts/production-auth-probe.mjs` と架空応答テストを準備。正規production jobでOIDC→STS→SA短期認証→対象project/siteのGETを2回、別jobでも同じ確認、最後にenvironmentなしのjobでprovider属性条件による拒否を確認する。POSTは認証交換とtoken生成のみ。公開／業務データ書込み、token本文・応答本文の保存／ログ出力、長期鍵はない。期限切れ更新・別repo/ref/eventの実拒否はこの試験の完了項目に含めず未実証として残す。

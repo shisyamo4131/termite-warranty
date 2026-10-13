@@ -1,8 +1,8 @@
 # Documentation Map
 
-現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加承認で空のProd基盤とHosting限定配備SA／WIF・GitHub production環境を作成・読戻し。認証・通常配備CI・Prod接続、初期化・管理者・初回投入・復旧／バックアップのLocal実装・事前検証は実施済み。実認証・初回公開・通常アプリ配備・運用SA権限・提供前保護は未了。以下の「実Cloud構築未実施」「実装未着手」は前工程の記録。
+現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加承認で空のProd基盤・Hosting限定配備SA／WIF・GitHub production環境・main保護を設定。認証専用の限定PR統合後、短期認証・別job再認証・environmentなし拒否を実証した。通常配備CI・Prod接続、初期化・管理者・初回投入・復旧／バックアップはLocal実装・事前検証済み。初回公開・通常アプリ統合／配備・運用SA権限・提供前保護は未了。以下の「実Cloud構築未実施」「実装未着手」は前工程の記録。
 
-- [Prod対応棚卸し・具体手順](design/production-readiness-inventory-2026-10-13.md)：環境判定・独自CLI認証・初回初期化／Hosting照合・復旧・CIの対応箇所、棚卸し時点の推定と10月23日構築の条件。現在の実装状態・残工数8〜10時間は上記roadmapを参照。実Cloud構築は未実施。
+- [Prod対応棚卸し・具体手順](design/production-readiness-inventory-2026-10-13.md)：棚卸し時点の対応箇所と構築条件。現在の実設定・認証実証、暫定8〜10時間枠と再見積り条件は上記roadmapを参照。
 
 2026-10-13現在：承認済みの全件読取り削減と保証延長申込日改修はDev反映・開発側受入れ済み。保険検索用2項目を442物件へ整備し、それ以外の業務値・番号は不変。以下の本件に関するDev禁止・指示待ち・未反映は各工程実施時点の記録であり、現在の状態はこの記載を優先する。HSの業務受入れとは区別する。月別対象全体取得の現状維持と工務店アカウント一覧の後発対応は変更なし。[検証・導入記録](operations.md)。
 
@@ -138,7 +138,7 @@ The current local UI palette is documented in [Clear Sky theme](design/clear-sky
 
 - [緊急操作用アプリ管理者台帳と選択的Dev初期化](operations.md#2026-10-02-dev配備マスタ保持の試験データ削除): 識別情報・復旧境界。秘密情報は記録しない。
 
-- [Prod初期構築・権限引渡し手順](runbooks/production-bootstrap-review.md): 10月23日までの準備・Aで組織なしの先行構築・後日HS引継ぎ・利用開始条件。オーナー交代は試験済み、請求先変更は未検証。WIFは都度の人の認証不要を条件に採用。実Prod構築は未実行。
+- [Prod初期構築・権限引渡し手順](runbooks/production-bootstrap-review.md): 10月23日までの準備・組織なしの先行構築・後日HS引継ぎ・利用開始条件。空基盤と限定WIF認証は実証済み、初回公開・通常配備／運用認証は未了。オーナー交代は試験済み、請求先変更は未検証。
 
 - [確定仕様改修のDev受入手順](runbooks/local-acceptance-2026-10-03.md)：HS業務一巡、保険報告・取消、入力再試行、例外・未実装境界。
 - [独立先行改修の検証記録](design/evidence/independent-implementation-2026-10-03.md)：対象ファイル、互換性、各ゲートの実測と残件。

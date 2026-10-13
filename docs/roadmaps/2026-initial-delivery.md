@@ -1,6 +1,6 @@
 # 2026 Initial-Delivery Roadmap
 
-2026-10-13追加：ProdのHosting限定配備SA／制限付きWIF／main限定production環境を実設定・読戻し。実認証と初回公開は未実施、main保護未設定を確認。次は保護方針・workflow統合と認証専用試験の具体化。通常アプリ配備・運用認証・HS受入れは残る。[現状](production-readiness.md#現在地配備認証の初期設定後2026-10-13)。日程PDF・作業枠・納品gateは据え置く。
+2026-10-13追加：Prodの空基盤・Hosting限定配備SA／WIFに加え、main保護と限定PR統合を実施。認証専用runで正規短期認証・別job再認証・environmentなし拒否が全成功。初回公開・通常アプリ全体統合／配備・運用認証・HS受入れは残る。[現状と残工数判断](production-readiness.md#現在地main保護認証専用試験の実証後2026-10-13)。8〜10時間枠は暫定維持し、統合レビュー／運用認証後に再見積り。23日構築・月末納品は条件付き目標、PDF日付・納品gate・部分加点なし0%は据え置く。
 
 ## 2026-10-13 Prod空基盤の先行作成
 

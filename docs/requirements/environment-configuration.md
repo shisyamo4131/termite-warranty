@@ -1,5 +1,11 @@
 # Dev／Prod 環境設定・権限仕様
 
+## 2026-10-13 main保護と認証試験の開始
+
+オーナーが保護設定・認証関連4ファイル統合・認証専用試験を追加承認。PR #1の必須CI成功後、mainへPR必須・`Verify development deployment`（GitHub Actions App ID 15368）成功必須・最新main同期・管理者適用・force push／削除禁止・会話解決を設定し、読戻し確認。他者必須承認数は0。通常mergeで `97f95b2e173946b5ad07bfc34df831a8a8e5c358` へ統合。業務アプリ全体は統合しない。
+
+初回試験の失敗を診断し、GitHub実設定のimmutable subjectとの不一致と拒否判定を修正。PR #2〜4も必須CI成功後に通常mergeし、main=`e5b9cb1605bba18deecdde534730186ed94925a1`。最終run `38376243684` で短期認証・別job再認証（各2回交換と対象GET）・production環境なしの属性条件拒否が全成功。資格情報本文は保存／出力しない。[実証・訂正記録](../operations.md#2026-10-13-main保護配備なし認証実証の完了)。Hosting siteは管理APIで `projects/termite-warranty-prod/sites/termite-warranty-prod`、defaultUrl `https://termite-warranty-prod.web.app`、既存Web app IDとの一致を確認。初回公開・通常配備・運用認証・期限切れrefresh・別repo／ref／event実拒否は未実証。以下のmain未保護／実認証未実施は当時の記録。
+
 ## 2026-10-13 Prod配備認証の初期設定
 
 空基盤作成後の同日追加承認で実設定。GitHub APIでrepository ID `1363463339`、owner ID `72244713`、対象 `shisyamo4131/termite-warranty` を確認。gcloudでProdはACTIVE・project number `988295873733`・parentなし、2DBとも東京Native・PITR／削除保護無効を読戻し。Auth承認domainは `termite-warranty-prod.firebaseapp.com`、`termite-warranty-prod.web.app` と `localhost`。今回は変更していない。
@@ -10,7 +16,7 @@
 | プロジェクトrole | 配備SAに `roles/firebasehosting.admin` と `roles/serviceusage.serviceUsageConsumer` のみ。前者にFirebase project／client設定読取りを含む。DB実データを読める広いFirebase Viewerは追加しない |
 | 運用SA | `prod-operator@termite-warranty-prod.iam.gserviceaccount.com`。プロジェクトrole・SAへの接続bindingなし。まだ運用可能ではない |
 | WIF provider | `projects/988295873733/locations/global/workloadIdentityPools/github-production/providers/github`、ACTIVE。targetのaudienceはこの値へ `//iam.googleapis.com/` を前置 |
-| issuer／制限 | `https://token.actions.githubusercontent.com`。repository／owner不変IDが上記と一致、ref=`refs/heads/main`、sub=`repo:shisyamo4131/termite-warranty:environment:production`、eventはpush／workflow_dispatchだけ |
+| issuer／制限 | `https://token.actions.githubusercontent.com`。repository／owner不変IDが上記と一致、ref=`refs/heads/main`、sub=`repo:shisyamo4131@72244713/termite-warranty@1363463339:environment:production`、eventはpush／workflow_dispatchだけ。初期設定の旧形式を同日の実認証診断後に訂正・読戻し |
 | 属性mapping | google.subject=sub、attribute.repository_id=repository_id、attribute.repository_owner_id=repository_owner_id、attribute.ref=ref（右辺はいずれもassertion） |
 | SA binding | 上記poolのattribute.repository_id=`1363463339` のprincipalSetだけに、配備SAの `roles/iam.workloadIdentityUser`。運用SAへのbindingなし |
 | 長期鍵 | 両SAのuser-managed key一覧は空。作成しない |

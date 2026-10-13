@@ -1,5 +1,37 @@
 # Operations
 
+## 2026-10-13 main保護・配備なし認証実証の完了
+
+同タスクの追加承認範囲を実施。PR #1の4ファイルと、試験の診断／immutable subject／拒否判定の限定修正PR #2〜4だけをmainへ統合。PR #4のhead `8dcf01d5f36359e70142011e063577d855467f5d`、必須CI run `38375708547`／job `115223412502` 成功・Dev配備skip。通常merge・読戻し各exit 0、main=`e5b9cb1605bba18deecdde534730186ed94925a1`。管理者迂回や業務アプリ全体の統合は行っていない。
+
+[最終認証run 38376243684](https://github.com/shisyamo4131/termite-warranty/actions/runs/38376243684) は同SHAで全3job成功。authenticate（115225231142）・reauthenticate（115225489278）は各2回の新規OIDC／STS／SA短期token交換とProd project／Hosting siteのGET一致、各probe exit 0。deny-without-environment（115225736992）はHTTP 400・`unauthorized_client`・属性条件拒否・access_token未発行を確認しexit 0。手動起動・結果読取りも各exit 0。秘密値のログ／artifact保存、配備、業務データ書込みはなし。main保護の各条件を再読戻し、repository Actions variablesは0件（各取得exit 0）。
+
+証拠の範囲はこのREST認証probe。期限切れrefresh、別repo／ref／eventの実拒否、通常配備CLI／運用SA認証、初回公開・実配備・保護実証は未完了。旧エラーを成功と置換せず、原因と修正は以下に残す。判定に影響しない過去節の未設定／未実証記述は各工程時点の記録。
+
+要件／データ契約／ADRの変更はなし。実設定・runbook・両roadmap・index・changelogを更新し、日程／必須受入条件の変更を要する根拠がないため既存PDFは据え置く。22日までの8〜10時間枠は減らさず、通常アプリ全差分の統合レビューと運用認証の所要は次工程で再見積りする。今回の完了をProd基盤全体や納品完了とは扱わない。
+
+最終文書反映後の `pwsh -NoProfile -File scripts/check-governance.ps1` と `git diff --check` は各exit 0。コードの最終単体検証は下記458成功・2skip・exit 0、他5ゲートは同ターン証拠をpolicyに従い再利用。検証コマンドの省略を未実証の実配備へ転用しない。governance契約／policy自体の変更なし。主作業ブランチには認証probe・試験と記録だけを追加し、mainの限定PRとは別に保全する。
+
+## 2026-10-13 認証識別子の訂正
+
+PR #3はhead `4cc5d4b7bf6c1626002a484850bd9bfe7228dcf4`、必須CI run `38374746602`／job `115220202544` 成功・Dev配備skip。通常merge／読戻し各exit 0、main=`8fdaf5868c1ec26b3a657933ad3e3779036d711e`。認証run `38375208227` はauthenticateとreauthenticateが成功し、それぞれ新規交換2回・Prod project／siteのGET一致を確認。environmentなしはSTSのHTTP 400・属性条件拒否を受けたが、probeがOAuthエラーをinvalid_grantに限定していたためjobはexit 1、run全体もfailureと記録する。
+
+拒否判定の修正は[PR #4](https://github.com/shisyamo4131/termite-warranty/pull/4)。invalid_grantまたはunauthorized_clientに加え、HTTP 400・属性条件拒否理由・access_token未発行を必須とし、任意の失敗を成功にしない。期限切れ・別理由・未知エラー・token付き拒否をLocalで拒絶。`node --test test/production-auth-probe.test.mjs` 4成功・exit 0、最終 `npm test` 458成功・2skip・exit 0（tmp/prod-auth-denial-unit.log）。この修正によるCloud条件／role変更はない。
+
+診断PR #2の最終head `5522f4a90a06006c060bcec40efee7fd7b3596ba` に対する必須CI run `38373820562`／job `115217064401` は成功、Dev配備skip。通常mergeで `e91c8bb99792b0c42c8a33a2b7ceeaa9e10b94f5` へ統合（mergeと読戻し各exit 0）。認証run `38374408279` は `oidc-claims`／HTTP 200／`check=subject` でexit 1。token発行後、Cloudへの交換前に停止した。
+
+`gh api .../actions/oidc/customization/sub` の実読戻し（exit 0）で `use_immutable_subject=true`、prefix=`repo:shisyamo4131@72244713/termite-warranty@1363463339` と確認。初期構成が旧形式を想定していた照合不足を訂正する。[GitHub公式仕様](https://docs.github.com/en/actions/reference/security/oidc)も所有者／repository IDを含む形式を説明している。GitHub設定を旧形式へ戻さず、probe・架空応答・旧形式拒否テストを[PR #3](https://github.com/shisyamo4131/termite-warranty/pull/3)へ限定した。WIFのsubjectも同じ実値へ `gcloud ... providers update-oidc` で修正しdescribeで読戻し（各exit 0）。repository ID／owner ID・main・production・event制限、SA binding／roleは維持。失敗時は試験を停止し、無承認の権限追加や保護解除をしない。
+
+Localの最終修正後 `node --test test/production-auth-probe.test.mjs` は4成功・exit 0、`npm test` は458成功・2既存skip・exit 0（tmp/prod-auth-immutable-unit.log）。診断追加途中のsandbox実行は一時領域rename等のEPERMでexit 1、通常権限で再実行して成功。隠した試験失敗はない。包括7ゲートのうちtypecheck／build／Rules／Functions構文／seed構文は直下の同ターン成功証拠を再利用：変更は独立認証probe・その試験・文書だけで、それら5ゲートのinvalidatedBy対象に変更なし。main向けPRは別途既存包括CIを要求する。文書の最終状態でgovernance／diffを再確認する。
+
+## 2026-10-13 main保護適用・認証実証中
+
+[PR #1](https://github.com/shisyamo4131/termite-warranty/pull/1) はhead `25a577fbc97a43bd59a1bc353d881eae9fc6894d`、main基準の包括CI run `38371981245`／job `115210944278` 成功、Dev deployはskip。承認済みmain保護をPUT（exit 0）、CLEAN／MERGEABLE・head一致を確認して `gh pr merge --merge --match-head-commit` を実行（exit 0）、merge SHA `97f95b2e173946b5ad07bfc34df831a8a8e5c358`／MERGEDを読戻し（exit 0）。保護GETでもstrict／admins／必須check／force false／deletion false／会話解決／他者承認0の一致を確認（exit 0）。管理者迂回は使っていない。
+
+`gh workflow run verify-production-auth.yml --ref main` は受付exit 0、[run 38372610144](https://github.com/shisyamo4131/termite-warranty/actions/runs/38372610144) はauthenticateのprobeがexit 1、後続2job skip。実認証は失敗であり、受付成功と区別する。ログは既存の一般エラーだけでtoken／応答本文なし。資格情報を出さず工程／HTTP status／固定条件名だけを診断する修正1ファイルを[PR #2](https://github.com/shisyamo4131/termite-warranty/pull/2)で検証中。Local probe 4試験成功・exit 0、`npm test` 再実行exit 0。認証以外のCloud書込みなし。
+
+補足読取り：時刻を限定したCloud監査メタデータの取得は空（exit 0）。記録されないAPIもあるため未到達の証拠とはしない。`node node_modules/firebase-tools/lib/bin/firebase.js hosting:sites:list --project termite-warranty-prod --json` はexit 0、site／Web対応・標準URLを確認。診断修正後の成功までは認証gate未充足を維持する。
+
 ## 2026-10-13 main保護・認証専用試験の準備
 
 開始HEAD `9467a5b03a441b3ca0f9e951854c5af688fa011a`。手動専用認証workflow／固定対象probe／架空応答テストを追加し、既存Dev workflowのPR検証起動と契約を整備。[適用案と承認範囲](runbooks/production-bootstrap-review.md#main保護認証専用試験の適用案2026-10-13実設定待ち)。mainの実SHAは `b45382f6ef92e9ab897cee59b1164766375aaa70`、既存542ファイル差分を確認したため4ファイルだけの統合候補を準備。全Prod準備・業務アプリ統合とは区別する。
