@@ -1,5 +1,32 @@
 # Operations
 
+## 2026-10-13 CI分離・切替準備と運用手順の最終レビュー
+
+オーナーが先行commit／pushとLocalのCI分離・手順レビュー・実入力チェックリスト整備を許可。既存51ファイルを `1bc5f0fc46b816bc2066e56a7da6f46fa90bd9b4` に確定し、主作業ディレクトリの `codex/production-readiness` にpushした。直後の作業ツリー空を確認。main/devへ統合せず、Cloud構築・配備・GitHub設定・workflow実行の操作は行っていない。Git操作は通常sandboxでbranch作成が失敗後、許可済み昇格で成功。データや作業差分の削除はない。
+
+CI変更：`.github/workflows/deploy-development.yml`、`scripts/development-workflow-contract.mjs`、`test/development-workflow-contract.test.mjs`。Dev変数未有効ならmain手動だけ、切替有効後はdev push／手動だけ。Prod enableが有効なら旧main→Dev手動を拒否。環境別排他・自動取消なしを追加。Dev認証・対象・配備物の契約は維持。条件を実YAMLから取得し、変数／イベント／refの144組を検証。式の文字列比較は[GitHub公式](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions)の大文字小文字非区別を反映。これは実Actions・WIF・Cloudの検証ではない。
+
+運用レビュー：初回投入前の会社情報等の登録は空領域条件と両立せず、verification中も設定保存不可。投入→HS読取確認→別了承で設定用書込み再開→会社情報／請求先設定→保護実証・最終受入れの順と停止条件を明記。Auth実import未開放、バックアップ設定結果不明時の個別回復判断を残件として維持。[Prod手順](runbooks/production-bootstrap-review.md)に入力・担当・取得元・合格条件を整理。実値・権限は未照合。
+
+| 選定ゲート／実コマンド | 結果 | exit |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 生成物／7ゲート方針整合 | 0 |
+| `npm test` | 453成功、既存Windows symlink 2skip、失敗0（455試験） | 0 |
+| `npm run typecheck` | 型検査成功 | 0 |
+| `npm run build` | 通常Dev設定のSPA生成成功 | 0 |
+| `npm run test:rules` | 隔離Emulator 201成功、停止確認true、361141ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functions／domain構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | seed構文成功 | 0 |
+
+対象回帰 `node --test test/development-workflow-contract.test.mjs` 7成功・exit0。包括通常試験は条件式テストの最終編集後に実行。Emulator／型／build／構文実行後の変更はworkflow試験と文書／PDFだけで、対応ゲートの失効対象に変更なし。通常試験とEmulator試験は直列。ログはignored `tmp/prod-ci-{unit,rules,typecheck,build,focused}.log`。`git diff --check` と変更文書のローカルリンク検査もexit0。分類はdocumentation-only＋build-release-deploy、包括7ゲートを選択し省略なし。governance本体・権限・依存版の変更なし。
+
+PDFは既存生成器で同じ10/13出力を更新。通常pythonにはreportlabがなくexit1、インストールせず付属runtimeのPythonで再生成しexit0。PopplerによるPNG生成exit0、2ページを目視確認し、pypdfで2ページ・最新工数・事前構築記載を検証exit0。旧未実装表示は除去。外部共有なし。
+
+文書変更：本記録、Prod手順、環境仕様、専用／全体roadmap、docs索引、delivery-and-technologyの状態表示、changelog、日程deliverableのREADME／生成器／PDF。製品要件・業務データ形式・既決ADR・一般利用者操作・未解決事項の回答は変更せず、それらの更新は不要。新たな文書追加なし、既存indexの参照を維持。差戻しはCI変更をrevertして再検証。有効化後の配備停止／部分反映確認は手順に分け、Cloud巻戻し済みとは扱わない。
+
+残工数は22日まで推定8〜10時間（入力／権限照合1〜2、HS試用支援4、別承認後の事前構築・認証実証3〜4）、23日配備3〜4時間は別枠。旧11〜14からLocal準備分を除いた再見積り。集中42時間が確保できる仮定との差32〜34時間は予約済み余裕や保証ではない。20日・22日に実条件を判定、26〜27日保護／投入／設定、28日修正、29日HS受入れ、30日納品判定。HS日程は未合意。23日構築と月末納品ラインを条件付きで維持し、全体進捗0%・必須完了条件は不変。
+
+
 ## 2026-10-13 初期化・正式投入・復旧／バックアップのProd対応（Local）
 
 オーナーが「進捗が進むなら実行」と指示し、初期化・管理者・正式投入と復旧／バックアップの実装・事前検証を承認。主checkoutのHEADは `f71c9cd388355a0aca1c97dc149fe1deb683c233`。既存未コミット差分を保持して追加、commit／pushなし。実Cloudの読取・認証・設定・構築・配備・投入・復元、メール送信なし。常用Localは停止・初期化せず、試験専用Emulatorのみ使用。

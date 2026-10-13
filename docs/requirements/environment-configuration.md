@@ -1,5 +1,9 @@
 # Dev／Prod 環境設定・権限仕様
 
+## 2026-10-13 CI切替準備・実入力の現在地
+
+Local workflowにDevのmain／dev切替条件と排他を追加。DEVELOPMENT_BRANCH_DEPLOY_ENABLED=trueでdevだけへ切替、Prod有効時は旧main→Dev手動経路も閉鎖。GitHub設定・実配備なし。実入力項目・担当・取得元・照合条件と会社情報設定順は[Prod手順](../runbooks/production-bootstrap-review.md#ci切替と実行順の最終レビュー2026-10-13)へ集約。後の設定対照表にある旧実装状況は当時の記録。実現場のrole・ID・保護機能の確認を完了とは扱わない。
+
 2026-10-13運用対応：Prodの運用CLIでは `operatorIdentity` のaudience／serviceAccountを配備targetとは別に明示する。運用SAとCI配備SAの同一指定を拒否。実WIF／IAMは未設定で、操作別の最小権限はCloud実証事項。通常配備bundleは `TERMITE_PRODUCTION_PROJECT_NUMBER` をFunctionsへ渡し、Auth退避bucketの所属projectを照合する。初期管理者は照合済み既存Auth UIDに結び付け、権限・メール不一致を拒否する。[実手順](../runbooks/production-bootstrap-review.md)。
 
 2026-10-13後続実装：画面buildは `TERMITE_DEPLOYMENT_ENVIRONMENT=production`、`TERMITE_PRODUCTION_PROJECT`、`TERMITE_PRODUCTION_APP_ID` を要求し、Hostingのproject／appId／messagingSenderIdを照合する。Functionsもproduction指定と実行先projectの一致、Emulator設定なしを必須とする。未設定時のDev／Localは維持。通常Prod CIは明示enable・実target・保護設定・過去基準版が必要で未有効化。設定手順は[Prod手順](../runbooks/production-bootstrap-review.md)、実証の境界は[運用記録](../operations.md)。実Prod IDを仮定した許可は追加していない。

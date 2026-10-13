@@ -1,6 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parse } from 'yaml'
+
+export const developmentDeployCondition = "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')"
 
 const jobSections = (workflow) => {
   const lines = workflow.split(/\r?\n/)
@@ -45,6 +48,11 @@ const steps = (job) => {
 }
 
 export function validateDevelopmentWorkflow(workflow, policy) {
+  const parsed = parse(workflow)
+  if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null })
+    || parsed.concurrency?.group !== 'development-deployment' || parsed.concurrency?.['cancel-in-progress'] !== false) {
+    throw new Error('Development workflow must preserve branch routing and non-cancelling deployment concurrency.')
+  }
   if (!Array.isArray(policy?.comprehensiveGateIds) || !Array.isArray(policy?.gates)) {
     throw new Error('Verification policy does not define comprehensive gates.')
   }
@@ -107,8 +115,8 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   }
 
   if (!/^    needs:\s*verify\s*$/m.test(deployText)) throw new Error('Deploy job must depend on the verify job.')
-  if (!/^    if:\s*github\.event_name == ['"]workflow_dispatch['"]\s*$/m.test(deployText)) {
-    throw new Error('Deploy job must require an explicit manual workflow dispatch.')
+  if (parsed.jobs?.deploy?.if !== developmentDeployCondition) {
+    throw new Error('Deploy job must preserve the explicit manual workflow dispatch transition and dev-only opt-in.')
   }
   if (!/actions\/checkout@v7/.test(deployText)
     || !/actions\/setup-node@v7/.test(deployText)

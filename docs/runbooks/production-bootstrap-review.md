@@ -1,5 +1,61 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## CI切替と実行順の最終レビュー（2026-10-13）
+
+Local準備のみ。GitHub設定・実Cloud操作・配備は未実施。既存準備は `1bc5f0fc46b816bc2066e56a7da6f46fa90bd9b4` として同じ主作業ディレクトリの `codex/production-readiness` に確定し、同名remote branchへpush済み。main/devへ統合していない。以降の現在地は[roadmap](../roadmaps/production-readiness.md)を参照。
+
+### Dev／Prodの切替契約
+
+| 状態 | main | dev | その他のref |
+| --- | --- | --- | --- |
+| Dev切替変数未設定／true以外、Prod未有効 | pushは検証のみ。手動dispatchのみ従来Dev配備 | 検証のみ | 配備拒否 |
+| `DEVELOPMENT_BRANCH_DEPLOY_ENABLED=true` | Dev配備を拒否。Prodは独立したenable条件 | push／手動dispatchで検証後Dev配備 | 配備拒否 |
+| `PRODUCTION_APP_DEPLOY_ENABLED=true` | Prod workflowの条件成立時だけProd配備。旧Dev手動経路はDev変数によらず拒否 | 上のDev変数による | 配備拒否 |
+
+変数は小文字のtrue／falseで管理する。比較は[GitHub式仕様](https://docs.github.com/en/actions/reference/workflows-and-actions/expressions)の大文字小文字非区別に従う（2026-10-13参照）。テストもその文字列比較を反映する。
+
+Devは `development-deployment`、Prodと初回保守表示は `production-bootstrap` の排他group。進行中処理を自動取消ししない。Devは同一SHAのHosting成果物と同じcheckoutからのFunctions配備を維持し、Prodの全ファイルbundle方式と同一の保証とは扱わない。Devの既存認証方式は維持し、Prod秘密・WIFを流用しない。mainのDev用検証は移行中の回帰確認として残る。
+
+別承認後の切替順：
+
+1. main/devの受入済みrevision、進行中Actions・手動配備なし、両environmentの権限・branch制限、実repository／owner IDを非公開台帳と照合する。未設定enableの確認を先に行う。
+2. レビュー済みCIをmainへ統合し、同じ受入済み版からdevを用意する。実ブランチ操作・設定変更は今回行わない。enable未設定なら自動配備されないが、mainの旧手動経路を作業者が実行しないよう調整する。
+3. Dev切替を別途了承して変数をtrueへ。以後mainからDevへ手動配備できない。devでの正規配備を別承認・実行して成功／失敗・対象一致を確認する。
+4. Prod入力・WIF・保守基準版・閉鎖初期化・保護条件が成立してからProd enableをtrueへ。次の受入済みmain pushを配備対象として明示する。今回のcodex branchのpushを有効化操作とみなさない。
+5. 失敗時は次のpush／手動操作を止める。enable停止だけでは実行中jobは止まらないため、進行中処理とCloud部分反映を照合する。盲目的に取消・再配備・旧版上書きをしない。Local差戻しは当該CI commitをrevertして再検証する。Cloud復旧は別承認の固定DB復旧手順へ。
+
+### 初回投入・設定・受入れの順序
+
+ソース照合：`historical-intake-execution.mjs` は初回空業務領域と既存設定hash一致を要求する。`historical-intake-settings.mjs` は既存設定の保全であり、空のProdへDev設定を注入する機能ではない。verification中は設定保存を含む書込みが閉じるため、読取公開と業務開始を一回の操作にまとめない。
+
+1. 事前構築で両DB／Rules／索引・配備／運用認証・保守基準版を照合。空DBにinitializeしrecoveringを確認。Auth作成・本人確認後に既存UIDをadministratorでbind。会社情報・請求先・試験物件を先に登録しない。
+2. 23日は初回アプリ配備と正式照合、管理者の認証・役割を確認。recovering中のHS画面は保守表示が正しい。業務画面・CSV受入れは後工程であり、構築完了と混同しない。
+3. 保護用bucket／hash／通知と日次backup・PITRを準備。閉鎖中に自動Auth退避成功を要求しない。自動処理の実成功はnormal再開後の確認を含み、設定受付だけで保護実証済みにしない。
+4. 確定原資料から計画を再生成し、空の業務領域へintake-apply。元データ・採番・権限・7準備情報を全件照合しplan-intake→publishでverificationへ。途中失敗は同じ入力／operation／元worker停止を照合して再開。新operationでリセットしない。
+5. HSが投入結果を読取確認し、会社情報／請求先が未設定であることを明示したうえで、設定作業のための書込み再開を別了承する。了承がなければverificationで停止。受入済み版の正式照合後reopen。これは最終納品・業務利用開始の了承ではない。
+6. 有効アカウントを確認済み管理者に限定した準備期間に、既存画面で会社情報・請求先・必要設定を入力し、保存結果とCSVを確認する。試験のための正式採番を行わない。設定完了後に実バックアップ／Auth退避・非公開readback・通知到達・現行版の復元互換性を確認する。復元は一時DBで行い、通常業務開始前でもdefaultへ無承認で上書きしない。
+7. 設定を含むHS最終受入れ・引継ぎ・開始了承を確認して納品判定。設定後は初回投入直後のhashとは異なるため、旧intake計画を再publishせず、現行像・設定の受入記録を別に残す。重大修正があれば影響検証・再受入れへ戻る。
+
+Auth実importは未開放、backup設定の結果不明時はロックを保持して個別回復判断が必要。これらを自動復旧完了と表示しない。初回取得待ち・HS了承待ち・請求移管の確認は作業時間とは別の経過時間リスクとして管理する。
+
+### 実環境入力チェックリスト
+
+以下は既存仕様の実施台帳項目であり、新しい未解決事項台帳ではない。判断事項は[既存index](../requirements/house-solution-confirmations.md)、条件は[環境仕様](../requirements/environment-configuration.md)を正本とする。実値は未照合。値・取得時刻・取得者・根拠・照合結果は管理済み非公開台帳へ保存し、秘密／個人情報はGitへ入れない。
+
+| 優先／期限目標 | 入力・確認 | 確認担当と入手先 | 合格条件／未成立時 |
+| --- | --- | --- | --- |
+| P0・作成承認前 | Aの本人／回復手段、既存Billing ID・有効性・関連付け権限、希望project ID／公開先 | オーナー＋開発、本人確認と管理画面 | A先行・組織なしは既決。実対象と作成／課金範囲の承認がなければ構築しない |
+| P0・CI切替前 | repository／owner不変ID、main/dev revision、契約とbranch／environment保護、CI変数の現在値、競合実行 | 開発、GitHubの実設定・実行履歴を別途承認後照合 | 許可外repo／ref／actor経路を拒否。保護不足なら有効化しない |
+| P0・基盤作成後 | targetのproject／projectNumber／site／appId／control／serviceAccount／audience／repositoryId／ownerId | 開発、作成結果と管理API読戻し | 9項目の所属一致、東京Nativeの2DB、削除保護・APIキー制限の採否を確定。架空IDを転記しない |
+| P0・22日判定前 | 別operatorIdentity、配備SA・Functions実行SA・サービス管理主体、WIFと必要権限 | 開発、実IAM／SA binding／短期認証証拠 | 運用SAと配備SAを分離。read、配備、DB運用、Auth・bucket操作を主体別に最小権限で実証。Devのeditorをコピーしない |
+| P0・初回配備前 | 同一siteの保守providerVersion、受入済みrevision／bundle digest、公開URL・Auth承認domain／action URL | 開発、保守公開証拠・同じjob成果物・Auth設定 | 別版／別site／資格情報混入を拒否。本人ログイン・再設定メールを実確認 |
+| P0・管理者登録前 | 受領済み氏名・メール、実UID、enabled、role、回復担当 | オーナー＋開発、既存非公開資料と実Auth | 再提出は求めず本人と照合。role重複／別UID上書き拒否 |
+| P0・保護開始前 | 私有bucket・project number、hash設定の固定generation、通知先と受信証拠、保護4パラメータ | 開発＋通知受信者、実Storage／Auth／監視 | 30日・非公開・同project。バックアップREADY／Auth読戻し／通知／復元実証が揃うまで提供判定不可 |
+| P0・正式投入前 | 確定原資料とhash、today、planHash、inventoryHash、actorUid、operation／approval、設定内容 | 開発＋HS、確定原資料とLocal計画・実読戻し | Dev試用像をコピーしない。空業務像・同一計画・採番／全件照合。会社情報等は上の順で設定 |
+| P0・20〜22日判定 | HS試用2日、29日までの最終受入れ、書込再開と開始了承の担当、開発作業枠 | HS／オーナーと開発 | すべて未合意。予定だけで受入れ済みとしない。20日に未確保なら日程リスクを報告 |
+| 提供判定前 | HS管理引継ぎ・請求移管の対象／担当／期限、暫定運用の了承 | HS／オーナー、既存B/H/C手順 | 未完了範囲を隠さず判断。個人Aへの初期構築をHSへの引継ぎ済みとしない |
+
+
 ## 初期化・管理者・正式投入・復旧のProd入口（2026-10-13）
 
 オーナーがLocal実装・事前検証を追加承認。実Cloudの作成・設定・認証・配備・投入・復旧は今回実行しない。新入口は `scripts/production-operations.mjs`。既存Devのreset／seedや旧動的切替CLIをProdへ開放していない。
@@ -22,7 +78,7 @@
 
 `generation`・`operation`・`approval`はすべての変更（initializeのgenerationを除く）で明示。restore-statusも私有journalを更新するためexecute。管理者・投入の再開は元worker停止後に `resumeOwner` と `workerStopped:true` を指定し、同じ操作／入力を保持。復旧applyの再開はresume、固定公開の途中回復はrecover-operator（配備照合3項目も必須）。baseline／一時DBのquarantine・reconcile・verifyで中断したworkerはrecovery-worker-resumeで元worker停止を明示し、対象一時DBと必要なら元回復owner／回復worker停止も照合する。production用の管理者／復元／設定ロックをこの汎用回復で解除しない。復元POST前に排他とsubmitting記録を同時保存し、応答不明でも再POSTしない。記録と一致するrestore-statusで終端を確認してから排他解除する。バックアップ設定の途中不明・失敗は排他を残し、実設定の非公開照合と個別の回復判断が必要。ロックを自動削除して続行しない。
 
-初期管理者のAuthアカウント自体は、承認済みB4／B6の実作業で作成・本人／回復経路を確認してからbindする。今回の入口はパスワード生成・設定メール送信・既存Auth変更をしない。初回投入は空業務領域を前提とするため、会社情報・請求先などの業務設定を先に手作業で投入しない。原資料・採番と取込計画を照合する。会社情報・請求先等は既存画面で設定できるが、投入・設定・HS受入れの具体的な実行順序は最終レビューで確定する。先行設定や既存データが必要な場合は上書き許可へ変更せず、取込順序を見直す。
+初期管理者のAuthアカウント自体は、承認済みB4／B6の実作業で作成・本人／回復経路を確認してからbindする。今回の入口はパスワード生成・設定メール送信・既存Auth変更をしない。初回投入は空業務領域を前提とするため、会社情報・請求先などの業務設定を先に手作業で投入しない。原資料・採番と取込計画を照合する。会社情報・請求先等は既存画面で設定できるが、投入・設定・HS受入れの具体的な実行順序は上の最終レビュー節を正本とする。先行設定や既存データが必要な場合は上書き許可へ変更せず、取込順序を見直す。
 
 バックアップ自動処理には配備bundleから `TERMITE_PRODUCTION_PROJECT_NUMBER` を渡し、別projectのbucketへの退避を拒否する。bucket／IAM／hash設定の登録、失敗通知先、初回取得と非公開readback、現行版の復元互換性、ログイン・メール・HS受入れは実環境の別工程。初回READY時刻は確約しない。今回はCloud操作・メール送信・実データ処理なし。
 
@@ -30,7 +86,7 @@
 
 2026-10-13後続実装。実Cloud／GitHub設定・実行は未承認。下の「未実装」は棚卸し時点の記録。現在の実装と残件は[専用ロードマップ](../roadmaps/production-readiness.md)を優先する。
 
-1. 別承認後、基盤・WIF・保守表示を先行構成して初回基準版を照合する。空DBの作成や初期化を通常CIへ任せない。管理者・protocol2初期化は別手順が残る。
+1. 別承認後、基盤・WIF・保守表示を先行構成して初回基準版を照合する。空DBの作成や初期化を通常CIへ任せない。管理者・protocol2初期化は別運用CLIで実行・照合する。
 2. Repository variablesへ `PRODUCTION_TARGET_JSON`（既存9項目）、`PRODUCTION_RECOVERY_PARAMETERS_JSON`（下記4項目）、`PRODUCTION_PROVIDER_VERSION`（照合済み同一siteの過去版）を、実対象との照合後に設定する。verify jobはenvironment外なので必要値をenvironment variablesだけに置かない。production environment、ブランチ／レビュー保護、WIF条件は実契約で確認する。実値は今回未設定。
 3. 保護用4項目は `RECOVERY_BACKUP_AUTOMATION`（文字列true／false）、`RECOVERY_AUTH_BACKUP_BUCKET`、`RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE`、`RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE`。全キー必須、trueなら他3値も必須。暗黙に無効設定へ戻さず、保護実証後の変更は実値を照合して行う。秘密・Auth hash本体は入れない。
 4. 初期化と受入条件を満たし、旧Dev切替・同時手動配備の停止を確認してから、別承認で `PRODUCTION_APP_DEPLOY_ENABLED=true` を設定する。通常CIはmain pushで全7ゲートに成功した同じrevisionからProd成果物を生成。build job出力のdigestを別jobへ渡し、artifact自身から期待digestを採用しない。
