@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-14現行：main `fe910d7` の実pushで通常Prod配備・公開後の全5項目照合が成功。通常enable=true、公開版 `sites/termite-warranty-prod/versions/8a11a472a633bca4`、21 Functions ACTIVE。配備後も日次予定0・backup実体0・PITR無効・Auth退避先不存在・automation=false／保護入力空を独立読戻し。保護はHS試行後のスキーマ確認まで再開しない。[証拠](../operations.md#2026-10-14-main-push正常自動配備を実証現行)。
+
 2026-10-14最新：包括承認で先行作成した保護設定は、HS試行に伴うスキーマ変更の可能性を理由とした本人の解除指示で取り消した。実読戻しは日次予定0・backup実体0・PITR無効・Auth退避bucket不存在・automation=false。バックアップ専用IAM／秘密値退避／通知設定は未実施。HS試行後にスキーマを確認して再設定する。現在目標はmain push正常配備に限定し、提供前保護要件は維持。[解除記録](../operations.md#2026-10-14-prodバックアップ設定の解除)。以下は先行工程の記録。
 
 2026-10-14追記：承認済みPR #9をmain `44010df` へ統合し、実pushから通常配備。Hosting liveは `sites/termite-warranty-prod/versions/f523fd35d51c6809`、21 Functions・2DBアプリRules・業務索引22・Scheduler1を維持。直後Hosting照合は最大4回確認後も件数不一致で失敗し、通常enable=falseを読戻した。実CI成果物での独立読取りは5項目全一致、Hosting1005ファイル。保守基準版変数は `a377bd20176a2ac5` のまま。実関数のautomation=false／他3項目空、日次予定0・PITR無効を確認。Auth bucket作成は保留、未初期化・業務利用未開始。[証拠・未確定の件数内訳](../operations.md#2026-10-13-main更新による通常prod自動配備)。以下は先行記録。

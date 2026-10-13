@@ -1,5 +1,27 @@
 # Operations
 
+## 2026-10-14 main push正常自動配備を実証（現行）
+
+現在目標を達成。PR #12 head `0a08f8b981cfa3e06ef7ef174021c1a70276eec2` は包括CI run `38456598371` 成功後、承認範囲で通常merge（exit 0）。main `fe910d710b7971f2030ef7d3d12841bb63cad12f` と検証済みheadのtree差分0。実push・attempt 1の[Prod run 38458075742](https://github.com/shisyamo4131/termite-warranty/actions/runs/38458075742)がsuccessとなり、手動再実行に依存しない通常配備と直後照合を実証した。
+
+verify job `115505839869` の包括7ゲートは下表のとおり各独立step成功。保存bundle digestは `3ae9290ab669c223c8ae12f16577e19ca83f24d97486513fe7620ccf3aca252b`、1085ファイル。deploy job `115510486998` の配備step・Cloud照合は各exit 0、2DB Rules・22索引・21 Functions／21 source archives・Hosting全5項目がpass。Hostingは観測2回目で期待／一覧／集計1005件一致、資格情報後処理成功。全件hash・ACTIVE・設定・公開版固定の条件を維持している。
+
+| command | result | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+| `npm test` | 485成功・0skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 201成功・Emulator停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+独立読戻し `node tmp/check-final-production-state.mjs` と `node tmp/remove-prod-protection.mjs verify` は各exit 0。公開版 `sites/termite-warranty-prod/versions/8a11a472a633bca4`、releaseTime2026-10-13T20:03:37.317Z、21 Functions ACTIVE、日次予定0・backup実体0・PITR無効・Auth退避bucket不存在・automation=false／保護入力空を確認。通常enable=trueも読戻しexit 0。初回保守の重複待機run `38458075757` は中止要求exit 0。保守公開は無効のまま。
+
+今回の修正はビルド／配備・検証動作変更として包括7ゲートを選択し、省略なし。Local focused35成功、全単体483成功・2skip、各exit 0に加え、上記CIでskipなしの全単体成功を確認した。最終追記は文書／PDFのみなので、同一アプリ・workflow・依存への包括証拠を再利用し、文書governance・PDF描画・diff確認を別途実施する。アプリ仕様・データ契約・IAM・governance方針は不変。保護再開の時期は本人指示どおりHS試行後のスキーマ確認まで延期。正式提供・管理者・正式データ投入・HS受入れの完了を意味しない。
+
+22日までの残見積りは9〜14時間から6〜9時間へ更新（配備調査・修正・実push検証3〜5を完了）。内訳は運用認証／管理者の残確認1〜3、構築入力1〜2、HS支援4。23日最終構築3〜4、26〜27日保護実証・正式投入12、28日修正6時間は別枠で維持。HS試行に伴う未確定のスキーマ変更工数は別途評価する。23日構築・30日納品判定は条件付き目標、HS日程は未合意。日程PDFと関連現在地へ反映し、納品gateへの部分加点はしない。
+
 ## 2026-10-14 診断付き通常配備の成功とmain更新の確認
 
 最新結果：実push run `38454318519` はverify job `115493680444` の包括7ゲートすべてexit 0（単体484・Rules201、停止確認）と配備step成功後、job `115498014740` のHosting照合だけexit 1。今回の診断は `file-metadata-count-mismatch`、期待1005／一覧1005／集計null・missing、観測4回目だった。全ファイルhash・ACTIVEの照合後に集計未返却を検出した。通常enable=falseへ戻し読戻し（各exit 0）、再配備せず独立GET（exit 0）で同じ公開版 `sites/termite-warranty-prod/versions/86b053b3b676cb85` のfileCount1005を確認。releaseTimeは2026-10-13T19:35:31.914Z。今回の直接原因は集計値の未反映であり、過去の未記録失敗まですべて同じ原因と断定しない。バックアップ解除状態は維持。
