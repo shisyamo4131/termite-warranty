@@ -1,0 +1,34 @@
+name: Verify production SDK and CLI without deployment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-bootstrap
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - run: node --test test/production-sdk-probe.test.mjs
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: termite-warranty-prod
+          workload_identity_provider: projects/988295873733/locations/global/workloadIdentityPools/github-production/providers/github
+          service_account: prod-deployer@termite-warranty-prod.iam.gserviceaccount.com
+          cleanup_credentials: true
+      - run: node scripts/production-sdk-probe.mjs --execute-approved

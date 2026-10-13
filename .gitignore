@@ -13,3 +13,6 @@ ui-debug.log
 *.local
 .env
 /.user-ui-workbench/
+
+# Short-lived GitHub Actions WIF credentials
+gha-creds-*.json
