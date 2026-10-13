@@ -160,7 +160,11 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
       stage='hosting-stability'
       const current=await request(channelURL)
       if(current.release?.name!==channel.release.name||current.release?.version?.name!==name)fail('snapshot-changed')
-      await wait(5000)
+      // Hosting computes fileCount after FINALIZED. A complete, ACTIVE, exact
+      // file list may precede that aggregate; allow 3 x 40s only for its absence.
+      // Other transient list/count/status cases retain the original 3 x 5s cap.
+      const aggregatePending=diagnostic.reasonCode==='file-metadata-count-mismatch'&&diagnostic.fileCounts?.reportedState==='missing'&&diagnostic.fileCounts.expected===diagnostic.fileCounts.listed
+      await wait(aggregatePending?40000:5000)
     }
   }
 }
