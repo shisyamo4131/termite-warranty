@@ -1,5 +1,17 @@
 # Operations
 
+## 2026-10-14 診断付き通常配備の成功とmain更新の確認
+
+最新結果：実push run `38454318519` はverify job `115493680444` の包括7ゲートすべてexit 0（単体484・Rules201、停止確認）と配備step成功後、job `115498014740` のHosting照合だけexit 1。今回の診断は `file-metadata-count-mismatch`、期待1005／一覧1005／集計null・missing、観測4回目だった。全ファイルhash・ACTIVEの照合後に集計未返却を検出した。通常enable=falseへ戻し読戻し（各exit 0）、再配備せず独立GET（exit 0）で同じ公開版 `sites/termite-warranty-prod/versions/86b053b3b676cb85` のfileCount1005を確認。releaseTimeは2026-10-13T19:35:31.914Z。今回の直接原因は集計値の未反映であり、過去の未記録失敗まですべて同じ原因と断定しない。バックアップ解除状態は維持。
+
+公式[Hosting Version](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions)はfileCountをFINALIZED後に計算すると定義する。全件hash・ACTIVE一致のうえ集計値だけ未返却の場合、GET間隔を40秒、最大3待機（計120秒＋API時間）へ限定延長する。最大観測4回・公開版固定・各回の全件照合・最終集計一致は維持。その他の件数／状態待機は従来どおり5秒×3、内容／設定／公開版変更／API失敗は即停止。再配備や成功条件の緩和を行わない。focused `node --test test/default-recovery-release-proof.test.mjs test/production-application.test.mjs` は35成功、exit 0。最終包括検証と修正後の実push配備は未完了。
+
+包括承認の範囲でmain `a6e55b784aab48bf203ddd02ccedaf4291aa3c9e` の通常run `38448379933` を再実行。verify job `115483428071` は包括7ゲートすべてexit 0（単体484成功・0skip、Rules201成功・Emulator停止）。bundle digest `29c6b0b1725c5303d656311282d841062e0cf7b3230c8d946382ae1939c085c8` を生成・照合し、deploy job `115488063151` は配備stepと公開直後の全5項目照合ともexit 0。Hostingは観測3回目で期待／一覧／集計1005件一致。21 Functions／21 source archivesも一致、資格情報後処理成功。今回の限定待機は有効だったが、以前の失敗時の件数内訳を復元したわけではない。
+
+独立GET（`node tmp/check-final-production-state.mjs`、exit 0）で21 Functions ACTIVE、Hosting版 `sites/termite-warranty-prod/versions/1c58628f3b31bb96`、公開時刻2026-10-13T19:13:48.589Z、fileCount1005、PITR無効・日次予定0・automation=false／保護入力3項目空を確認。通常enable=true、保守enable=false、保守基準版は従来値を維持。
+
+本人の解除方針・仕様・日程PDFを含むPR #11 head `426f822553684e8dcaf314801e3cb7221de52f12` はCI run `38452915781` の包括7ゲート各exit 0（単体484、Rules201・停止確認）後、保護を迂回せず通常merge（exit 0）。main `0c03abbcc58c5ce696e6e5ec5ec45d8ca36dbc07` と検証済みheadのtree差分0。実pushによるProd run `38454318519` の最終結果を確認中。公開無効の初回保守workflow `38454318449` は共有排他枠の重複実行のため中止（cancel command exit 0、verify／publish cancelledを確認）。通常配備の包括7ゲートは省略しない。
+
 ## 2026-10-14 Prodバックアップ設定の解除
 
 本人がHS試行でスキーマ変更の可能性があるため設定解除を指示（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。先行作成したProd `(default)` の日次30日予定1件を削除、PITRを無効化し、空・全世代objectなし・automation=false・退避先参照空を確認したAuth bucketを削除した。業務DB、業務文書、Authアカウント、既存IAMは変更していない。バックアップ専用IAM・Auth退避・通知の追加設定は実施しない。

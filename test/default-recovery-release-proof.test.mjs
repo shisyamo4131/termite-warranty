@@ -165,6 +165,27 @@ test('Hosting settling is bounded and does not accept a persistent missing file'
  assert.equal(waits,3)
 })
 
+test('Hosting absent aggregate gets a bounded longer wait and must eventually match exactly',async()=>{
+ for(const final of ['match','missing','hash','live']) {
+  const f=fixture(),read=f.request;let observations=0;const waits=[]
+  f.request=async url=>{
+   const value=await read(url)
+   if(url.endsWith('/versions/version1')){observations++;if(final!=='match'||observations<3)delete value.fileCount}
+   if(final==='hash'&&observations===2&&url.endsWith('/version1/files'))value.files[0].hash='changed'
+   if(final==='live'&&observations===2&&url.endsWith('/channels/live'))value.release.name='changed'
+   return value
+  }
+  const run=()=>hostingReleaseProof({...f,settle:true,wait:async ms=>waits.push(ms)})
+  if(final==='match'){const result=await run();assert.equal(result.observations,3);assert.equal(result.fileCounts.reported,1);assert.deepEqual(waits,[40000,40000])}
+  else {await assert.rejects(run,error=>{
+   const d=proofDiagnostic(error)
+   assert.equal(d.reasonCode,final==='missing'?'file-metadata-count-mismatch':final==='hash'?'hash-mismatch':'snapshot-changed')
+   if(final==='missing'){assert.equal(d.fileCounts.observation,4);assert.equal(d.fileCounts.reportedState,'missing')}
+   return true
+  });assert.deepEqual(waits,final==='missing'?[40000,40000,40000]:[40000])}
+ }
+})
+
 test('Hosting diagnostics distinguish missing list entries from missing or invalid metadata',async()=>{
  for(const mode of ['list','missing','invalid']) {
   const f=fixture(),url=`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1`
