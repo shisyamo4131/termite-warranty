@@ -5,6 +5,7 @@
 - `artifact/public/index.html`：表示は「準備中」「現在は業務利用できません。」のみ。JS・画像・外部通信・ログイン・業務データなし。
 - `artifact/firebase.json`：公開ディレクトリはpublic、全pathをindexへ、キャッシュ無効。siteは実行前に検証済みtargetから束縛する。プロジェクトを暗黙に選択しない。
 - `artifact/expected.json`：公開HTMLのHosting用hash。アプリ受入れの証明ではない。
+- `.gitattributes`：レビュー用artifactの改行をLFへ固定し、Windows checkoutでも生成元と期待hashの一致を保つ。
 - `target.json`：9項目の対象照合用。APIキー・個人情報・秘密鍵なし。GitHub変数には未登録。
 
 手順・承認事項・権限案は[Prod手順](../../docs/runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)へ集約。既存の非稼働[workflowテンプレート](../../docs/runbooks/production-bootstrap.workflow.yml.template)はmain push起動＋明示enable方式。設置、対象値登録、enable、公開対象commitをまとめてレビューし、公開直前に本人承認を得る。現状は設置もenableも行わない。
