@@ -1,5 +1,9 @@
 # Dev／Prod 環境設定・権限仕様
 
+## 2026-10-13 全件読取り削減の追加導入
+
+Devソース0dd655c2d670ddddfb18403aa23dfb8c0db76270、公開版sites/termite-warranty-dev/versions/e90487f9ea2b4646を正式照合。必要22索引READY、Functions21、Hosting1,005ファイル一致。normal世代13を維持し、insuranceNoticeQueries.version=1と442物件の検索用2項目を追加、その他の業務値は保持。初期投入・復旧では専用投影と準備印を一体で照合し、未準備時に全件取得へ戻さない。[実行・受入記録](../operations.md)。Prodへの設定・実行は未実施。
+
 2026-10-08 オーナー指示による構築照合仕様。Prod構築・権限付与の実行承認ではない。Devの実設定は同日14:32 UTCに管理APIを読み取り確認。設定変更はしていない。秘密情報・個人メールは記録しない。
 
 ## 2026-10-12 月別一覧の追加導入
@@ -26,7 +30,7 @@ DevとProdは別プロジェクト。Dev例外（自動退避停止等）をProd
 
 | 項目 | Dev実値／根拠 | Prod要件・構築後の照合 |
 | --- | --- | --- |
-| 所有・課金 | `termite-warranty-dev`、開発者所有、Billing有効 | HS所有の別プロジェクト。受領済みHS管理者メールをメンバーへ関連付けた後に請求登録。Billing APIで有効を確認。予算設定は後発 |
+| 所有・課金 | `termite-warranty-dev`、開発者所有、Billing有効 | 2026-10-13採用：Aで組織なしの別Prodを先行構築し、後日HSへ引継ぎ。初期請求先はAの既存Cloud Billingを使用し、後日HS側へ変更する。実行前に既存請求先の実ID・利用権限を照合し、設定後にBilling有効／Blazeを確認。オーナー交代はSpark試験で実証、請求先変更は未検証。工程・完了条件は[Prod手順](../runbooks/production-bootstrap-review.md)のB／H。予算設定は後発 |
 | 業務DB | `(default)`、Native、`asia-northeast1` | 同所在地・同種別。Firestore databases GETで照合 |
 | 制御DB | `recovery-control`、同所在地、削除保護有効 | 業務DBとは独立した制御DBを構築。IDをパラメータ・運用台帳と一致させる |
 | 業務DB削除保護 | 無効 | Prodでの設定値は構築時に確定。未決のまま提供判定しない |
@@ -54,7 +58,7 @@ DevとProdは別プロジェクト。Dev例外（自動退避停止等）をProd
 
 | 主体・対象 | Devで確認した付与 | Prodでの扱い |
 | --- | --- | --- |
-| 開発者／プロジェクト | `roles/owner` | オーナー指示はHS管理者と同等。HS管理者と開発者の実role集合が一致することを確認。組織・請求側の権限は別確認 |
+| 開発者／プロジェクト | `roles/owner` | 初期はAがオーナー。HS引継ぎ時にHSと開発者の実role集合が同等であることを確認。試験での旧A削除をProdへ適用しない。組織・請求側の権限は別確認 |
 | CI配備主体／プロジェクト | cloudfunctions.admin、datastore.indexAdmin、datastore.user、firebasehosting.admin、firebaserules.admin | 配備用主体を特定して同じ必要操作を実証。プロジェクトIAMだけでなくSAへのactAs等の個別bindingを必ず確認 |
 | Functions実行主体／プロジェクト | editor、datastore.backupsViewer、独自`recoveryAuthHashReader` | Devの広いeditorを無条件コピーしない。業務DB操作・Auth管理・退避に必要な権限と独自role定義を構築時に確定し、実操作で検証 |
 | Firebase SDK管理SA | firebase.sdkAdminServiceAgent、firebaseauth.admin、iam.serviceAccountTokenCreator | Firebase作成の主体と追加bindingを区別。対象SAと呼出元を照合 |

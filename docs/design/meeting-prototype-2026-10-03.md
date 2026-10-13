@@ -1,5 +1,33 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+2026-10-13現在：本件はDev反映・開発側受入れ済み。以降の未反映・禁止は当時の状態。実データの延長履歴は0件で申込日補完は不要。HS業務受入れは別途。[導入結果・確認範囲](../operations.md)。
+
+## 2026-10-13 catalogの旧要求終了
+
+propertyPrototypeのcatalogは工務店向けpurpose=referenceStoreだけを受理する。許容する上位項目はaction／purpose／runtimeGeneration／runtimeProtocol／operationProtocolで、他は値が空でもinvalid-argument。HSからreferenceStore要求はfailed-precondition、所属欠落・不正はpermission-denied。現行HS共有Storeの直接購読は維持する。保存データ・索引・移行の追加なし。[設計と互換性](legacy-property-list-retirement.md)。
+
+## 2026-10-13 一覧取得の互換性と所属索引
+
+list／propertyListの許容入力は[採用設計の条件表](legacy-property-list-retirement.md)に限定し、旧条件への互換性を終了する。工務店保証案内にはconstructionCompanyId＋warrantyNoticePending＋expiryDate、本支店にはさらにbranchIdを加えた索引を使用する。検索項目・業務値・IDの保存形は変更せず、新たなデータ移行は不要。既存の保険等の導入前整備は引き続き必要。準備情報不足・変更はエラー、検索項目欠落は非救済。Dev導入・索引準備は明示指示後。
+
+## 2026-10-13 保証接頭辞の保存・検索契約
+
+同日追加承認：前後空白除去後の英大文字・数字・ハイフンは1,499文字以内（空欄可）。保存・再有効化で上限超過を検索前に拒否する。既存値を切り詰めず、発行済み番号も変更しない。
+
+`warrantyGroups.prefix`は前後空白だけ除去し、末尾ハイフンを保持する。新項目・予約文書・ID変更なし。saveGroup／reenableMaster(group)は同じ取引内でprefix等値検索（limitなし）と自己ID除外を行い、他者一致を拒否する。無効グループも占有する。初回採番時のみ保持した接頭辞＋区切りハイフンで保証番号を生成し、保存済みwarrantyNumberは再計算しない。旧データの接頭辞・ID・参照・採番を自動移行しない。新旧の末尾ハイフン解釈が異なるため、再導入／差戻しは[専用設計](master-code-read-reduction.md)に従う。
+
+## 2026-10-12 延長申込日の保存契約（改修中）
+
+既存記録は[限定移行設計](extension-application-migration.md)に従い、確認済みの日付だけを補完する。請求検索3項目とrevisionの更新、全件一括確定・再実行の完了記録を同設計に定義する。
+
+`extend`入力に必須`extensionApplicationDate:YYYY-MM-DD`、任意`reason`（空文字可・最大2000文字）を追加。暦日の妥当性をサーバーで検証し、延長イベントに`extensionApplicationDate`と`reason`を保存する。初回`applicationDate`や操作日時`date`を上書きしない。入力日が延長開始月の前月末より後なら画面で注意するが保存は禁止しない。
+
+`warrantyTransactions`は対応する有効延長イベントの申込日を請求基準にし、検索項目は既存の同一transaction内更新から再計算する。旧イベントに項目がない場合は従来基準を暫定維持し`extensionApplicationDateMissing`で区別。実日付の確認と補完・検索再計算が導入条件。取消済みイベントを変更せず、再延長は新規イベントとする。保証書・保険期間の起算は変更しない。[工程・差戻し](../roadmaps/expiry-notice-read-reduction.md#保証延長改修の工程)。Dev未反映。
+
+## 2026-10-12 保険満了案内の独立検索用保存契約
+
+`insuranceNoticeQueryVersion:1` と `insuranceNoticeQueryExpiry:string` を物件に追加し、業務変更と同時更新する。専用準備印1のときだけ候補取得へ切り替える。旧像の互換性、補完範囲、容量・復旧照合は[詳細設計](insurance-notice-queries.md)を正本とする。業務上の対象・報告／不要・請求基準は変更しない。Local実装承認済み、Dev移行・配備は未承認。
+
 ## 2026-10-12 報告済み保険の月別検索用保存契約
 
 HSC-042の実装に伴い、物件へ `insuranceReportedQueryVersion:1` と `insuranceReportedQueryMonths:string[]` を追加する。報告イベント・保険期間の対応を確認できる有効な報告済み対象月だけを重複なく昇順保存し、対象なしは空配列。報告種別newは引渡月、renewalは対象期間開始日前日の月を使い、実際の操作月は使わない。既存履歴の書換え・不明状態の補完はしない。
@@ -181,7 +209,7 @@ MeetingPrototypeの閲覧専用モードを報告・請求にも適用し、保�
 ## 2026-10-04 Dev受入A00〜A04の改修契約（Dev配備済み・再確認待ち）
 
 - 根拠：オーナーのA00〜A04受入報告。仕様書0.1.91。対象は通常画面・住所共通部品・採番ドメイン・propertyPrototype・関連試験。改修時は未配備。その後の明示指示により2026-10-04にFunctions/HostingをDev配備済み。受入データを保全し、初期化はしない。
-- 接頭辞は新規保存時に末尾ハイフンを除去。旧設定は読み取り時に正規化し、編集では元の保存値を保持する。重複判定・変更不可判定も正規化後で比較。発行済み番号・採番カウンターは変更しない。
+- 接頭辞は前後空白のみ除去し末尾ハイフンを保持する（2026-10-13採用）。重複判定は保存接頭辞の完全一致検索と自己ID除外。発行済み番号・採番カウンターは変更しない。
 - companyBranches.addressにpostalCode/prefecture/municipality/streetTownAndNumber/buildingNameを追加（空文字可）。旧address欠落は空欄で表示・編集。constructionCompanies.addressは住所3項目を維持し郵便番号のみ任意。入力郵便番号はハイフン・空白除去後7桁。送付先ルーティングは未実装・対象外。
 - registerはconfirmRegistration=trueを毎回要求。confirmWarningsは日付・重複の追加確認に分離し、注意時のHttpsError.details.registrationWarningsで画面に提示してからチェックを要求する。同一成功操作の再送処理は維持。新旧画面・Functions混在では旧画面の本登録が拒否されるため、次の配備は両方を揃える。
 - 工務店候補・支店候補・読込中・通信エラーをダイアログ内の状態として分離。背後の一覧・候補を検索で書換えない。空条件は最新20件、明示検索は該当候補、選択中の工務店は表示のため保持。会社を変更した時のみ支店選択を解除。

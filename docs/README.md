@@ -1,5 +1,13 @@
 # Documentation Map
 
+2026-10-13現在：承認済みの全件読取り削減と保証延長申込日改修はDev反映・開発側受入れ済み。保険検索用2項目を442物件へ整備し、それ以外の業務値・番号は不変。以下の本件に関するDev禁止・指示待ち・未反映は各工程実施時点の記録であり、現在の状態はこの記載を優先する。HSの業務受入れとは区別する。月別対象全体取得の現状維持と工務店アカウント一覧の後発対応は変更なし。[検証・導入記録](operations.md)。
+
+- [満了案内・物件検索の旧取得経路整理](design/legacy-property-list-retirement.md)：旧条件の拒否、工務店・本支店の所属付き候補取得を採用。L1〜L5工程と、その他旧取得整理の追加O1〜O4工程（O1〜O3 Local受入れ済み）。対象全体の取得は現状維持。Dev反映禁止。
+
+- [保証グループ・本支店の読取り削減ロードマップ](roadmaps/master-code-read-reduction.md)：保証グループは完全一致・使用先記録なし・既存ID維持、本支店／CSVは既存コード管理記録による対象取得を採用しLocal改修・検証を承認。Dev反映禁止。
+
+- [満了案内の読取り削減](roadmaps/expiry-notice-read-reduction.md)：保証のLocal受入れ済み、保険のLocal実装・補完試験・保全復帰済みと、延長申込日の確定仕様・改修工程。Dev反映は別途明示指示待ち。
+
 - [HS会社設定・保証グループ請求先・保証書CSVの確定設計](design/company-settings-and-document-csv.md)：自社10項目＋振込先5項目・編集ダイアログ、請求先8項目、共通21列と年月日分割、再取込み時の保全。請求先はDev受入れOK。自社情報の表示は「分類カード」を採用。[検証・Dev反映記録](operations.md)。
 
 - [ダッシュボード検討・実装ロードマップ](roadmaps/dashboard.md)：質疑による指標定義から集計設計・検証・受入まで。[詳細設計](design/dashboard.md)はQ30で確定。実装・Local検証・Dev導入済み。ログイン後の操作確認・業務受入は残る。
@@ -126,7 +134,7 @@ The current local UI palette is documented in [Clear Sky theme](design/clear-sky
 
 - [緊急操作用アプリ管理者台帳と選択的Dev初期化](operations.md#2026-10-02-dev配備マスタ保持の試験データ削除): 識別情報・復旧境界。秘密情報は記録しない。
 
-- [Prod初期構築・権限引渡し手順案](runbooks/production-bootstrap-review.md): HS所有アカウントでの設定支援、一時預託終了と開発者IAMへの切替。未実行。
+- [Prod初期構築・権限引渡し手順](runbooks/production-bootstrap-review.md): 10月23日までの準備・Aで組織なしの先行構築・後日HS引継ぎ・利用開始条件。オーナー交代は試験済み、請求先変更は未検証。WIFは都度の人の認証不要を条件に採用。実Prod構築は未実行。
 
 - [確定仕様改修のDev受入手順](runbooks/local-acceptance-2026-10-03.md)：HS業務一巡、保険報告・取消、入力再試行、例外・未実装境界。
 - [独立先行改修の検証記録](design/evidence/independent-implementation-2026-10-03.md)：対象ファイル、互換性、各ゲートの実測と残件。

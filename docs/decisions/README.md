@@ -12,6 +12,9 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
+| [0045](0045-legacy-property-list-retirement.md) | 旧一覧条件の拒否と所属付き保証案内 | Accepted | 2026-10-13 |
+| [0044](0044-branch-code-targeted-reads.md) | 本支店の既存コード管理記録による対象読取り | Accepted | 2026-10-13 |
+| [0043](0043-group-prefix-equality.md) | 保証接頭辞の完全一致・使用先記録なし・既存ID維持 | Accepted | 2026-10-13 |
 | [0042](0042-project-owned-governance.md) | プロジェクト所有のガバナンスと検証分類 | Accepted | 2026-10-10 |
 | [0041](0041-insurance-period-reporting-status.md) | 保険期間別の報告不要・今日基準の未報告件数（実装未着手） | Accepted | 2026-10-10 |
 | [0040](0040-dashboard-session-store.md) | ダッシュボード件数の共有Store（実装未着手） | Accepted | 2026-10-10 |
