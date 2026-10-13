@@ -1,5 +1,36 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 通常公開後の照合修正と再開条件（2026-10-13）
+
+Cloud Billing APIは本人承認後に有効化・読戻し済み。同一main成果物の通常公開は成功したが、CI直後のHosting照合が失敗し通常enable=false。独立読取りの5項目は全成功。最新の実状態・限定再確認処理・証拠は[運用記録](../operations.md#2026-10-13-通常prod公開とhosting照合の追加対策)を正本とする。以下のAPI承認待ち・保守公開のみの記述は先行時点の記録。
+
+1. 修正PRの最終head、包括7ゲート、固定target、現在main、公開版、保守基準版、保護停止パラメータを照合する。
+2. 旧PR #9の文書限定headから範囲が変わるため、統合・通常enable再開・main更新による配備を具体的に提示し、本人の文章回答を得る。スマートフォン利用のため質問UIを使わない。
+3. 承認後だけ通常mergeとmain push配備を実施する。Hosting件数／EXPECTEDの読取りは同一live版を固定し最大4回、各5秒待機。成功には全件path・hash・ACTIVE・件数・設定の一致が必要。APIエラーや内容不一致には待機を適用せず、配備自体は再試行しない。
+4. 配備または照合が失敗／不明ならenable=falseへ戻し読戻し、再配備せず診断理由と実状態を確認する。独立照合だけをCI成功に読み替えない。
+5. main更新の正常配備、設定値、資格情報後処理を確認して初めて自動配備の完成とする。日次backup・PITR・Auth bucket・取得／通知／復元は本人保留中の別ゲート。初期化・管理者・正式投入も未実施。
+
+## Cloud Billing APIの追加準備案（2026-10-13）
+
+既定SA修正後の配備は業務DB索引22件まで部分反映し、Cloud Billing API有効化拒否で停止。enable=false、保守Hostingと両DB全拒否Rulesは維持。12 APIの読取りでCloud Billingと未使用Extensionsだけ未有効を確認した。
+
+追加承認案は確認済みProdの `cloudbilling.googleapis.com` だけを既存管理側認証で有効化し、operation結果・サービスENABLED・billingEnabled=trueを読戻す。請求先変更・契約変更・配備SAの権限追加は行わない。Cloud APIの有効化は前回6 APIとは別の外部変更として本人確認する。Extensionsは今回不要で変更しない。未知のoperation結果はPOST再送せずGETで確認する。
+
+承認後は既存の22索引を保持し、同じmain／保存artifact／保護停止パラメータを確認して失敗deploy jobのみ再実行。再失敗ならenable解除・読取り調査。公開・配備後照合成功まではPR #9をmergeしない。無関係なAPI・Owner／Editor・API有効化権限で回避しない。
+
+## 既定App Engine SAの追加対応案（2026-10-13）
+
+後続の本人承認（同日・同task）により、下記のEditor除去・限定actAs追加を実行し読戻し済み。同main・同成果物の失敗配備jobを再実行中。公開成功・main自動配備成功はまだ未確認。以下は承認提示時の具体構成と停止条件を保持したもの。
+
+状態：初回通常配備はCLIのappspot SA利用権限検査で停止し、通常enable=falseへ戻した。独立読取りでも保守Hosting・全拒否Rules・Functions／索引未作成を確認。[実行証拠](../operations.md#2026-10-13-通常prod初回配備の停止と原因確定)。以下は追加承認待ちで、実行済みIAM計画へ混入しない。
+
+- 現行：deployerのactAsは4 SAだけ。CLI 15.29.0は別途 `termite-warranty-prod@appspot.gserviceaccount.com` のactAsを要求する。この既定SAのproject権限はEditor、App Engineアプリ不存在、Functions／Cloud Runは0件。
+- 提案：まずproject policyから当該appspot SAだけのEditorを除去・読戻しし、projectの他メンバーは保持。その後、当該SA policyに `prod-deployer@termite-warranty-prod.iam.gserviceaccount.com` だけの `roles/iam.serviceAccountUser` を追加・読戻しする。いずれもetagで競合防止。業務runtimeは明示した既存3 SAのまま、appspotへの業務権限や鍵は付けない。
+- 理由・影響：CLIの事前条件を満たしつつ、Editor付きSAを利用できる範囲を配備主体へ広げない。[Google公式のactAs・既定SA権限説明](https://docs.cloud.google.com/iam/docs/service-accounts-actas)。この利用権限は前回の4 SA承認に含まれないため、本人の実行前承認が必要。
+- 再開案：対象SHA・保護パラメータ・保守版・未配備状態・成功verify jobと保存artifactの存在／digestを再確認。enableをtrueに戻し、同じrunの失敗deploy jobだけを再実行する。成功済みverifyの同SHA・同digest成果物を再照合して使う。初回公開と実照合成功後だけ、承認済みPR #9 head `34fe799` を通常mergeしてmain更新配備を検証する。
+- 停止・差戻し：再失敗・結果不明ならenable=false、再配備せず読取り調査。追加bindingの除去やEditor復元は別判断とし、Editorを自動復元しない。追加IAM以外の必要権限が判明したら範囲を確定して再確認。バックアップ／PITR／Auth bucketは引き続き保留。
+- 完了条件：IAM読戻し、同一artifact照合、実配備成功、Rules／索引／Functions／Hostingの実一致、続くmain更新配備成功。現時点では配備前の包括検証と原因確定までで、完成とはしない。
+
 ## main自動配備・バックアップ環境の完成目標（2026-10-13）
 
 同日オーナーが「mainへのpushで正常配備」「バックアップに必要な環境の完成」を継続作業のゴールとし、簡単な検証の実施を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。準備だけで完了としない。既存の公開・IAM直前確認と、延期した課金保護設定の具体確認は維持する。通知先は本人指定の開発側宛先で確定、将来変更可能。実アドレスはリポジトリへ保存しない。
@@ -26,6 +57,8 @@
 参考：[Functionsの実行SA](https://firebase.google.com/docs/functions/manage-functions#set_service_account)、[build主体と権限](https://docs.cloud.google.com/functions/docs/building)、[通知先変更](https://docs.cloud.google.com/monitoring/alerts/using-channels-api)。
 
 ### 通常配備IAMの承認・適用結果
+
+PR #8は包括CI成功後にmain `c5bad4fef524e88d54f704d20eace86f88907f3d` へ通常merge。運用専用run `38393474263` でWIF／operatorのmetadata・SDK読取り・資格情報削除が成功。初期化文書は未作成。配備SAの通常Functions配備と業務runtimeの実動作は未実証。次の公開候補はこのmainのHosting・東京21Functions・2DB Rules／索引とScheduler。保護4パラメータはautomation=false、残り空。保守provider基準版を保持し、公開承認後に3変数（通常enable／保護パラメータ／provider版）を設定、既存main push run全体を再実行する。成功後の文書更新main pushでも自動配備を照合する。失敗・結果不明ならenableを解除し、再配備せず読取り診断する。バックアップ保護・DB文書／Authユーザー作成・追加IAMはこの公開に含めない。
 
 2026-10-13、本人が以下の具体設定一式を承認。同日6 custom role、project binding、指定4 SAだけのactAs、operatorへのWIF接続、専用pool/provider、東京Docker repository／7日cleanup／build writer、main限定GitHub環境を適用し読戻し一致。既定build SAのEditorは除去済み。5アプリSAのuser-managed keyは0。backup／diagnosticsへ業務権限は付けない。初回project照合はJSON項目順の比較不具合でexit 1になったが、独立読取りで反映済みを確認し、意味の一致比較へ直して照合・未実行SA設定を完了（exit 0）。アプリの実認証・配備は未実証で、追加権限が必要なら個別に提示する。
 

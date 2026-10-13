@@ -1,5 +1,11 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-13最新：Cloud Billing APIを承認後に有効化し、通常アプリmain `c5bad4f` を公開。Hosting liveは `sites/termite-warranty-prod/versions/687f6af6e7b168a2`、21 Functions・2DBアプリRules・業務索引22・Scheduler1を反映。CI直後のHosting照合は失敗し、通常enable=falseを読戻し済み。独立読取りは5項目全一致。保守基準版変数は `a377bd20176a2ac5` を維持する。保護パラメータはautomation=false／他3項目空、日次予定0・PITR無効、Auth bucket作成は保留。未初期化・業務利用未開始。[証拠と再開条件](../operations.md#2026-10-13-通常prod公開とhosting照合の追加対策)。以下の保守版のみ・全拒否Rules・API承認待ちは先行時点の記録。
+
+2026-10-13現在：承認後に通常enable・保護パラメータ・provider版を登録。main `c5bad4f` の初回配備はappspot SAのactAs不足で配備前停止し、通常enable=falseへ戻して読戻し済み。保護パラメータはautomation=false／他3項目空、保守版・両DB全拒否を維持。既定SAのEditor除去・deployer限定actAsは追加承認後に適用。その再配備は業務DB索引22件まで進み、Cloud Billing API未有効で停止。enable=falseへ戻した。API先行有効化は承認待ち。[原因・実状態](../operations.md#2026-10-13-通常prod初回配備の停止と原因確定)。以下の未設定記述は先行記録。
+
+2026-10-13実認証追記：main `c5bad4f` で運用専用workflowが成功。固定project／2DB metadata・SDK読取り・資格情報後処理を実証。空の初期化状態は未初期化として報告。通常アプリはmainへ統合済みだがenable未設定で未公開。[証拠](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。
+
 2026-10-13 IAM追加承認後：通常配備の6 custom role・2DB条件・build source条件・指定4 SAのactAs・operator専用WIFを適用し読戻し一致。既定build Compute SAのEditorを除去し、logWriter・source読取り・東京gcf-artifacts writerへ限定。Docker repositoryは7日超image削除、GitHub production-operationsはmainのみ。5アプリSAに長期鍵なし。[実設定JSON](../../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)と[実行記録](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)を現在値とする。以下のIAM未設定は先行工程の記録。保護設定は引き続き本人保留、実認証・通常アプリ公開は未実証。
 
 2026-10-13 通常配備の後続準備：Prod Functionsの実行先を業務 `prod-business`、backup `prod-backup`、認証診断 `prod-diagnostics` の同project SAへ分けるLocal実装を追加。21 FunctionsのSDK定義は19／1／1に分離することを確認。Cloudの3 SAは個別承認で作成・所属／有効状態・権限なし・長期鍵なしを読戻し済み。通常配備に必要な6 APIも有効化済み。配備の実証ではない。既定build SAへGoogleが自動付与したEditorの縮小は残件。配備後はFunctionsとCloud Run service／revisionの実行SA一致を要求する。本人はmain自動配備とbackup環境の完成を目標に指定したが、具体的な日次backup／PITR／bucketの先行実行については保留を回答。実設定・境界は[最新手順](../runbooks/production-bootstrap-review.md#main自動配備バックアップ環境の完成目標2026-10-13)を参照。

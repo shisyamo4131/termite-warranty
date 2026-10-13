@@ -1,6 +1,48 @@
 # Operations
 
+## 2026-10-13 通常Prod公開とHosting照合の追加対策
+
+本人の文章による追加承認（同日、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）を受け、Cloud Billing APIだけを有効化。要求送信後のoperation名検査はexit 1となったが、POSTを再送せずoperationの完了・エラーなし、service ENABLED、billingEnabled=trueをGET確認（exit 0）。請求先・プラン・IAM・未使用Extensions APIは変更していない。
+
+同じmain `c5bad4fef524e88d54f704d20eace86f88907f3d` と保存済みCI成果物で失敗jobだけを再実行。[deploy job 115305524583](https://github.com/shisyamo4131/termite-warranty/actions/runs/38393431460/job/115305524583)は21 Functions・2DB Rules・索引・Scheduler・Hostingを配備し、配備stepはexit 0。通常アプリの公開版は `sites/termite-warranty-prod/versions/687f6af6e7b168a2`。配備後のCI照合はRules 2件・索引・21 Functions／21 source archivesで成功し、Hostingだけ `hosting-files / identity-mismatch` でexit 1。資格情報後処理は成功。通常enableをfalseへ戻して読戻し（各exit 0）し、再配備していない。
+
+保存artifact `11812251266` をconnectorで取得し、ZIP SHA-256 `aee9f68045486adf34f35934e79393d5a3af75d6792b705b6010d98918830453` とbundle digest `0f97e488348b2904d45aad43feace3e3c07ff527271f0ec016130652f68920a0` を照合。既存Local CLI認証を使った独立読取りで同じ成果物との5項目全一致（Rules 2、索引、Functions、Hosting1005ファイル）を確認、exit 0。これは配備SAによる直後CIの成功とは別の証拠。実GETでCloud Run21、Scheduler1、業務DB索引22、PITR無効・日次backup予定0を確認（exit 0）。Rulesは配備成果物と一致し、以前の空基盤用全拒否Rulesではない。業務文書・Authユーザーは作成していない。
+
+原因はHostingファイル照合に絞れたが、旧診断は件数・状態・重複等を同じコードにしており、失敗時の具体的な応答は保存されていない。現在の1005ファイルは全ACTIVE・重複なしで、うち2件は既定initファイル。公式[Version](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions)はfileCountをFINALIZED後に計算すると説明し、[files.list](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions.files/list)はEXPECTED／ACTIVEを定義する。公開直後の反映差は可能性であり、今回の確定原因とはしない。
+
+追加実装はProdの読取り照合だけを最大4回・間隔5秒（待機合計最大15秒、通信時間別）へ限定する。同じ公開版を固定し、件数不一致またはEXPECTEDだけを再確認する。全取得ファイルのpath／hash／状態を先に検査し、内容・未知状態・重複・設定・公開版変更・APIエラーは即停止。再配備は自動再試行しない。旧共通経路は既定1回を維持。新しい理由コードで件数と未ACTIVEを区別する。main未反映・実CIでの反映待ち解消は未実証。
+
+Local回帰 `node --test test/default-recovery-release-proof.test.mjs` は21成功、`npm test` は478成功・2skip、各exit 0。sandbox内の全単体は一時ファイルrename／realpathのEPERMで9失敗したため、同じ試験を通常権限で再実行して成功。変更分類はbuild-release-deployと検証動作変更の和、包括7ゲートを選択しPR CIで最終確認する。Rulesゲートも共通proof変更で失効するため再実行対象。業務仕様・データ形状・ADR・governance方針は不変。運用、環境仕様、roadmap、索引、changelog、日程PDFを同期する。
+
+PR #9の旧head `34fe799` の文書限定merge承認は新しい照合処理を含まない。更新したPRのCI成功後に具体的なheadと公開範囲を文章で確認し、承認までmain統合・enable再開・再配備は行わない。保護設定は本人の保留を維持。main push配備とバックアップ環境の完成は未達。以下は先行工程時点の記録。
+
+## 2026-10-13 通常Prod初回配備の停止と原因確定
+
+停止後の変更は運用証拠・IAM適用メタデータ・関連文書・PDFだけ。アプリ／workflow／依存関係・仕様の業務要件・データ契約・ADR・governance方針は変更していない。文書のgovernance確認、PDF生成・2ページ描画、`git diff --check` は各exit 0、両ページの表示を確認。包括検証は同mainの成功verify jobを再利用し、文書だけの変更で失効しないアプリ検証を重複実行しない。外部配備の完了gateは失敗のままで未達。承認済みPR #9 headは変更せず、この停止記録は別のLocal変更として保持する。
+
+再実行deploy job `115295029208` は既定SAの検査を通過し、Rulesコンパイル・uploadと業務DBの22複合索引作成まで進んだが、`cloudbilling.googleapis.com` の有効化拒否でexit 1。enable=falseへ再度戻し読戻し（exit 0）。独立確認でもHosting保守版・両DBの全拒否Rules・Functions／Cloud Run／Scheduler 0件、業務DB索引22件、PITR無効・日次予定0。索引の部分反映を未変更とは扱わない。
+
+CLIのFunctions準備は空のextensions情報にも経路を作り、extensions deployの先頭でCloud Billing APIによる請求有効状態のGETを実行する。API未有効時の自動有効化権限は配備SAにない。12 APIをGETした結果、Cloud Billing／Firebase ExtensionsだけDISABLED、残り10はENABLED（exit 0）。Extensions確認失敗はCLIが捕捉して続行しており、今回の致命的エラーとは区別する。不要なExtensions APIや権限を追加せず、Cloud Billing APIだけの先行有効化・同一成果物再配備を追加承認として提示。請求先・プラン変更や配備SAへのAPI有効化権限付与は含めない。
+
+追加案は後続の本人承認を受け、appspot SAのEditor除去→読戻し→deployerだけのSA User追加→読戻しを実行（exit 0）。他のproject／SA bindingは保持。独立読取りでもappspotのproject role 0・deployerのSA Userを確認（exit 0）。同main・保護停止パラメータ・保守版・保存artifact `11812251266`（期限内、ZIP digest `aee9f68045486adf34f35934e79393d5a3af75d6792b705b6010d98918830453`）を再照合し、enable=trueを読戻して失敗jobだけを再実行。現在は結果待ちで、成功とは記録しない。以下の「追加案未承認」は初回停止時点の記録。
+
+本人がmain `c5bad4fef524e88d54f704d20eace86f88907f3d` の通常公開・main自動配備を承認。target・保守基準版・mainを再照合し、保護パラメータ（automation=false、他3項目空）、provider基準版、通常enable=trueを順に登録・読戻し。既存push [run 38393431460](https://github.com/shisyamo4131/termite-warranty/actions/runs/38393431460)を全体再実行した。
+
+verify job `115287336718` は包括7ゲート・Prod生成／照合・artifact保存がすべて成功（各step exit 0）。単体476成功・0skip、成果物1085ファイル、CI digest `0f97e488348b2904d45aad43feace3e3c07ff527271f0ec016130652f68920a0`。deploy job `115291312962` も同成果物の取得・照合・WIF認証・既存基盤照合は成功したが、Firebase CLIの配備前権限検査でexit 1。要求は既定 `termite-warranty-prod@appspot.gserviceaccount.com` に対する `iam.serviceAccounts.actAs`。資格情報の削除は成功。
+
+承認済み停止手順に従い `PRODUCTION_APP_DEPLOY_ENABLED=false` として読戻し（各exit 0）。再配備なし。独立読取り（exit 0）ではHostingは保守版 `a377bd20176a2ac5` のまま、Functions／Cloud Run／Schedulerは0件、両DBの複合索引0・Rulesは全拒否、PITR無効・日次backup予定0。App EngineアプリGETは404／NOT_FOUND。最初の調査はこの404を未許容としてexit 1になり、不存在を明示確認する読取りへ訂正した。業務文書・Authユーザーは操作していない。
+
+使用中のFirebase CLI 15.29.0の `lib/commands/deploy.js` はFunctions対象時に `checkServiceAccountIam` を実配備より前に呼び、`lib/deploy/functions/checkIam.js` は明示runtime SAと無関係にappspot SAのactAsを検査する。今回は原因を確定できた権限不足であり、以前の保守公開直後の照合失敗とは別件。既定appspot SAにはproject Editorが残り、deployerのSA bindingは0だった。[追加IAM案](runbooks/production-bootstrap-review.md#既定app-engine-saの追加対応案2026-10-13)は未承認・未実施。
+
+PR #9のhead `34fe799795426135bc41c5e811ddc81f7af18e8d` は必須CI [38394125811](https://github.com/shisyamo4131/termite-warranty/actions/runs/38394125811)成功。初回公開成功という統合条件が未成立のためmergeしていない。main自動配備の完成は未達。保護設定の本人保留は維持する。以下は先行工程の記録。
+
 ## 2026-10-13 通常Prod配備の実行主体と基盤準備
+
+最終PR CI [38392476231](https://github.com/shisyamo4131/termite-warranty/actions/runs/38392476231)で包括7ゲート全成功。単体476成功・skip 0、Rules／Callableは2＋199＝201成功、型検査・build・両構文・governanceも各step成功（exit 0）。Localの2skipもfresh CIでは実行された。PR #8を通常mergeし、main `c5bad4fef524e88d54f704d20eace86f88907f3d` とPR最終 `ec7185f` のtree差分0を確認。配備enableは未設定のまま、通常Prod workflowはskip。mainの保護は維持する。
+
+運用専用[run 38393474263](https://github.com/shisyamo4131/termite-warranty/actions/runs/38393474263)は同mainで全step成功。専用WIF→operator短期認証→Firebase project／両DB metadata→Firestore SDKの固定パス読取りまで成功（exit 0）。businessMarker／runtime／operatorLock／activeOperationはすべて不存在、`initializationVerified:false`、`cloudResourceWrites:false`。資格情報ファイルの削除も成功。6件のLocal guard試験は通過したが、許可外条件の実STS拒否・許可外DBの実IAM拒否はこのrunで実証していない。
+
+main版のProd固有build／bundle独立照合は各exit 0、1085ファイル、digest `2995d251bec520123481d0ea004f85874c299aecf89e1a37989f378938aae022`。公開候補はHosting1003ファイル・東京21Functions・2DB Rules・22複合索引／33field overrides。backup automation=falseと他3保護パラメータ空を保持。次は具体公開承認、通常配備の実行／照合、後続main更新での自動配備実証。公開と初期化、提供前保護は未了。
 
 後続の本人承認に基づき、[確定IAM一式](../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)を適用・読戻し済み。6 custom role、8件のproject追加案（同role／conditionのmembersはAPIで統合）、5 SA policy、東京gcf-artifacts Docker repository・7日超image cleanup・build writer、運用専用pool/provider、GitHub production-operations main限定を確認。build Compute SAのEditorを除去。他メンバーはetagを使って保持し、5アプリSAにuser-managed keyなし。role・pool・repository・SA設定の最終確認コマンドは各exit 0。初回project反映後の照合はJSON項目順比較でexit 1、独立GETで適用済みを確認し、比較を訂正して読戻し一致。追加権限を広げて回避していない。
 

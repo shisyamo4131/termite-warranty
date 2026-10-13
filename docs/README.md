@@ -1,6 +1,10 @@
 # Documentation Map
 
-2026-10-13 IAM追加承認後：通常配備IAM・運用専用WIF・main限定環境・build保管先を設定し読戻し済み。通常アプリPRのfresh CI不具合を修正中、実公開と保護設定は未実施。[最新現在地と9〜14時間の残見積り](roadmaps/production-readiness.md#現在地通常配備iam設定統合ci修正後2026-10-13)、[実行証拠](operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。23日構築・月末目標を維持し、PDFへ保護保留と成立条件を反映。
+2026-10-13最新：通常Prodアプリを公開。直後のCI Hosting照合だけ失敗し自動配備を停止、独立読取りの5項目は全一致。限定的な照合修正を準備し、main統合・自動配備再開は修正PRのCIと追加承認後。[実績・未特定事項](operations.md#2026-10-13-通常prod公開とhosting照合の追加対策)、[残9〜14時間と日程条件](roadmaps/production-readiness.md#現在地通常公開済み自動配備再開の照合修正2026-10-13)。保護設定は本人保留、23日構築・30日納品判定の目標を維持。以下は先行時点の記録。
+
+2026-10-13現在：通常初回配備は既定App Engine SAの権限不足を承認後に解消し、業務DBの22索引を作成。その後Cloud Billing API未有効で再停止。enable=false、保守公開のまま。API先行有効化は承認待ち。[原因と実状態](operations.md#2026-10-13-通常prod初回配備の停止と原因確定)、[現行見積り・目標](roadmaps/production-readiness.md#現在地通常初回配備の権限検査で停止2026-10-13)。以下のenable未設定・公開承認待ちは先行記録。
+
+2026-10-13 IAM追加承認後：通常配備IAM・運用専用WIF・main限定環境・build保管先を設定し読戻し済み。通常アプリPRのfresh CI不具合を修正し包括CI成功後にmainへ統合、運用SAの2DB SDK読取りを実証。実公開と保護設定は未実施。[最新現在地と9〜14時間の残見積り](roadmaps/production-readiness.md#現在地通常配備iam設定統合ci修正後2026-10-13)、[実行証拠](operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。23日構築・月末目標を維持し、PDFへ保護保留と成立条件を反映。
 
 2026-10-13追記：指定GmailのFirebase通知と実Hostingを照合し、公開後照合失敗に直接関連する変更は確認されず。[調査記録](operations.md#2026-10-13-firebase通知の照合運用権限の着手)。優先1は[運用read-only権限・Functions主体分離の具体化](runbooks/production-bootstrap-review.md#運用権限とfunctions実行主体の具体化2026-10-13着手)まで着手。実設定・配備は未実施、見積りとPDF日付は据え置き。
 
