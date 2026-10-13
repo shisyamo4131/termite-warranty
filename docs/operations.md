@@ -1,5 +1,13 @@
 # Operations
 
+## 2026-10-14 Hosting件数診断と再配備なし照合の準備
+
+本人の「進めてください」を受け、件数診断を一覧不足／version集計不一致へ分離し、非秘密の3件数と観測回数だけを記録する。未定義／不正な集計値や任意の例外文は出力しない。合格条件・限定再確認回数は維持する。通常公開用と同じ配備SAで、保存済みCI成果物を使うmain手動の読取り専用workflow／認証前guardを追加。main統合・実SA照合は未実施で、公開・IAM・GitHub変数・バックアップ設定は変更していない。[実行手順と承認境界](runbooks/production-bootstrap-review.md#通常公開版の再配備なし照合2026-10-14準備)。
+
+Local focused `node --test test/default-recovery-release-proof.test.mjs test/production-application.test.mjs` は34成功、`npm test` は482成功・2skip、各exit 0。固定記録を使った既存CI bundleの独立ローカル照合はSHA・digest・target一致、Hosting1003ファイル、exit 0。build-release-deploy／検証動作変更の包括7ゲートを選択し、残りと最終状態をPR CIで確認する。実Cloud照合をLocal単体の成功で代用しない。
+
+業務仕様、データ形状、ADR、governance方針は不変。実環境の変更がなく、日程条件・残9〜14時間もまだ変わらないため環境仕様・既存PDFは据え置く。手順・成果物索引・roadmap・changelogへ準備状態を反映する。
+
 ## 2026-10-13 main更新による通常Prod自動配備
 
 本人がPR #9 head `3f636450f4989d2277ea93e02f81e8e70f72d030` のmain統合・通常enable再開・Hosting／21 Functions／Rules・索引／Schedulerの配備と照合を文章で承認（同日、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。PRの包括7ゲート成功、実headとbase、target全9項目、保護automation=false／他3項目空、保守基準版、production環境変数0を再確認。通常enable=trueを読戻し、保護を迂回せずexact headを通常mergeした（各command exit 0）。mainは `44010df1438c5fe7081b48df4b628f1f3f80f2ed`。

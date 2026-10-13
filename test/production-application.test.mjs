@@ -12,8 +12,38 @@ import {writeProductionBundle,verifyProductionBundle,recoveryParameters,stagePro
 import {productionReadAllowed,inspectProductionRelease} from '../scripts/lib/production-release-inspection.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {proofDiagnostic} from '../scripts/lib/default-recovery-diagnostics.mjs'
+import {productionInspectionPlan} from '../scripts/lib/production-inspection-plan.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',site:'fictional-site',appId:'1:123456:web:aaaa',control:'recovery-control',serviceAccount:'deploy@fictional-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/123456/locations/global/workloadIdentityPools/fictional/providers/github',repositoryId:'123',ownerId:'456'}
 const revision='a'.repeat(40),parameters={RECOVERY_BACKUP_AUTOMATION:'false',RECOVERY_AUTH_BACKUP_BUCKET:'',RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE:'',RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE:''}
+
+test('published inspection requires main manual execution, disabled deployment and an immutable same-target receipt',()=>{
+ const receipt={project:target.project,site:target.site,revision,runId:'123',artifactId:'456',digest:'b'.repeat(64),providerVersion:`sites/${target.site}/versions/prior`}
+ const env={GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',GITHUB_REPOSITORY_ID:target.repositoryId,GITHUB_REPOSITORY_OWNER_ID:target.ownerId,GITHUB_SHA:'c'.repeat(40),PRODUCTION_ENVIRONMENT:'production',PRODUCTION_APP_DEPLOY_ENABLED:'false',PRODUCTION_PROVIDER_VERSION:receipt.providerVersion}
+ const plan=productionInspectionPlan(target,receipt,env)
+ assert.equal(plan.revision,revision);assert.equal(plan.workflowRevision,env.GITHUB_SHA);assert.equal(plan.cloudWrites,false);assert.equal(plan.serviceAccount,target.serviceAccount)
+ for(const key of Object.keys(env))assert.throws(()=>productionInspectionPlan(target,receipt,{...env,[key]:undefined}),key)
+ for(const patch of [{GITHUB_EVENT_NAME:'push'},{GITHUB_REF:'refs/heads/other'},{GITHUB_REPOSITORY_ID:'999'},{GITHUB_REPOSITORY_OWNER_ID:'999'},{PRODUCTION_ENVIRONMENT:'development'},{PRODUCTION_APP_DEPLOY_ENABLED:'true'},{PRODUCTION_PROVIDER_VERSION:`sites/${target.site}/versions/other`}])assert.throws(()=>productionInspectionPlan(target,receipt,{...env,...patch}))
+ for(const patch of [{project:'foreign-prod'},{site:'foreign-site'},{revision:'main'},{digest:'invalid'},{runId:'1\nINJECT=true'},{artifactId:'9007199254740992'},{providerVersion:'sites/foreign/versions/prior'},{extra:'command'}])assert.throws(()=>productionInspectionPlan(target,{...receipt,...patch},env))
+ for(const key of Object.keys(receipt)){const invalid={...receipt};delete invalid[key];assert.throws(()=>productionInspectionPlan(target,invalid,env))}
+})
+
+test('published inspection workflow authenticates only after fixed artifact verification and contains no publication path',async()=>{
+ const w=parse(await readFile(new URL('../.github/workflows/inspect-production-application.yml',import.meta.url),'utf8')),j=w.jobs.inspect
+ assert.deepEqual(w.on,{workflow_dispatch:null});assert.deepEqual(Object.keys(w.jobs),['inspect'])
+ assert.deepEqual(w.permissions,{contents:'read'});assert.deepEqual(w.concurrency,{group:'production-bootstrap','cancel-in-progress':false})
+ assert.equal(j.if,"github.ref == 'refs/heads/main'");assert.equal(j.environment,'production');assert.equal(j['timeout-minutes'],15)
+ assert.deepEqual(j.permissions,{contents:'read',actions:'read','id-token':'write'})
+ assert.deepEqual(j.env,{PRODUCTION_TARGET_JSON:'${{ vars.PRODUCTION_TARGET_JSON }}',PRODUCTION_PROVIDER_VERSION:'${{ vars.PRODUCTION_PROVIDER_VERSION }}',PRODUCTION_APP_DEPLOY_ENABLED:'${{ vars.PRODUCTION_APP_DEPLOY_ENABLED }}',PRODUCTION_ENVIRONMENT:'production'})
+ assert.equal(j['continue-on-error'],undefined)
+ assert.deepEqual(j.steps.map(s=>s.run??s.uses),['actions/checkout@v7','actions/setup-node@v7','npx --yes npm@11.19.1 ci','node scripts/inspect-production-application.mjs plan','actions/download-artifact@v8','node scripts/inspect-production-application.mjs local','google-github-actions/auth@v3','node scripts/inspect-production-application.mjs cloud'])
+ for(const s of j.steps){assert.equal(s.if,undefined);assert.equal(s['continue-on-error'],undefined);assert.equal(s.env,undefined);assert.equal(s['working-directory'],undefined)}
+ assert.deepEqual(j.steps[0].with,{'persist-credentials':false});assert.equal(j.steps[3].id,'target')
+ assert.deepEqual(j.steps[4].with,{'artifact-ids':'${{ steps.target.outputs.artifact_id }}','run-id':'${{ steps.target.outputs.run_id }}','github-token':'${{ github.token }}','digest-mismatch':'error',path:'.production-inspection'})
+ assert.deepEqual(j.steps[6].with,{project_id:'${{ steps.target.outputs.project }}',workload_identity_provider:'${{ steps.target.outputs.provider }}',service_account:'${{ steps.target.outputs.service_account }}',cleanup_credentials:true})
+ const cli=await readFile(new URL('../scripts/inspect-production-application.mjs',import.meta.url),'utf8')
+ assert.ok(!/stageProductionBundle|prepareProduction|child_process|firebase deploy/.test(cli))
+ assert.ok(cli.indexOf('await verifyProductionBundle(')<cli.indexOf('await inspectProductionRelease('))
+})
 
 test('Prod runtime identities separate backup and diagnostic authority without changing Dev',async()=>{
   const env={GCLOUD_PROJECT:target.project,TERMITE_DEPLOYMENT_ENVIRONMENT:'production',TERMITE_PRODUCTION_PROJECT:target.project}

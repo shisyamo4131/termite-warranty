@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-14照合準備：[件数診断の分離と同じ配備SAの再配備なし照合](runbooks/production-bootstrap-review.md#通常公開版の再配備なし照合2026-10-14準備)を追加。main統合・実行は未実施。自動配備停止、保護保留、残9〜14時間・日程PDFは維持。[Local検証](operations.md#2026-10-14-hosting件数診断と再配備なし照合の準備)。
+
 2026-10-14最新：修正PR #9を承認後mainへ統合し、実pushからProd配備は成功。直後Hosting照合は件数不一致で再失敗し、enable=falseへ戻した。独立読取りは5項目全一致。件数比較の内訳特定と配備SAでの読取り照合が次の優先事項。[実績・未特定事項](operations.md#2026-10-13-main更新による通常prod自動配備)、[残9〜14時間と日程条件](roadmaps/production-readiness.md#現在地通常公開済み自動配備再開の照合修正2026-10-13)。保護設定は本人保留、23日構築・30日納品判定を条件付きで維持し、15日に配備枠を再判定。以下は先行記録。
 
 2026-10-13現在：通常初回配備は既定App Engine SAの権限不足を承認後に解消し、業務DBの22索引を作成。その後Cloud Billing API未有効で再停止。enable=false、保守公開のまま。API先行有効化は承認待ち。[原因と実状態](operations.md#2026-10-13-通常prod初回配備の停止と原因確定)、[現行見積り・目標](roadmaps/production-readiness.md#現在地通常初回配備の権限検査で停止2026-10-13)。以下のenable未設定・公開承認待ちは先行記録。

@@ -5,10 +5,11 @@ const stages = new Set(['release-proof', 'project-metadata', 'functions-proof', 
   'api-read', 'public-config-read'])
 const reasons = new Set(['unknown', 'http-error', 'transport-error', 'invalid-response',
   'identity-mismatch', 'configuration-mismatch', 'baseline-mismatch', 'hash-mismatch',
-  'snapshot-changed', 'artifact-mismatch', 'file-count-mismatch', 'file-not-active'])
+  'snapshot-changed', 'artifact-mismatch', 'file-count-mismatch', 'file-not-active',
+  'file-list-count-mismatch', 'file-metadata-count-mismatch'])
 const diagnostics = new WeakMap()
 
-export function proofFailure(stage, reason, httpStatus) {
+export function proofFailure(stage, reason, httpStatus, fileCounts) {
   const error = new Error('Release verification blocked.')
   const diagnostic = {
     stage: stages.has(stage) ? stage : 'release-proof',
@@ -16,6 +17,15 @@ export function proofFailure(stage, reason, httpStatus) {
   }
   if (diagnostic.reasonCode === 'http-error' && Number.isInteger(httpStatus) && httpStatus >= 400 && httpStatus <= 599) {
     diagnostic.httpStatus = httpStatus
+  }
+  if (diagnostic.stage === 'hosting-files' && ['file-list-count-mismatch','file-metadata-count-mismatch'].includes(diagnostic.reasonCode)) {
+    const count=value=>Number.isSafeInteger(value)&&value>=0&&value<=10000
+    if(fileCounts&&count(fileCounts.expected)&&count(fileCounts.listed)&&
+      ['value','missing','invalid'].includes(fileCounts.reportedState)&&
+      (fileCounts.reportedState==='value'?count(fileCounts.reported):fileCounts.reported===null)&&
+      Number.isInteger(fileCounts.observation)&&fileCounts.observation>=1&&fileCounts.observation<=4) {
+      diagnostic.fileCounts=Object.freeze({expected:fileCounts.expected,listed:fileCounts.listed,reported:fileCounts.reported,reportedState:fileCounts.reportedState,observation:fileCounts.observation})
+    }
   }
   diagnostics.set(error, Object.freeze(diagnostic))
   return error
@@ -25,7 +35,7 @@ export function proofDiagnostic(error, fallbackStage) {
   const fallback = stages.has(fallbackStage) ? fallbackStage : 'release-proof'
   const known = error && (typeof error === 'object' || typeof error === 'function') ? diagnostics.get(error) : undefined
   if (!known) return { stage: fallback, reasonCode: 'unknown' }
-  return { ...known, stage: known.stage === 'release-proof' ? fallback : known.stage }
+  return { ...known, ...(known.fileCounts?{fileCounts:{...known.fileCounts}}:{}), stage: known.stage === 'release-proof' ? fallback : known.stage }
 }
 
 export async function proofFetch(fetcher, url, options, stage) {

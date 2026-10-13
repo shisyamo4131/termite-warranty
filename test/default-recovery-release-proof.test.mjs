@@ -152,15 +152,40 @@ test('Hosting read settling accepts only exact files after temporary count or EX
   const f=fixture(),read=f.request;let observations=0,waits=0
   f.request=async url=>{const value=await read(url);if(url.endsWith('/versions/version1')){observations++;if(mode==='count'&&observations<3)value.fileCount='0'}if(url.endsWith('/version1/files')&&observations<3){if(mode==='missing')value.files=[];if(mode==='status')value.files[0].status='EXPECTED'}return value}
   const result=await hostingReleaseProof({...f,settle:true,wait:async ms=>{assert.equal(ms,5000);waits++}})
-  assert.deepEqual(result,{files:1,observations:3});assert.equal(waits,2)
+  assert.deepEqual(result,{files:1,observations:3,fileCounts:{expected:1,listed:1,reported:1,reportedState:'value',observation:3}});assert.equal(waits,2)
  }
 })
 
 test('Hosting settling is bounded and does not accept a persistent missing file',async()=>{
  const f=fixture();f.values.get(`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1`).fileCount='0'
  let waits=0
- await assert.rejects(()=>hostingReleaseProof({...f,settle:true,wait:async()=>{waits++}}),e=>proofDiagnostic(e).reasonCode==='file-count-mismatch')
+ await assert.rejects(()=>hostingReleaseProof({...f,settle:true,wait:async()=>{waits++}}),e=>{
+  assert.deepEqual(proofDiagnostic(e),{stage:'hosting-files',reasonCode:'file-metadata-count-mismatch',fileCounts:{expected:1,listed:1,reported:0,reportedState:'value',observation:4}});return true
+ })
  assert.equal(waits,3)
+})
+
+test('Hosting diagnostics distinguish missing list entries from missing or invalid metadata',async()=>{
+ for(const mode of ['list','missing','invalid']) {
+  const f=fixture(),url=`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1`
+  if(mode==='list')f.values.get(url+'/files').files=[]
+  if(mode==='missing')delete f.values.get(url).fileCount
+  if(mode==='invalid')f.values.get(url).fileCount='private-canary'
+  await assert.rejects(()=>hostingReleaseProof(f),error=>{
+   assert.deepEqual(proofDiagnostic(error),{stage:'hosting-files',reasonCode:mode==='list'?'file-list-count-mismatch':'file-metadata-count-mismatch',fileCounts:{expected:1,listed:mode==='list'?0:1,reported:mode==='list'?1:null,reportedState:mode==='list'?'value':mode,observation:1}})
+   assert.ok(!JSON.stringify(proofDiagnostic(error)).includes('canary'));return true
+  })
+ }
+})
+
+test('file count diagnostics expose only bounded numeric fields and cannot be mutated',()=>{
+ const counts={expected:3,listed:2,reported:3,reportedState:'value',observation:1,secret:'canary'}
+ const error=proofFailure('hosting-files','file-list-count-mismatch',undefined,counts)
+ counts.listed=999;const copy=proofDiagnostic(error);copy.fileCounts.listed=888
+ assert.equal(proofDiagnostic(error).fileCounts.listed,2)
+ assert.ok(!JSON.stringify(proofDiagnostic(error)).includes('canary'))
+ for(const patch of [{expected:-1},{listed:10001},{reported:NaN},{reportedState:'secret'},{observation:5},{reported:'secret'},{reportedState:'missing',reported:1}])assert.equal(proofDiagnostic(proofFailure('hosting-files','file-list-count-mismatch',undefined,{...counts,...patch})).fileCounts,undefined)
+ assert.equal(proofDiagnostic(proofFailure('api-read','file-list-count-mismatch',undefined,counts)).fileCounts,undefined)
 })
 
 test('Hosting settling immediately rejects content, malformed files, configuration and live changes',async()=>{

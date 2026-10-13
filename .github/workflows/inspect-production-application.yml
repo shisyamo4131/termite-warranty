@@ -1,0 +1,49 @@
+name: Inspect published production application without deployment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-bootstrap
+  cancel-in-progress: false
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 15
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      PRODUCTION_TARGET_JSON: ${{ vars.PRODUCTION_TARGET_JSON }}
+      PRODUCTION_PROVIDER_VERSION: ${{ vars.PRODUCTION_PROVIDER_VERSION }}
+      PRODUCTION_APP_DEPLOY_ENABLED: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED }}
+      PRODUCTION_ENVIRONMENT: production
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - id: target
+        run: node scripts/inspect-production-application.mjs plan
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ steps.target.outputs.artifact_id }}
+          run-id: ${{ steps.target.outputs.run_id }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: .production-inspection
+      - run: node scripts/inspect-production-application.mjs local
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.target.outputs.project }}
+          workload_identity_provider: ${{ steps.target.outputs.provider }}
+          service_account: ${{ steps.target.outputs.service_account }}
+          cleanup_credentials: true
+      - run: node scripts/inspect-production-application.mjs cloud

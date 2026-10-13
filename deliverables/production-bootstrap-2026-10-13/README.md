@@ -1,5 +1,7 @@
 # Prod初回保守公開のレビュー用成果物
 
+- [通常公開成果物の固定記録](published-release.json)：main `44010df` の既存CI成果物を再配備なしで照合するための非秘密の参照値。bundle digestとrun／artifact IDは[実行証拠](../../docs/operations.md#2026-10-13-main更新による通常prod自動配備)に対応。2026-10-14のGitHub読取りでもID・SHA・repo ID・main・期限内を確認。実行許可や新しい公開候補ではない。[手順・期限・停止条件](../../docs/runbooks/production-bootstrap-review.md#通常公開版の再配備なし照合2026-10-14準備)。
+
 2026-10-13 IAM追加承認後：下記runtime-iam-planは本人承認後に適用・読戻し済み。承認時hashと実確認範囲をJSONへ記録。実認証・配備は未実証。以下の「未適用」は承認前の説明。
 
 - [通常配備IAMの具体案](runtime-iam-plan.json)：2026-10-13後続の未適用設定案。既定build SAのEditor除去、build専用権限、配備custom role、業務DB／Authの操作権限、運用読取りWIF／GitHub environmentと各bindingを記載。65個の異なるcustom permissionは実IAM一覧で対応確認。公開・backup保護変更を含めない。実行承認と読戻し結果は[最新手順](../../docs/runbooks/production-bootstrap-review.md#main自動配備バックアップ環境の完成目標2026-10-13)・[運用記録](../../docs/operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)を参照。
