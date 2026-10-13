@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-13 main保護・認証専用試験の準備
+
+開始HEAD `9467a5b03a441b3ca0f9e951854c5af688fa011a`。手動専用認証workflow／固定対象probe／架空応答テストを追加し、既存Dev workflowのPR検証起動と契約を整備。[適用案と承認範囲](runbooks/production-bootstrap-review.md#main保護認証専用試験の適用案2026-10-13実設定待ち)。mainの実SHAは `b45382f6ef92e9ab897cee59b1164766375aaa70`、既存542ファイル差分を確認したため4ファイルだけの統合候補を準備。全Prod準備・業務アプリ統合とは区別する。
+
+分類はbuild-release-deploy／governance-permissions-agents、包括7ゲートを選定。今回 `npm test` は458成功・既存2skip・exit 0、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` は各exit 0。workflow timeout追記後の影響限定 `node --test test/production-readiness.test.mjs test/development-workflow-contract.test.mjs` は23成功・exit 0。`pwsh -NoProfile -File scripts/check-governance.ps1` はexit 0で、文書の最終状態で再確認する。`npm run test:rules` は201成功・emulatorsStopped=true・375457ms・exit 0。ログはignored tmp/prod-auth-*.logに保持。
+
+同日オーナーが4ファイルPR・上記main保護・通常merge・認証専用実行を追加承認。[PR #1](https://github.com/shisyamo4131/termite-warranty/pull/1)、head `25a577fbc97a43bd59a1bc353d881eae9fc6894d` の実差分4ファイルを確認。mainを基準とする独立したGit tree/commit/refをAPIで作成し、主checkout・作業ブランチは維持。GitHub CI結果を待ち、成功後に保護設定・merge・認証実証へ進む。保護や認証の成功はこの準備記録では主張しない。
+
+probeは本物のOIDC tokenをGoogle側で検証させ、SA短期認証後にProd project／Hosting siteだけをGETする。独立job再認証とenvironmentなしの属性条件拒否を検証可能。Localの架空応答成功は実認証証拠ではない。期限切れrefresh・別repo／ref／eventの実拒否は未実証。資格情報をログ／artifactへ出さず、エラー応答本文も抑制する。
+
 ## 2026-10-13 Prod配備認証の初期設定・読戻し
 
 同タスクのオーナーが「進めてください」に続き、2SA、Hosting管理（サイト削除権限を含む）／Firebase設定読取り／API利用、限定WIF、main限定production環境を具体的に承認。運用SAへの権限・接続、アプリ配備・CI有効化は除外。本人の既存gcloud／gh認証を使用し、秘密値・個人メールは取得／記録しない。初回sandboxではgh通信とgcloudローカル設定アクセスが失敗（各exit 1）、承認済み昇格で読取り・設定を実行した。Cloudエラーを成功に置き換えたものではない。

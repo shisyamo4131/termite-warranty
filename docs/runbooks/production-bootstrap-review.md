@@ -1,5 +1,15 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## main保護・認証専用試験の適用案（2026-10-13、実設定待ち）
+
+手動専用 `.github/workflows/verify-production-auth.yml`、依存追加なしの `scripts/production-auth-probe.mjs` と架空応答テストを準備。正規production jobでOIDC→STS→SA短期認証→対象project/siteのGETを2回、別jobでも同じ確認、最後にenvironmentなしのjobでprovider属性条件による拒否を確認する。POSTは認証交換とtoken生成のみ。公開／業務データ書込み、token本文・応答本文の保存／ログ出力、長期鍵はない。期限切れ更新・別repo/ref/eventの実拒否はこの試験の完了項目に含めず未実証として残す。
+
+確認時main=`b45382f6ef92e9ab897cee59b1164766375aaa70`、作業ブランチとの差分は既存542ファイルであるため、一括統合しない。mainへ適用する候補は上記workflow／script／`test/production-auth-probe.test.mjs` の3ファイルと、main既存 `.github/workflows/deploy-development.yml` へのpull_request(main)トリガー追加だけ。mainの既存アプリ・手動Dev配備条件は保持。現在の作業ブランチでは将来統合時に失わないようPRトリガーとworkflow契約を更新する。main差分を含むPRをレビューしてからmergeし、全Prod準備の受入れと混同しない。
+
+main保護案：PR必須、既存7ゲートjob `Verify development deployment` の成功必須、最新mainとの同期必須、管理者にも適用、force push／削除禁止、未解決会話なし。単独オーナーの運用を妨げないよう他者の必須承認数は0とする案で、まだ採用済みとしない。適用前に既存設定・main SHAを再読取りし、変化があれば上書きせず再照合。PR検証を追加したPRを先に作成して成功を確認し、その実check提供元を固定して保護を設定、通常のmerge条件で統合する。保護の管理者迂回を使わない。GitHub仕様は[公式API](https://docs.github.com/en/rest/branches/branch-protection#update-branch-protection)を参照。
+
+承認単位はこの4ファイルのPR作成・検証・保護設定・merge・認証workflowのmain手動実行。Prod／Dev配備enable・公開・DB操作は含めない。異常ならworkflow／mergeを止め、ログの資格情報本文を取り出さず、安全な工程名とHTTP statusだけで原因を調査する。今回変更の差戻しはPRのrevertで行い、保護解除は別判断。運用SA・通常配備権限・保守初回公開は後工程。
+
 ## 配備認証初期設定後の再開点（2026-10-13）
 
 [実設定](../requirements/environment-configuration.md#2026-10-13-prod配備認証の初期設定)の配備SA・制限付きWIF・main限定production環境を個別承認後に構成し読戻した。運用SAは権限なしの予約段階。今回承認はCI有効化・アプリ配備を除外しており、workflow実行はない。

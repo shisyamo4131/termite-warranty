@@ -6,6 +6,8 @@ on:
       - main
       - dev
   workflow_dispatch:
+  pull_request:
+    branches: [main]
 
 permissions:
   contents: read

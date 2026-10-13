@@ -1,4 +1,5 @@
 import test from 'node:test'
+import './production-auth-probe.test.mjs'
 import assert from 'node:assert/strict'
 import {tokenBridge,validateFederationConfig,operatorCredentials} from '../scripts/lib/operator-credentials.mjs'
 import {productionDeploymentPlan} from '../scripts/lib/production-deployment-plan.mjs'
@@ -15,6 +16,24 @@ import {promisify} from 'node:util'
 
 const target={project:'fictional-prod',projectNumber:'123456',site:'fictional-site',appId:'1:123456:web:aaaa',control:'recovery-control',serviceAccount:'deploy@fictional-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/123456/locations/global/workloadIdentityPools/fictional/providers/github',repositoryId:'123',ownerId:'456'}
 const context={event:'push',ref:'refs/heads/main',revision:'a'.repeat(40),artifactRevision:'a'.repeat(40),environment:'production',repositoryId:'123',ownerId:'456',verified:true}
+
+test('auth probe workflow is manual, separates jobs and has no deployment or persistent credential steps',async()=>{
+  const w=parse(await readFile(new URL('../.github/workflows/verify-production-auth.yml',import.meta.url),'utf8'))
+  assert.deepEqual(w.on,{workflow_dispatch:null})
+  assert.deepEqual(w.permissions,{contents:'read'})
+  assert.equal(w.jobs.authenticate.if,"github.ref == 'refs/heads/main'")
+  assert.equal(w.jobs.reauthenticate.needs,'authenticate')
+  assert.equal(w.jobs['deny-without-environment'].needs,'reauthenticate')
+  for(const [name,job] of Object.entries(w.jobs)){
+    assert.equal(job.environment,name==='deny-without-environment'?undefined:'production')
+    assert.deepEqual(job.permissions,{contents:'read','id-token':'write'})
+    for(const step of job.steps){
+      if(step.uses){assert.ok(['actions/checkout@v7','actions/setup-node@v7'].includes(step.uses));if(step.uses.includes('checkout'))assert.equal(step.with['persist-credentials'],false)}
+      else assert.ok(['node --test test/production-auth-probe.test.mjs',`node scripts/production-auth-probe.mjs ${name==='deny-without-environment'?'deny':'allow'} --execute-approved`].includes(step.run))
+      assert.equal(step['continue-on-error'],undefined)
+    }
+  }
+})
 const config=()=>({type:'external_account',audience:target.audience,service_account_impersonation_url:`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${target.serviceAccount}:generateAccessToken`,token_url:'https://sts.googleapis.com/v1/token',subject_token_type:'urn:ietf:params:oauth:token-type:jwt'})
 
 test('local bootstrap artifact has no application/credentials and refuses existing output',async()=>{

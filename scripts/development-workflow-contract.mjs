@@ -49,7 +49,7 @@ const steps = (job) => {
 
 export function validateDevelopmentWorkflow(workflow, policy) {
   const parsed = parse(workflow)
-  if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null })
+  if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null, pull_request: { branches: ['main'] } })
     || parsed.concurrency?.group !== 'development-deployment' || parsed.concurrency?.['cancel-in-progress'] !== false) {
     throw new Error('Development workflow must preserve branch routing and non-cancelling deployment concurrency.')
   }

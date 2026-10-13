@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-13 Prod認証専用試験の準備
+
+- 配備なしの手動認証workflow、固定対象の短期認証・別job再認証・environment不一致拒否テストを準備。資格情報は保存／出力しない。
+- PRで既存7ゲートを実行するトリガーと契約を追加。mainへの4ファイル限定統合と保護設定は個別承認・実検証待ち。
+
 ## 2026-10-13 Prod配備認証の初期設定
 
 - 個別承認で配備／運用SAを分離、Hosting限定の配備権限、repository／owner不変ID・main・productionに限定したWIF、GitHubのmain限定production環境を設定・読戻し。長期鍵・運用SA権限はなし。
