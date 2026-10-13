@@ -1,5 +1,19 @@
 # Operations
 
+## 2026-10-13 Firebase通知の照合・運用権限の着手
+
+本人が今回指定した個人Gmail接続のprofile一致を確認し、今回に限り通常のAIR参照先ルールに優先して読み取った。2026/08/12〜10/14のFirebase／Firestore／Hosting検索に加え、迷惑メール・ゴミ箱を含む`in:anywhere`検索を実施。Firestoreの個別検索は0件、Hosting／Filestore関連の仕様通知は2件。個人メールアドレス・本文・課金情報はリポジトリへ保存しない。
+
+- 9/29 JST受信「[Action Required] Update CI/CD pipelines for Firebase Hosting site provisioning」：10/15以降の新規projectで既定Hosting siteの作成を遅延する通知。サイトなしの初回CIで404が起こり得る。[公式FAQ](https://firebase.google.com/docs/hosting/faq-and-troubleshooting#changes-for-deferred-creation-of-the-default-hosting-site)も同日付・事前の明示作成を説明。今回の保守公開は10/13、サイトは事前作成／照合済みで公開step成功。今回のGETでもsiteは200・Web app一致、live versionは同じ`a377bd20176a2ac5`、releaseTimeは`2026-10-13T10:21:37.382Z`。この変更によるサイト未作成を今回の照合失敗原因とする根拠はない。
+- 10/2 JST受信「[Action Advised] Google Kubernetes Engine Default RWX Storage Class and Filestore API Enablement」：FirestoreではなくGKE／Filestoreの通知で、本文の開始日は10/27、対象は別project。本件のHosting GET照合にGKE・Filestoreの処理はないため、今回との関連は認めない。
+- [sites.create公式](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/projects.sites/create)には新しいsiteの伝播に数分かかり得るという一般説明がある。ただしsite作成と今回のrelease公開を区別し、この説明を失敗原因の証明へ転用しない。前の「公開直後のタイムラグ扱い・原因未実証」は維持。再配備・設定変更なし。
+
+優先1は実装呼出しと実IAMの照合、読取り運用の権限候補・実行主体の分離案まで着手。[具体化した作業](runbooks/production-bootstrap-review.md#運用権限とfunctions実行主体の具体化2026-10-13着手)を参照。`gcloud iam service-accounts list`、対象SAの`get-iam-policy`、`roles/datastore.viewer`・`roles/firebaseauth.viewer`・`roles/serviceusage.serviceUsageConsumer`の各`describe`はexit 0。運用SAの接続bindingなし・project roleなし、独立した業務／backup／build SAは未作成。広い既定roleをそのまま付与しない。
+
+カスタムrole対応状況の`gcloud iam list-testable-permissions`は応答が完了せず中断、exit 1。対応確認済み・権限十分とは扱わず、限定した候補のAPIメタデータ確認を後続に残す。既存`node --test test/production-operations.test.mjs`は8成功・exit 0（基準`e7f6f702cbe24ae9bdaeddf9f8f307da0e74120e`、コード変更なし）。異なるtarget・配備SA流用・不正操作・offline plan・読取／書込mode境界のLocal検証であり、実IAMの拒否を証明しない。
+
+変更は文書のみ。実装・workflow・IAM・DB・Auth・公開・メール状態は変更せず、仕様・データ契約・ADR・governanceの採用変更なし。文書分類のgovernance-checkとdiff検査を選択し、アプリ包括7ゲートの再実行は不要。 文書反映後の`pwsh -NoProfile -File scripts/check-governance.ps1`・`git diff --check`・5文書の相対ファイルリンク検査は各exit 0。見積り10〜15時間を完了前に減らさず維持。23日構築・月末納品の条件、PDFの工数／日付は変わらないため今回はPDF再生成なし。
+
 ## 2026-10-13 初回保守公開と読取り照合
 
 オーナーがtask `01a133e7-092f-71f0-b5e7-43a8b7833ab9` で、検証済みmain `1564f07427b63a2d73776542eb28341d166c9d7a` の保守表示を公開すること、repositoryの対象JSON・承認revision・enableの3変数登録、run全体の再実行、公開照合後のenable解除を明示承認。IAM・DB・Auth・Functions変更は含まない。直前のmain一致・両scopeの変数未設定を確認し、登録後に9項目・SHA・enableの完全一致を読戻した。承認済みrun `38381393703` attempt 2を起動し、同SHA／refを確認。attempt 2の包括検証、認証前artifact照合、空site検査、Hosting公開、再認証は成功したが、直後の `Inspect initial maintenance baseline` は失敗。短期ADC後処理は成功。再配備せず `PRODUCTION_BOOTSTRAP_ENABLED=false` を設定し読戻した。最初のrun全体はfailureであり成功へ書き換えない。

@@ -1,5 +1,43 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 運用権限とFunctions実行主体の具体化（2026-10-13、着手）
+
+状態：以下は未承認・未適用の権限候補と実証手順。本人の「優先1を作業開始」に基づく棚卸し・準備で、IAM付与やFunctions配備の承認ではない。実SA一覧・IAM、`production-operations.mjs`／`default-recovery.mjs`／`functions/index.js`／`recovery-backups.js`とAuth呼出しを確認した。
+
+### 最初の承認単位を読取りobserveに限定する案
+
+`prod-operator@termite-warranty-prod.iam.gserviceaccount.com` は既存・無権限。初回は既存CLIの`inspect`＋`command=observe`だけを使い、初期化・Auth一覧・Rules取得・バックアップ取得を混ぜない。observeはprojectと2DBのmetadataを確認してから、業務DBの保守マーカー、制御DBのruntime／operatorLock／recoveryOperationsを読み、件数・phase等だけを出力する。未初期化の空状態（phase/generation=null等）は「認証・読取成功」と「初期化未完了」を分けて判定する。
+
+| 候補custom role（未作成の提案名） | permissions | binding対象 |
+| --- | --- | --- |
+| `prodOperatorProjectRead` | `firebase.projects.get`, `serviceusage.services.use` | Prod projectだけ |
+| `prodOperatorDatabaseRead` | `datastore.databases.getMetadata`, `datastore.entities.get`, `datastore.entities.list` | 下記の2DB条件付き |
+
+DB条件案：`resource.name == "projects/termite-warranty-prod/databases/(default)" || resource.name == "projects/termite-warranty-prod/databases/recovery-control"`。[公式のDB単位IAM条件](https://firebase.google.com/docs/firestore/manage-databases?hl=ja#configure_per-database_access_permissions)に基づく候補。条件はREST／SDKで試験し、Cloudコンソールの見え方を証拠にしない。これは指定DB内の文書読取り権限であり、CLIが読む特定文書だけにIAMが限定されるわけではない。SDKから要求される権限・custom role対応は実証前のため、5権限で十分と断定しない。既定`datastore.viewer`には今回不要のbackupや分析の権限もあるため、そのまま付与しない。
+
+接続案は既存案の専用pool `github-production-operations`／provider `github`、environment `production-operations` を使用（いずれも未作成）。repository ID `1363463339`、owner ID `72244713` は今回GitHub APIで一致確認。main、workflow_dispatch、当該environmentのimmutable subject、専用workflow_refをすべて一致条件にする。workflowの最終パス・SHAはまだ未確定であり、provider条件へ仮値を登録しない。配備poolと相互接続せず、長期鍵を作らない。
+
+具体的な次の順序：
+
+1. custom role対応確認を完了し、読取り専用workflowと固定入力・安全な段階別診断をLocalで準備する。自由なコマンド入力・任意URL・raw応答出力を持たせない。
+2. 最終workflowと対象SHA、上記roleの確定JSON、WIF条件、SA binding、GitHub environment設定をレビュー可能な一式にし、必要検証後に本人へ変更承認を提示する。
+3. 承認後だけ接続・読取権限を設定して読戻し、正規mainからobserveを実施。対象2DBの実SDK読取り・ADC後処理を確認する。
+4. 許可外ref／repo／environment／workflowは認証交換で拒否、許可外DBはIAMのシミュレーション等で拒否を確認。存在しないDBの404を権限拒否の証明にしない。実データの書込み・削除による拒否試験はしない。
+5. 失敗時は権限を広げず工程／HTTP状態等の非秘密診断を残す。停止・復旧は今回追加したprovider無効化／限定binding解除だけを別承認で扱い、既存配備経路を変更しない。
+
+### Functions・保護主体の分離案
+
+| 主体（すべて新規名未確定） | 確認済み呼出しと必要操作 | 残る具体作業 |
+| --- | --- | --- |
+| 業務Functions専用 | 業務・制御DBの読書き／トランザクション。Auth get/create/update/revoke、作成失敗時のdelete | 2DB条件・Auth操作別permissionを確定。deleteも実装上必要なため承認提示で隠さない。getHashConfigやbucket権限は渡さない |
+| backupMonitor専用 | 業務DBの保守マーカーread、controlのlock／履歴read-write、Firestore database metadata／backup一覧、Auth listUsers、bucket metadata／IAM read、新規object保存 | `firebaseauth.configs.getHashConfig`がないとpasswordHash／Saltが返らず既存実装が停止。[公式Auth仕様](https://firebase.google.com/docs/auth/admin/manage-users#password_hashes_of_listed_users)に従い専用custom roleへ分離。bucket get/getIamPolicy/object createを実bucketだけへ限定。上書き・object deleteやAuth importは不要。保護設定延期は維持 |
+| build専用 | ソース取得・image作成・保存とbuild log | Functions API／Cloud Build／Artifact Registry・実bucket／repositoryを確認して最終集合を確定。実行SA・運用SAと兼用しない |
+| 配備SA | 既存Hostingに加えFunctions／Rules／索引配備、特定runtime/build SAのactAs等 | 実CLI要求とサービスエージェントを照合。Owner／Editor一括付与はしない |
+
+現行`setGlobalOptions`はregionのみ、backupMonitorのonScheduleにもserviceAccount指定なし。[公式Functions設定](https://firebase.google.com/docs/functions/manage-functions#set_service_account)の明示指定を通常アプリ統合前に実装・検証する必要がある。今回は変更しておらず、既定実行SAが最小権限であるとは扱わない。Auth診断専用FunctionもDB不要なので、業務主体を継承させるか別の無権限主体にするかを配備設計で確定する。
+
+優先1全体は未完了。残りはcustom role対応照合、workflow準備と回帰、実行主体名／権限集合の確定、本人承認、実設定と実認証。今回の棚卸しだけで3〜5時間枠を差し引かない。メール通知の確認は[調査記録](../operations.md#2026-10-13-firebase通知の照合運用権限の着手)へ集約。
+
 ## 初回公開後の状態と読取り再照合（2026-10-13）
 
 オーナーがmain `1564f07427b63a2d73776542eb28341d166c9d7a` の保守HTML、3変数登録、run `38381393703` 全体の再実行、照合後enable解除を承認。attempt 2は公開まで成功したが直後の照合は失敗し、enableをfalseへ戻した。再配備・削除・IAM変更は行わない。GETでは保守版 `sites/termite-warranty-prod/versions/a377bd20176a2ac5` と期待内容が一致し、既存CLI認証で同じ照合関数も成功。初回CI失敗の原因は未確定。

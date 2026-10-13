@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-13 Firebase通知照合と運用権限準備
+
+- Hostingサイト作成変更とGKE Filestore通知を確認し、今回の公開後照合失敗に直接関連する根拠がないことを記録。
+- 運用observeの権限候補・2DB条件と、業務／backup／build主体の分離・Authハッシュ取得の必要性を具体化。実IAM・workflow・配備は未変更。
+
 ## 2026-10-13 初回保守公開と読取り照合
 
 - 承認された保守表示だけをProd Hostingへ公開。公開版・HTML・ファイル・設定の一致をGET確認し、enableをfalseへ戻した。
