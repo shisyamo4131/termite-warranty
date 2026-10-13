@@ -46,6 +46,22 @@ test('gzip hash/config canonical conversion matches reviewed deployment contract
 test('complete provider proof checks all functions and live Hosting independently',async()=>{
   const f=fixture(),checks=await releaseProof(f);assert.deepEqual(checks.map(c=>c.status),['pass','pass']);assert.equal(checks[0].summary.functions,2)
 })
+test('production environment must agree on Functions and both Cloud Run definitions',async()=>{
+  for(const mode of ['valid','function','service','revision']){
+    const f=fixture(),expected={TERMITE_DEPLOYMENT_ENVIRONMENT:'production',TERMITE_PRODUCTION_PROJECT:f.project}
+    f.inputs.expectedEnvironment=expected
+    for(const fn of f.functions){
+      Object.assign(fn.serviceConfig.environmentVariables,expected)
+      const service=f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service)
+      const rev=f.values.get('https://run.googleapis.com/v2/'+fn.serviceConfig.service+'/revisions/'+fn.serviceConfig.revision)
+      for(const container of [service.template.containers[0],rev.containers[0]])container.env=[...container.env.map(e=>({...e})),...Object.entries(expected).map(([name,value])=>({name,value}))]
+    }
+    if(mode==='function')f.functions[0].serviceConfig.environmentVariables.TERMITE_PRODUCTION_PROJECT='foreign'
+    if(mode==='service')f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service).template.containers[0].env.find(e=>e.name==='TERMITE_PRODUCTION_PROJECT').value='foreign'
+    if(mode==='revision')f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service+'/revisions/'+f.functions[0].serviceConfig.revision).containers[0].env.push({name:'TERMITE_PRODUCTION_PROJECT',value:f.project})
+    assert.equal((await releaseProof(f))[0].status,mode==='valid'?'pass':'blocked')
+  }
+})
 test('partial Functions, wrong provenance/control and unstable Cloud Run stay blocked',async()=>{
   for(const alter of [f=>f.functions.pop(),f=>f.functions[0].buildConfig.sourceProvenance.resolvedStorageSource.generation='',f=>f.functions[0].serviceConfig.environmentVariables.RECOVERY_CONTROL_DATABASE='wrong',f=>f.functions[0].state='DEPLOYING',f=>{const run=f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service);run.observedGeneration='1'},f=>{const run=f.values.get('https://run.googleapis.com/v2/'+f.functions[0].serviceConfig.service);run.trafficStatuses[0].percent=99},f=>{f.readArchive=async()=>zip(new Map([...f.inputs.sourceFiles,['extra.js',Buffer.from('x')]]))}]){const f=fixture();alter(f);const result=await releaseProof(f);assert.deepEqual(result.map(c=>c.status),['blocked','pass']);assert.ok(!JSON.stringify(result).includes('private canary'))}
 })

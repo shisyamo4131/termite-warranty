@@ -1,0 +1,92 @@
+# NOT ACTIVE. Review and explicitly authorize before installing under .github/workflows.
+# Maintenance-only first Hosting publication; never deploys the business application.
+name: Prepare and publish production maintenance baseline
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: production-bootstrap
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npx --yes npm@11.19.1 ci
+      - run: ./scripts/check-governance.ps1
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:rules
+      - run: node scripts/check-functions-syntax.mjs
+      - run: node --check scripts/seed-emulator.mjs
+      - run: node scripts/prepare-production-bootstrap.mjs bootstrap-artifact
+      - uses: actions/upload-artifact@v7
+        with:
+          name: maintenance-${{ github.sha }}
+          path: bootstrap-artifact
+          if-no-files-found: error
+          retention-days: 1
+  publish:
+    needs: verify
+    if: ${{ needs.verify.result == 'success' && vars.PRODUCTION_BOOTSTRAP_ENABLED == 'true' }}
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PRODUCTION_TARGET_JSON: ${{ vars.PRODUCTION_TARGET_JSON }}
+      PRODUCTION_ARTIFACT_REVISION: ${{ github.sha }}
+      PRODUCTION_ENVIRONMENT: production
+      PRODUCTION_VERIFY_RESULT: ${{ needs.verify.result }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - id: target
+        run: node scripts/check-production-deployment.mjs
+      - uses: actions/download-artifact@v8
+        with:
+          name: maintenance-${{ github.sha }}
+          path: bootstrap-artifact
+      - name: Bind verified target without rebuilding content
+        shell: pwsh
+        run: |
+          $target = $env:PRODUCTION_TARGET_JSON | ConvertFrom-Json
+          $config = Get-Content -Raw bootstrap-artifact/firebase.json | ConvertFrom-Json
+          $config.hosting | Add-Member -NotePropertyName site -NotePropertyValue $target.site
+          $config | ConvertTo-Json -Depth 20 | Set-Content -Encoding utf8 bootstrap-artifact/firebase.json
+          $env:PRODUCTION_TARGET_JSON | Set-Content -Encoding utf8 production-target.json
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.target.outputs.project }}
+          workload_identity_provider: ${{ steps.target.outputs.provider }}
+          service_account: ${{ steps.target.outputs.service_account }}
+      - name: Refuse any existing live release
+        run: node scripts/inspect-production-bootstrap.mjs production-target.json --require-empty
+      - name: Publish maintenance only
+        shell: pwsh
+        env:
+          TARGET_PROJECT: ${{ steps.target.outputs.project }}
+        run: npx --no-install firebase deploy --non-interactive --project $env:TARGET_PROJECT --config bootstrap-artifact/firebase.json --only hosting
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.target.outputs.project }}
+          workload_identity_provider: ${{ steps.target.outputs.provider }}
+          service_account: ${{ steps.target.outputs.service_account }}
+      - name: Inspect initial maintenance baseline
+        run: node scripts/inspect-production-bootstrap.mjs production-target.json

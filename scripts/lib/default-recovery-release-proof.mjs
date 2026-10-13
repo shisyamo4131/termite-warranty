@@ -89,7 +89,7 @@ async function paged(request,url,key) {
   return items
 }
 function revisionName(service,value) {if(typeof value!=='string')fail();const name=value.includes('/')?value:`${service}/revisions/${value}`;if(!name.startsWith(`${service}/revisions/`)||!/^[a-z0-9-]+$/.test(name.slice(`${service}/revisions/`.length)))fail();return name}
-function controlEnvironment(containers,control) {if(!Array.isArray(containers)||containers.length!==1)fail();const entries=containers[0].env?.filter(e=>e.name==='RECOVERY_CONTROL_DATABASE');if(entries?.length!==1||entries[0].value!==control||entries[0].valueSource)fail()}
+function controlEnvironment(containers,control,expected={}) {if(!Array.isArray(containers)||containers.length!==1)fail();for(const [key,value] of Object.entries({...expected,RECOVERY_CONTROL_DATABASE:control})){const entries=containers[0].env?.filter(e=>e.name===key);if(entries?.length!==1||entries[0].value!==value||entries[0].valueSource)fail()}}
 export async function functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs}) {
   const inventoryURL=`https://cloudfunctions.googleapis.com/v2/projects/${project}/locations/-/functions`
   const functions=await paged(request,inventoryURL,'functions')
@@ -100,6 +100,7 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     names.push(match[3])
     const build=f.buildConfig,service=f.serviceConfig
     if(build?.entryPoint!==match[3]||build.runtime!=='nodejs22'||service?.environmentVariables?.RECOVERY_CONTROL_DATABASE!==control||service.allTrafficOnLatestRevision!==true)fail()
+    if(Object.entries(inputs.expectedEnvironment??{}).some(([key,value])=>service.environmentVariables[key]!==value))fail()
     const source=build.sourceProvenance?.resolvedStorageSource??build.source?.storageSource
     if(!source||!/^[1-9]\d*$/.test(String(source.generation??''))||typeof source.object!=='string'||!source.object||!new Set([`gcf-v2-sources-${projectNumber}-${inputs.region}`,`gcf-v2-uploads-${projectNumber}-${inputs.region}`]).has(source.bucket))fail()
     const archiveKey=canonical(source)
@@ -109,10 +110,10 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     const run=await request(`https://run.googleapis.com/v2/${runName}`),rev=revisionName(runName,service.revision)
     if(run.name!==runName||run.reconciling===true||!/^[1-9]\d*$/.test(String(run.generation))||String(run.observedGeneration)!==String(run.generation)||run.terminalCondition?.state!=='CONDITION_SUCCEEDED'||revisionName(runName,run.latestReadyRevision)!==rev||revisionName(runName,run.latestCreatedRevision)!==rev||run.conditions?.some(c=>c.state!=='CONDITION_SUCCEEDED'))fail()
     for(const traffic of [run.traffic,run.trafficStatuses]){if(!Array.isArray(traffic)||traffic.length!==1||traffic[0].percent!==100||traffic[0].tag||traffic[0].revision&&revisionName(runName,traffic[0].revision)!==rev||!traffic[0].revision&&traffic[0].type!=='TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST')fail()}
-    controlEnvironment(run.template?.containers,control)
+    controlEnvironment(run.template?.containers,control,inputs.expectedEnvironment)
     const revision=await request(`https://run.googleapis.com/v2/${rev}`)
     if(revision.name!==rev||revision.reconciling===true||!revision.conditions?.some(c=>c.type==='Ready'&&c.state==='CONDITION_SUCCEEDED')||revision.conditions.some(c=>c.state!=='CONDITION_SUCCEEDED'))fail()
-    controlEnvironment(revision.containers,control)
+    controlEnvironment(revision.containers,control,inputs.expectedEnvironment)
   }
   if(canonical(names.sort())!==canonical(inputs.functionNames))fail()
   // Recheck the complete provider snapshot, retaining raw environments only in memory.

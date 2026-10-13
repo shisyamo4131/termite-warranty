@@ -1,0 +1,96 @@
+# Prod事前構築・認証・配備ロードマップ
+
+## 現行範囲（2026-10-13）
+
+オーナーが本タスクで「Prod環境事前構築を考慮したロードマップと、最優先の認証・配備・初回公開照合の実装・事前検証」を指示。Local実装は承認済み。実Cloudの作成・課金・IAM／GitHub設定変更・公開・配備は未承認で、今回行わない。主作業ディレクトリの開始HEADは `f71c9cd388355a0aca1c97dc149fe1deb683c233`。前ターンの文書／PDF差分を保持して実装を追加する。
+
+前案は基盤事前構築とアプリ初回配備を23日にまとめたため、WIF実証・権限反映待ちを早期に扱えていなかった。**準備が揃い別途承認を得た段階で、23日より前にAで基盤を構成し認証を実証する工程を独立させる。** HS試用完了を空の基盤作成の前提にせず、正式投入・業務利用開始とは分ける。今すぐ事前構築する承認ではない。
+
+正本：[Prod手順](../runbooks/production-bootstrap-review.md)、[環境仕様](../requirements/environment-configuration.md)、[棚卸し](../design/production-readiness-inventory-2026-10-13.md)、[ADR0032](../decisions/0032-production-firebase-operations.md)。納品全体の重み・完了条件・進捗0%は変更しない。以下は順序と完了ゲートで管理し、実装済みをCloud実証済みに数えない。
+
+## 工程と完了条件
+
+| ID | 工程 | 状態・完了条件 |
+| --- | --- | --- |
+| PR-01 | 認証・初回公開照合のLocal基盤 | 今回実装。WIFファイルのprovider／SA照合、短期token更新、読取専用CLI、保守表示の生成と照合、配備条件の純粋検査。最終検証結果は[運用記録](../operations.md) |
+| PR-02 | 通常CI・アプリ接続の統合 | Local実装・検証済み。main用Prod workflow、7ゲート、同一版成果物、WIF・再認証、配備前基盤確認、両Rules／索引／Functions／Hosting照合を接続。画面とFunctionsのProd明示設定に対応。実Actions・WIF・Cloudは未実証。旧Dev workflowは変更せず、dev分離・切替、復旧全体・初期化は残件 |
+| PR-03 | 事前構築の入力・実行範囲確定 | 実値待ち。A本人・既存Billing権限／有効性、希望ID／URL、repository／ownerの不変ID・契約、通知先を照合。作成対象・権限・公開範囲を確定 |
+| PR-04 | **Prod基盤の事前構築** | 未実施・別承認。A・組織なし・既存請求先でproject／必要API／2DB／Rules／索引／Web／Hosting／配備・実行SA／WIFを構成。業務データを入れず一般利用不可。実ID・設定・権限を読み戻す |
+| PR-05 | **事前認証実証・初回基準版** | 未実施・別承認。短期認証で対象だけ読取可能、許可外ref／repo拒否、別job再認証を確認。保守表示を初回公開し基準版を照合・記録。初回公開も外部書込みとして承認に含める。全サービス配備権限の成立は後の実配備で別検証 |
+| PR-06 | 初期化・管理者・初回アプリ配備 | Local実装・事前検証を追加。閉鎖protocol2初期化、既存Auth UIDへの管理者登録、同一版成果物、Functions実行先・Hosting全ファイル、両Rules・索引READYの照合に対応。実Cloud未実施。PR-05の過去基準版を利用し、現在のアプリhashを期待値にしない。23日の構築完了目標 |
+| PR-07 | 保護・正式投入・引渡し | 空業務領域への初回投入・固定復旧・バックアップ設定／読戻しのLocal入口を追加。実Cloud・HS受入れ未実施。日次backup/PITR/Auth退避・通知・復元、原資料からの投入と全件照合、HS最終受入れ・開始了承・管理引継ぎ。10月末納品の条件 |
+
+PR-04／05は技術的に分けて先行できる。実行承認と情報が揃わなければLocal準備までに留める。基盤作成だけでPR-06・07完了としない。旧Devのreset／seedや全移行CLIのProd化は行わない。
+
+## 今回の実装と使用境界
+
+- `scripts/lib/operator-credentials.mjs`：明示したWIF external_accountファイルだけを採用。期待audience／SAと照合し、長期鍵・ユーザーADC・実行型credential sourceを拒否。短期tokenの期限欠落・失効は拒否。GoogleAuthの更新を毎回呼び、Firestore用authClientとAdmin用credentialへ接続可能。Admin SDKと実WIFの組合せはCloud未実証。
+- `scripts/default-recovery.mjs`：既存Devの読取操作に `--auth adc --wif-audience <実値> --service-account <実値>` を追加。明示した `--dev-inspect` 限定で、ADCから書込操作へ昇格できない。既存の人によるDev操作は維持。Prod全復旧CLIを開通したものではない。
+- `scripts/lib/production-deployment-plan.mjs`：未設定、Dev／demo、project番号／Web／SA／providerの不一致、main以外、別repo／owner、異なる成果物revisionを拒否。出力はplan-only。保護ブランチ・全ゲート成功の真偽は実CI側で証拠へ接続する必要があり、入力のverified=trueだけで配備可能にはしない。
+- `node scripts/prepare-production-bootstrap.mjs <新規ローカル出力先>`：保守表示1ファイル、Hosting専用config、期待hashを生成。既存出力先は上書き拒否。配備コマンドを持たず、Functions／Firestore／データを生成しない。
+- `node scripts/inspect-production-bootstrap.mjs <照合済みtargetのJSON>`：**将来承認後に使うCloud読取専用入口**。今回実行しない。targetはproject、projectNumber、site、appId、control、serviceAccount、audience、repositoryId、ownerIdの9項目。実値未確定のため設定ファイルを捏造・登録しない。GET先を対象site／Web管理APIへ限定、redirectを拒否、公開init.jsonへBearerを送らない、応答上限1MiB。
+- `scripts/lib/production-bootstrap-hosting.mjs`：初回保守表示をローカル期待hash、公開設定と管理APIの一致、全ファイル／設定／版の安定性で照合。初回の予約2ファイルのhashはプラットフォーム生成値として基準化する。Google生成JavaScriptの内容を独立再現した証拠ではなく、アプリの受入証拠にもならない。後続アプリは既存prior-version＋全成果物照合を維持する。
+- `.gitignore` はWIF生成資格情報を除外。初回保守表示configも資格情報を除外。将来のCIでは認証前に成果物を作り、資格情報をartifactsへ混入させない。既存workflowは今回有効化・切替なし。
+
+差戻しは今回の認証モジュール接続を元の人のログイン経路へ戻し、新規Local入口を未使用にする。Cloud状態・業務データの移行／巻戻しは発生しない。テスト結果を見て対象許可・ハッシュ照合を緩めない。
+
+### 初回配備テンプレート（非有効）
+
+[初回配備workflowテンプレート](../runbooks/production-bootstrap.workflow.yml.template)を作成。包括7ゲート→同一revisionの保守成果物→認証前target検査→WIF→既存live版なしの確認→Hosting限定配備→再認証→初回照合の順序。`.github/workflows` 外で、明示enable変数も必須。有効化・実行なし。`scripts/check-production-deployment.mjs` は実CI情報と設定を照合する。通常アプリ配備workflowは後続のPR-02でLocal実装済み（下記）。
+
+実行前に他の手動公開を止めsiteの排他を確保する。既存live版があれば拒否し、応答不明時もそのまま再実行しない。初回前の検査は `node scripts/inspect-production-bootstrap.mjs <照合済みtargetのJSON> --require-empty`。404は対象siteとWeb Appの一致を確認した後のlive channel取得に限って空状態として扱い、403を空とみなさない。
+
+## 通常アプリCI・Prod接続のLocal実装（2026-10-13後続指示）
+
+オーナーが通常配備CIへの統合とProd接続の実装・事前検証を指示。`.github/workflows/deploy-production.yml` はmain push用で、`PRODUCTION_APP_DEPLOY_ENABLED=true` の明示設定がない場合は実行しない。設定・有効化・Cloud実行は今回なし。既存Dev手動配備は変更せず、採用済みdev→Devへの切替を完了扱いにしない。
+
+包括7ゲート→Prod専用build→成果物digest→artifact→認証前target／成果物検査→配備用コピー→WIF→既存2DB・site・初回基準版の読取確認→配備→再認証→両Rules・索引・Functionsソース／実行環境・Hosting全ファイルの照合。認証用ファイルは成果物に含めない。CLIの作業ファイルは配備用コピーだけへ書き、原本を照合根拠に残す。失敗後の自動再配備・自動巻戻しはない。停止して実Cloudの部分反映を確認し、復旧手順と承認に従う。
+
+画面buildは環境・project・Web Appを明示し、Hosting設定が異なる場合に拒否。Functionsは明示Prod設定と実行環境projectの一致、Emulator設定混入なしを要求する。通常Dev／Localは維持。実Prodのログイン・メール・業務操作は未実証。配備照合5項目はprotocol2初期化・管理者・復旧可能性・業務受入れを含まず、既存の全復旧preflightの代替にしない。
+
+入口・設定・検証結果は[Prod手順](../runbooks/production-bootstrap-review.md)、[運用記録](../operations.md)を参照。新しい保存形式・製品要件・依存版・governance・ADR方針の変更なし。実行しない場合はenable未設定を維持。Local差戻しは今回の接続設定・workflow・補助スクリプトを戻し、以前のDev／Local経路を使う。Cloud巻戻しは今回発生しない。
+
+## 初期化・正式投入・復旧／バックアップのLocal実装（2026-10-13後続）
+
+ユーザーが「進捗が進むなら実行」と明示し、残る運用入口の実装・事前検証を承認。`scripts/production-operations.mjs` にplan（完全オフライン）・inspect（読取）・execute（別実行承認後）の入口を追加した。配備targetと分離した運用WIF／SA、正確なcommit、対象DB・Rules、操作記録・承認参照、世代を確認する。実行時の実値は未確定のままで、Cloudアクセス・構築・配備・データ変更は今回なし。
+
+初期化は空／同じ閉鎖世代の途中状態だけを受理。管理者は既存の有効Auth UIDと照合し、異なるprofileを上書きしない。正式投入は初回の空業務像限定で、既存業務データのresetは不可。投入は全件・現在権限・採番・7準備情報を検証し、従来のHS読取確認と別了承再開へ接続する。中断時は元worker停止とexact owner／同じ入力が必要。
+
+固定(default)復旧の一時DB・保全・完全同期・実配備照合を再利用。復元POST前のjournalと排他で結果不明時の再送を拒否。バックアップは日次30日／PITRの設定と実READY像の読戻しを分離し、Auth退避のbucket／project number・非公開性・固定hash設定を照合。通常関数も別project bucketを拒否する。初期Auth作成・メール、bucket／IAM／hash設定、通知受信、復元と実ログインはCloud側の実作業として残る。Auth実importは追加していない。
+
+正確な入力と回復境界は[Prod手順](../runbooks/production-bootstrap-review.md)、検証は[運用記録](../operations.md)。ローカル検証完了はProd構築済み／納品済みを意味せず、全体進捗0%・部分加点なしを維持する。
+
+## 日程・工数（推定、未合意）
+
+初期化・管理者・初回投入、固定(default)復旧とバックアップ読戻しのLocal実装・事前検証を残件から外し、**22日までの残工数を旧19〜26時間から11〜14時間へ再見積り**する。経過時間や架空の削減実績ではなく、担当1名・既存方式再利用・重大指摘なしを前提とした残作業の推定。
+
+| 残作業 | 推定 |
+| --- | --- |
+| Dev分離・CI切替、運用WIF／権限・実設定の最終照合、初回投入／会社情報設定の実行順レビュー・統合回帰 | 4〜6時間 |
+| HS試用支援・調整枠 | 4時間 |
+| 別承認後の基盤事前構築・WIF／初回基準版実証 | 3〜4時間 |
+| 合計 | 11〜14時間 |
+
+10/14〜22の集中42時間を確保できれば、差は28〜31時間。23日の最終配備・管理者確認3〜4時間は別枠。待ち時間や未合意のHS枠、実WIF／IAMの問題はこの差で解消を保証しない。**10月23日の構築は条件付きで実現可能な計画との判断を維持**する。22日までに運用／配備双方の認証、初回基準版、初期化・管理者入力、設定照合が揃うことが必要。20日時点で実値・承認・事前構築枠がない場合、または残作業上限超過／重大指摘時は即再判定する。
+
+月末ラインは維持。26〜27日の保護実証・正式投入に最大12時間、28日の修正・再確認6時間、29日HS受入れ、30日納品判定／予備日を置く推定。自動取得初回READY・通知受信・現行版復元・Auth読戻し・HS本人の受入れを省略しない。Auth実importは従来の未開放範囲であり、今回のProd対応完了と混同しない。HS試用2日と最終受入日は未定。
+
+| 調整目標 | 作業／判定 |
+| --- | --- |
+| 10/14〜15 | 初期化／保護対応の結果レビュー、Dev／CI切替・実行順を確定。PR-03の入力と事前構築実行範囲を確定 |
+| 10/16〜20 | 承認・必要情報が揃えばPR-04を先行、PR-05で認証問題を早期検出。HS試用とLocal改修は並行調整 |
+| 10/21〜22 | 残改修・統合検証。22日に実認証結果と初回基準版を含め23日可否を判定。未実証項目は明示 |
+| 10/23 | PR-06完了目標。事前構築済み部分を再計上・再作成せず、最終配備／管理者／保護設定を確認 |
+| 10/26〜27 | PR-07保護実証・正式投入・管理引継ぎ |
+| 10/28・29・30 | 修正／再確認、HS最終受入れ、納品判定／予備日。月末ライン維持 |
+
+HS試用日・最終受入日は未定。試用を20〜21日まで、最終受入れを29日までに調整する目標は未合意。旧PDFは基盤工程を分割する前の調整案であり、事前構築順序は本ロードマップを優先する。PDFの外部共有は今回行わない。
+
+## 次の実行前に必要な情報・判断
+
+1. Aの既存Billingの実対象・権限・状態、希望project名／IDとURL、GitHubの実repository／owner ID・契約・保護機能、通知先の非公開照合。既決のA先行／組織なし／既存Billing／WIF方針は再決定不要。HS管理者情報は受領済み。
+2. PR-04の作成・課金・IAM／WIF／GitHub設定と、PR-05の保守表示公開を、どの対象・範囲・時期で実行するか。現指示では禁止のため実行しない。長期鍵への変更は自動採用しない。
+3. 作成後の実ID・番号・Web／site・SA／provider・bucket、DB削除保護・APIキー制限の実設定、最小権限の操作別検証。通知・復元・請求移管の未実証は既存手順に残す。
+4. 開発集中枠、HS試用2日と29日までの最終受入れ枠。技術課題または重大指摘の上振れは納品条件を緩めず、発見時に報告する。
+
+追加試験は `test/production-readiness.test.mjs` を `npm test` に組込み。変更分類はapplication-logic＋build-release-deploy、包括7ゲートと対象回帰を選定。実Cloudの試験は選定したLocal検証で代替しない。依存版変更・インストール、外部送信、配備、業務データ変更なし。

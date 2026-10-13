@@ -7,7 +7,7 @@ import { defaultRecovery } from './lib/default-recovery.mjs'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
 import { devPreflight, repositoryPreflight, infrastructureChecks, closedDataRules, DEV_RUNTIME_PATHS } from './lib/default-recovery-preflight.mjs'
 import {admitDev,sanitizeCommand,dispatchDev} from './lib/default-recovery-admission.mjs'
-import { createRequire } from 'node:module'
+import {operatorCredentials} from './lib/operator-credentials.mjs'
 import { readFile } from 'node:fs/promises'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
@@ -21,8 +21,11 @@ export function options(args) {
   const command=args.shift(),allowed=new Set(['initialize','observe','status','preflight','enter','plan','plan-address','plan-intake','apply','resume','publish','reopen','recover-operator','emergency-close','reconcile-emergency'])
   if(!allowed.has(command))throw Error('Unknown fixed recovery command.')
   const o={command},flags=new Set(['apply','worker-stopped','migration','dev-inspect','dev-execute'])
-  const keys=new Set(['project','control','revision','generation','operation','source','site','hosting-provider-version','confirm','baseline','verification','approval','expected-owner','address-operation','address-plan-hash','intake-operation','intake-plan-hash',...flags])
+  const keys=new Set(['project','control','revision','generation','operation','source','site','hosting-provider-version','confirm','baseline','verification','approval','expected-owner','address-operation','address-plan-hash','intake-operation','intake-plan-hash','auth','wif-audience','service-account',...flags])
   while(args.length){const raw=args.shift();if(!raw?.startsWith('--'))throw Error('Unknown argument.');const k=raw.slice(2);if(!keys.has(k)||k in o)throw Error('Unknown or duplicate argument.');o[k]=flags.has(k)?true:args.shift();if(o[k]===undefined||String(o[k]).startsWith('--'))throw Error('Missing argument.')}
+  if(o.auth!==undefined&&o.auth!=='adc')throw Error('Unknown authentication mode.')
+  if(o.auth==='adc'&&(!o['dev-inspect']||o['dev-execute']||!o['wif-audience']||!o['service-account']))throw Error('ADC is restricted to explicit read-only inspection.')
+  if(o.auth!=='adc'&&(o['wif-audience']||o['service-account']))throw Error('Federation identity requires ADC.')
   const dev=o.project==='termite-warranty-dev'
   if(!['demo-termite-warranty','termite-warranty-dev'].includes(o.project)||!o.control||o.control==='(default)'||!/^[a-f0-9]{40}$/.test(o.revision??''))throw Error('Explicit approved project, revision and separate control required.')
   // Read-only flag cannot promote ANY command, including --apply, to Dev writes.
@@ -53,12 +56,10 @@ async function inspectDev(o) {
   if(o['dev-execute']&&local.some(check=>check.status==='blocked'))throw Error('Local release gate blocked.')
   if(o.command!=='observe'&&local.some(check=>check.status==='blocked'))return {mode:'inspect',writesPerformed:false,liveMutationAvailable:false,ready:false,checks:[...local,{id:'cloud-preflight',status:'blocked',reason:'local-gate-blocked'},{id:'functions-release-proof',status:'blocked',reason:'not-implemented'},{id:'hosting-release-proof',status:'blocked',reason:'not-implemented'}]}
   if(process.env.FIRESTORE_EMULATOR_HOST||process.env.FIREBASE_AUTH_EMULATOR_HOST)throw Error('Mixed environment forbidden.')
-  const require=createRequire(import.meta.url),auth=require('firebase-tools/lib/auth.js'),api=require('firebase-tools/lib/api.js'),account=auth.getGlobalDefaultAccount()
-  if(!account?.tokens?.refresh_token)throw Error('Explicit Firebase CLI sign-in required.')
-  const {OAuth2Client}=await import('google-auth-library'),{Firestore}=await import('@google-cloud/firestore')
-  const oauth=new OAuth2Client(api.clientId(),api.clientSecret());oauth.setCredentials({refresh_token:account.tokens.refresh_token})
+  const credentials=await operatorCredentials({mode:o.auth??'firebase-cli',audience:o['wif-audience'],serviceAccount:o['service-account']})
+  const {Firestore}=await import('@google-cloud/firestore')
   const instances=new Map()
-  const database=id=>{if(!instances.has(id))instances.set(id,new Firestore({projectId:o.project,databaseId:id,authClient:oauth}));return instances.get(id)}
+  const database=id=>{if(!instances.has(id))instances.set(id,new Firestore({projectId:o.project,databaseId:id,authClient:credentials.authClient}));return instances.get(id)}
   let verifiedProjectNumber
   const authorizedFetch=async url=>{
     const target=new URL(url)
@@ -69,7 +70,7 @@ async function inspectDev(o) {
     const hosting=o.site&&target.origin==='https://firebasehosting.googleapis.com'&&(target.pathname===`/v1beta1/projects/${o.project}/sites/${o.site}`||new RegExp(`^/v1beta1/sites/${o.site}/(channels/live(/releases)?|versions/[-a-zA-Z0-9]+(/files)?)$`).test(target.pathname))
     const storage=verifiedProjectNumber&&target.origin==='https://storage.googleapis.com'&&new RegExp(`^/storage/v1/b/gcf-v2-(sources|uploads)-${verifiedProjectNumber}-asia-northeast1/o/[^/]+$`).test(target.pathname)&&/^[1-9]\d*$/.test(target.searchParams.get('generation')??'')
     if(target.username||target.password||!(scopedV1||management||functions||run||hosting||storage))throw Error('Unapproved read-only API scope.')
-    const token=await auth.getAccessToken(account.tokens.refresh_token,['https://www.googleapis.com/auth/cloud-platform','https://www.googleapis.com/auth/firebase'])
+    const token=await credentials.credential.getAccessToken()
     const response=await proofFetch(fetch,url,{method:'GET',redirect:'error',headers:{Authorization:`Bearer ${token.access_token}`},signal:AbortSignal.timeout(60000)},'api-read')
     return response
   }
@@ -112,7 +113,7 @@ async function inspectDev(o) {
     }
     if(o['dev-execute']) {
       const admission=()=>admitDev({options:o,repository,request,readDocument:async(id,path)=>{const row=await database(id).doc(path).get();return row.exists?row.data():null},listOperations:async id=>(await database(id).collection('recoveryOperations').limit(1).get()).docs.map(()=>true)})
-      authApp=initializeApp({projectId:o.project,credential:{getAccessToken:async()=>{const value=await oauth.getAccessToken();if(!value.token)throw Error('Explicit credential unavailable.');return {access_token:value.token,expires_in:Math.max(1,Math.floor(((oauth.credentials.expiry_date??Date.now()+60000)-Date.now())/1000))}}}},'fixed-dev-operator')
+      authApp=initializeApp({projectId:o.project,credential:credentials.credential},'fixed-dev-operator')
       const factory=defaultRecovery({database,auth:getAuth(authApp),controlId:o.control,revision:o.revision,verifyDeployment})
       const result=await dispatchDev(o,{factory,admission,verifyClosedRules:()=>closedDataRules({project:o.project,control:o.control,request,expectedRules})})
       return {...sanitizeCommand(result,o.command),localArtifactBuild:Boolean(receipt)}

@@ -4,8 +4,8 @@ import { RecoveryError, ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH } from '../..
 const fail = () => { throw new RecoveryError('Auth recovery requires valid private evidence and current account authority. Inspect privately; no user data is printed.') }
 const email = value => typeof value === 'string' ? value.trim().toLowerCase() : ''
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
-export async function readPrivateAuthObject(meta, request, {requirePinned = false} = {}) {
-  if(meta?.bucket!=='termite-warranty-dev-recovery-auth'||typeof meta.object!=='string'||!meta.object)fail()
+export async function readPrivateAuthObject(meta, request, {requirePinned = false,expectedBucket='termite-warranty-dev-recovery-auth'} = {}) {
+  if(!/^[a-z0-9][a-z0-9.-]{1,220}[a-z0-9]$/.test(expectedBucket)||meta?.bucket!==expectedBucket||typeof meta.object!=='string'||!meta.object)fail()
   const expected=meta.generation
   if(expected!==undefined&&(typeof expected!=='string'||!/^\d+$/.test(expected))||requirePinned&&expected===undefined)fail()
   const base=`https://storage.googleapis.com/storage/v1/b/${meta.bucket}/o/${encodeURIComponent(meta.object)}`

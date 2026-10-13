@@ -1,5 +1,85 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 初期化・管理者・正式投入・復旧のProd入口（2026-10-13）
+
+オーナーがLocal実装・事前検証を追加承認。実Cloudの作成・設定・認証・配備・投入・復旧は今回実行しない。新入口は `scripts/production-operations.mjs`。既存Devのreset／seedや旧動的切替CLIをProdへ開放していない。
+
+- `node scripts/production-operations.mjs plan <非公開要求JSON>`：資格情報・Cloud接続なしで入力を検査する。実行許可や実対象の存在を証明しない。
+- `node scripts/production-operations.mjs inspect <非公開要求JSON>`：将来承認後の読取り専用。observe／preflight／intake-inspect／backups／auth-inspect／scanだけを許可。
+- `node scripts/production-operations.mjs execute <非公開要求JSON> --execute-approved`：将来、対象・操作の別承認後だけ実行。構築の自動実行入口ではない。書込み前に対象と両Rulesを照合。初期化でもDBは事前作成済みが条件。
+
+要求JSON共通項目は `target`（配備用の既存9項目）、`operatorIdentity`（audience、serviceAccount）、`revision`（照合済みcommit）、`command`。運用SAは配備CIのSAと別にし、同じproject内の明示した運用WIF／SAを照合する。実名・権限・WIF経路は未確定で、設定変更はしていない。inspect／executeは実HEAD一致・対象ソースに未コミット差分なし・Emulator混入なしを要求する。秘密や個人情報を含む要求はリポジトリ外の管理済み非公開ファイルで渡し、stdoutへ文書・UID・メール・Auth値を出さない。
+
+| 操作 | 主な追加入力と実行条件 |
+| --- | --- |
+| initialize | operation、approval。両DBが空、または初回の同一protocol2・recovering世代1だけの部分初期化。閉じたmarker→controlの順に初期化し、業務内容があれば拒否 |
+| administrator | generation、operation、approval、administrator（uid／email／role／displayName）。実対象Authに既にある有効UIDとメールを照合し、developer_superuserまたはhouse_solution_administratorを登録。別UIDの同roleや異なる既存profileは上書きしない |
+| intake-inspect／intake-apply | inspectで実像のhashを取得。applyはgeneration、operation、approval、input、today、planHash、inventoryHash、actorUid。確定原資料から既存prepare-historical-intakeの計画を再生成して照合。初回の空業務領域限定で、設定・マスタを含む既存業務データがあれば拒否。Auth／staffAccountsは保持 |
+| plan-intake → publish → reopen | 完了した投入operation・planHashから全件／権限／採番／7準備情報を照合して公開計画を作る。publish／reopenはbundle、digest、providerVersionによる実配備照合が必要。HS読取確認後の別approvalでのみ通常再開 |
+| enter → baseline → restore → restore-status → quarantine → scan → reconcile → verify → plan → apply → publish → reopen | 既存の固定(default)復旧手順。targetDatabaseは別の一時DBのみ。backupまたはsnapshotTimeは一方だけ。復元先Rulesは送信前に別途準備・照合。復元操作、原像hash、保全baseline、検証ID、復旧時点了承を結び付け、業務反映で現在権限・発行済み番号を保つ |
+| configure-backups／backups | 閉鎖・収束状態で日次30日／PITRを設定する入口。backupsは設定読戻しpolicyVerifiedと新鮮なREADY像のfirestoreBackupStatusを別表示。API受付を取得・復元成功とは扱わない |
+| auth-inspect | 明示bucketが同じproject numberに属し、非公開・統一アクセス・Auth30日削除条件を満たすことを確認。固定generationのhash設定とAuth退避を読取り、現在権限との整合を検査。実Auth import／既存UID作り直しは開放しない |
+
+`generation`・`operation`・`approval`はすべての変更（initializeのgenerationを除く）で明示。restore-statusも私有journalを更新するためexecute。管理者・投入の再開は元worker停止後に `resumeOwner` と `workerStopped:true` を指定し、同じ操作／入力を保持。復旧applyの再開はresume、固定公開の途中回復はrecover-operator（配備照合3項目も必須）。baseline／一時DBのquarantine・reconcile・verifyで中断したworkerはrecovery-worker-resumeで元worker停止を明示し、対象一時DBと必要なら元回復owner／回復worker停止も照合する。production用の管理者／復元／設定ロックをこの汎用回復で解除しない。復元POST前に排他とsubmitting記録を同時保存し、応答不明でも再POSTしない。記録と一致するrestore-statusで終端を確認してから排他解除する。バックアップ設定の途中不明・失敗は排他を残し、実設定の非公開照合と個別の回復判断が必要。ロックを自動削除して続行しない。
+
+初期管理者のAuthアカウント自体は、承認済みB4／B6の実作業で作成・本人／回復経路を確認してからbindする。今回の入口はパスワード生成・設定メール送信・既存Auth変更をしない。初回投入は空業務領域を前提とするため、会社情報・請求先などの業務設定を先に手作業で投入しない。原資料・採番と取込計画を照合する。会社情報・請求先等は既存画面で設定できるが、投入・設定・HS受入れの具体的な実行順序は最終レビューで確定する。先行設定や既存データが必要な場合は上書き許可へ変更せず、取込順序を見直す。
+
+バックアップ自動処理には配備bundleから `TERMITE_PRODUCTION_PROJECT_NUMBER` を渡し、別projectのbucketへの退避を拒否する。bucket／IAM／hash設定の登録、失敗通知先、初回取得と非公開readback、現行版の復元互換性、ログイン・メール・HS受入れは実環境の別工程。初回READY時刻は確約しない。今回はCloud操作・メール送信・実データ処理なし。
+
+## 通常アプリ配備の実装済み手順（Local検証のみ）
+
+2026-10-13後続実装。実Cloud／GitHub設定・実行は未承認。下の「未実装」は棚卸し時点の記録。現在の実装と残件は[専用ロードマップ](../roadmaps/production-readiness.md)を優先する。
+
+1. 別承認後、基盤・WIF・保守表示を先行構成して初回基準版を照合する。空DBの作成や初期化を通常CIへ任せない。管理者・protocol2初期化は別手順が残る。
+2. Repository variablesへ `PRODUCTION_TARGET_JSON`（既存9項目）、`PRODUCTION_RECOVERY_PARAMETERS_JSON`（下記4項目）、`PRODUCTION_PROVIDER_VERSION`（照合済み同一siteの過去版）を、実対象との照合後に設定する。verify jobはenvironment外なので必要値をenvironment variablesだけに置かない。production environment、ブランチ／レビュー保護、WIF条件は実契約で確認する。実値は今回未設定。
+3. 保護用4項目は `RECOVERY_BACKUP_AUTOMATION`（文字列true／false）、`RECOVERY_AUTH_BACKUP_BUCKET`、`RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE`、`RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE`。全キー必須、trueなら他3値も必須。暗黙に無効設定へ戻さず、保護実証後の変更は実値を照合して行う。秘密・Auth hash本体は入れない。
+4. 初期化と受入条件を満たし、旧Dev切替・同時手動配備の停止を確認してから、別承認で `PRODUCTION_APP_DEPLOY_ENABLED=true` を設定する。通常CIはmain pushで全7ゲートに成功した同じrevisionからProd成果物を生成。build job出力のdigestを別jobへ渡し、artifact自身から期待digestを採用しない。
+5. `check-production-release.mjs local .production-release` → `stage .production-release` はローカル検査・新規 `.production-deploy` 生成のみ。WIF認証後の `predeploy .production-release` はGETのみで2DBの存在／東京／Native、project番号、site／Web、初回基準版FINALIZEDを確認する。DB未作成時は拒否。Firebase CLIが未作成DBを自動作成する経路へ入らないための事前条件。
+6. workflowの配備段階だけがCloud書込み。`.production-deploy/firebase.json` でFunctions・Hosting・両DB Rules／索引を配備し、再buildしない。再認証後の `cloud .production-release` は原本を期待値に読取照合する。5項目passまで配備確認済みとしない。protocol2／管理者／保護／業務受入れは別gate。
+
+通常workflowの実Actions実行、実WIF token更新、最小権限・Cloud配備、公開画面・メールの検証は未実施。read-only入口も本タスクではCloudへ実行していない。失敗した配備は部分反映の可能性があるため自動再試行せず、停止・保全・復旧の判断を行う。未承認時のfallbackはenable未設定のままLocal準備を保つ。
+
+2026-10-13追加指示：[Prod事前構築ロードマップ](../roadmaps/production-readiness.md)を現行工程とする。Local認証・初回照合処理へ着手し、基盤作成／WIF実証／保守表示の初回公開は、別途実行承認後に23日前へ先行させる計画。今回実Cloud操作なし。以下の実装未着手は前工程時点の記録。既存B/H/Cの完了条件は不変。
+
+## 現行：実ファイル棚卸し後の構築判断（2026-10-13）
+
+オーナーが10月末納品ライン維持を指定し、棚卸しと具体手順の作成を指示した。[実ファイル別の棚卸し・認証／初回配備／検証手順・工数](../design/production-readiness-inventory-2026-10-13.md)を今回の準備計画とする。実装・構築は開始していない。10月23日の構築は条件付きで狙うが未確約、10月30日を月末納品の作業上の最終判定日とする。HS試用日・最終受入日は未合意。
+
+事前対応は28〜40時間、HS試用支援・小修正4時間を合わせ32〜44時間の推定。10/14〜22の7営業日×集中6時間＝42時間で、上限は2時間超える。認証／正式照合とCIを先行し、HS試用を並行調整する。23日構築は別に6〜8時間、26〜27日は保護実証・正式投入、28日は修正、29日はHS最終確認、30日は納品判定／予備日。Cloud待ちや重大指摘は別途再判定する。15日・20日・22日の確認条件と、期限維持のために省略しないgateは上記棚卸しを参照する。
+
+旧11/4〜13の順次試算は現行日程として採用しない。既存のB/H/C完了条件、承認境界、WIF採用条件は維持。初回Cloud初期化入口、独自preflightの認証、Hosting初回基準版が追加で確認できた不足であり、対象IDの置換だけで完成とはしない。以下の前回整理は背景資料として読む。
+
+## 2026-10-13 事前準備の切分けと日程評価
+
+オーナー依頼により、準備の手順・優先順位と納品までの日程を整理した。今回は文書・既存スケジュールPDFの更新のみ。下表の改修・構築・配備・データ更新・GitHub設定変更は開始していない。HS試験日は同日の本人回答で未定。10月23日の構築目標は維持するが、達成可能と確認できた日付ではない。[現行日程案と見積り前提](../../deliverables/production-schedule-2026-10-05/README.md)を参照する。
+
+### 実環境の新規作成を待たずに準備できること（実行は着手指示後）
+
+| 優先 | 手順・対応工程 | 成果物／終了条件 | 今は確定できないこと |
+| --- | --- | --- | --- |
+| 1 | A1／A2：画面・Functions・診断・復旧／移行／初期投入CLIのDev固定箇所を棚卸し。設定入力と禁止対象を整理 | 変更箇所、許可条件、Local／Dev維持、未知・未設定Prod拒否、試験ケースの一覧 | Prod実ID・番号・Web設定・公開先 |
+| 2 | A3／A4：dev→Dev、受入済みPRのmain統合→Prodの配備手順、旧workflow停止順、同時配備防止、差戻しを設計。人・CI・実行主体を分離 | WIFの信頼条件と必要操作、環境別の設定一覧、誤配備拒否の検証計画。実repository／所有者IDとGitHub契約は読取確認の対象 | 実ProdのWIF登録・IAM付与、実契約での保護機能の利用可否、非対話配備成功 |
+| 3 | A2〜A4：承認後に設定を分離して改修し、未設定のProd経路を閉じたままLocalで検証 | アプリ・運用CLI・配備定義の整合、Local／Devの回帰、対象外拒否。架空IDは試験専用 | 実Prodの認証・API・索引・配備結果。コードの検証だけでProd対応完了とはしない |
+| 4 | A5：初期投入・検索派生値整備・復旧・保護開始・正式配備照合を一連の手順にする | 投入前条件、採番と設定保全、準備印の公開条件、成功証拠、失敗時の停止／差戻しをレビュー。包括検証と必要な分離試験 | 実環境でのバックアップ初回成功、通知受信、復元互換性、HSの業務受入れ |
+
+現在の実ファイルでは `functions/local-runtime.js` と `app/plugins/firebase.client.ts` がLocal／Devを限定し、`.github/workflows/deploy-development.yml` はmain push時に検証、手動dispatch時だけDev配備を行う。既存のサービスアカウント秘密を使う方式であり、計画上のProd／WIFへの切替は未実装。これらは2026-10-13のローカル読取結果で、GitHub実設定の再検査ではない。
+
+### 情報が揃ってから進めること（順序と停止条件）
+
+1. **既存情報の照合（A1／A3／A4）**：Aの本人認証・回復手段、既存請求先ID／権限／有効状態、repository／所有者の実識別子・GitHub契約、希望する公開名／独自ドメイン、通知先を確認。新Prod作成前から照合できる。秘密値は文書に記載しない。方針を再質問せず、不明な実値だけ確認する。
+2. **実Prod作成と設定（B1〜B4）**：対象と範囲の実行承認後、組織なしで作成、既存請求先を関連付ける。実ID／project number、Web App ID、Hosting、API、DB、実行主体を記録し、設定へ反映。削除保護・APIキー制限等の未決設定を確定し、変更で失効した検証を再実行する。
+3. **認証・配備の実証（B5／B6）**：実識別子でWIF／IAM／GitHub保護を構成。非対話で初回配備し、別ジョブで再認証・読取照合、許可外条件の拒否を確認。両DBのRules、索引READY、Functionsソース、Hosting成果物、ログイン・メール・診断を照合する。認証だけ成功しても構築完了とはしない。
+4. **提供前の保護・正式データ（B7／C1／C2）**：バックアップ／PITR／Auth退避／通知を設定し、初回実取得・非公開読戻し・通知到達・復元互換性を実証。HS試験中のDev状態をコピーせず、確定原資料・設定・採番から本番投入し全件照合。順序は保護の開始条件と正式データ確定状況に従う。
+5. **HS引継ぎ・納品判定（H1〜H3／C3／C4）**：HSの受入アカウント・回復担当・請求先・日程が揃ってから権限と請求管理を引き継ぎ、業務受入れと社長の開始了承を記録。引継ぎ未完了なら、残範囲・担当・期限・暫定運用可否をHS／オーナーが明示判断する。未検証の請求切替を完了扱いにしない。
+
+GitHubの保護機能は契約・公開範囲に依存するため、実契約が不適合なら代替または契約変更の判断が必要。WIFはGitHubのOIDCから短期認証を得る方式だが、当該Firebase配備経路での成功はB5で実証する。[GitHub公式](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)、[Google Cloud公式](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)を2026-10-13確認。
+
+### 10月23日の判定と見積りの更新
+
+優先1・2の棚卸し／設計を先行し、HS試用・指摘修正と同一開発担当の改修時間を二重計上しない。10月22日までにA1〜A5・実値照合・必要な実行承認が揃った場合だけ、23日の構築を実行候補にする。HS試用完了は空の基盤構築そのものの絶対条件にはせず、正式データ・業務利用の条件と分ける。未充足なら23日は到達状況を報告し、B工程を延期する。所定の検証を省いて日付だけを守らない。
+
+日程は開発担当1名の暫定見積り。棚卸し／設計2作業日、HS試験2日（開発支援を確保）、指摘修正3〜5作業日、Prod対応改修・事前検証4〜6作業日、構築1〜2作業日、保護実証・本番投入照合2〜3作業日、HS最終確認・引渡し1〜2作業日を順に確保する。工程の粒度から置いた計画用の幅であり、実測工数ではない。大きな保存形式変更、WIF・請求移管・復元の問題、情報／HS日程待ちは別途延長要因。最初の棚卸し後、HS指摘確定後、実Prod設定確定後に再見積りする。今回の整理による全体納品進捗の加点はない。
+
 ## 2026-10-23の到達点（2026-10-13採用）
 
 オーナーがGOVERNANCE-MANAGER（タスク `01a1015f-0477-7ad3-8b3c-ef77242b4dcf`）で、2026年10月23日（日本時間）は環境構築まで、業務利用開始は後日と指定し、以下の段階別計画を採用した。WIFは通常配備に人による都度認証操作を必要としないことを条件に採用。全工程は未実施であり、日付到来・手順書更新を構築完了とは扱わない。

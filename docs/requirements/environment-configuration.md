@@ -1,5 +1,11 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-13運用対応：Prodの運用CLIでは `operatorIdentity` のaudience／serviceAccountを配備targetとは別に明示する。運用SAとCI配備SAの同一指定を拒否。実WIF／IAMは未設定で、操作別の最小権限はCloud実証事項。通常配備bundleは `TERMITE_PRODUCTION_PROJECT_NUMBER` をFunctionsへ渡し、Auth退避bucketの所属projectを照合する。初期管理者は照合済み既存Auth UIDに結び付け、権限・メール不一致を拒否する。[実手順](../runbooks/production-bootstrap-review.md)。
+
+2026-10-13後続実装：画面buildは `TERMITE_DEPLOYMENT_ENVIRONMENT=production`、`TERMITE_PRODUCTION_PROJECT`、`TERMITE_PRODUCTION_APP_ID` を要求し、Hostingのproject／appId／messagingSenderIdを照合する。Functionsもproduction指定と実行先projectの一致、Emulator設定なしを必須とする。未設定時のDev／Localは維持。通常Prod CIは明示enable・実target・保護設定・過去基準版が必要で未有効化。設定手順は[Prod手順](../runbooks/production-bootstrap-review.md)、実証の境界は[運用記録](../operations.md)。実Prod IDを仮定した許可は追加していない。
+
+2026-10-13追加：認証・初回公開照合のLocal準備を[事前構築ロードマップ](../roadmaps/production-readiness.md)で管理。実Prod識別子・権限・WIFは未設定／未実証。Dev照合の読取操作に明示的ADCを追加し、Prodの初回保守表示専用の読取入口を実装。対象JSONは実値確定まで作らず、配備先を仮定しない。
+
 ## 2026-10-13 全件読取り削減の追加導入
 
 Devソース0dd655c2d670ddddfb18403aa23dfb8c0db76270、公開版sites/termite-warranty-dev/versions/e90487f9ea2b4646を正式照合。必要22索引READY、Functions21、Hosting1,005ファイル一致。normal世代13を維持し、insuranceNoticeQueries.version=1と442物件の検索用2項目を追加、その他の業務値は保持。初期投入・復旧では専用投影と準備印を一体で照合し、未準備時に全件取得へ戻さない。[実行・受入記録](../operations.md)。Prodへの設定・実行は未実施。

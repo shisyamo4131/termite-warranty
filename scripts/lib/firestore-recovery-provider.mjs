@@ -1,13 +1,14 @@
 import { databaseId, RecoveryError } from '../../src/domain/recovery.mjs'
+import {validateProductionTarget} from './production-deployment-plan.mjs'
 
-export function firestoreRecoveryProvider({ projectId, request, now = () => Date.now() }) {
-  if (projectId !== 'termite-warranty-dev') throw new RecoveryError('Only the inspected Dev project is supported; production setup is pending.')
+export function firestoreRecoveryProvider({ projectId, request, now = () => Date.now(), productionTarget }) {
+  if (productionTarget ? validateProductionTarget(productionTarget).project!==projectId : projectId !== 'termite-warranty-dev') throw new RecoveryError('An explicit inspected project is required.')
   const root = `projects/${projectId}`
   const resource = id => `${root}/databases/${databaseId(id)}`
   const api = (path, method = 'GET', body) => request(`https://firestore.googleapis.com/v1/${path}`, method, body)
   const list = async (path, key) => {
-    const rows = []; let pageToken
-    do { const result = await api(path + (pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : '')); rows.push(...(result[key] ?? [])); pageToken = result.nextPageToken } while (pageToken)
+    const rows = [], seen=new Set(); let pageToken
+    do { const result = await api(path + (pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : '')); if(result[key]!==undefined&&!Array.isArray(result[key]))throw new RecoveryError('Invalid listing.');rows.push(...(result[key] ?? [])); pageToken = result.nextPageToken;if(rows.length>10000||seen.size>=100||pageToken&&(typeof pageToken!=='string'||seen.has(pageToken)))throw new RecoveryError('Listing budget exceeded.');if(pageToken)seen.add(pageToken) } while (pageToken)
     return rows
   }
   return {
@@ -24,6 +25,7 @@ export function firestoreRecoveryProvider({ projectId, request, now = () => Date
       return { configured: true }
     },
     async restore({ source, target, backup, snapshotTime }) {
+      if(productionTarget&&(source!=='(default)'||target===productionTarget.control))throw new RecoveryError('Production restore scope mismatch.')
       if (source === target || target === '(default)') throw new RecoveryError('Restoration requires a new named database.')
       databaseId(target)
       // Do not retry POST after an unknown outcome. Inspect the new target and LRO.

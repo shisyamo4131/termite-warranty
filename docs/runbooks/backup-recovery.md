@@ -1,5 +1,11 @@
 # バックアップ・全体復旧の操作手順
 
+## Prodへの運用入口追加（2026-10-13、Localのみ）
+
+[Prod手順](production-bootstrap-review.md)のproduction-operations入口に、固定(default)復旧の保全／一時復元／検証／完全同期／HS読取確認／別了承再開を接続。配備CIと別の明示運用WIF、実project／DB、commit、操作・承認記録を必須とする。既存の実障害通知による自動着手承認はDev限定のままで、Prodへの実行権限へ拡張しない。
+
+日次30日・PITRの設定と読戻し、同一projectの非公開Auth bucket／hash証拠の読取りに対応。通常Prod関数もbucketのproject numberを照合する。Authの実importは従来どおり利用不可。設定実施・初回READY・通知受信・復元・ログイン確認は未実施。復元送信の応答不明は排他とjournalを保持し、同じPOSTを再送しない。設定途中の不明状態は個別照合・回復判断が必要。
+
 ## 2026-10-12 報告済み保険の月別検索との互換性
 
 HSC-042の新しい検索用項目・準備印は[月別取得設計](../design/monthly-queries.md#2026-10-12-実装設計と導入手順)に従う。`prototypeSettings/insuranceReportQueries.version=1` の復元像では、全物件の追加2項目を正本から再計算して一致を検査し、不一致なら公開しない。準備印がない旧像は、その不足だけで全体復旧を拒否せず、報告済みを含める新検索を未準備として止める。version=0も新検索を閉じた状態であり、準備完了とは扱わない。

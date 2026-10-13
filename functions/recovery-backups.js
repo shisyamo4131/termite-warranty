@@ -52,7 +52,9 @@ export async function exportPrivateAuthSnapshot(control, { force = false, auth =
   try {
   const bucket = storage.bucket(bucketName.value())
   const [metadata] = await bucket.getMetadata(), [policy] = await bucket.iam.getPolicy()
-  assertPrivateAuthBucket(metadata, policy)
+  const production=process.env.TERMITE_DEPLOYMENT_ENVIRONMENT==='production'
+  if(production&&!process.env.TERMITE_PRODUCTION_PROJECT_NUMBER)throw new Error('Production backup project number is required.')
+  assertPrivateAuthBucket(metadata, policy,production?process.env.TERMITE_PRODUCTION_PROJECT_NUMBER:undefined)
   const users = []; let pageToken
   do {
     const page = await auth.listUsers(1000, pageToken)

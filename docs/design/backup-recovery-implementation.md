@@ -1,5 +1,11 @@
 # Backup and Recovery Implementation
 
+## Prod運用のLocal実装（2026-10-13後続）
+
+明示target／別運用WIF／commitを検査するproduction-operationsを追加。既存固定(default) controller／providerを再利用し、復元先を業務(default)・controlから分離。復元journalは送信前にownerと排他を原子的に保存し、結果不明の再送を拒否、照合済みLRO終端で解除する。日次30日／PITR・Auth読戻し・bucket project一致を追加。実Auth import制限、復旧時点了承と再開了承の分離は維持。Cloud実証は未実施。
+
+Prod初回管理者の非公開記録 `productionAdministrators/<role>` はinput（UID・メール・表示名・role）、generation、operation、approval、binding／complete状態を持つ。公開レスポンスには出さず、曖昧なAuth／Firestore結果ではexact-owner排他を維持する。初回投入の `_recovery/historicalIntake.initialOnly=true` は空業務領域の初回入力と再開を識別し、別operationの再投入／既存業務像の削除を拒否する。保存業務schemaの変更ではなく、運用記録の追加。詳細と未実証範囲は[Prod手順](../runbooks/production-bootstrap-review.md)。
+
 ## 2026-10-10 初期過去物件取込みの公開接続
 
 初期取込みのDev業務データ初期化は、障害復元と別の承認済み作業。専用処理の完了記録と全件像・アカウント不変を照合する`plan-intake`を追加した。`defaultRecoveryPlans`にkind:historical-intake、publicationOnly:true、intakeOperationId、intakePlanHash、intakeReceiptHashと完了像のhashを保持し、汎用apply/resumeによる再書込みを拒否する。初期化対象の架空データ採番を復元時の保全上限として持ち込まず、確認済み既存保証番号と欠番に対応する新投入採番を公開検証の上限とする。

@@ -16,3 +16,9 @@ ui-debug.log
 
 /tmp/
 /*.local.log
+
+# Short-lived GitHub WIF credentials
+gha-creds-*.json
+
+/.production-release/
+/.production-deploy/

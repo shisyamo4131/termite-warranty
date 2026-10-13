@@ -1,5 +1,90 @@
 # Operations
 
+## 2026-10-13 初期化・正式投入・復旧／バックアップのProd対応（Local）
+
+オーナーが「進捗が進むなら実行」と指示し、初期化・管理者・正式投入と復旧／バックアップの実装・事前検証を承認。主checkoutのHEADは `f71c9cd388355a0aca1c97dc149fe1deb683c233`。既存未コミット差分を保持して追加、commit／pushなし。実Cloudの読取・認証・設定・構築・配備・投入・復元、メール送信なし。常用Localは停止・初期化せず、試験専用Emulatorのみ使用。
+
+実装したファイル：`scripts/production-operations.mjs`、`scripts/lib/production-operations.mjs`、`scripts/lib/production-bootstrap-data.mjs`、`scripts/lib/historical-intake-execution.mjs`、`scripts/lib/default-recovery.mjs`、`scripts/lib/firestore-recovery-provider.mjs`、`scripts/lib/auth-recovery.mjs`、`scripts/lib/production-release-bundle.mjs`、`src/domain/backup-health.mjs`、`functions/recovery-backups.js`。試験は `test/production-operations.test.mjs`、`test/emulator/historical-intake.test.mjs`、`package.json`。
+
+動作は[Prod手順](runbooks/production-bootstrap-review.md)に集約。planは無効な資格情報でも完全オフラインで動き、inspect／executeはモード・実target・独立した運用WIF／SA・正確なcommit・クリーンな対象ソースを検査。初期化は空／同じ閉鎖世代の部分状態のみ。管理者は照合済み既存Auth UIDに登録し、Auth新規作成・メール送信はしない。正式投入は初回空業務像だけ、既存データは削除しない。初期投入の再開、全件・権限・採番・検索準備の照合と既存公開経路を接続した。
+
+固定(default)復旧の実装を再利用。別一時DB・復旧時点了承・現在権限／採番保全、公開前の配備照合、別HS再開了承を維持。結果不明の復元POSTを再送せず、journal／排他と実LROを照合して回復する。バックアップ設定は日次30日・PITR、読取りは設定とREADY像を別表示。Auth退避は同一project bucket・非公開／30日・固定hash証拠を照合する。実Auth importの未開放は維持。バックアップ設定の不明結果の排他は自動解除せず、非公開照合と個別回復が必要。
+
+| 選定ゲート／実コマンド | 最終結果 | exit |
+| --- | --- | --- |
+| `npm test` | 452成功、既存2skip、失敗0（454試験） | 0 |
+| `npm run typecheck` | 型検査成功 | 0 |
+| `npm run build` | 通常Dev設定のSPA生成成功・配備なし | 0 |
+| `npm run test:rules` | 隔離Emulator 201成功、emulatorsStopped=true、366489ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functions／生成domain構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | seed構文成功 | 0 |
+
+`node --test test/production-operations.test.mjs` は追加8試験成功・exit0。配備CIと同じSA／異なる対象・未知オプション・承認情報不足・mode不一致の拒否、無資格情報plan、別bucket拒否、復元応答不明時の再送拒否と終端回復を検証。Emulator追加2試験は部分初期化、既存データ拒否、管理者登録の中断／wrong-owner拒否／同一Auth保持、初回442件投入の中断再開・削除0・別operationの再投入拒否・全件照合。既存固定復旧／投入公開・HS別了承再開の回帰も通過。架空レコード・番号は停止済み試験Emulator内に限定し、Devの442件・採番や常用Localを触っていない。
+
+ログはignored `tmp/prod-operations-{unit,rules,typecheck,build,functions}.log`。通常試験は450成功・2skipから追加試験後に452成功・2skipへ更新。試験失敗なし。通常試験とEmulatorは直列。後段は新Prod operatorの読取り・運用SA／回復ガード、その単体試験と文書だけで、Emulator／型／build／Functions構文の失効対象に差分なし。最終通常試験は後段コードに対して実行済み。
+
+分類はdocumentation-only＋application-logic＋data-contract-schema-migration（private運用記録）＋build-release-deploy、包括7ゲート。governance-check・最終差分／リンク検査の結果は完了報告へ記録。必須Localゲートの省略なし。実WIF／IAM・Actions／配備・バックアップ初回取得／通知受信／現行版復元／本人ログインとHS受入れは未実施で、Local試験を代替証拠にしない。未コミット差分があるため、実行CLIのclean checkout gateを満たした実Cloud経路は通していない。
+
+文書反映：Prod手順、バックアップ手順／設計、過去物件投入手順、環境仕様、専用／全体roadmap、棚卸し現状案内、docs索引、changelog、本記録。追加したprivate運用記録はbackup-recovery-implementationに記載。業務データ形式・製品要件・ADRの既決方針・一般利用者操作は不変で、仕様本体／業務data-contract／利用者マニュアル・ADR更新なし。依存版・governance・実権限設定の変更なし。差戻しは新入口を未使用にし、接続差分とbucket検査追加を戻す。Cloudデータ移行・巻戻しは発生しない。
+
+残作業と推定：最終CI／設定・入力・実行順レビュー4〜6時間、HS試用支援4時間、別承認後の基盤事前構築・認証／初回基準版実証3〜4時間で22日まで11〜14時間。23日最終配備・確認3〜4時間は別枠。会社情報・請求先の設定を含む正式投入の順序、管理者Authの実UID、運用SA／WIF、bucket／hash／通知・権限の実値は最終レビューで照合する。HS2日試用・29日受入れは未合意。22日までの実条件成立を前提に23日構築・月末納品ライン維持。全体進捗0%・納品gateは変更なし。
+
+
+## 2026-10-13 通常Prod配備CI・接続のLocal実装（PR-02）
+
+オーナーの後続実装指示に基づき、通常アプリ配備のworkflowとProd接続を追加。実Cloud構築・API読取・認証・配備、GitHub設定、有効化、Dev反映は未実施。開始HEAD `f71c9cd388355a0aca1c97dc149fe1deb683c233` の主checkoutに既存差分を保持して追加。commit／pushなし。前節PR-01の残件表示は当時の状態で、現状は[専用roadmap](roadmaps/production-readiness.md)。
+
+実装ファイル：`.github/workflows/deploy-production.yml`、`functions/deployment-target.js`、`functions/local-runtime.js`、`app/plugins/firebase.client.ts`、`nuxt.config.ts`、`scripts/check-production-deployment.mjs`、`scripts/check-production-release.mjs`、`scripts/prepare-production-release.mjs`、`scripts/production-workflow-contract.mjs`、`scripts/lib/production-release-bundle.mjs`、`scripts/lib/production-release-inspection.mjs`、`scripts/lib/default-recovery-release-proof.mjs`、`test/production-application.test.mjs`、`test/default-recovery-release-proof.test.mjs`、`package.json`、`.gitignore`。既存Dev workflowは変更していない。
+
+確認した動作：明示Prodの画面／Functions対象一致、未知・Dev混入・Emulator混入拒否、資格情報のない検証job、7ゲートの順序、同一revisionの成果物をbuild job由来digestで検査、配備コピーと照合原本の分離、2DB／site／基準版の事前GET検査、再認証後の5項目照合、バックアップ4設定の暗黙初期化防止。基盤検査はinstalled firebase-toolsの `lib/deploy/firestore/prepare.js` がDB不在時に作成へ進む実装を確認して追加した。Cloud副作用を許可する操作を今回実行したものではない。
+
+| 選定ゲート／実コマンド | 最終結果 | exit |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 生成物・検証方針整合、7ゲート確認 | 0 |
+| `npm test` | 444成功、既存2skip、失敗0（446試験） | 0 |
+| `npm run typecheck` | 型検査成功 | 0 |
+| `npm run build` | 通常Dev設定のSPA生成成功 | 0 |
+| `npm run test:rules` | 隔離Emulator 199成功、emulatorsStopped=true、351525ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functions／生成domain構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | seed構文成功 | 0 |
+
+追加検証 `node --test test/production-application.test.mjs test/default-recovery-release-proof.test.mjs` は23成功・exit0。架空Prod（fictional-prod、架空Web ID、a×40のrevision）の `node node_modules/nuxt/bin/nuxt.mjs generate` はexit0、生成HTMLのProd設定とbuildIdを検査し、同じ架空設定でFunctions sourceをimportして21exportsを確認するNode検査もexit0。関数呼出し・Cloudアクセスなし。その後 `npm run build` を再実行して通常Dev設定へ戻した。実Prodブラウザのログイン／メール成功の証拠ではない。
+
+失敗履歴：新規Cloud Run環境照合の試験fixtureがservice／revisionで同じ配列を共有し、初回通常試験442成功・1失敗・2skip・exit1。fixtureの配列共有を解消し、最終444成功・2skip・exit0。証拠を緩める変更はしていない。通常試験とEmulatorは直列実行。ログはignored `tmp/prod-app-{unit,rules,typecheck,build,fictional-build}.log`。
+
+分類はdocumentation-only＋application-logic＋build-release-deploy、包括7ゲートを選定。governance-checkはexit0、`git diff --check` はexit0（改行変換予告のみ）。Prod入口／helper 8ファイルの `node --check` も各exit0。Emulator終了前後の後段変更はProd専用workflow／bundleコピー／読取ガード／その通常試験と文書だけで、型・画面build・Functions・Rules結合の失効対象には変更なし。通常試験は後段変更後に再実行。Cloud／GitHub実行は未承認で未実施。clean checkoutを必須とする正式成果物生成CLIの全経路は、未コミット差分を残した現在のcheckoutでは通していない。純粋bundle／改変拒否・実Nuxt架空Prod build・既存fresh-build試験を分けて確認したもので、実Actionsの代替にはならない。
+
+影響文書：環境仕様、Prod手順、専用／全体roadmap、棚卸しの現状案内、docs索引、changelog、本記録。製品要件・保存契約・ADRのA先行／WIF方針は不変で、仕様本体・data-contract・ADR更新不要。業務UIの操作変更がないため利用者手順は変更なし。依存版・governance・権限設定の変更なし。既存PDFは旧調整案として保持し、現在の工程・工数はroadmapが正本。
+
+残件は初期化／管理者／投入のProd限定入口、復旧・保護のProd対応、Dev分離とCI切替、実値と保護設定、実WIF・最小権限・Cloud配備照合、HS日程と業務受入れ。22日まで19〜26時間、23日最終配備3〜4時間の推定へ更新。月末納品条件・進捗0%は維持。次の実環境操作は別承認が必要で、Local実装を実行許可として扱わない。
+
+
+## 2026-10-13 Prod事前構築のLocal準備（PR-01）
+
+オーナーが基盤事前構築を考慮したロードマップと最優先の実装・事前検証を承認。[現行ロードマップ](roadmaps/production-readiness.md)に、別承認後の基盤先行作成・WIF実証・保守表示公開と23日のアプリ配備を分離した。実Cloudの構築・設定・配備・認証試行は未実施。開始HEAD `f71c9cd388355a0aca1c97dc149fe1deb683c233` の未コミット差分に対する検証。
+
+実装変更：`scripts/lib/operator-credentials.mjs`、`scripts/default-recovery.mjs`、`scripts/lib/production-deployment-plan.mjs`、`scripts/check-production-deployment.mjs`、`scripts/lib/production-bootstrap-hosting.mjs`、`scripts/prepare-production-bootstrap.mjs`、`scripts/inspect-production-bootstrap.mjs`、`test/production-readiness.test.mjs`、`package.json`（試験追加）、`.gitignore`、`docs/runbooks/production-bootstrap.workflow.yml.template`（非有効）。既存workflow、画面、Functions、Rules、依存版・governanceは変更なし。
+
+短期token更新・期限不備拒否、別provider／SA／project拒否、ADCからDev書込みへの昇格拒否、許可ref／repo／owner・成果物版の照合、初回保守成果物の上書き拒否、公開設定・全ファイル・版の安定性、未知ファイル／hash不一致／ページ循環の拒否、GET限定・公開先へのBearer非送信を架空値で検証。非有効workflowの7ゲート・認証分離・同一版artifact・空site確認・Hosting限定も確認。Cloud権限・実WIF・Admin SDK互換性・Actions実行の成功証拠ではない。
+
+| 選定ゲート／実コマンド | 最終結果 | exit |
+| --- | --- | --- |
+| `npm test` | 436成功、既存Windows symlink制約2skip、失敗0 | 0 |
+| `npm run typecheck` | 型検査成功 | 0 |
+| `npm run build` | SPA生成成功（配備なし） | 0 |
+| `npm run test:rules` | 隔離Emulator 199成功、emulatorsStopped=true、362321ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functions／生成domain構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | seed構文成功 | 0 |
+
+分類はapplication-logic＋build-release-deployで包括7ゲート。残るgovernance-checkと差分・リンク検査は最終報告へ記録。後段変更は新規CIガード／初回Hosting入口／試験／非有効テンプレート／文書のみで、型・アプリbuild・Functions構文・seed・Rules結合の失効対象は変更なし。通常試験は追加試験後の最終状態で再実行。Cloud照合は外部配備未承認のため未実施。
+
+失敗記録：最初の対象試験は追加モジュールの閉じ括弧不足でexit1、修正後45成功・exit0。通常試験初回はsandboxのEPERM等で9失敗・3skip・exit1、通常権限で432成功・2skip・exit0。その後の追加試験再実行をEmulatorと重ね、共有stageロックで既存2試験が拒否されexit1。ロックは削除せずEmulator終了後に直列再実行し、最終436成功・2skip・exit0。今後通常試験とEmulator試験はstage利用のため直列実行する。ログはignored `tmp/prod-readiness-{unit,rules,typecheck,build}.log`。
+
+文書は専用／全体roadmap、棚卸し、Prod手順、環境／納品資料、索引、changelogを整合。初回基準版方式は既存の保守表示先行案の範囲で具体化。製品要件・保存契約・ADRの所有／認証方針・governanceは不変。既存PDFは前工程の調整版として保持し、現行の工程分割と工数は専用roadmapを正本とする。前ターンのPDF／文書差分を保持。commit／pushなし。
+
+残件：PR-02通常配備CI・Prodアプリ／全復旧照合への統合、実識別子とGitHub保護、実WIF・最小権限、PR-04以降の実行承認、HS日程。Local成果をProd構築完了や納品進捗へ加点しない。
+
+
 ## 2026-10-13 全件読取り削減のDev導入（開発側受入れ済み）
 
 オーナーがDev反映→受入れ検証を明示承認。完了後にAstra／MediumでPM（白蟻）-11へ交代し現在値・残作業を報告する。本件について、以下の過去記録の「Dev反映禁止／指示待ち」を本承認で更新する。対象は満了案内、保証グループ、本支店／CSV、旧取得終了と、それらの配備ソースに含む先行保証延長申込日改修。月別対象全体取得は維持、工務店アカウント一覧は後発のまま。Prod・IAM・Auth変更・pushは対象外。

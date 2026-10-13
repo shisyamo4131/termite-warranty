@@ -1,3 +1,9 @@
+import { hostedTarget } from './functions/deployment-target.js'
+const target = hostedTarget({
+  environment: process.env.TERMITE_DEPLOYMENT_ENVIRONMENT || 'development',
+  project: process.env.TERMITE_PRODUCTION_PROJECT || 'termite-warranty-dev',
+  appId: process.env.TERMITE_PRODUCTION_APP_ID || '',
+})
 const recoveryReleaseRevision = process.env.RECOVERY_RELEASE_REVISION
 if (recoveryReleaseRevision !== undefined && !/^[a-f0-9]{40}$/.test(recoveryReleaseRevision)) {
   throw new Error('Invalid recovery release revision.')
@@ -20,6 +26,9 @@ export default defineNuxtConfig({
     public: {
       firebaseProjectId: 'demo-termite-warranty',
       firebaseDevProjectId: 'termite-warranty-dev',
+      firebaseDeploymentEnvironment: target.environment,
+      firebaseHostedProjectId: target.project,
+      firebaseHostedAppId: target.appId,
       firebaseFunctionsRegion: 'asia-northeast1',
     },
   },

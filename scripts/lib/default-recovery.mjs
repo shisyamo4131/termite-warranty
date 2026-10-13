@@ -93,7 +93,7 @@ export function difference(expected,current) {
   return changes.sort((a,b)=>a.kind!==b.kind?(a.kind==='delete'?-1:1):a.kind==='delete'?b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path):a.path.split('/').length-b.path.split('/').length||a.path.localeCompare(b.path))
 }
 
-export function defaultRecovery({database,auth,controlId,revision,verifyDeployment,afterCommit=async()=>{},afterSealItem=async()=>{},afterPublish=async()=>{},afterTransition=async()=>{}}) {
+export function defaultRecovery({database,auth,controlId,revision,verifyDeployment,productionTarget,afterCommit=async()=>{},afterSealItem=async()=>{},afterPublish=async()=>{},afterTransition=async()=>{}}) {
   databaseId(controlId)
   if(controlId==='(default)'||!/^[a-f0-9]{40}$/.test(revision))deny()
   const target=database('(default)'),control=database(controlId),runtime=control.doc(RUNTIME_PATH),marker=target.doc(ACCESS_PATH),lock=control.doc('recovery/operatorLock'),guard=target.doc('_recovery/apply')
@@ -144,7 +144,7 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
     if(plan.kind==='historical-intake') {
       if(!plan.publicationOnly||plan.source!=='(default)'||plan.authoritySource!=='(default)'||plan.target!=='(default)'||plan.controlId!==controlId||plan.revision!==revision||plan.migration!==false||plan.total!==0)deny()
       const {verifyCompletedHistoricalIntake}=await import('./historical-intake-execution.mjs')
-      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:plan.intakeOperationId,generation:plan.generation,planHash:plan.intakePlanHash})
+      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:plan.intakeOperationId,generation:plan.generation,planHash:plan.intakePlanHash,productionTarget})
       if(evidence.receiptHash!==plan.intakeReceiptHash||imageHash(evidence.image)!==plan.expectedHash||evidence.authorizationHash!==plan.authorizationHash||digest(typed(evidence.highWater))!==digest(typed(plan.highWater)))deny()
       return
     }
@@ -245,7 +245,7 @@ export function defaultRecovery({database,auth,controlId,revision,verifyDeployme
       ids(id,approval);ids(intakeOperationId);if(!approval||!/^[a-f0-9]{64}$/.test(intakePlanHash??''))deny()
       const state=fixedRuntimeState(await stopped(generation)),ref=planRef(id),owner=randomUUID()
       const {verifyCompletedHistoricalIntake}=await import('./historical-intake-execution.mjs')
-      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:intakeOperationId,generation,planHash:intakePlanHash}),hash=imageHash(evidence.image)
+      const evidence=await verifyCompletedHistoricalIntake(target,control,auth,{operationId:intakeOperationId,generation,planHash:intakePlanHash,productionTarget}),hash=imageHash(evidence.image)
       const plan={status:'sealing',kind:'historical-intake',publicationOnly:true,source:'(default)',authoritySource:'(default)',target:'(default)',controlId,generation,revision,approval,migration:false,intakeOperationId,intakePlanHash,intakeReceiptHash:evidence.receiptHash,authorizationHash:evidence.authorizationHash,highWater:evidence.highWater,sourceHash:hash,beforeHash:hash,expectedHash:hash,count:evidence.image.size,total:0,owner,createdAt:new Date()}
       await control.runTransaction(async tx=>{
         const [current,held,prior,ops,exporting]=await Promise.all([tx.get(runtime),tx.get(lock),tx.get(ref),tx.get(control.collection('recoveryOperations').limit(1)),tx.get(control.doc('recovery/authExportLock'))])

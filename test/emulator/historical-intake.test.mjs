@@ -10,11 +10,32 @@ import {defaultRecovery} from '../../scripts/lib/default-recovery.mjs'
 import {LOCAL_RUNTIME,localRuntimeHost} from '../helpers/emulator-runtime.mjs'
 import {documentImage} from '../../scripts/lib/default-recovery.mjs'
 import {captureIntakeSettings} from '../../scripts/lib/historical-intake-settings.mjs'
+import {initializeProductionData,bindProductionAdministrator} from '../../scripts/lib/production-bootstrap-data.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty-test'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
 after(()=>deleteApp(app))
 const state={protocol:2,generation:21,phase:'recovering',databaseId:'(default)',controlDatabaseId:'test-historical-control'}
 const today='2026-10-10',input=historicalFixture(),planHash=prepareHistoricalIntake(input,{today}).planDigest
+test('empty Prod bootstrap semantics: partial initial state resumes closed, existing business refuses and admin binding retains Auth',async()=>{
+  for(const store of [db,control])for(const col of await store.listCollections())await store.recursiveDelete(col)
+  const database=id=>id==='(default)'?db:control,controlId=control.databaseId,factory=defaultRecovery({database,auth,controlId,revision:'a'.repeat(40)})
+  const initial={protocol:2,phase:'recovering',generation:1,databaseId:'(default)',controlDatabaseId:controlId}
+  await db.doc('_recovery/access').create(initial)
+  assert.equal((await initializeProductionData({database,controlId,factory})).initialized,true)
+  assert.equal((await initializeProductionData({database,controlId,factory})).generation,1)
+  const user=await auth.createUser({email:'bootstrap-fictional@example.invalid',password:'fictional-password'})
+  const args={database,auth,controlId,generation:1,operation:'fictional-admin-bind',approval:'fictional-approval',input:{uid:user.uid,email:user.email,role:'developer_superuser',displayName:'架空管理者'}}
+  let reads=0
+  await assert.rejects(()=>bindProductionAdministrator({...args,auth:{getUser:async uid=>{if(++reads===2)throw Error('unknown response');return auth.getUser(uid)}}}))
+  const owner=(await control.doc('recovery/operatorLock').get()).data().owner
+  await assert.rejects(()=>bindProductionAdministrator({...args,resumeOwner:'wrong-owner',workerStopped:true}))
+  assert.equal((await bindProductionAdministrator({...args,resumeOwner:owner,workerStopped:true})).authCreated,false)
+  assert.equal((await db.doc('staffAccounts/'+user.uid).get()).data().role,'developer_superuser')
+  assert.equal((await auth.getUser(user.uid)).email,user.email)
+  assert.equal((await control.doc('recovery/runtime').get()).data().phase,'recovering')
+  await assert.rejects(()=>initializeProductionData({database,controlId,factory}))
+  await auth.deleteUser(user.uid)
+})
 async function fixture(){
   for(const store of [db,control])for(const col of await store.listCollections())await store.recursiveDelete(col)
   let page;do{page=await auth.listUsers(1000);if(page.users.length)await auth.deleteUsers(page.users.map(u=>u.uid))}while(page.users.length)
@@ -26,6 +47,22 @@ async function fixture(){
   const inventory=await inspectHistoricalTarget(db,control,auth)
   return {today,planHash,inventoryHash:inventory.inventoryHash,generation:21,operationId:'fictional-intake-01',actorUid:'intake-developer'}
 }
+test('Prod initial-only intake refuses populated business before locking and resumes exact first import without deletion',async()=>{
+  const options=await fixture()
+  await assert.rejects(()=>executeHistoricalIntake(db,control,auth,input,{...options,initialOnly:true}))
+  assert.equal((await control.doc('recovery/operatorLock').get()).exists,false)
+  assert.equal((await db.doc('propertyWarranties/old-fixture').get()).exists,true)
+  await db.doc('warrantyGroups/old-fixture').delete();await db.doc('propertyWarranties/old-fixture').delete()
+  options.inventoryHash=(await inspectHistoricalTarget(db,control,auth)).inventoryHash
+  await assert.rejects(()=>executeHistoricalIntake(db,control,auth,input,{...options,initialOnly:true,afterCommit:async kind=>{if(kind==='journal')throw Error('interrupted')}}))
+  const owner=(await control.doc('recovery/operatorLock').get()).data().owner
+  await executeHistoricalIntake(db,control,auth,input,{...options,initialOnly:true,resumeOwner:owner,previousWorkerEnded:true})
+  const receipt=(await db.doc('_recovery/historicalIntake').get()).data()
+  assert.equal(receipt.initialOnly,true);assert.equal(receipt.deleted,0);assert.equal(receipt.status,'complete')
+  await verifyCompletedHistoricalIntake(db,control,auth,{operationId:options.operationId,generation:options.generation,planHash})
+  await assert.rejects(()=>executeHistoricalIntake(db,control,auth,input,{...options,operationId:'different-operation',initialOnly:true}))
+  assert.equal((await db.collection('propertyWarranties').get()).size,442)
+})
 test('442 records: reset, import, idempotent rerun, reimport and guarded read-only/normal publication',async()=>{
   const options=await fixture(),before=await inspectHistoricalTarget(db,control,auth)
   const result=await executeHistoricalIntake(db,control,auth,input,options)

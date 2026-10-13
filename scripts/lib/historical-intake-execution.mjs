@@ -6,20 +6,25 @@ import {documentImage,imageHash,typed} from './default-recovery.mjs'
 import {authorizationDigest,inspectBusinessIntegrity} from './recovery-controller.mjs'
 import {fixedRuntimeState,sameFixedEpoch} from '../../src/domain/fixed-recovery.mjs'
 import {captureIntakeSettings,intakeSettingsHash,restoreIntakeSettings} from './historical-intake-settings.mjs'
+import {validateProductionTarget} from './production-deployment-plan.mjs'
 
 const protectedRoots=new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'])
 const hash=value=>intakeHash(typed(value))
 const deny=()=>{throw Error('HISTORICAL_INTAKE_REFUSED: inspect private evidence; maintenance is retained')}
 const accounts=image=>new Map([...image].filter(([path])=>protectedRoots.has(path.split('/')[0])))
 const business=image=>new Map([...image].filter(([path])=>!protectedRoots.has(path.split('/')[0])))
-function target(db,control){if(db.projectId!==control.projectId||(!['termite-warranty-dev','demo-termite-warranty'].includes(db.projectId)&&!(db.projectId===TEST_RUNTIME.projectId&&isIsolatedTestEnvironment()))||db.databaseId!=='(default)'||control.databaseId==='(default)')deny()}
+function target(db,control,productionTarget){
+  const production=productionTarget?validateProductionTarget(productionTarget):null
+  if(production&&(db.projectId!==production.project||control.databaseId!==production.control))deny()
+  if(db.projectId!==control.projectId||(!production&&!['termite-warranty-dev','demo-termite-warranty'].includes(db.projectId)&&!(db.projectId===TEST_RUNTIME.projectId&&isIsolatedTestEnvironment()))||db.databaseId!=='(default)'||control.databaseId==='(default)')deny()
+}
 function noPortal(image){if([...image.keys()].some(p=>['constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'].includes(p.split('/')[0])))deny()}
 function closed(raw,access,control,generation){const state=fixedRuntimeState(raw);if(state.phase!=='recovering'||state.generation!==generation||state.controlDatabaseId!==control.databaseId||!sameFixedEpoch(state,fixedRuntimeState(access)))deny()}
 function prepared(input,today,planHash){const plan=prepareHistoricalIntake(input,{today});if(plan.summary.errors.length||plan.planDigest!==planHash)deny();return plan}
 
 // No network writes: exact document image includes orphan/unknown-root detection.
-export async function inspectHistoricalTarget(db,control,auth) {
-  target(db,control)
+export async function inspectHistoricalTarget(db,control,auth,productionTarget) {
+  target(db,control,productionTarget)
   const image=await documentImage(db);noPortal(image)
   const counts={};for(const path of business(image).keys()){const root=path.split('/')[0];counts[root]=(counts[root]??0)+1}
   return {deleteCount:business(image).size,deleteCounts:counts,retainedDocuments:accounts(image).size,inventoryHash:imageHash(image),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),cloudWrites:false}
@@ -40,8 +45,8 @@ function materialized(plan,journal) {
   return restoreIntakeSettings(documents,plan.preservedSettings)
 }
 
-export async function verifyCompletedHistoricalIntake(db,control,auth,{operationId,generation,planHash}) {
-  target(db,control)
+export async function verifyCompletedHistoricalIntake(db,control,auth,{operationId,generation,planHash,productionTarget}) {
+  target(db,control,productionTarget)
   const receipt=(await db.doc('_recovery/historicalIntake').get()).data()
   if(receipt?.status!=='complete'||receipt.operationId!==operationId||receipt.generation!==generation||receipt.planHash!==planHash)deny()
   const image=await documentImage(db)
@@ -55,10 +60,12 @@ export async function verifyCompletedHistoricalIntake(db,control,auth,{operation
 // Each chunk and its progress marker commit in the SAME database transaction.
 // A failed/unknown response retains the exclusive owner; explicit stopped-worker
 // acknowledgement and the exact prior owner are required to resume.
-export async function executeHistoricalIntake(db,control,auth,input,{today,planHash,inventoryHash,generation,operationId,actorUid,resumeOwner,previousWorkerEnded=false,afterCommit=async()=>{}}={}) {
-  target(db,control)
+export async function executeHistoricalIntake(db,control,auth,input,{today,planHash,inventoryHash,generation,operationId,actorUid,resumeOwner,previousWorkerEnded=false,afterCommit=async()=>{},productionTarget,initialOnly=false}={}) {
+  target(db,control,productionTarget)
+  if(productionTarget&&!initialOnly)deny()
   if(!Number.isSafeInteger(generation)||generation<1||!/^[-\w]{8,80}$/.test(operationId??'')||!/^[-\w]{1,128}$/.test(actorUid??'')||!/^[a-f0-9]{64}$/.test(inventoryHash??''))deny()
   const plan=prepared(input,today,planHash),lock=control.doc('recovery/operatorLock'),runtime=control.doc('recovery/runtime'),marker=db.doc('_recovery/access'),receipt=db.doc('_recovery/historicalIntake'),owner=randomUUID()
+  if(initialOnly){const prior=(await receipt.get()).data();if(prior?(prior.operationId!==operationId||prior.initialOnly!==true):business(await documentImage(db)).size>0)deny()}
   const inspectClosed=async()=>{
     closed((await runtime.get()).data(),(await marker.get()).data(),control,generation)
     if((await control.collection('recoveryOperations').limit(1).get()).size||(await control.doc('recovery/authExportLock').get()).exists)deny()
@@ -81,9 +88,11 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
     await afterCommit('lock')
     let journal=(await receipt.get()).data()
     if(journal?.operationId===operationId) {
+      if(initialOnly&&journal.initialOnly!==true)deny()
       if(journal.planHash!==planHash||journal.inventoryHash!==inventoryHash||journal.generation!==generation||journal.actorUid!==actorUid||journal.today!==today||journal.settingsHash!==intakeSettingsHash(plan.preservedSettings))deny()
     }else {
       const image=await documentImage(db);noPortal(image)
+      if(initialOnly&&(business(image).size||journal))deny()
       if(imageHash(image)!==inventoryHash)deny()
       if(intakeSettingsHash(captureIntakeSettings(image))!==intakeSettingsHash(plan.preservedSettings))deny()
       const actor=(await db.doc('staffAccounts/'+actorUid).get()).data()
@@ -91,6 +100,7 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
       const deleteManifest=[...business(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))
       if(Buffer.byteLength(JSON.stringify(deleteManifest))>512*1024)deny()
       const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt:Timestamp.now()}
+      if(initialOnly)initial.initialOnly=true
       await db.runTransaction(async tx=>{await guard(tx);tx.set(receipt,initial)});journal=initial
       await afterCommit('journal')
     }

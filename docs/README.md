@@ -1,5 +1,9 @@
 # Documentation Map
 
+現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加指示で認証・通常配備CI・Prod接続に加え、初期化・管理者・初回投入・復旧／バックアップのLocal実装・事前検証を実施。実Cloudの構築・配備は未実施。以下の「実装未着手」は前工程の記録。
+
+- [Prod対応棚卸し・具体手順](design/production-readiness-inventory-2026-10-13.md)：環境判定・独自CLI認証・初回初期化／Hosting照合・復旧・CIの対応箇所、棚卸し時点の推定と10月23日構築の条件。現在の実装状態・残工数11〜14時間は上記roadmapを参照。実Cloud構築は未実施。
+
 2026-10-13現在：承認済みの全件読取り削減と保証延長申込日改修はDev反映・開発側受入れ済み。保険検索用2項目を442物件へ整備し、それ以外の業務値・番号は不変。以下の本件に関するDev禁止・指示待ち・未反映は各工程実施時点の記録であり、現在の状態はこの記載を優先する。HSの業務受入れとは区別する。月別対象全体取得の現状維持と工務店アカウント一覧の後発対応は変更なし。[検証・導入記録](operations.md)。
 
 - [満了案内・物件検索の旧取得経路整理](design/legacy-property-list-retirement.md)：旧条件の拒否、工務店・本支店の所属付き候補取得を採用。L1〜L5工程と、その他旧取得整理の追加O1〜O4工程（O1〜O3 Local受入れ済み）。対象全体の取得は現状維持。Dev反映禁止。
@@ -41,7 +45,7 @@
 
 - [UH運用ルール確認フォーム・6問の文面](../deliverables/hs-uh-questions-2026-10-07/README.md)：2026-10-07のオーナー指定範囲。追加の不足事項は後発。編集用リンクと公開／送信状態を記録。
 
-- [HS共有用・10月末本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：10月9日の再計画（データ投入→HS試験2日→修正・再試験→Prod構築直前確認）。旧PDFは履歴として区別。
+- [HS共有用・本番稼働の目標スケジュール](../deliverables/production-schedule-2026-10-05/README.md)：10月13日棚卸し後改訂。HS試験とProd準備を並行調整し、23日構築・30日納品判定を目指す条件付き計画。HS日程未合意。旧11月順次試算は現行計画ではない。
 
 - [Project governance index](../governance/README.md): project-specific governance, approval boundaries, and document routing.
 - [Current specification](specification.md): authoritative summary of confirmed requirements and open decisions.
