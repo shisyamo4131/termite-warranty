@@ -1,5 +1,21 @@
 # Dev／Prod 環境設定・権限仕様
 
+## 2026-10-13 Prod空基盤の実作成
+
+オーナーがDevと同じ本人環境でのProd土台作成、下記名・ID、Firebase標準URL、Blazeと既存「Firebase のお支払い」への関連付けを承認。Chromeの実Firebaseコンソールで作成結果を確認した。請求先を後日切替可能であることは着手上の前提であり、移管実証ではない。個人メール・請求アカウントID・APIキーは記録しない。
+
+| 項目 | 実確認結果 |
+| --- | --- |
+| project | `TermiteWarranty Prod` / `termite-warranty-prod` |
+| project number / Web app | `988295873733` / `1:988295873733:web:bdb85668f28779d8f51cac` |
+| Hosting site | `termite-warranty-prod` をWeb登録時に選択。アプリ配備・初回保守公開は未実施 |
+| 業務DB / 制御DB | `(default)` / `recovery-control`、両方Standard、`asia-northeast1`。作成後に空DBの準備完了表示を確認 |
+| 初期Rules | 両DBとも本番環境モードの全クライアントread/write拒否。アプリ用Rules・索引・protocol2初期化は未導入 |
+| Authentication | 明示承認後、メール／パスワードのみ有効を読戻し。メールリンクは無効のまま。ユーザー・アプリ権限は未作成 |
+| 保護 | オーナー回答「DBだけ作成し、保護設定は後で行う」により日次backup・PITRは有効化しない。正式提供前の保護要件は維持 |
+
+Gemini・Analyticsは追加せず、新規予算設定も未実施。組織なしは採用済み方針だが親組織の実読戻しは未了。Storage bucketはSDK構成文字列だけでは存在確認としない。SA／WIF／IAM、APIキー制限、削除保護、必要APIの網羅照合、Auth domain／メール送達、保守基準版は残る。target全9項目が未成立のため実行用JSONはまだ作成しない。以下の過去節の「実Cloud未実施／実ID未確定」は本節の範囲で更新する。[実行記録](../operations.md#2026-10-13-prod空基盤の先行作成)。
+
 ## 2026-10-13 CI切替準備・実入力の現在地
 
 Local workflowにDevのmain／dev切替条件と排他を追加。DEVELOPMENT_BRANCH_DEPLOY_ENABLED=trueでdevだけへ切替、Prod有効時は旧main→Dev手動経路も閉鎖。GitHub設定・実配備なし。実入力項目・担当・取得元・照合条件と会社情報設定順は[Prod手順](../runbooks/production-bootstrap-review.md#ci切替と実行順の最終レビュー2026-10-13)へ集約。後の設定対照表にある旧実装状況は当時の記録。実現場のrole・ID・保護機能の確認を完了とは扱わない。

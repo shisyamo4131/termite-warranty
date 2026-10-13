@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-13 Prod空基盤の先行作成
+
+根拠はタスク `01a133e7-092f-71f0-b5e7-43a8b7833ab9` の同日オーナー指示と個別回答。Devと同じ本人Firebase環境で空のProdを先行作成する承認、名／ID・標準URL、Blaze／既存請求先、メール／パスワード認証の承認を得た。日次backup／PITRは「DBだけ作成し、保護設定は後で行う」と明示されたため有効化しない。課金・保護設定の自動承認レビュー停止後、Blazeは追加承認で実行、保護設定は撤回して空DBのみ作成した。
+
+ChromeのFirebaseコンソールでproject作成完了、Blaze変更成功、Web登録、各DBの準備完了・東京表示、メール／パスワードの有効表示を確認。詳細は[実環境仕様](requirements/environment-configuration.md#2026-10-13-prod空基盤の実作成)。各DB作成画面でStandard・本番環境モードの全クライアント拒否、backup未選択を確認した。DBへの書込み試験・アプリRulesの実配備確認ではない。業務データ・Authユーザー・アプリ権限を作成せず、Dev・GitHub設定・CI実行・通常アプリ配備は変更していない。
+
+検証分類は実基盤構築／権限設定と記録文書。包括7ゲートを選定。ソース基準 `397b5423b84df168c8ed7c69aeb33d89fb726dd3` に対する直下の6ゲート成功（domain-test、app-typecheck、app-build、firestore-rules-test、functions-syntax、seed-syntax、各exit 0）は、今回ソース／依存／実行環境を変更せずpolicyのinvalidatedByに該当しないため再利用する。Local証拠はCloud動作保証に転用しない。今回の `pwsh -NoProfile -File scripts/check-governance.ps1` は整合成功・exit 0、`git diff --check` もexit 0。証拠追記後に同じ2確認を再実行する。Cloud操作結果は上記画面読戻しで確認、WIF・配備・ログイン・保護実証は未実行。
+
+仕様・データ契約・ADRの既存提供条件は変更しない。実作成許可と保護開始の延期を環境仕様・runbook・両roadmap・changelogへ反映。日付／作業枠変更の根拠がないためPDF据え置き。失敗時は空基盤を保持し無承認の削除・再作成をしない。次は実IAM／WIFの具体権限確認と認証実証であり、土台全体・提供の完了を宣言しない。
+
 ## 2026-10-13 CI分離・切替準備と運用手順の最終レビュー
 
 オーナーが先行commit／pushとLocalのCI分離・手順レビュー・実入力チェックリスト整備を許可。既存51ファイルを `1bc5f0fc46b816bc2066e56a7da6f46fa90bd9b4` に確定し、主作業ディレクトリの `codex/production-readiness` にpushした。直後の作業ツリー空を確認。main/devへ統合せず、Cloud構築・配備・GitHub設定・workflow実行の操作は行っていない。Git操作は通常sandboxでbranch作成が失敗後、許可済み昇格で成功。データや作業差分の削除はない。

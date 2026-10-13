@@ -1,5 +1,13 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 空基盤作成後の再開点（2026-10-13）
+
+オーナーが空のProd基盤を先行作成する方針へ変更し、プロジェクト名・ID、Blaze／既存請求先、メール／パスワード認証を個別承認。実値・作成済み範囲は[環境仕様](../requirements/environment-configuration.md#2026-10-13-prod空基盤の実作成)を正本とする。2DBは東京・全クライアント拒否・空。日次backup／PITRは本人指示で後回しにした。Dev変更、業務データ投入、アプリ配備、GitHub設定変更は実行していない。
+
+次は親組織・Web／Hosting詳細・Auth domain・必要APIを読み戻し、配備SAと運用SAの分離、WIFのrepo／ref制限と具体roleを確定する。権限の付与は対象と内容を提示して実行時に承認を得る。実target全9項目の一致後に短期認証を実証し、初回保守表示・Rules／索引・閉鎖初期化へ進む。今回の「土台作成」を通常アプリ配備や一般利用開始の承認へ拡張しない。
+
+バックアップ・PITR・Auth退避・通知は提供前の必須条件として残し、有効化する時点で課金範囲を再確認する。失敗時は作成済み空基盤を保持し、削除・再作成・Dev転用をしない。以下はそれ以前のLocal準備記録であり、現在の実行済み範囲は本節を優先する。
+
 ## CI切替と実行順の最終レビュー（2026-10-13）
 
 Local準備のみ。GitHub設定・実Cloud操作・配備は未実施。既存準備は `1bc5f0fc46b816bc2066e56a7da6f46fa90bd9b4` として同じ主作業ディレクトリの `codex/production-readiness` に確定し、同名remote branchへpush済み。main/devへ統合していない。以降の現在地は[roadmap](../roadmaps/production-readiness.md)を参照。
