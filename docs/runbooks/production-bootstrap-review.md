@@ -1,5 +1,55 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 公開準備・統合レビュー・運用権限案（2026-10-13）
+
+本節は準備・レビュー結果と未承認案。公開、main統合、GitHub変数設定、IAM付与、DB／Auth操作は今回実施しない。実行前の本人確認を維持する。[レビュー用成果物](../../deliverables/production-bootstrap-2026-10-13/README.md)に静的HTML・配信設定・期待hash・検証済みtargetを保存した。
+
+### 初回保守公開の具体手順
+
+1. 対象は `termite-warranty-prod`／同名Hosting site、表示は「準備中／現在は業務利用できません。」だけ。管理API GETでlive channelはHTTP 200・releaseなしを確認。公開前に再取得し、既存release／target変更／別配備があれば停止する。
+2. 既存 `production-bootstrap.workflow.yml.template` は非稼働であり、`.github/workflows` 未設置。本人承認を得てレビュー済みソースと設置先をmainへPR統合する。通常アプリのenableはfalse相当のまま。保守公開のenableは対象commitを明示して別途了承を得る。push起動のため、単にenableして次の不特定pushを待つ運用にしない。
+3. 包括7ゲート成功後に同SHAのHTMLを生成し、artifactを受け渡す。検証済みtargetからsiteを束縛し、`google-github-actions/auth@v3`→明示WIF ADC→空site検査を実行する。前回のREST probe成功だけではこのライブラリ／CLI経路の成功を保証しない。ここが失敗したら公開せず診断する。
+4. 承認済みの同一対象へ `firebase deploy --non-interactive --project termite-warranty-prod --config bootstrap-artifact/firebase.json --only hosting` のみ実行。Functions／Rules／DB／Auth操作を含めない。既存配備SAのHosting権限を使用し、新規role追加を前提にしない。
+5. 再認証後 `inspect-production-bootstrap.mjs` でlive版・3ファイル・hash・配信設定・Web構成を照合。公開HTMLの取得／表示も確認し、provider versionを次のアプリ配備入力へ記録する。初回公開前なので公開後照合は未実施。
+6. 旧公開版がないため自動rollback先もない。結果不明ならlive状態を照会し、無条件の再配備／Hosting停止／削除をしない。停止・差替えが必要なら具体操作を別確認する。通常アプリの初回配備時は、この保守版が戻し先になる。
+
+### 通常アプリの統合レビュー
+
+基準：主checkout HEAD `55ff33b57a490a0da6ad2cf38db94c858a722cea`、取得済みorigin/main `e5b9cb1605bba18deecdde534730186ed94925a1`。差分542ファイル・39,089追加・2,968削除。app 76、src 44、functions 19、scripts 76、test 73、docs 178等。単なるProd設定追加ではなく、既存のDev導入済み機能・データ契約・運用手順を含む。
+
+`git merge-tree --write-tree --no-messages HEAD origin/main` はexit 0、tree `691ad5f3bf21c829c6c07fae58a70cfd1ce8e1d6`。そのtreeとHEADのdiffは空で、既存認証修正は保持される。ブランチ／index／作業ツリーのマージは未実行。競合なしは全業務差分の受入れ完了ではない。
+
+| 確認対象 | レビュー結果と統合条件 |
+| --- | --- |
+| Dev回帰・CI | PR必須check名を保持。Dev切替変数未設定ではmain pushは配備しない。main手動の旧Dev経路は残るため切替時に明示管理。144組の条件試験を含むfocused回帰成功 |
+| Prod通常CI | enable未設定ならverify／deployともskip。artifact digestとSHAを束縛し、同一bundleを配備／照合。main統合と配備有効化を分ける |
+| 初回配備前提 | 保守版provider version、2DB、Web app／site一致を要求。新規環境用パラメータ・運用認証・管理者入力は別確認。初回バックアップ延期中はautomation=falseで準備し、提供前に別承認で有効化 |
+| Functions主体 | `setGlobalOptions` はregionのみで専用serviceAccountを固定していない。既定主体へ無条件に権限を渡さない。実行SA・build SA・サービスエージェントを区別し、実値と必要操作を確認してから配備許可 |
+| データ／復旧 | 空領域初期化・管理者紐付けはRules照合と閉鎖状態を要求。旧Dev専用変換／実Auth importをProdへ転用しない。正式投入後の設定順を維持 |
+| レビュー範囲 | 起動条件・認証境界・成果物・初回構築順・統合競合を確認。542ファイル全行の再レビュー、main統合候補の包括CI、HS業務受入れは未完了。既存Dev受入証拠を関連差分へ対応付け、残るProd差分を重点確認してPR判定する |
+
+### 運用権限案（付与していない）
+
+運用SA `prod-operator@termite-warranty-prod.iam.gserviceaccount.com` のSA bindingは空を再確認。配備SAからの流用はしない。専用pool `github-production-operations`／provider `github`、GitHub environment `production-operations` は**提案名・未作成**。同じrepository／owner不変ID、main、workflow_dispatch、immutable subjectの当該environment、`workflow_ref`の専用運用workflowに条件を限定する案。配備poolを再利用すると同poolのrepository属性bindingを介した相互接続を招くため、poolとSA bindingを分離する。workflowの内容・入力検査・本人承認の記録方法を確定してから作成する。
+
+| 段階／主体 | 具体的な権限候補と対象 | 制限・残確認 |
+| --- | --- | --- |
+| 運用の読取先行 | project metadata `firebase.projects.get`／`resourcemanager.projects.get`、2DBのmetadataとentities.get/list、Rules releases.get／rulesets.get、`firebaseauth.users.get`、API利用 | 初回はread-only probeだけ。実Authの本文は出力せず件数・一致判定のみ。カスタムrole適用可否と最小権限は作成前に確認 |
+| 初期化・管理者・投入 | `roles/datastore.user`を(default)／recovery-controlに条件付きで限定する候補、`roles/firebaseauth.viewer`、`roles/firebaserules.viewer`、API利用 | datastore.userは削除も含むため追加承認で権限内容を明示。Authユーザー作成は含まない。管理者は既存UID紐付けのみ。DB条件付きIAMの実証前に無条件へ緩めない |
+| 提供前バックアップ設定 | backupSchedules.get/list/create、datastore.databases.getMetadata/update、backups.get/listの限定custom role候補 | updateはPITR専用権限ではないためCLIのupdateMask制限と承認が必要。既定backupSchedulesAdminは削除／更新も含み今回必要範囲より広い。課金開始を別確認 |
+| 復元時だけ | `roles/datastore.restoreAdmin`、PITRには別途`roles/datastore.cloneAdmin`、操作get/list、限定した復元DBのdata権限 | restoreAdminだけではclone不可。DB新規作成を含む。復旧点・一時DB名と実行承認後だけ。DB削除・backup削除・Auth importは付与／実行しない |
+| 配備後照合 | Functions get/list、Run services/revisions get、Hosting／Rules／索引read、所属するgcfソースbucketのobject get | 配備SA／運用SAの照合経路に必要。ソースbucket名・世代が作成されてから対象限定。storage.adminを包括付与しない |
+| 通常配備SA | Hosting既存role、Rules配備、datastore.indexAdmin、Cloud Functions配備権限、対象実行／build SAだけのiam.serviceAccountUser候補 | HTTP callableのIAM設定、Scheduler、API有効化、Cloud Build／Artifact Registry／サービスエージェント初期化を実CLIと照合。Owner／Editorを解決策にしない。role最終集合は未確定 |
+| Functions実行SA | 業務・制御DBのdatastore.user、Auth管理、ログ。backupMonitorには読取backup権限と指定Auth退避bucketのobject権限を追加検討 | 専用SA案を具体化する。配備SAや運用SAを実行主体にしない。Auth exportには機密情報が含まれ、bucketの世代／保持／非公開確認が必要 |
+
+role定義は同日 `gcloud iam roles describe` で確認。API操作との対応は[Firestore IAM](https://firebase.google.com/docs/firestore/security/iam)、[Firebase配備権限](https://firebase.google.com/docs/projects/iam/permissions)、[WIF pipeline](https://docs.cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)参照。これは付与済み・権限十分の証明ではない。現段階で一括IAM変更を承認対象にしない。
+
+### 残工数と判定
+
+22日までの残作業を**12〜18時間（推定）**へ更新：初回保守公開の統合・実経路確認・公開照合2〜3、通常アプリの統合レビュー／CI2〜4、運用／実行主体と権限・読取実証3〜5、初期管理者等の入力照合1〜2、HS試用支援4。旧8〜10時間から4〜8時間増。認証REST実証は終了したが、SDK／CLI経路・main全差分・実行SA／運用workflowの残件を明示したため。大幅修正・外部待ちは含まない。
+
+10/14〜22の42時間確保という仮定では余力24〜30時間。23日構築3〜4時間は別枠で、22日までに上記と初回基準版が揃う場合に限り可能と判断。26〜27日の保護／正式投入12時間枠、28日修正6時間、29日HS受入れ、30日納品判定を維持。HS日程・請求移管・初回取得待ちは未確定。工数と現在地が変わったため既存PDFを更新し、納期や受入条件を緩めない。
+
 ## main保護適用後の認証確認（2026-10-13）
 
 オーナーの追加承認に基づき、以下の4ファイル限定PRとmain保護を適用。診断・識別子訂正も限定PRとして必須CI成功後に通常mergeした。GitHubの実OIDC設定はimmutable subjectであり、旧形式を想定していた初期条件を訂正した。現在のsubjectは `repo:shisyamo4131@72244713/termite-warranty@1363463339:environment:production`。repo／owner ID・main・production・event制限は維持する。GitHubの設定を旧形式へ変更しない。[結果と実行証拠](../operations.md#2026-10-13-認証識別子の訂正)、[実設定](../requirements/environment-configuration.md)。

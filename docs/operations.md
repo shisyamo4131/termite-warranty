@@ -1,5 +1,19 @@
 # Operations
 
+## 2026-10-13 初回保守公開の準備・統合レビュー・権限案
+
+オーナーの継続指示により準備・読取り・レビューだけを実施。開始HEAD `55ff33b57a490a0da6ad2cf38db94c858a722cea`、作業ツリーclean。公開／IAM付与／GitHub設定変更／main merge／業務データ操作はなし。配備SAの既存認証を使ったGETでliveはHTTP 200・releaseなしを確認。運用SAのbindingは空。role定義と公式資料を照合し、[段階別権限案・手順・残件](runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)へ集約した。提案を実設定や権限十分の証拠と混同しない。
+
+最新origin/mainをfetchして、542ファイル差分の起動条件・認証／配備境界・初期化順を重点確認。`git merge-tree --write-tree --no-messages HEAD origin/main` はsandboxでGit object書込み権限によりexit 1、通常権限で再実行exit 0。仮想treeとHEADの `git diff --name-only` は空・exit 0。作業ブランチ／indexの統合はなし。全業務差分の再レビュー・統合候補CI・HS受入れは未完了と明記。
+
+成果物は `deliverables/production-bootstrap-2026-10-13/` のREADME.md、target.json、artifact/firebase.json、artifact/expected.json、artifact/public/index.html。既存生成器で作成し、HTMLの完全一致・Hosting期待hash・target schemaを検証（exit 0）。実公開前のライブラリ／Firebase CLI認証と公開後照合は未実施。旧版なしの停止手順を明記し、静的成果物の準備を公開成功と数えない。
+
+検証：`node --test test/production-readiness.test.mjs test/production-release.test.mjs test/production-operations.test.mjs test/development-workflow-contract.test.mjs` は31成功・exit 0。`pwsh -NoProfile -File scripts/check-governance.ps1` はexit 0。変更分類はdocumentation-only（レビュー記録・未承認案・未配備の既存生成物・PDF）で、実行コード／workflow／IAM／governance policy変更なし。app typecheck/build、domain全体、Rules、Functions／seed構文は今回の文書完成条件に含めず再実行しない。既存実装の限定31試験は追加確認として実施した。
+
+PDFは既存build_pdf.pyの見積り・現在地を更新。生成コマンドはbundled Pythonでexit 0、`pdftoppm -scale-to 1200 -png` はexit 0。2ページを画像で確認し、文字切れ・重なりなし。pypdfで2ページと12〜18時間・余力24〜30・23日／30日の記載を検査してexit 0。見積り合計12〜18、42との差24〜30を生成元assertで検証。通常アプリ統合・実運用認証の残件を明示したため旧8〜10時間から増額、PDFと両roadmap・index・環境記録・changelogを同期。仕様／データ契約／ADRの確定要件は変更なし。
+
+公開・権限変更はまだ承認を求めていない。次の実行前に、保守workflowの設置／main統合範囲、対象commit、enableと公開、または運用read-only用の具体custom role／信頼条件を確定して提示する。現在の権限候補全部を一括付与する判断はしない。本人に追加資料の再提出を求める必要は現時点でない。HS試用／受入れ日は未確定のまま保持。
+
 ## 2026-10-13 main保護・配備なし認証実証の完了
 
 同タスクの追加承認範囲を実施。PR #1の4ファイルと、試験の診断／immutable subject／拒否判定の限定修正PR #2〜4だけをmainへ統合。PR #4のhead `8dcf01d5f36359e70142011e063577d855467f5d`、必須CI run `38375708547`／job `115223412502` 成功・Dev配備skip。通常merge・読戻し各exit 0、main=`e5b9cb1605bba18deecdde534730186ed94925a1`。管理者迂回や業務アプリ全体の統合は行っていない。

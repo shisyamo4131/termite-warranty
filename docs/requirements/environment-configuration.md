@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-13公開準備：同日の管理API GETで `sites/termite-warranty-prod/channels/live` はHTTP 200・releaseなし。[対象9項目と静的成果物](../../deliverables/production-bootstrap-2026-10-13/README.md)をLocalに保存した。GitHub変数への登録・公開は未実施。運用SAの接続bindingなしを再確認。専用運用pool／environment・段階的権限とFunctions実行主体は[未承認案](../runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)であり、実設定表に採用済みとして加えない。
+
 ## 2026-10-13 main保護と認証試験の開始
 
 オーナーが保護設定・認証関連4ファイル統合・認証専用試験を追加承認。PR #1の必須CI成功後、mainへPR必須・`Verify development deployment`（GitHub Actions App ID 15368）成功必須・最新main同期・管理者適用・force push／削除禁止・会話解決を設定し、読戻し確認。他者必須承認数は0。通常mergeで `97f95b2e173946b5ad07bfc34df831a8a8e5c358` へ統合。業務アプリ全体は統合しない。
