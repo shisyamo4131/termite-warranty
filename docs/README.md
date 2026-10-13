@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-13 IAM追加承認後：通常配備IAM・運用専用WIF・main限定環境・build保管先を設定し読戻し済み。通常アプリPRのfresh CI不具合を修正中、実公開と保護設定は未実施。[最新現在地と9〜14時間の残見積り](roadmaps/production-readiness.md#現在地通常配備iam設定統合ci修正後2026-10-13)、[実行証拠](operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。23日構築・月末目標を維持し、PDFへ保護保留と成立条件を反映。
+
 2026-10-13追記：指定GmailのFirebase通知と実Hostingを照合し、公開後照合失敗に直接関連する変更は確認されず。[調査記録](operations.md#2026-10-13-firebase通知の照合運用権限の着手)。優先1は[運用read-only権限・Functions主体分離の具体化](runbooks/production-bootstrap-review.md#運用権限とfunctions実行主体の具体化2026-10-13着手)まで着手。実設定・配備は未実施、見積りとPDF日付は据え置き。
 
 2026-10-13最新：Prod保守表示を承認後に公開し、内容・版をGET確認。直後のCI照合は失敗し、enable解除・再配備なしで同SAの独立読取り再照合に成功。追加調査では詳細記録がなく原因特定不能。本人指示で「公開直後のタイムラグ」扱いとして調査を閉じ、残工数10〜15時間と既存PDFへ反映（原因未実証）。[現在地](roadmaps/production-readiness.md)、[公開後手順](runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。

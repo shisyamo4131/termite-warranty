@@ -25,6 +25,19 @@
 
 参考：[Functionsの実行SA](https://firebase.google.com/docs/functions/manage-functions#set_service_account)、[build主体と権限](https://docs.cloud.google.com/functions/docs/building)、[通知先変更](https://docs.cloud.google.com/monitoring/alerts/using-channels-api)。
 
+### 通常配備IAMの承認・適用結果
+
+2026-10-13、本人が以下の具体設定一式を承認。同日6 custom role、project binding、指定4 SAだけのactAs、operatorへのWIF接続、専用pool/provider、東京Docker repository／7日cleanup／build writer、main限定GitHub環境を適用し読戻し一致。既定build SAのEditorは除去済み。5アプリSAのuser-managed keyは0。backup／diagnosticsへ業務権限は付けない。初回project照合はJSON項目順の比較不具合でexit 1になったが、独立読取りで反映済みを確認し、意味の一致比較へ直して照合・未実行SA設定を完了（exit 0）。アプリの実認証・配備は未実証で、追加権限が必要なら個別に提示する。
+
+[role／binding／WIF条件のJSON](../../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)がレビュー対象。カスタムroleで使う65の異なる権限は、実ProdのIAM一覧14ページで全件対応を確認。不要なScheduler locations 2権限はBETAだったため候補から除いた。DB条件はDB全体の権限であり、特定文書だけへの制限ではない。
+
+- build：実APIが示した既定Compute SAのEditorを、projectのlogWriter、指定Functions source bucket内のobject get、東京 `gcf-artifacts` repository内のwriterへ置換。repositoryはDockerで新規作成する案。7日を超えたimageを自動削除するcleanupを設定するため、長期の旧imageは保持しない。配備ソース・Gitから再構築する差戻しは別検証。業務DB・Auth権限は渡さない。
+- 配備：既存Hosting管理／API利用にcustom roleを追加。Functions作成・更新・削除、Rules・索引の配備、Scheduler job作成・更新・削除、配備物の読取り、Functions／Cloud Runの呼出しIAM設定が対象。project IAM変更権限は付けない。actAsは作成済み3 runtime SAと実build SAだけ。通常Callableの公開呼出し設定は実配備時の公開承認対象であり、このIAM設定時にはFunctionを作らない。
+- 業務runtime：2DB内のCRUD／トランザクションとAuth user get/create/update/deleteのみ。backup用hash設定、Auth設定変更、bucketには権限なし。backup／diagnostics runtimeは今回無権限を維持し、backup automationもfalseとする。
+- 運用：既存operatorにproject読取り・2DB読取りだけ。専用pool／providerをmain・immutable repo/owner ID・production-operations・workflow_dispatch・専用workflow_refで限定。GitHub environmentもmainだけ。任意コマンドや公開・DB書込みは許可しない。
+- 実行は既存role／bindingを読取り、同名不一致なら停止する。project／SA／repository policyはetag付きで差分だけ反映し、他メンバーを保持。unknown responseは再送せず照合。全roleとbindingの読戻し、長期鍵なし、build SAにEditorなしを確認する。実認証後の不足権限は原因・必要範囲を提示して別判断し、Owner／Editorで回避しない。
+- 差戻しは今回追加したbindingの限定除去・新providerの無効化を別判断。Editor復元や既存SA／DB／bucket／repository削除は自動実行しない。
+
 ## 運用権限とFunctions実行主体の具体化（2026-10-13、着手）
 
 状態：以下は未承認・未適用の権限候補と実証手順。本人の「優先1を作業開始」に基づく棚卸し・準備で、IAM付与やFunctions配備の承認ではない。実SA一覧・IAM、`production-operations.mjs`／`default-recovery.mjs`／`functions/index.js`／`recovery-backups.js`とAuth呼出しを確認した。

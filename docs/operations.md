@@ -2,6 +2,14 @@
 
 ## 2026-10-13 通常Prod配備の実行主体と基盤準備
 
+後続の本人承認に基づき、[確定IAM一式](../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)を適用・読戻し済み。6 custom role、8件のproject追加案（同role／conditionのmembersはAPIで統合）、5 SA policy、東京gcf-artifacts Docker repository・7日超image cleanup・build writer、運用専用pool/provider、GitHub production-operations main限定を確認。build Compute SAのEditorを除去。他メンバーはetagを使って保持し、5アプリSAにuser-managed keyなし。role・pool・repository・SA設定の最終確認コマンドは各exit 0。初回project反映後の照合はJSON項目順比較でexit 1、独立GETで適用済みを確認し、比較を訂正して読戻し一致。追加権限を広げて回避していない。
+
+変更後の独立読取り（exit 0）で `(default)` PITR無効・backup schedule 0・Auth退避bucket未作成、東京Functions 0、Hosting保守版 `a377bd20176a2ac5` 不変を確認。業務DB／Authの実データ操作・公開なし。実運用SAの短期認証とSDK読取りはworkflowのmain統合後に確認する。
+
+通常アプリ全体のdraft [PR #8](https://github.com/shisyamo4131/termite-warranty/pull/8)を作成。初回fresh CIはFunctions domain未生成により32失敗。`npm test`のpretestへ既存生成処理を追加した `ab77d08` のCIはその欠落が解消したが、CRLFを扱えない自社設定UIの試験準備が10件失敗。試験のimport除去をLF／CRLF対応へ修正し、両改行形式で実際のcache/load/saveを検証。Local focused 11成功、全単体474成功・2skip、各exit 0。pretest追加後のtypecheck／buildも各exit 0。修正後CI全体は未完了。Rules201・Functions／seed構文は変更対象と実行環境が失効条件に該当せず、先行成功証拠を再利用する。公開enableは未設定のまま。
+
+以下は先行工程の記録であり、上記のIAM適用とCI修正を現在値とする。
+
 オーナーがmain pushによる通常配備とバックアップ環境の完成を継続目標に指定。バックアップ・PITR・Auth退避bucketの具体案には「まだ実行しない」と回答したため、保護設定は変更しない。通知先は指定済み（実アドレスは保存しない）。[実行順と簡易検証](runbooks/production-bootstrap-review.md#main自動配備バックアップ環境の完成目標2026-10-13)。
 
 承認されたCloud Functions／Cloud Build／Artifact Registry／Cloud Run／Cloud Scheduler／Eventarcの6 APIをProdで有効化し、各services GETが200／ENABLEDで一致。batchEnable要求は応答operation名のLocal形式判定でexit 1になったが、変更要求を再送せず6件を独立GETして確認（exit 0）。Google管理のサービスエージェント生成・標準権限は今回の承認範囲。`prod-business`、`prod-backup`、`prod-diagnostics` の3 SAを作成。businessの直後GET不一致とgetIamPolicyのHTTP方式誤りを読取りで調査し、公式Discoveryに合わせPOST読取りへ訂正。最終3件の所属・有効状態・SA policy binding 0・user-managed key 0を確認（exit 0）。project IAMにも3 SAのbindingなし。

@@ -1,5 +1,9 @@
 # Prod初回保守公開のレビュー用成果物
 
+2026-10-13 IAM追加承認後：下記runtime-iam-planは本人承認後に適用・読戻し済み。承認時hashと実確認範囲をJSONへ記録。実認証・配備は未実証。以下の「未適用」は承認前の説明。
+
+- [通常配備IAMの具体案](runtime-iam-plan.json)：2026-10-13後続の未適用設定案。既定build SAのEditor除去、build専用権限、配備custom role、業務DB／Authの操作権限、運用読取りWIF／GitHub environmentと各bindingを記載。65個の異なるcustom permissionは実IAM一覧で対応確認。公開・backup保護変更を含めない。実行承認と読戻し結果は[最新手順](../../docs/runbooks/production-bootstrap-review.md#main自動配備バックアップ環境の完成目標2026-10-13)・[運用記録](../../docs/operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)を参照。
+
 2026-10-13追記：本成果物と全byte一致するmain生成物から保守表示を公開済み。公開版・3ファイル・hash・設定・Web構成のGET照合は一致。公開enableはfalseへ戻し、再公開せず同じ配備SAの独立照合に成功。直後のCI失敗は追加調査でも特定不能のため、本人指示で「公開直後のタイムラグ」扱いとして調査終了（原因未実証）。[現在地・証拠](../../docs/runbooks/production-bootstrap-review.md#初回公開後の状態と読取り再照合2026-10-13)。業務アプリ公開ではない。
 
 2026-10-13、準備のみ。公開・GitHub設定・IAM変更なし。生成元はレビュー基準 `55ff33b57a490a0da6ad2cf38db94c858a722cea` の `scripts/prepare-production-bootstrap.mjs`。対象値は環境仕様と同日の管理API確認に基づく非秘密情報で、実行許可ではない。

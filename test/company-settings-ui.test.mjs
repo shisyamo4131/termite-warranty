@@ -7,20 +7,20 @@ import { companyProfileDefaults, normalizeCompanyProfile } from '../src/domain/c
 import { postalRule, lengthRule, phoneRule, emailRule } from '../src/domain/input-rules.mjs'
 import { propertyAddress } from '../src/domain/property-warranty.mjs'
 
-function harness(t, fetch) {
+function harness(t, fetch, lineEnding='\n') {
   const profile = vue.ref({accountType:'staff', role:'house_solution_administrator', uid:'fictional-admin'})
   const recoveryRuntime = vue.ref({phase:'normal',generation:1})
   const scopes=[]
-  const source=readFileSync(new URL('../app/composables/useCompanyProfile.ts',import.meta.url),'utf8').replace(/^import .*\n/gm,'').replace('export function useCompanyProfile','function useCompanyProfile')
+  const source=readFileSync(new URL('../app/composables/useCompanyProfile.ts',import.meta.url),'utf8').replace(/\r?\n/g,lineEnding).replace(/^import .*\r?\n/gm,'').replace('export function useCompanyProfile','function useCompanyProfile')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   const env={...vue,effectScope:()=>{const scope=vue.effectScope(true);scopes.push(scope);return scope},useNuxtApp:()=>({$firebase:{functions:{}}}),useSession:()=>({profile}),httpsCallable:()=>async data=>({data:await fetch(data)}),withRuntimeGeneration:x=>x,recoveryRuntime,companyProfileDefaults,normalizeCompanyProfile}
   const store=new Function(...Object.keys(env),code+'\nreturn useCompanyProfile();')(...Object.values(env))
   t.after(()=>scopes.forEach(scope=>scope.stop()))
   return {store,profile,recoveryRuntime}
 }
-test('profile cache avoids repeat reads; edit refresh and save replace shared value',async t=>{
+for (const lineEnding of ['\n','\r\n']) test(`profile cache avoids repeat reads; edit refresh and save replace shared value (${lineEnding==='\n'?'LF':'CRLF'})`,async t=>{
   const calls=[]
-  const {store}=harness(t,async input=>{calls.push(input);return {...companyProfileDefaults(),companyName:input.profile?.companyName || '架空会社',updatedByName:'架空管理者'}})
+  const {store}=harness(t,async input=>{calls.push(input);return {...companyProfileDefaults(),companyName:input.profile?.companyName || '架空会社',updatedByName:'架空管理者'}},lineEnding)
   await store.load();await store.load();assert.equal(calls.length,1)
   await store.load(true);assert.equal(calls.length,2)
   await store.save({...companyProfileDefaults(),companyName:'変更後の架空会社'})
@@ -59,7 +59,7 @@ test('screen retry actually refetches after a failed edit refresh despite existi
   let calls=0,fail=false
   const {store,profile,recoveryRuntime}=harness(t,async()=>{calls++;if(fail)throw new Error('通信失敗');return {...companyProfileDefaults(),companyName:`架空会社${calls}`}})
   const file=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8')
-  const source=file.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm,'')
+  const source=file.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
   const scope=vue.effectScope()
   const env={ref:vue.ref,computed:vue.computed,watch:vue.watch,useCompanyProfile:()=>store,useSession:()=>({profile}),useAppSnackbar:()=>({showSnackbar(){},showValidationError(){}}),defineEmits:()=>()=>{},defineExpose:()=>{},onMounted:()=>{},onBeforeUnmount:()=>{},companyProfileDefaults,normalizeCompanyProfile,requiredRules:[],optionalRules:[],recoveryRuntime}
@@ -79,7 +79,7 @@ function contact(t, outcome) {
   const form=vue.ref({postalCode:'1234567',address1:'',address2:'建物',telephone:'',email:''})
   let lookups=0
   const scope=vue.effectScope()
-  const source=readFileSync(new URL('../app/components/BusinessContactFields.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm,'')
+  const source=readFileSync(new URL('../app/components/BusinessContactFields.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
   const env={ref:vue.ref,watch:vue.watch,defineProps:()=>({}),defineModel:()=>form,onBeforeUnmount:()=>{},postalRule,lengthRule,phoneRule,emailRule,propertyAddress,hostedPostalLookupProvider:{},createPostalLookupCoordinator:()=>({cancel(){},async lookup(){lookups++;return outcome()}})}
   const result=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {lookup,applyCandidate,candidates};')(...Object.values(env)))
@@ -89,7 +89,7 @@ function contact(t, outcome) {
 
 function settingsScreen(t, fetch) {
   const {store,profile,recoveryRuntime}=harness(t,fetch)
-  const source=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\n/gm,'')
+  const source=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
   const scope=vue.effectScope(),notices=[],confirmations=[]
   let discard=false

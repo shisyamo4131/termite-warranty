@@ -2,6 +2,9 @@
 
 ## 2026-10-13 通常Prod配備・運用認証の後続準備
 
+- 承認済み通常配備IAM・運用WIF・main限定環境を設定し読戻し。既定build SAのEditorを限定権限へ置換し、東京image保管先の7日cleanupを設定。公開・保護設定は未実施。
+- fresh CIで判明した自社設定UI試験のCRLF対応漏れを修正し、LF／CRLF両方でcache／読取り／保存を検証。
+
 - 固定対象・読取り専用の運用認証probeと手動workflowを追加。空DBでの認証成功と初期化未了を区別し、応答本文をログに出さない。
 - Prod Functionsの業務／backup／認証診断を異なる実行SAへ分離し、配備後のFunctions・Cloud Run service・revisionのSA一致を検査。
 - 通常配備の照合失敗に安全な工程・HTTP状態を残す。実公開・IAMは別確認。日次backup・PITR・退避bucketの具体構成は本人指示で実行保留。
