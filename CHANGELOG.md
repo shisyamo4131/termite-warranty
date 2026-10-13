@@ -5,6 +5,7 @@
 - 固定対象・読取り専用の運用認証probeと手動workflowを追加。空DBでの認証成功と初期化未了を区別し、応答本文をログに出さない。
 - Prod Functionsの業務／backup／認証診断を異なる実行SAへ分離し、配備後のFunctions・Cloud Run service・revisionのSA一致を検査。
 - 通常配備の照合失敗に安全な工程・HTTP状態を残す。実公開・IAMは別確認。日次backup・PITR・退避bucketの具体構成は本人指示で実行保留。
+- 通常アプリ統合PRのfresh CIで判明した共有コード未生成を修正。`npm test`のpretestで既存のFunctions domain生成・一致確認を完了してから単体試験を開始する。
 
 ## 2026-10-13 Firebase通知照合と運用権限準備
 

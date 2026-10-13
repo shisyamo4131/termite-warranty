@@ -44,6 +44,7 @@ An explicit comparison command must fail on a missing, extra, or byte-different 
 ### Required invocation paths
 
 - Add `npm run prepare:functions` as the canonical preparation command.
+- `npm test` prepares the generated copy through `pretest` before any test process imports Functions. 2026-10-13の通常Prod統合PRで、fresh CIに生成コピーがなく32件が失敗する欠落を確認して是正。既存コピーを持つLocal成功だけではfresh checkoutの証拠にしない。
 - The documented `npm run emulators:start` command prepares first through its npm lifecycle hook.
 - `npm run test:rules`, which contains the maintained Callable integration tests, prepares first.
 - The registered Functions syntax command prepares before loading or checking Functions files.
