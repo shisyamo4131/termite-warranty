@@ -19,7 +19,7 @@ export function checkClaims(jwt,mode,now=Date.now()) {
   const parts=jwt.split('.')
   if(parts.length!==3)fail()
   const c=JSON.parse(Buffer.from(parts[1],'base64url').toString('utf8'))
-  const sub=`repo:${target.repository}:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`
+  const sub=`repo:shisyamo4131@72244713/termite-warranty@1363463339:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`
   checkAll({issuer:c.iss==='https://token.actions.githubusercontent.com',audience:c.aud===target.audience,repositoryId:c.repository_id===target.repositoryId,ownerId:c.repository_owner_id===target.ownerId,ref:c.ref==='refs/heads/main',event:c.event_name==='workflow_dispatch',subject:c.sub===sub,expiry:Number.isFinite(c.exp)&&c.exp*1000>=now+30000})
   // Local claims are a safety check, not signature verification; Google STS verifies the JWT.
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {checkContext,probe,target} from '../scripts/production-auth-probe.mjs'
 const env={GITHUB_ACTIONS:'true',GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_REF:'refs/heads/main',GITHUB_REPOSITORY:target.repository,GITHUB_REPOSITORY_ID:target.repositoryId,GITHUB_REPOSITORY_OWNER_ID:target.ownerId,GITHUB_SHA:'a'.repeat(40),ACTIONS_ID_TOKEN_REQUEST_URL:'https://runner.actions.githubusercontent.com/token',ACTIONS_ID_TOKEN_REQUEST_TOKEN:'fictional-request-token'}
 const now=()=>1700000000000
-const jwt=mode=>['header',Buffer.from(JSON.stringify({iss:'https://token.actions.githubusercontent.com',aud:target.audience,repository_id:target.repositoryId,repository_owner_id:target.ownerId,ref:'refs/heads/main',event_name:'workflow_dispatch',sub:`repo:${target.repository}:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`,exp:1700000600})).toString('base64url'),'signature'].join('.')
+const jwt=mode=>['header',Buffer.from(JSON.stringify({iss:'https://token.actions.githubusercontent.com',aud:target.audience,repository_id:target.repositoryId,repository_owner_id:target.ownerId,ref:'refs/heads/main',event_name:'workflow_dispatch',sub:`repo:shisyamo4131@72244713/termite-warranty@1363463339:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`,exp:1700000600})).toString('base64url'),'signature'].join('.')
 function server(mode,override={}) {
   const calls=[]
   const fetcher=async(url,options)=>{
@@ -36,6 +36,10 @@ test('negative probe requires attribute-condition rejection, not just any failur
   }
 })
 test('wrong resource identity and untrusted token claims fail without leaking bodies',async()=>{
+  const oldSubjectJwt=['header',Buffer.from(JSON.stringify({...JSON.parse(Buffer.from(jwt('allow').split('.')[1],'base64url').toString()),sub:`repo:${target.repository}:environment:production`})).toString('base64url'),'signature'].join('.')
+  const old=server('allow',{match:u=>u.includes('actions.githubusercontent.com'),body:{value:oldSubjectJwt}})
+  await assert.rejects(()=>probe('allow',{env,now,fetcher:old.fetcher}),/check=subject/)
+  assert.equal(old.calls.length,1)
   for(const override of [{match:u=>u.includes('firebasehosting'),body:{name:'another-site'}},{match:u=>u.includes('actions.githubusercontent.com'),body:{value:jwt('deny')}},{match:u=>u.includes('iamcredentials'),body:{accessToken:'secret-value',expireTime:'2000-01-01'}}]){
     const s=server('allow',override);await assert.rejects(()=>probe('allow',{env,now,fetcher:s.fetcher}),e=>!e.message.includes('secret-value'))
   }
