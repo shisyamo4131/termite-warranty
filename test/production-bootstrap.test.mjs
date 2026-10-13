@@ -97,6 +97,7 @@ test('bootstrap workflow preserves all verification gates before auth, same-revi
   assert.equal(publish.filter(s=>s.uses==='google-github-actions/auth@v3').length,2)
   assert.ok(!publish.some(s=>s.run==='npm run build'))
   assert.equal(verify.find(s=>s.uses?.startsWith('actions/upload-artifact')).with.name,publish.find(s=>s.uses?.startsWith('actions/download-artifact')).with.name)
+  assert.match(verify.find(s=>s.uses?.startsWith('actions/upload-artifact')).with.name,/github.run_attempt/)
 })
 test('bootstrap refuses altered maintenance, extra files, absent provider files, bad config and changing release',async()=>{
   for(const mode of ['hash','extra','missing','duplicate','config','public','app','changing','loop']){

@@ -36,7 +36,7 @@ jobs:
       - run: node scripts/prepare-production-bootstrap.mjs bootstrap-artifact
       - uses: actions/upload-artifact@v7
         with:
-          name: maintenance-${{ github.sha }}
+          name: maintenance-${{ github.sha }}-${{ github.run_attempt }}
           path: bootstrap-artifact
           if-no-files-found: error
           retention-days: 1
@@ -67,7 +67,7 @@ jobs:
         run: node scripts/check-production-deployment.mjs
       - uses: actions/download-artifact@v8
         with:
-          name: maintenance-${{ github.sha }}
+          name: maintenance-${{ github.sha }}-${{ github.run_attempt }}
           path: bootstrap-artifact
       - name: Bind verified target without rebuilding content
         shell: pwsh
