@@ -1,5 +1,35 @@
 # Operations
 
+## 2026-10-14 Prodバックアップ設定の解除
+
+本人がHS試行でスキーマ変更の可能性があるため設定解除を指示（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。先行作成したProd `(default)` の日次30日予定1件を削除、PITRを無効化し、空・全世代objectなし・automation=false・退避先参照空を確認したAuth bucketを削除した。業務DB、業務文書、Authアカウント、既存IAMは変更していない。バックアップ専用IAM・Auth退避・通知の追加設定は実施しない。
+
+対象は記録済みtargetとFirebase実project ID／number、DB東京、bucket所属で照合。`node tmp/remove-prod-protection.mjs inspect` と `apply` は各exit 0。PITR更新応答はdone=true。最初のverifyはoperation後続GETが404でexit 1だったため、更新を再送せず実資源の独立読戻しで確認。修正後 `node tmp/remove-prod-protection.mjs verify` はexit 0、PITR `POINT_IN_TIME_RECOVERY_DISABLED`、日次予定0、取得済みbackup0、bucket不存在、自動処理falseを確認。既存backupの削除は行っていない（0件）。解除検証はCloud実読取り、アプリ包括検証は進行中の通常配備CIで別判定する。
+
+HS試行後のスキーマ確認まで再設定を行わない。現在の目標はmain pushの正常自動配備。正式提供前の保護・初回成功・通知・復元互換性の要件は維持し、後発作業へ移す。実装・データ契約・恒久的な保護方式・権限方針を変更していないためADR／データ契約は変更しない。以下の「既存資源を保持」は解除指示前の経緯。
+
+## 2026-10-14 包括承認と目標変更
+
+本人の全必要作業承認を受け、通常enable=trueを設定・読戻し（各exit 0）、診断追加済みmain `a6e55b7` のProd run `38448379933` を全体再実行（command exit 0）。配備・照合結果は別途確認する。
+
+同承認に基づき(default)の日次30日保持予定1件・PITR、東京非公開Auth bucket `termite-warranty-prod-auth-backups-988295873733` を作成。適用・独立読戻し各exit 0。PITR operationはdone=true、公開禁止enforced・統一アクセス・auth/だけ30日削除・soft delete無効を確認した。日次backup実体は参照時0件。秘密値・Authユーザー・業務文書は扱っていない。
+
+続いて本人が日次backup／PITR／Auth退避先を現在目標から除外し後発へ変更。指示到着時、backup専用role・bindingは未適用（対応権限の読取り確認だけ）、Auth退避・通知設定も未実施。以後の保護作業を止め、既存設定を無断解除／削除せず保持する。現在目標はmain push正常配備のみ。作成済み保護資源の保存費用が停止したことを意味しない。
+
+## 2026-10-14 PR #10統合と配備SAによる読取り照合
+
+本人がPR #10 head `f75b664759ac64e5bb04038774f61734cb0db0c1` のmain統合と、通常配備停止中のProd読取り照合を文章承認（2026-10-14、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。実head／main、包括7ゲート成功、通常／保守enable=false、公開artifact期限内を再確認し、通常merge（exit 0）。mainは `a6e55b784aab48bf203ddd02ccedaf4291aa3c9e`、検証済みPRとのtree差分0。公開・IAM・保護設定の承認は含まない。
+
+PR CI [38422252470](https://github.com/shisyamo4131/termite-warranty/actions/runs/38422252470)はgovernance、単体484成功・0skip、typecheck、build、Rules201成功・Emulator停止、Functions構文、seed構文の7独立stepすべてexit 0。今回の統合で実装内容は変わらず、この包括証拠を再利用する。通常Prod push run `38448379933` はskipを確認。専用読取り[run 38448391530](https://github.com/shisyamo4131/termite-warranty/actions/runs/38448391530)をmainで手動起動（command exit 0）。起動成功と照合成功は区別する。
+
+既存Local認証による独立GET（exit 0）では公開版 `sites/termite-warranty-prod/versions/f523fd35d51c6809`、集計1005件、21 Functions ACTIVE、backup automation=false／他3項目空、PITR無効・日次予定0を確認。これは専用runの配備SAによる照合結果とは別の証拠。
+
+専用runは同じ `prod-deployer` のWIF認証で成功。`plan`、`local`、`cloud` の各CLI stepはexit 0、資格情報削除も成功。`cloudWrites:false / ready:true`、2DB Rules・索引・21 Functions／21 source archives・Hostingの全5項目がpass。Hostingの期待／一覧／version集計は1005／1005／1005で、1回目に一致した。対象成果物は公開元 `44010df` のままで再build・再配備なし。統合後の保守CIも成功しpublishはskip。照合後の通常enable=falseを再読取り（exit 0）。
+
+結論：同一配備SAによる現在の全成果物一致を実証した。過去の失敗時の3件数は復元できず、公開直後の反映差は可能性のまま。最大4回の待機不足と断定したり、集計条件を外したりしない。次は診断追加済みmainの通常配備を具体的に承認提示し、公開直後の全5項目と3件数を確認する。失敗／不明ならenable=falseへ戻し再配備せず停止する。今回の承認は読取りまでで、自動配備再開は未承認。
+
+実Cloud照合以外の本ターン差分は運用記録・roadmap・索引・changelogのみ。包括7ゲートは上記同一treeのPR CI証拠を再利用し、文書のgovernance確認を別途実行する。業務仕様・データ契約・ADR・権限・governance方針は不変。22日までの残9〜14時間、23日構築と月末納品の成立条件は変わらず、PDFは据え置く。
+
 ## 2026-10-14 Hosting件数診断と再配備なし照合の準備
 
 本人の「進めてください」を受け、件数診断を一覧不足／version集計不一致へ分離し、非秘密の3件数と観測回数だけを記録する。未定義／不正な集計値や任意の例外文は出力しない。合格条件・限定再確認回数は維持する。通常公開用と同じ配備SAで、保存済みCI成果物を使うmain手動の読取り専用workflow／認証前guardを追加。main統合・実SA照合は未実施で、公開・IAM・GitHub変数・バックアップ設定は変更していない。[実行手順と承認境界](runbooks/production-bootstrap-review.md#通常公開版の再配備なし照合2026-10-14準備)。
