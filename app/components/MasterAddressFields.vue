@@ -1,6 +1,6 @@
 <template>
-  <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" required @blur="handlePostalBlur" />
-  <v-alert v-if="lookupMessage" :type="lookupMessage.type" variant="tonal" class="mb-3">
+  <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" :rules="[...(!postalOptional && validateRequired!==false ? [requiredRule] : []), postalRule]" :required="!postalOptional" @blur="handlePostalBlur" />
+  <v-alert v-if="lookupMessage" :type="lookupMessage.type" class="mb-4">
     {{ lookupMessage.text }}
   </v-alert>
   <v-select
@@ -14,13 +14,14 @@
     class="mb-3"
     @update:model-value="applyCandidate"
   />
-  <v-text-field v-model="form.prefecture" label="都道府県" required @update:model-value="markFieldEdited('prefecture')" />
-  <v-text-field v-model="form.municipality" label="市区町村" required @update:model-value="markFieldEdited('municipality')" />
-  <v-text-field v-model="form.streetTownAndNumber" label="町域・番地" required @update:model-value="markFieldEdited('streetTownAndNumber')" />
-  <v-text-field v-model="form.buildingName" label="建物名（任意）" />
+  <v-text-field v-model="form.prefecture" :rules="[...(!addressOptional && validateRequired!==false ? [requiredRule] : []),lengthRule]" label="都道府県" :required="!addressOptional" @update:model-value="markFieldEdited('prefecture')" />
+  <v-text-field v-model="form.municipality" :rules="[...(!addressOptional && validateRequired!==false ? [requiredRule] : []),lengthRule]" label="市区町村" :required="!addressOptional" @update:model-value="markFieldEdited('municipality')" />
+  <v-text-field v-model="form.streetTownAndNumber" :rules="[...(!addressOptional && validateRequired!==false ? [requiredRule] : []),lengthRule]" label="町域・番地" :required="!addressOptional" @update:model-value="markFieldEdited('streetTownAndNumber')" />
+  <v-text-field v-model="form.buildingName" :rules="[lengthRule]" label="建物名" />
 </template>
 
 <script setup lang="ts">
+import { requiredRule, lengthRule, postalRule } from '../../src/domain/input-rules.mjs'
 import { createPostalLookupCoordinator } from '../../src/domain/postal-lookup.mjs'
 import type { MasterAddressDraft } from '../../src/domain/master-form.mjs'
 import type { PostalLookupField, PostalLookupProvider, PostalLookupSubject } from '../../src/domain/postal-lookup.mjs'
@@ -28,6 +29,9 @@ import type { PostalLookupField, PostalLookupProvider, PostalLookupSubject } fro
 const props = defineProps<{
   lookupSubject?: PostalLookupSubject
   postalLookupProvider?: PostalLookupProvider
+  postalOptional?: boolean
+  addressOptional?: boolean
+  validateRequired?: boolean
 }>()
 
 const form = defineModel<MasterAddressDraft>({ required: true })
@@ -56,6 +60,7 @@ async function handlePostalBlur() {
   lookupMessage.value = null
   candidateOptions.value = []
   selectedCandidate.value = null
+  if (!form.value.postalCode?.trim() || postalRule(form.value.postalCode)!==true) return
   const outcome = await coordinator.lookup()
   if (outcome.state !== 'current') return
   if (outcome.result.status === 'ambiguous') {

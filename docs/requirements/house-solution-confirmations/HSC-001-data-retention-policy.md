@@ -1,6 +1,26 @@
 # HSC-001: Case, Applied-Warranty, and Referenced-Master Data Retention
 
-- Status: Not yet asked
+## 2026-10-05 確定：取消済みのCSV保管後削除（後発）
+
+オーナー回答⑥：取消済みデータはCSV出力しHSがファイルサーバーに保存した後、Firestoreから削除してよい。CSVなしで削除する以前の検討は置換。後発実装として扱い、実行のトリガー、保存期間、関連情報・履歴の出力削除範囲、保存確認など詳細は未確定。既使用番号を再利用しない既決仕様は維持。今回実データ削除・機能実装の承認ではない。仕様書と保証要件へ反映。
+
+## 2026-10-03 確定：管理者の手動削除と開発側による復元
+
+①YES：満了日の自動削除はしない。HS管理者が保証終了物件を選択し、CSVのHS側ファイルサーバーへの保存を確認して削除する。延長判断中の物件は残せる。②YES：削除後に延長の申出があればHSから開発側へ保存CSVを提供し、元の保証番号・期間を復元してから延長する個別対応。初期にHS自身の復元機能は設けない。保存CSVはこの復元に必要な情報を保持する必要があり、列・履歴・関連情報の具体的な設計と検証は後続。
+
+③保留：取消理由によっては一定期間後にCSVを残さず物件／保証データを物理削除できるのでは、というオーナーの見解。HS未確認のため仕様採用しない。HSへの質問：削除できる取消理由、起算日と保存期間、削除せず残す条件を確認したい。既決の取消時の記録保持・復元可をこの提案だけで撤回しない。
+
+根拠：2026-10-03本Codex会話①YES・②YES・③保留とHS確認依頼。仕様書0.1.73へ反映。実データの削除・取込・機能実装は今回行わない。番号非再利用を維持する設計も必要。
+
+## 2026-10-03 確定方針：保証終了データをCSV保管後に削除
+
+オーナー②回答：保証終了データはCSVへ出力し、HS側ファイルサーバーに保存した後、システムから削除する。終了後も無期限にシステム内へ保持する直前の提案は採用しない。これは保存・削除方針の採用であり、現時点のデータ削除実行を許可したものではない。
+
+残る確認：対象の保証終了の判断時点、実行者と保存確認、削除する関連情報とCSV項目、削除後に延長申出があった場合、取消済みデータへの適用。満了後も時期制限なしで延長できる既決仕様との整合が必要。番号再利用禁止・一意性の維持は撤回されておらず、データ削除に伴って採番を戻す仕様は採用しない。ファイルサーバーの保存年数・保管運用は未確定。自動アップロード・自動削除を推定しない。
+
+根拠：2026-10-03本Codex会話②。仕様書0.1.72。文書のみ、削除・実装・配備なし。
+
+- Status: Awaiting HS retention confirmation
 - Created: 2026-09-11
 - Confirmation owner: House Solution
 - Decision authority: House Solution, followed by explicit project approval
@@ -76,3 +96,15 @@ Firestore time-to-live deletion is asynchronous and does not delete a document's
 No answer has been received. Do not promote this proposal to a confirmed requirement.
 
 When resolved, record the approved decision, decision maker, decision date, supporting chat/task or other evidence, affected authoritative documents, and reflected revision or commit here.
+
+## 2026-09-29 Current Checkpoint
+
+Source: [received materials and reported LINE answers](../source-materials.md#2026-09-29-追加回答). Older outgoing questions remain historical snapshots and are not the current send list. The next wording must be reviewed with the project owner before a new PDF or external message.
+
+### 回答・決定の整理
+
+第2回Q4は「未確認（後日）」を選択。保存年数は未確定。恒久的な保証番号を採用したことは、個人情報を永久保存する決定ではない。
+
+### 残る確認（文面はユーザー確認前）
+
+保険会社等の保存ルールが分かる資料と、確認担当・回答予定を伺う。既存の年数提案を承認済みとして尋ねない。

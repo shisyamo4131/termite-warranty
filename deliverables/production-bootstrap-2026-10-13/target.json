@@ -1,0 +1,11 @@
+{
+  "project": "termite-warranty-prod",
+  "projectNumber": "988295873733",
+  "site": "termite-warranty-prod",
+  "appId": "1:988295873733:web:bdb85668f28779d8f51cac",
+  "control": "recovery-control",
+  "serviceAccount": "prod-deployer@termite-warranty-prod.iam.gserviceaccount.com",
+  "audience": "//iam.googleapis.com/projects/988295873733/locations/global/workloadIdentityPools/github-production/providers/github",
+  "repositoryId": "1363463339",
+  "ownerId": "72244713"
+}

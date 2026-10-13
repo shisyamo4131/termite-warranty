@@ -1,8 +1,11 @@
-import { collection, collectionGroup, deleteField, doc, documentId, getDoc, getDocs, increment, limit, onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where, type DocumentData } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { getDoc, onSnapshot, setDoc, updateDoc } = createMeasuredFirestore('masterManagement')
+import { collection, collectionGroup, deleteField, doc, documentId, increment, limit, orderBy, query, serverTimestamp, where, type DocumentData } from 'firebase/firestore'
 import { normalizeMasterFields } from '../../src/domain/master-data.mjs'
+import { directRecoveryMetadata } from '../utils/recoveryClient.ts'
 import type { MasterType, MasterWriteFields } from '../../src/domain/master-form.mjs'
 import { matchesSearchTokenMap, normalizeSearchText } from '../../src/domain/search-tokens.mjs'
-import { createBoundedListQuery, createOrderedListQuery } from '../repositories/boundedListQuery.ts'
+import { createBoundedListQuery } from '../repositories/boundedListQuery.ts'
 import type { ListCursor } from '../types/prototype-data.ts'
 
 export type { MasterType } from '../../src/domain/master-form.mjs'
@@ -77,14 +80,14 @@ export const matchesManagedMasterName = (master: ManagedMaster, value: string) =
 
 export function useMasterManagement(masterType: MasterType) {
   const { $firebase } = useNuxtApp()
-  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void, cursor?: ListCursor, complete = false) =>
-    onSnapshot(
-      complete
-        ? createOrderedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
-        : createBoundedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]), cursor),
+  const subscribe = (onRows: (rows: ManagedMaster[]) => void, onError: (message: string) => void, cursor?: ListCursor, complete = false) => {
+    if (complete) throw new Error('旧一覧の全件取得は利用できません。')
+    return onSnapshot(
+      createBoundedListQuery(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]), cursor),
       (snapshot) => onRows(snapshot.docs.map((item) => asMaster(item.id, item.data()))),
       () => onError('マスターデータを読み込めませんでした。'),
     )
+  }
   const subscribeById = (id: string, onRow: (row: ManagedMaster | null) => void, onError: (message: string) => void) => onSnapshot(
     doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id),
     (snapshot) => onRow(snapshot.exists() ? asMaster(snapshot.id, snapshot.data()) : null),
@@ -154,6 +157,7 @@ export function useMasterManagement(masterType: MasterType) {
   const createMaster = async (fields: MasterWriteFields) => {
     const reference = doc(collection($firebase.firestore, COLLECTION_BY_TYPE[masterType]))
     await setDoc(reference, {
+      ...directRecoveryMetadata(),
       ...normalizeMasterFields(masterType, fields),
       active: true,
       revision: 1,
@@ -164,6 +168,7 @@ export function useMasterManagement(masterType: MasterType) {
   }
   const updateMaster = async (id: string, fields: MasterWriteFields) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      ...directRecoveryMetadata(),
       ...normalizeMasterFields(masterType, fields),
       ...(masterType === 'constructionCompany' ? { email: deleteField() } : {}),
       revision: increment(1),
@@ -173,23 +178,15 @@ export function useMasterManagement(masterType: MasterType) {
   }
   const setMasterActive = async (id: string, active: boolean) => {
     await updateDoc(doc($firebase.firestore, COLLECTION_BY_TYPE[masterType], id), {
+      ...directRecoveryMetadata(),
       active,
       revision: increment(1),
       updatedAt: serverTimestamp(),
     })
     return { id }
   }
-  const loadPropertyReferences = async (include: { homeownerId?: string; constructionCompanyId?: string } = {}) => {
-    const [homeowners, companies] = await Promise.all([
-      getDocs(collection($firebase.firestore, 'homeowners')),
-      getDocs(collection($firebase.firestore, 'constructionCompanies')),
-    ])
-    return {
-      homeowners: homeowners.docs.map((item) => asMaster(item.id, item.data()))
-        .filter((item) => item.active || item.id === include.homeownerId),
-      companies: companies.docs.map((item) => asMaster(item.id, item.data()))
-        .filter((item) => item.active || item.id === include.constructionCompanyId),
-    }
+  const loadPropertyReferences = async (_include: { homeownerId?: string; constructionCompanyId?: string } = {}): Promise<{ homeowners: ManagedMaster[]; companies: ManagedMaster[] }> => {
+    throw new Error('旧物件の参照候補全件取得は利用できません。')
   }
 
   return {

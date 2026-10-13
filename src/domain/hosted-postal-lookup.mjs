@@ -7,12 +7,18 @@ export function createHostedPostalLookupProvider({ fetcher = fetch } = {}) {
   let manifestPromise
   const cache = new Map()
   const loadManifest = async () => {
-    if (!manifestPromise) manifestPromise = fetcher(manifestUrl).then(async (response) => {
-    if (!response.ok) throw new Error(`postal manifest unavailable: ${response.status}`)
-    const manifest = await response.json()
-    if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.shards)) throw new Error('postal manifest invalid')
-    return manifest
-  })
+    if (!manifestPromise) {
+      manifestPromise = Promise.resolve().then(() => fetcher(manifestUrl)).then(async (response) => {
+        if (!response.ok) throw new Error(`postal manifest unavailable: ${response.status}`)
+        const manifest = await response.json()
+        if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.shards)) throw new Error('postal manifest invalid')
+        return manifest
+      }).catch((error) => {
+        // A transient load or parse failure must not poison every later lookup.
+        manifestPromise = undefined
+        throw error
+      })
+    }
     return manifestPromise
   }
   return Object.freeze({

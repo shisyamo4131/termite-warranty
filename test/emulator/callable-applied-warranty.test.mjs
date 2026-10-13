@@ -1,13 +1,14 @@
+import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { initializeApp as initializeAdminApp, deleteApp as deleteAdminApp } from 'firebase-admin/app'
 import { Timestamp, getFirestore } from 'firebase-admin/firestore'
 import { initializeApp, deleteApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
-import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw new Error('Callable tests require the local emulator.')
 const adminApp = initializeAdminApp({ projectId }, 'callable-applied-warranty-test')
 const adminDb = getFirestore(adminApp)
@@ -26,6 +27,7 @@ before(async () => {
   uid = credential.user.uid
 })
 beforeEach(async () => {
+  await seedFixedRuntime(adminDb)
   if (!auth.currentUser) await signInWithEmailAndPassword(auth, email, password)
   await adminDb.recursiveDelete(adminDb.collection('cases'))
   await adminDb.recursiveDelete(adminDb.collection('warrantyServices'))

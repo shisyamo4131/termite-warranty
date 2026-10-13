@@ -1,4 +1,7 @@
-import { doc, runTransaction, serverTimestamp, type Firestore } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { runTransaction } = createMeasuredFirestore('caseCommand')
+import { withRuntimeGeneration, directRecoveryMetadata } from '../utils/recoveryClient.ts'
+import { doc, serverTimestamp, type Firestore } from 'firebase/firestore'
 import { httpsCallable, type Functions } from 'firebase/functions'
 import { matchesCaseUpdateBaseline } from '../../src/domain/case-rows.mjs'
 import type {
@@ -18,6 +21,7 @@ export class CaseEditConflictError extends Error {
 }
 
 export async function updateCaseTransaction(firestore: Firestore, input: CaseUpdate) {
+  const metadata = directRecoveryMetadata()
   return runTransaction(firestore, async (transaction) => {
     const caseRef = doc(firestore, 'cases', input.id)
     const snapshot = await transaction.get(caseRef)
@@ -76,6 +80,7 @@ export async function updateCaseTransaction(firestore: Firestore, input: CaseUpd
     if (input.status !== 'active' && !statusReason) throw new Error('取消・無効には理由が必要です。')
 
     transaction.update(caseRef, {
+      ...metadata,
       propertyId: input.propertyId,
       homeownerId,
       constructionCompanyId,
@@ -112,7 +117,7 @@ export const createFirebaseCaseCommandGateway = (firestore: Firestore, functions
   createCaseCommandGateway({
     async invoke<TInput, TResult>(name: string, input: TInput) {
       const callable = httpsCallable<TInput, TResult>(functions, name)
-      return (await callable(input)).data
+      return (await callable(withRuntimeGeneration(input))).data
     },
     updateCase: input => updateCaseTransaction(firestore, input),
   })

@@ -1,3 +1,4 @@
+import { seedFixedRules } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { readFile } from 'node:fs/promises'
@@ -13,9 +14,9 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { createBoundedListQuery, createOrderedListQuery, listCursorFromDocuments } from '../../app/repositories/boundedListQuery.ts'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
   throw new Error(`Bounded-list integration tests require the dedicated local Firestore emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }
@@ -37,6 +38,7 @@ beforeEach(async () => {
   await testEnvironment.clearFirestore()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.set(doc(db, 'staffAccounts', 'staff-1'), {
       email: 'staff-1@example.invalid', displayName: 'staff-1', role: 'general_staff', enabled: true,

@@ -1,21 +1,20 @@
 # AGENTS.md
 
-<!-- GENERATED FILE. DO NOT EDIT DIRECTLY. -->
-<!-- Common governance version: 3.0.0 -->
-<!-- Common governance SHA-256: 61f855da745829615f7ed37b190f679fa7610bbdc0e7b66d6ffccd61cf4ef136 -->
-<!-- Edit project-specific rules in governance/project-rules.md, then validate. -->
-<!-- common-governance-version: 3.0.0 -->
-# Common Project Governance Contract
+<!-- GENERATED FROM PROJECT-OWNED LOCAL SOURCES. DO NOT EDIT DIRECTLY. -->
+<!-- Local governance version: 1.0.0 -->
+<!-- Local common SHA-256: e6af38cd6d085e533d23f360f7f95e57188c0c69958f03d9e8f026e711e75fb2 -->
+<!-- Edit governance/common-governance.md or project-rules.md; run scripts/render-governance.ps1 -Apply when generation inputs change. -->
+<!-- project-governance-version: 1.0.0 -->
+# Project Governance Contract
 
-This contract contains mandatory governance shared by every project created or migrated with `scaffold-project-governance`. A project may add stricter or more specific rules, but must not weaken, replace, or silently contradict this contract.
+This contract is owned by this project. The scaffold supplied the initial foundation only; subsequent governance changes follow the project owner's approval and do not require an installed skill, upstream synchronization, or cross-project permission.
 
 ## Instruction Ownership
 
-- Treat this file and the generated root `AGENTS.md` as managed artifacts. Do not edit them in the project.
-- Put project-specific instructions in `governance/project-rules.md` and project facts in the task-routed authoritative documents.
-- Apply managed artifacts with the approved project sync; the renderer is a read-only alignment check.
-- Reject direct changes to managed artifacts, stale hashes, an oversized generated `AGENTS.md`, or a project rule that weakens this contract.
-- Keep the common contract concise. Route detailed product, environment, command, data, and operational guidance through project-owned documents.
+- The project owns this contract, project rules, references, verification policy, and render/check helpers. Edit their local sources within the approved scope.
+- `AGENTS.md`, the marker-bounded policy summary in `docs/operations.md`, and local-generation fields in `governance/governance.lock.toml` are generated projections. Regenerate them with `scripts/render-governance.ps1 -Apply`; use `-Check` for read-only alignment.
+- Origin version and hashes in the lock are provenance only. Local validation checks local source/generated consistency, policy safety, and the AGENTS size limit; it must not require an installed skill or matching upstream hashes.
+- Keep governance concise. Route detailed product, environment, command, data, and operational guidance through task-routed project documents.
 
 ## Non-negotiable Coordinator Gate
 
@@ -115,11 +114,11 @@ No replacement state/history/cache, handshake, or dedicated validator is require
 ## Verification Selection and Staging
 
 - Before implementation, classify the change by every applicable class and impact surface. The minimum classes are documentation-only; UI, CSS, or layout; application logic; data contract, schema, or migration; governance, permissions, or agent configuration; and build, release, or deploy. Mixed changes use the union of required gates. Unknown or unbounded impact fails safe to the project's comprehensive suite.
-- Route the classification through project-owned `governance/verification-policy.json` and an aligned matrix in operations or testing documentation. The JSON is the machine-readable source; it must designate the comprehensive gate IDs, and the managed sync must refresh a generated policy summary that the validator compares exactly with the JSON. For each class, define path or surface triggers, fast iteration checks, targeted regression, completion gates, release-only gates, included gate IDs, invalidation triggers, omittable gates, and where omission reasons are recorded. Do not assume that type checking, lint, build, or any named test tier is fast or universally required; the project defines its measured commands.
+- Route the classification through project-owned `governance/verification-policy.json` and an aligned matrix in operations or testing documentation. The JSON is the machine-readable source; it must designate the comprehensive gate IDs, and the project-local renderer must refresh a generated policy summary that the validator compares exactly with the JSON. For each class, define path or surface triggers, fast iteration checks, targeted regression, completion gates, release-only gates, included gate IDs, invalidation triggers, omittable gates, and where omission reasons are recorded. Do not assume that type checking, lint, build, or any named test tier is fast or universally required; the project defines its measured commands.
 - During iteration, prefer the smallest fast static checks and directly affected tests. After they pass, run impact-area regression. Before completion, run the selected completion-gate set once against the final applicable worktree state. Run release-only gates only for release, publication, installation, migration execution, or deployment decisions that require them.
-- Preserve comprehensive validation for project scaffolding, governance migration, managed-governance synchronization, common-contract changes, permission or agent-policy changes, and release/deploy operations. This exception does not make the same full suite mandatory for unrelated daily application work.
+- Preserve comprehensive validation for project scaffolding, governance migration, local governance contract/tool changes, effective permission or agent-policy changes, and release/deploy operations. Owner-approved reference-target clarification alone may use project-guidance-metadata when it changes no capability, approval/safety boundary, executable configuration, or verification behavior. Unapproved targets must not be promoted to confirmed instructions. Mixed changes use the union and uncertain impact uses the comprehensive fallback.
 - If gate A includes gate B and A preserves B's named result, output, and exit status through a verified fail-fast or aggregate runner, selecting A satisfies B; do not also invoke B as an unconditional separate gate. Declare inclusion by stable gate ID, reject unknown IDs or cycles, and show the relationship in project operations.
-- After a failure or later edit, rerun first the failed gates and any prior evidence invalidated by the changed files, configuration, dependencies, generated artifacts, or environment. Successful evidence may be reused only when the project matrix establishes that the later change did not invalidate it. A final completion decision must contain every gate selected for the final impact set.
+- After a failure or later edit, rerun first the failed gates and any prior evidence invalidated by the changed files, configuration, dependencies, generated artifacts, or environment. Successful evidence may be reused only when the project matrix establishes that the later change did not invalidate it. A final completion decision must contain every gate selected for the final impact set. Also satisfy the input-triggered focused regressions registered in the policy; these supplement the selected gates only when their trigger paths changed.
 - Record omitted gates and the matrix-based reason in the task callback, completion report, or durable release evidence selected by the project. Omission is never allowed merely to avoid a known failure.
 
 ## Material Change and Documentation Scope
@@ -163,4 +162,4 @@ Do not claim completion while required work, validation, integration, documentat
 
 ## Project-specific Rules
 
-Before any write, delegation, Git mutation, external action, implementation, or completion claim, read `governance/project-rules.md` and the task-routed authoritative documents it identifies. Project-specific rules may be stricter than the common contract but must not weaken or contradict it.
+Before any write, delegation, Git mutation, external action, implementation, or completion claim, read `governance/project-rules.md` and the task-routed authoritative documents it identifies. Resolve conflicts with the local contract before acting.

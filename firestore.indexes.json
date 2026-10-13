@@ -1,40 +1,548 @@
 {
   "indexes": [
     {
-      "collectionGroup": "properties",
+      "collectionGroup": "propertyWarranties",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "constructionCompanyId", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+        { "fieldPath": "warrantyNoticePending", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "constructionCompanyId", "order": "ASCENDING" },
+        { "fieldPath": "branchId", "order": "ASCENDING" },
+        { "fieldPath": "warrantyNoticePending", "order": "ASCENDING" },
+        { "fieldPath": "expiryDate", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "properties",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "homeownerId", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "properties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "homeownerId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "appliedWarranties",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
-        { "fieldPath": "warrantyServiceId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        {
+          "fieldPath": "warrantyServiceId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
       ]
     },
     {
       "collectionGroup": "constructionCompanyCaseWorkItems",
       "queryScope": "COLLECTION",
       "fields": [
-        { "fieldPath": "constructionCompanyId", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" },
-        { "fieldPath": "__name__", "order": "DESCENDING" }
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "companyBranches",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "constructionCompanies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "defaultGroupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "warrantyNumber",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "warrantyNumber",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "constructionCompanyId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "branchId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "warrantyNumber",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "updatedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "insuranceQueryEnd",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insuranceQueryStart",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "groupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "billingPendingMonth",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "billingQueryMonths", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "groupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "certificatePendingMonth",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "groupId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "certificateQueryMonths",
+          "arrayConfig": "CONTAINS"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiryDate",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "startDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "billingPendingMonth",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "warrantyNoticePending",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "expiryDate",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insuranceProjectionVersion",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd1",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd2",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingEnd3",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart1",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart2",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "insurancePendingStart3",
+          "order": "ASCENDING"
+        }
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "branches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "branches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "branches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "constructionCompanies",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "constructionCompanies",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "constructionCompanies",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "homeowners",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "homeowners",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "homeowners",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "properties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "properties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "properties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "warrantyServices",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "warrantyServices",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "warrantyServices",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "cases",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "cases",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "cases",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "appliedWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "appliedWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "appliedWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "propertyWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "propertyWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "propertyWarranties",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "companyBranches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "companyBranches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "companyBranches",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeGeneration",
+      "collectionGroup": "warrantyGroups",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeProtocol",
+      "collectionGroup": "warrantyGroups",
+      "indexes": []
+    },
+    {
+      "fieldPath": "runtimeNonce",
+      "collectionGroup": "warrantyGroups",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insurancePeriods",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insuranceWaiverEvents",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "propertyWarranties",
+      "fieldPath": "insuranceMigration",
+      "indexes": []
+    }
+  ]
 }

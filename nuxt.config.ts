@@ -1,4 +1,16 @@
+import { hostedTarget } from './functions/deployment-target.js'
+const target = hostedTarget({
+  environment: process.env.TERMITE_DEPLOYMENT_ENVIRONMENT || 'development',
+  project: process.env.TERMITE_PRODUCTION_PROJECT || 'termite-warranty-dev',
+  appId: process.env.TERMITE_PRODUCTION_APP_ID || '',
+})
+const recoveryReleaseRevision = process.env.RECOVERY_RELEASE_REVISION
+if (recoveryReleaseRevision !== undefined && !/^[a-f0-9]{40}$/.test(recoveryReleaseRevision)) {
+  throw new Error('Invalid recovery release revision.')
+}
+
 export default defineNuxtConfig({
+  ...(recoveryReleaseRevision ? { buildId: recoveryReleaseRevision } : {}),
   compatibilityDate: '2026-09-10',
   ssr: false,
   app: {
@@ -14,6 +26,9 @@ export default defineNuxtConfig({
     public: {
       firebaseProjectId: 'demo-termite-warranty',
       firebaseDevProjectId: 'termite-warranty-dev',
+      firebaseDeploymentEnvironment: target.environment,
+      firebaseHostedProjectId: target.project,
+      firebaseHostedAppId: target.appId,
       firebaseFunctionsRegion: 'asia-northeast1',
     },
   },
@@ -25,6 +40,15 @@ export default defineNuxtConfig({
       importComposables: false,
     },
     vuetifyOptions: {
+      defaults: {
+        VAlert: { density: 'compact', variant: 'tonal', iconSize: 20 },
+        VTextField: { autocomplete: 'off' },
+        VTextarea: { autocomplete: 'off' },
+        VSelect: { autocomplete: 'off' },
+        VAutocomplete: { autocomplete: 'off' },
+        VCombobox: { autocomplete: 'off' },
+        VForm: { autocomplete: 'off' },
+      },
       localeMessages: ['ja'],
       locale: {
         locale: 'ja',
@@ -41,7 +65,6 @@ export default defineNuxtConfig({
               accent: '#55B8D1',
               background: '#F5F9FD',
               surface: '#FFFFFF',
-              'surface-variant': '#E7F1FC',
               'on-background': '#26374A',
               'on-surface': '#26374A',
               'on-primary': '#FFFFFF',

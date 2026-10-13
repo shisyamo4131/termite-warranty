@@ -1,3 +1,4 @@
+import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
@@ -10,10 +11,10 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from 'firebase/auth'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
-import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 const email = 'callable.profile.registration@example.invalid'
 const password = 'Demo-only-password-123'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw new Error('Callable tests require the local emulator.')
@@ -53,6 +54,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  await seedFixedRuntime(adminDb)
   await signIn()
   for (const collection of ['cases', 'caseNumberReservations', 'branches', 'constructionCompanies', 'homeowners', 'properties', 'warrantyServices']) {
     await adminDb.recursiveDelete(adminDb.collection(collection))

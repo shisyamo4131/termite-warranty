@@ -1,0 +1,3 @@
+export interface DashboardValue { version:number; counts:{active:number;insurancePending:number;warrantyNoticePending:number;billingPending:number}; basisDate:string; basisMonth:string; startedAt:string; completedAt:string; warrantyMonths:number; runtimeGeneration:number }
+export interface DashboardState { value:DashboardValue|null; attempted:boolean; loading:boolean; stale:boolean; error:string }
+export function createDashboardSession(options:{fetch:()=>Promise<any>;today:()=>string;generation:()=>number;publish:(state:DashboardState)=>void;timeoutMs?:number}):{reset:()=>void;markStale:()=>void;checkDate:()=>void;refresh:()=>Promise<void>;ensure:()=>Promise<void>;getState:()=>DashboardState}

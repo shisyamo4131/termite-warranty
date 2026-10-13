@@ -1,3 +1,4 @@
+import { AccountMutationError, mutateAccount } from './account-mutation.js'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { calculateExpiryDate } from './domain/warranty.mjs'
 import { buildCaseListProjection } from './domain/case-list-projection.mjs'
@@ -163,19 +164,17 @@ export async function createConstructionCompanyAccountOperation(auth, firestore,
 }
 
 export async function setConstructionCompanyAccountEnabledOperation(auth, firestore, input, actorUid) {
-  await assertStaff(firestore, actorUid, true)
   const uid = text(input?.uid, '工務店アカウントを指定してください。')
-  if (typeof input?.enabled !== 'boolean') fail('invalid-argument', '有効状態が不正です。')
-  const ref = firestore.doc(`constructionCompanyAccounts/${uid}`)
-  const snapshot = await ref.get()
-  if (!snapshot.exists) fail('not-found', '工務店アカウントが見つかりません。')
-  if (!input.enabled) {
-    await ref.update({ enabled: false, updatedAt: FieldValue.serverTimestamp() })
-    await auth.updateUser(uid, { disabled: true })
-    await auth.revokeRefreshTokens(uid)
-  } else {
-    await auth.updateUser(uid, { disabled: false })
-    await ref.update({ enabled: true, updatedAt: FieldValue.serverTimestamp() })
+  if (uid.includes('/') || typeof input?.enabled !== 'boolean') fail('invalid-argument', '有効状態が不正です。')
+  try {
+    await mutateAccount(auth, firestore, { uid, targetPath: `constructionCompanyAccounts/${uid}`, actorUid, kind: 'enabled', desired: { enabled: input.enabled }, authorize: (actor, target) => {
+      if (actor?.enabled !== true || !['developer_superuser', 'house_solution_administrator'].includes(actor.role)) fail('permission-denied', '管理者のみが工務店アカウントを管理できます。')
+      if (!target || target.role !== 'construction_company') fail('not-found', '工務店アカウントが見つかりません。')
+    } })
+  } catch (error) {
+    if (error instanceof AccountMutationError) fail(error.code, error.message)
+    if (error instanceof CompanyPortalError) throw error
+    fail('internal', '工務店アカウントを更新できませんでした。')
   }
   return { uid, enabled: input.enabled }
 }

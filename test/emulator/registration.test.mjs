@@ -1,3 +1,4 @@
+import { seedFixedRules } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { readFile } from 'node:fs/promises'
@@ -6,9 +7,9 @@ import { deleteApp, initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { collection, collectionGroup, doc, getDoc, getDocs, writeBatch } from 'firebase/firestore'
 import { registerCaseTransaction } from '../../functions/register-case.js'
-import { LOCAL_RUNTIME, localRuntimeHost } from '../../src/config/local-emulator.mjs'
+import { LOCAL_RUNTIME, localRuntimeHost } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) {
   throw new Error(`Registration integration tests require the dedicated local Firestore emulator at ${localRuntimeHost(LOCAL_RUNTIME.firestorePort)}.`)
 }
@@ -31,6 +32,7 @@ let adminFirestore
 async function seed(enabledService = true, includeCounter = true) {
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     for (const uid of ['staff-1', 'staff-2']) {
       batch.set(doc(db, 'staffAccounts', uid), {
@@ -101,6 +103,7 @@ test('concurrent app registrations allocate distinct complete case numbers', asy
 
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const cases = await getDocs(collection(db, 'cases'))
     assert.equal(cases.size, 2)
     const caseIds = new Set(cases.docs.map(({ id }) => id))
@@ -139,6 +142,7 @@ test('registration creates the case-number counter when it is absent', async () 
 
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     assert.deepEqual((await getDoc(doc(db, 'systemCounters', 'caseNumber'))).data(), {
       nextValue: 2,
       lastCaseId: result.id,
@@ -219,6 +223,7 @@ test('disabled staff cannot register through the trusted transaction', async () 
   await seed()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.update(doc(db, 'staffAccounts', 'staff-1'), { enabled: false })
     await batch.commit()
@@ -235,6 +240,7 @@ test('an inactive homeowner prevents registration and leaves state unchanged', a
   await seed()
   await testEnvironment.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore()
+    await seedFixedRules(db)
     const batch = writeBatch(db)
     batch.update(doc(db, 'homeowners', 'homeowner-1'), { active: false })
     await batch.commit()

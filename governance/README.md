@@ -29,9 +29,17 @@ This is the entry point for project-specific governance. It keeps operating rule
 | Delivery approach and prototype technology | [delivery and technology](../docs/requirements/delivery-and-technology.md) |
 | Delivery milestones and verified progress | [2026 initial-delivery roadmap](../docs/roadmaps/2026-initial-delivery.md) |
 | Current unresolved matters, including House Solution confirmations and technical decisions | [Unresolved-matter register](../docs/requirements/house-solution-confirmations.md) |
-| Verification policy | [verification-policy.json](verification-policy.json) and [operations](../docs/operations.md) |
+| Shared alert and input design, including future screens | [Clear Sky theme](../docs/design/clear-sky-theme.md) and [project rules](project-rules.md#shared-ui-design-rules) |
+| Verification selection and evidence reuse | [verification-policy.json](verification-policy.json), [Dev反映の目的別・変更別判断／現行ツールの制約](../docs/operations.md#dev反映で確認する目的と範囲), and [evidence validity / retry](../docs/operations.md#evidence-validity-and-retry); selecting the comprehensive gates does not itself require rerunning every command |
+| Local受入れ試験データの操作（都度承認不要） | [恒常承認の範囲](project-rules.md#local受入れ用データの恒常承認) |
+| 検証データ・採番変更の隔離と後片付け | [project rules](project-rules.md#検証データ採番変更を実運用へ残さない) |
+| 常用Localと自動試験の競合・試験データの準備 | [利用調整・用途別分離](../docs/operations.md#localと自動試験の利用調整)、[変更した入口と既存試験の準備確認](../docs/operations.md#検証の進め方) |
 | Durable architecture or product decisions | [decisions](../docs/decisions/README.md) |
 | User-authored UI component collaboration | [custom UI component runbook](../docs/runbooks/custom-ui-component-collaboration.md) and [decision 0021](../docs/decisions/0021-user-authored-ui-component-collaboration.md) |
+
+## Local Governance Maintenance
+
+The project owns its governance after initial scaffolding; the installed scaffold skill is not part of maintenance. See [decision 0042](../docs/decisions/0042-project-owned-governance.md). Edit the [local contract](common-governance.md), project rules, policy or local tools; run `./scripts/render-governance.ps1 -Check` for comparison, approved `-Apply` to regenerate, then `./scripts/check-governance.ps1`. Generation touches only AGENTS, the operations policy-summary block, and local-generation lock fields. Origin hashes are retained as provenance. For render/check/helper changes, run the focused safety regression `node --test test/governance-tools.test.mjs` before the selected completion gates. `check-governance.ps1 -SourcesOnly` is internal source preflight, not completion evidence; use the ordinary checker after generation.
 
 ## Authority Boundaries
 

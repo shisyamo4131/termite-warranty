@@ -16,7 +16,7 @@
         <v-btn color="primary" @click="openNewRequest">新規案件を申請</v-btn>
       </div>
 
-      <v-alert type="info" density="compact" variant="tonal" class="mb-4 flex-grow-0">
+      <v-alert type="info" class="mb-4 flex-grow-0">
         このプロトタイプでは、メール通知は送信待ちキューの記録までを行います。実メールは送信しません。
       </v-alert>
       <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
@@ -38,7 +38,6 @@
               <v-alert
                 v-if="item.reviewComment"
                 :type="item.status === 'needs_correction' ? 'warning' : 'info'"
-                variant="tonal"
                 class="mt-4"
               >
                 {{ item.status === 'needs_correction' ? '要修正内容' : '確認コメント' }}：{{ item.reviewComment }}
@@ -70,7 +69,7 @@
   </v-main>
 
   <v-dialog v-model="dialog" max-width="760" persistent>
-    <v-card :title="editingItem?.kind === 'renewal' ? '保証更改の回答' : '新規案件の申請'">
+    <v-card :border="false" :title="editingItem?.kind === 'renewal' ? '保証更改の回答' : '新規案件の申請'">
       <v-card-text>
         <v-alert v-if="dialogMessage" type="error" class="mb-4">{{ dialogMessage }}</v-alert>
         <v-text-field v-model="form.contactName" label="今回の担当者名" required />
@@ -111,7 +110,7 @@
   </v-dialog>
 
   <v-dialog v-model="withdrawalDialog" max-width="560" persistent>
-    <v-card title="新規案件申請を取り下げる">
+    <v-card :border="false" title="新規案件申請を取り下げる">
       <v-card-text>
         <p class="mb-4">取下げ後は再開できません。必要な場合は新しい申請を作成してください。</p>
         <v-textarea v-model="withdrawalReason" label="取下げ理由" rows="3" required />
@@ -126,7 +125,10 @@
 </template>
 
 <script setup lang="ts">
-import { collection, documentId, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('companyPortal')
+
+import { collection, documentId, limit, orderBy, query, where } from 'firebase/firestore'
 import type { CompanyAccountProfile, CompanyCaseWorkItem, NewCaseWorkItemInput, WorkItemResponse } from '../types/company-portal.ts'
 import { formatCanonicalLocalDate, parseCanonicalLocalDate } from '../utils/canonicalLocalDate'
 

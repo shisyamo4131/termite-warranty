@@ -1,0 +1,308 @@
+{
+  "status": "applied-and-readback-verified",
+  "approval": {
+    "date": "2026-10-13",
+    "thread": "01a133e7-092f-71f0-b5e7-43a8b7833ab9",
+    "approvedPlanSha256": "82b8568ceb60046c56dd554104abc4d14adb4cf2dd0d04f853fe72edb07c44eb",
+    "scope": "IAM and build foundation only; publication and backup protection excluded",
+    "readback": "Roles, project/SA/repository bindings, operator provider and main-only GitHub environment matched; build Editor absent; no user-managed keys",
+    "runtimeAuthenticationVerified": false
+  },
+  "project": "termite-warranty-prod",
+  "projectNumber": "988295873733",
+  "roles": {
+    "prodApplicationDeploy": {
+      "title": "Production application deploy",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "artifactregistry.repositories.get",
+        "artifactregistry.repositories.list",
+        "cloudbuild.builds.get",
+        "cloudbuild.builds.list",
+        "cloudbuild.operations.get",
+        "cloudbuild.operations.list",
+        "cloudfunctions.functions.create",
+        "cloudfunctions.functions.delete",
+        "cloudfunctions.functions.get",
+        "cloudfunctions.functions.getIamPolicy",
+        "cloudfunctions.functions.list",
+        "cloudfunctions.functions.setIamPolicy",
+        "cloudfunctions.functions.sourceCodeGet",
+        "cloudfunctions.functions.sourceCodeSet",
+        "cloudfunctions.functions.update",
+        "cloudfunctions.locations.list",
+        "cloudfunctions.operations.get",
+        "cloudfunctions.operations.list",
+        "cloudscheduler.jobs.create",
+        "cloudscheduler.jobs.delete",
+        "cloudscheduler.jobs.get",
+        "cloudscheduler.jobs.list",
+        "cloudscheduler.jobs.update",
+        "datastore.databases.getMetadata",
+        "datastore.operations.get",
+        "datastore.operations.list",
+        "datastore.schemas.create",
+        "datastore.schemas.delete",
+        "datastore.schemas.get",
+        "datastore.schemas.list",
+        "datastore.schemas.update",
+        "firebaserules.releases.create",
+        "firebaserules.releases.get",
+        "firebaserules.releases.list",
+        "firebaserules.releases.update",
+        "firebaserules.rulesets.create",
+        "firebaserules.rulesets.get",
+        "firebaserules.rulesets.list",
+        "firebaserules.rulesets.test",
+        "iam.serviceAccounts.get",
+        "resourcemanager.projects.get",
+        "run.operations.get",
+        "run.operations.list",
+        "run.revisions.get",
+        "run.revisions.list",
+        "run.services.get",
+        "run.services.getIamPolicy",
+        "run.services.list",
+        "run.services.setIamPolicy",
+        "serviceusage.services.get",
+        "serviceusage.services.list",
+        "serviceusage.services.use"
+      ]
+    },
+    "prodSourceRead": {
+      "title": "Production source verification",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "storage.objects.get"
+      ]
+    },
+    "prodBusinessDatabase": {
+      "title": "Production business database",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "datastore.databases.get",
+        "datastore.databases.getMetadata",
+        "datastore.entities.allocateIds",
+        "datastore.entities.create",
+        "datastore.entities.delete",
+        "datastore.entities.get",
+        "datastore.entities.list",
+        "datastore.entities.update"
+      ]
+    },
+    "prodBusinessAuth": {
+      "title": "Production business Auth",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "firebaseauth.users.create",
+        "firebaseauth.users.delete",
+        "firebaseauth.users.get",
+        "firebaseauth.users.update"
+      ]
+    },
+    "prodOperatorProjectRead": {
+      "title": "Production operator project read",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "firebase.projects.get",
+        "serviceusage.services.use"
+      ]
+    },
+    "prodOperatorDatabaseRead": {
+      "title": "Production operator database read",
+      "description": "Bounded production deployment preparation",
+      "stage": "GA",
+      "includedPermissions": [
+        "datastore.databases.getMetadata",
+        "datastore.entities.get",
+        "datastore.entities.list"
+      ]
+    }
+  },
+  "databaseCondition": {
+    "title": "ProductionTwoDatabases",
+    "expression": "resource.name == \"projects/termite-warranty-prod/databases/(default)\" || resource.name == \"projects/termite-warranty-prod/databases/recovery-control\""
+  },
+  "sourceCondition": {
+    "title": "ProductionFunctionSources",
+    "expression": "resource.name.startsWith(\"projects/_/buckets/gcf-v2-sources-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1.cloudfunctions.appspot.com/\")"
+  },
+  "buildServiceAccount": "988295873733-compute@developer.gserviceaccount.com",
+  "removeBuildRole": "roles/editor",
+  "runtimeServiceAccounts": [
+    "prod-business@termite-warranty-prod.iam.gserviceaccount.com",
+    "prod-backup@termite-warranty-prod.iam.gserviceaccount.com",
+    "prod-diagnostics@termite-warranty-prod.iam.gserviceaccount.com"
+  ],
+  "operatorProvider": {
+    "pool": "github-production-operations",
+    "provider": "github",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "attributeMapping": {
+      "google.subject": "assertion.sub",
+      "attribute.repository_id": "assertion.repository_id",
+      "attribute.repository_owner_id": "assertion.repository_owner_id",
+      "attribute.ref": "assertion.ref"
+    },
+    "attributeCondition": "assertion.repository_id == '1363463339' && assertion.repository_owner_id == '72244713' && assertion.ref == 'refs/heads/main' && assertion.sub == 'repo:shisyamo4131@72244713/termite-warranty@1363463339:environment:production-operations' && assertion.event_name == 'workflow_dispatch' && assertion.workflow_ref == 'shisyamo4131/termite-warranty/.github/workflows/verify-production-operator.yml@refs/heads/main'"
+  },
+  "backupProtectionChanges": false,
+  "publication": false,
+  "projectBindings": [
+    {
+      "role": "projects/termite-warranty-prod/roles/prodApplicationDeploy",
+      "members": [
+        "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodSourceRead",
+      "members": [
+        "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+      ],
+      "condition": {
+        "title": "ProductionFunctionSources",
+        "expression": "resource.name.startsWith(\"projects/_/buckets/gcf-v2-sources-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1.cloudfunctions.appspot.com/\")"
+      }
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodBusinessDatabase",
+      "members": [
+        "serviceAccount:prod-business@termite-warranty-prod.iam.gserviceaccount.com"
+      ],
+      "condition": {
+        "title": "ProductionTwoDatabases",
+        "expression": "resource.name == \"projects/termite-warranty-prod/databases/(default)\" || resource.name == \"projects/termite-warranty-prod/databases/recovery-control\""
+      }
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodBusinessAuth",
+      "members": [
+        "serviceAccount:prod-business@termite-warranty-prod.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodOperatorProjectRead",
+      "members": [
+        "serviceAccount:prod-operator@termite-warranty-prod.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodOperatorDatabaseRead",
+      "members": [
+        "serviceAccount:prod-operator@termite-warranty-prod.iam.gserviceaccount.com"
+      ],
+      "condition": {
+        "title": "ProductionTwoDatabases",
+        "expression": "resource.name == \"projects/termite-warranty-prod/databases/(default)\" || resource.name == \"projects/termite-warranty-prod/databases/recovery-control\""
+      }
+    },
+    {
+      "role": "roles/logging.logWriter",
+      "members": [
+        "serviceAccount:988295873733-compute@developer.gserviceaccount.com"
+      ]
+    },
+    {
+      "role": "projects/termite-warranty-prod/roles/prodSourceRead",
+      "members": [
+        "serviceAccount:988295873733-compute@developer.gserviceaccount.com"
+      ],
+      "condition": {
+        "title": "ProductionFunctionSources",
+        "expression": "resource.name.startsWith(\"projects/_/buckets/gcf-v2-sources-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1/\") || resource.name.startsWith(\"projects/_/buckets/gcf-v2-uploads-988295873733-asia-northeast1.cloudfunctions.appspot.com/\")"
+      }
+    }
+  ],
+  "removeProjectBinding": {
+    "role": "roles/editor",
+    "members": [
+      "serviceAccount:988295873733-compute@developer.gserviceaccount.com"
+    ]
+  },
+  "serviceAccountBindings": [
+    {
+      "resource": "projects/termite-warranty-prod/serviceAccounts/prod-business@termite-warranty-prod.iam.gserviceaccount.com",
+      "binding": {
+        "role": "roles/iam.serviceAccountUser",
+        "members": [
+          "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+        ]
+      }
+    },
+    {
+      "resource": "projects/termite-warranty-prod/serviceAccounts/prod-backup@termite-warranty-prod.iam.gserviceaccount.com",
+      "binding": {
+        "role": "roles/iam.serviceAccountUser",
+        "members": [
+          "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+        ]
+      }
+    },
+    {
+      "resource": "projects/termite-warranty-prod/serviceAccounts/prod-diagnostics@termite-warranty-prod.iam.gserviceaccount.com",
+      "binding": {
+        "role": "roles/iam.serviceAccountUser",
+        "members": [
+          "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+        ]
+      }
+    },
+    {
+      "resource": "projects/termite-warranty-prod/serviceAccounts/988295873733-compute@developer.gserviceaccount.com",
+      "binding": {
+        "role": "roles/iam.serviceAccountUser",
+        "members": [
+          "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com"
+        ]
+      }
+    },
+    {
+      "resource": "projects/termite-warranty-prod/serviceAccounts/prod-operator@termite-warranty-prod.iam.gserviceaccount.com",
+      "binding": {
+        "role": "roles/iam.workloadIdentityUser",
+        "members": [
+          "principalSet://iam.googleapis.com/projects/988295873733/locations/global/workloadIdentityPools/github-production-operations/attribute.repository_id/1363463339"
+        ]
+      }
+    }
+  ],
+  "artifactRepository": {
+    "name": "projects/termite-warranty-prod/locations/asia-northeast1/repositories/gcf-artifacts",
+    "format": "DOCKER",
+    "cleanupPolicies": {
+      "delete-old-images": {
+        "action": "DELETE",
+        "condition": {
+          "tagState": "ANY",
+          "olderThan": "604800s"
+        }
+      }
+    },
+    "cleanupPolicyDryRun": false,
+    "binding": {
+      "role": "roles/artifactregistry.writer",
+      "members": [
+        "serviceAccount:988295873733-compute@developer.gserviceaccount.com"
+      ]
+    }
+  },
+  "githubEnvironment": {
+    "name": "production-operations",
+    "deploymentBranch": "main",
+    "waitTimer": 0,
+    "requiredReviewers": []
+  },
+  "validation": {
+    "customPermissions": 65,
+    "allFound": true,
+    "allSupported": true,
+    "allGA": true,
+    "source": "IAM permissions:queryTestablePermissions, project target, 14 pages; unused 2 BETA location permissions removed"
+  }
+}

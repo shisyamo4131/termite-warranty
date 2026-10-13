@@ -1,0 +1,99 @@
+name: Verify and deploy Firebase production application
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: production-bootstrap
+  cancel-in-progress: false
+jobs:
+  verify:
+    # No unconfigured production build or accidental deployment on adoption.
+    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    runs-on: windows-latest
+    outputs:
+      digest: ${{ steps.bundle.outputs.digest }}
+    env:
+      PRODUCTION_TARGET_JSON: ${{ vars.PRODUCTION_TARGET_JSON }}
+      PRODUCTION_RECOVERY_PARAMETERS_JSON: ${{ vars.PRODUCTION_RECOVERY_PARAMETERS_JSON }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npx --yes npm@11.19.1 ci
+      - run: ./scripts/check-governance.ps1
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm run test:rules
+      - run: node scripts/check-functions-syntax.mjs
+      - run: node --check scripts/seed-emulator.mjs
+      - id: bundle
+        run: node scripts/prepare-production-release.mjs .production-release
+      - name: Verify final production bundle
+        env:
+          PRODUCTION_RELEASE_DIGEST: ${{ steps.bundle.outputs.digest }}
+        run: node scripts/check-production-release.mjs local .production-release
+      - uses: actions/upload-artifact@v7
+        with:
+          name: production-release-${{ github.sha }}
+          path: .production-release
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+  deploy:
+    needs: verify
+    if: ${{ needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      PRODUCTION_TARGET_JSON: ${{ vars.PRODUCTION_TARGET_JSON }}
+      PRODUCTION_ARTIFACT_REVISION: ${{ github.sha }}
+      PRODUCTION_ENVIRONMENT: production
+      PRODUCTION_VERIFY_RESULT: ${{ needs.verify.result }}
+      PRODUCTION_RELEASE_DIGEST: ${{ needs.verify.outputs.digest }}
+      PRODUCTION_PROVIDER_VERSION: ${{ vars.PRODUCTION_PROVIDER_VERSION }}
+      PRODUCTION_APP_DEPLOY_ENABLED: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - id: target
+        run: node scripts/check-production-deployment.mjs --application
+      - uses: actions/download-artifact@v8
+        with:
+          name: production-release-${{ github.sha }}
+          path: .production-release
+      - run: node scripts/check-production-release.mjs local .production-release
+      - run: node scripts/check-production-release.mjs stage .production-release
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.target.outputs.project }}
+          workload_identity_provider: ${{ steps.target.outputs.provider }}
+          service_account: ${{ steps.target.outputs.service_account }}
+      - run: node scripts/check-production-release.mjs predeploy .production-release
+      - name: Deploy the verified bundle without rebuilding
+        shell: pwsh
+        env:
+          TARGET_PROJECT: ${{ steps.target.outputs.project }}
+        run: npx --no-install firebase deploy --non-interactive --project $env:TARGET_PROJECT --config .production-deploy/firebase.json --only firestore,functions,hosting
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ steps.target.outputs.project }}
+          workload_identity_provider: ${{ steps.target.outputs.provider }}
+          service_account: ${{ steps.target.outputs.service_account }}
+      - name: Verify deployed Rules indexes Functions and Hosting
+        run: node scripts/check-production-release.mjs cloud .production-release

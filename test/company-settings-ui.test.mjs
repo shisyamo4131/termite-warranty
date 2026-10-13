@@ -1,0 +1,140 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import ts from 'typescript'
+import * as vue from 'vue'
+import { companyProfileDefaults, normalizeCompanyProfile } from '../src/domain/company-settings.mjs'
+import { postalRule, lengthRule, phoneRule, emailRule } from '../src/domain/input-rules.mjs'
+import { propertyAddress } from '../src/domain/property-warranty.mjs'
+
+function harness(t, fetch, lineEnding='\n') {
+  const profile = vue.ref({accountType:'staff', role:'house_solution_administrator', uid:'fictional-admin'})
+  const recoveryRuntime = vue.ref({phase:'normal',generation:1})
+  const scopes=[]
+  const source=readFileSync(new URL('../app/composables/useCompanyProfile.ts',import.meta.url),'utf8').replace(/\r?\n/g,lineEnding).replace(/^import .*\r?\n/gm,'').replace('export function useCompanyProfile','function useCompanyProfile')
+  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
+  const env={...vue,effectScope:()=>{const scope=vue.effectScope(true);scopes.push(scope);return scope},useNuxtApp:()=>({$firebase:{functions:{}}}),useSession:()=>({profile}),httpsCallable:()=>async data=>({data:await fetch(data)}),withRuntimeGeneration:x=>x,recoveryRuntime,companyProfileDefaults,normalizeCompanyProfile}
+  const store=new Function(...Object.keys(env),code+'\nreturn useCompanyProfile();')(...Object.values(env))
+  t.after(()=>scopes.forEach(scope=>scope.stop()))
+  return {store,profile,recoveryRuntime}
+}
+for (const lineEnding of ['\n','\r\n']) test(`profile cache avoids repeat reads; edit refresh and save replace shared value (${lineEnding==='\n'?'LF':'CRLF'})`,async t=>{
+  const calls=[]
+  const {store}=harness(t,async input=>{calls.push(input);return {...companyProfileDefaults(),companyName:input.profile?.companyName || '架空会社',updatedByName:'架空管理者'}},lineEnding)
+  await store.load();await store.load();assert.equal(calls.length,1)
+  await store.load(true);assert.equal(calls.length,2)
+  await store.save({...companyProfileDefaults(),companyName:'変更後の架空会社'})
+  assert.equal(calls[2].action,'saveCompanyProfile');assert.equal(store.value.value.companyName,'変更後の架空会社')
+})
+test('identity reset discards late replies and clears previous company values',async t=>{
+  let resolve
+  const {store,profile}=harness(t,()=>new Promise(done=>{resolve=done}))
+  const pending=store.load()
+  profile.value={accountType:'staff',role:'general_staff',uid:'fictional-other'}
+  resolve({...companyProfileDefaults(),companyName:'old'})
+  await assert.rejects(pending,/利用状態/)
+  assert.equal(store.value.value,null);assert.equal(store.loading.value,false)
+})
+test('general staff cannot save; portal cannot read; verification admins only read',async t=>{
+  let calls=0
+  const {store,profile,recoveryRuntime}=harness(t,async()=>{calls++;return companyProfileDefaults()})
+  profile.value={accountType:'staff',role:'general_staff',uid:'fictional-staff'}
+  await store.load();await assert.rejects(store.save({...companyProfileDefaults(),companyName:'架空'}),/変更できません/)
+  profile.value={accountType:'construction_company',role:'',uid:'fictional-company'}
+  await assert.rejects(store.load(),/参照できません/)
+  profile.value={accountType:'staff',role:'house_solution_administrator',uid:'fictional-admin'}
+  recoveryRuntime.value={phase:'verification',generation:2};await store.load()
+  await assert.rejects(store.save({...companyProfileDefaults(),companyName:'架空'}),/変更できません/)
+  assert.equal(calls,2)
+})
+test('failed refresh retains previous value, next load can retry',async t=>{
+  let fail=false
+  const {store}=harness(t,async()=>{if(fail)throw new Error('通信失敗');return {...companyProfileDefaults(),companyName:'架空会社'}})
+  await store.load();fail=true;await assert.rejects(store.load(true),/通信失敗/)
+  assert.equal(store.value.value.companyName,'架空会社');assert.equal(store.loading.value,false)
+  fail=false;await store.load(true)
+})
+
+test('screen retry actually refetches after a failed edit refresh despite existing cache',async t=>{
+  let calls=0,fail=false
+  const {store,profile,recoveryRuntime}=harness(t,async()=>{calls++;if(fail)throw new Error('通信失敗');return {...companyProfileDefaults(),companyName:`架空会社${calls}`}})
+  const file=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8')
+  const source=file.match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
+  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const scope=vue.effectScope()
+  const env={ref:vue.ref,computed:vue.computed,watch:vue.watch,useCompanyProfile:()=>store,useSession:()=>({profile}),useAppSnackbar:()=>({showSnackbar(){},showValidationError(){}}),defineEmits:()=>()=>{},defineExpose:()=>{},onMounted:()=>{},onBeforeUnmount:()=>{},companyProfileDefaults,normalizeCompanyProfile,requiredRules:[],optionalRules:[],recoveryRuntime}
+  const view=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {load,edit,error,editing};')(...Object.values(env)))
+  t.after(()=>scope.stop())
+  await view.load();await view.load();assert.equal(calls,1)
+  fail=true;await view.edit();assert.equal(calls,2);assert.match(view.error.value,/通信失敗/);assert.equal(view.editing.value,false)
+  // Execute the actual retry-button expression so template wiring is covered.
+  const expression=file.match(/@click="([^"]+)">再取得/)[1]
+  await new Function('load',`return ${expression}`)(view.load)
+  assert.equal(calls,3);assert.match(view.error.value,/通信失敗/)
+  fail=false;await new Function('load',`return ${expression}`)(view.load)
+  assert.equal(calls,4);assert.equal(view.error.value,'');assert.equal(store.value.value.companyName,'架空会社4')
+})
+
+function contact(t, outcome) {
+  const form=vue.ref({postalCode:'1234567',address1:'',address2:'建物',telephone:'',email:''})
+  let lookups=0
+  const scope=vue.effectScope()
+  const source=readFileSync(new URL('../app/components/BusinessContactFields.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
+  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const env={ref:vue.ref,watch:vue.watch,defineProps:()=>({}),defineModel:()=>form,onBeforeUnmount:()=>{},postalRule,lengthRule,phoneRule,emailRule,propertyAddress,hostedPostalLookupProvider:{},createPostalLookupCoordinator:()=>({cancel(){},async lookup(){lookups++;return outcome()}})}
+  const result=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {lookup,applyCandidate,candidates};')(...Object.values(env)))
+  t.after(()=>scope.stop())
+  return {...result,form,lookups:()=>lookups}
+}
+
+function settingsScreen(t, fetch) {
+  const {store,profile,recoveryRuntime}=harness(t,fetch)
+  const source=readFileSync(new URL('../app/components/CompanySettings.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
+  const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const scope=vue.effectScope(),notices=[],confirmations=[]
+  let discard=false
+  const env={...vue,useCompanyProfile:()=>store,useSession:()=>({profile}),useAppSnackbar:()=>({showSnackbar:(...args)=>notices.push(args),showValidationError(){}}),defineEmits:()=>()=>{},defineExpose:()=>{},onMounted:()=>{},onBeforeUnmount:()=>{},companyProfileDefaults,normalizeCompanyProfile,requiredRules:[],optionalRules:[],recoveryRuntime,window:{confirm:message=>{confirmations.push(message);return discard}}}
+  const view=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {edit,cancel,save,canLeave,draft,editing,working,error,form};')(...Object.values(env)))
+  view.form.value={validate:async()=>({valid:true})}
+  t.after(()=>scope.stop())
+  return {...view,profile,notices,confirmations,setDiscard:value=>discard=value}
+}
+
+test('dialog close retains dirty bank edits when discard is declined and cancels without a save when accepted',async t=>{
+  let writes=0
+  const v=settingsScreen(t,async input=>{if(input.action==='saveCompanyProfile')writes++;return {...companyProfileDefaults(),companyName:'架空会社'}})
+  await v.edit();v.draft.value.bankAccountNumber='0012345'
+  v.cancel();assert.equal(v.editing.value,true);assert.equal(v.draft.value.bankAccountNumber,'0012345')
+  v.setDiscard(true);v.cancel();assert.equal(v.editing.value,false);assert.equal(writes,0);assert.equal(v.confirmations.length,2)
+})
+
+test('dialog save failure retains bank draft for retry and in-flight save prevents close and duplicate write',async t=>{
+  let rejectSave,writes=0
+  const v=settingsScreen(t,input=>input.action==='saveCompanyProfile'?(writes++,new Promise((resolve,reject)=>{rejectSave=reject})):Promise.resolve({...companyProfileDefaults(),companyName:'架空会社'}))
+  await v.edit();v.draft.value.bankAccountNumber='0012345'
+  const saving=v.save();await Promise.resolve();assert.equal(v.working.value,true)
+  v.setDiscard(true);v.cancel();await v.save();assert.equal(v.editing.value,true);assert.equal(writes,1)
+  rejectSave(new Error('保存失敗'));await saving
+  assert.match(v.error.value,/保存失敗/);assert.equal(v.draft.value.bankAccountNumber,'0012345');assert.equal(v.editing.value,true);assert.equal(v.working.value,false)
+})
+
+test('identity change while validating prevents stale dialog submission',async t=>{
+  let writes=0,validate
+  const v=settingsScreen(t,async input=>{if(input.action==='saveCompanyProfile')writes++;return {...companyProfileDefaults(),companyName:'架空会社'}})
+  await v.edit();v.form.value={validate:()=>new Promise(resolve=>validate=resolve)}
+  const saving=v.save();v.profile.value={accountType:'staff',role:'house_solution_administrator',uid:'other-admin'}
+  validate({valid:true});await saving
+  assert.equal(writes,0);assert.equal(v.editing.value,false);assert.equal(v.draft.value.companyName,'');assert.equal(v.notices.length,0)
+})
+test('postal lookup never replaces an existing address or building',async t=>{
+  const v=contact(t,()=>({state:'current',result:{status:'resolved',address:{prefecture:'架空県',municipality:'架空市',streetTownAndNumber:'架空町'}}}))
+  v.form.value.address1='手入力の住所';await v.lookup();assert.equal(v.lookups(),0)
+  v.form.value.address1='';await v.lookup();assert.equal(v.form.value.address1,'架空県架空市架空町');assert.equal(v.form.value.address2,'建物')
+})
+test('postal response after manual edit cannot overwrite address',async t=>{
+  let resolve
+  const v=contact(t,()=>new Promise(done=>resolve=done))
+  const pending=v.lookup();v.form.value.address1='編集中の住所'
+  resolve({state:'current',result:{status:'resolved',address:{prefecture:'架空県'}}});await pending
+  assert.equal(v.form.value.address1,'編集中の住所')
+})

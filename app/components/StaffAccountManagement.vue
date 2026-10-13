@@ -2,21 +2,21 @@
   <section>
     <div class="d-flex align-center justify-space-between ga-4 mb-6">
       <div>
-        <h1 class="text-h4 mb-2">担当者アカウント管理</h1>
+        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span></h1>
         <p class="text-body-2 text-medium-emphasis mb-0">ハウスソリューション側の担当者アカウントを発行・編集・無効化します。</p>
       </div>
-      <v-btn v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
+      <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
     </div>
 
-    <v-alert v-if="!canManage" type="warning" variant="tonal">
+    <v-alert v-if="!canManage" type="warning">
       担当者アカウント管理は管理者のみ利用できます。
     </v-alert>
     <v-card v-else>
       <v-card-text>
-        <v-alert type="info" density="compact" variant="tonal" class="mb-4">
+        <v-alert type="info" class="mb-4">
           {{ targetDescription }}。パスワードは本人が設定・再設定します。
         </v-alert>
-        <v-alert v-if="loadError" type="error" density="compact" variant="tonal" class="mb-4">{{ loadError }}</v-alert>
+        <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
         <v-table>
           <thead><tr><th>表示名</th><th>メールアドレス</th><th>権限</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
@@ -26,10 +26,10 @@
               <td>{{ roleLabel(account.role) }}</td>
               <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.enabled ? '有効' : '無効' }}</v-chip></td>
               <td>
-                <v-btn size="small" variant="text" @click="openEdit(account)">編集</v-btn>
+                <v-btn v-if="account.enabled" size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
                 <v-btn
                   size="small"
-                  variant="text"
+                  variant="outlined"
                   :color="account.enabled ? 'error' : 'success'"
                   :loading="busyId === account.uid"
                   @click="toggle(account)"
@@ -39,41 +39,44 @@
             <tr v-if="!loading && accounts.length === 0"><td colspan="5" class="text-center py-8">管理対象のアカウントはありません。</td></tr>
           </tbody>
         </v-table>
-        <div v-if="accounts.length" class="list-pagination-bar">
+        <div class="list-pagination-bar">
           <span class="text-body-2 text-medium-emphasis">{{ accounts.length }}件</span>
-          <v-pagination v-if="pageCount > 1" v-model="page" :length="pageCount" density="comfortable" />
+          <v-pagination v-model="page" :length="pageCount" density="comfortable" />
         </div>
         <v-progress-linear v-if="loading" indeterminate color="primary" />
       </v-card-text>
     </v-card>
   </section>
 
-  <v-dialog v-model="dialogOpen" max-width="560" persistent>
-    <v-card :title="editingUid ? '担当者アカウントを編集' : '担当者アカウントを発行'">
-      <v-card-text>
-        <v-alert v-if="!editingUid" type="info" density="compact" variant="tonal" class="mb-4">
+  <v-dialog v-model="dialogOpen" max-width="560" persistent scrollable>
+    <v-card :border="false" class="business-dialog"><BusinessDialogHeader :title="editingUid ? '担当者アカウントを編集' : '担当者アカウントを発行'" :subtitle="form.displayName || '新規発行'" icon="staff" :busy="saving" @close="dialogOpen=false" />
+      <v-card-text><v-form ref="editForm" @submit.prevent="save"><v-alert v-if="saveError" type="error" class="mb-4">{{ saveError }}</v-alert>
+        <v-alert v-if="!editingUid" type="info" class="mb-4">
           発行後、入力したメールアドレスへパスワード設定メールを送信します。
         </v-alert>
-        <v-text-field v-model="form.displayName" label="表示名" required />
-        <v-text-field v-model="form.email" label="メールアドレス" type="email" required />
-        <div class="text-caption">付与する権限: {{ roleLabel(targetRole) }}</div>
-      </v-card-text>
-      <v-card-actions>
+        <h2 class="business-section-title">担当者情報</h2><v-text-field v-model="form.displayName" :rules="requiredRules" label="表示名" required />
+        <v-text-field v-model="form.email" :rules="[requiredRule,emailRule]" label="メールアドレス" type="email" required />
+        <h2 class="business-section-title">権限</h2><div class="text-caption">付与する権限: {{ roleLabel(targetRole) }}</div>
+      </v-form></v-card-text>
+      <v-card-actions class="flex-wrap">
         <v-spacer />
-        <v-btn :disabled="saving" @click="dialogOpen = false">キャンセル</v-btn>
-        <v-btn color="primary" :loading="saving" @click="save">{{ editingUid ? '更新' : '発行' }}</v-btn>
+        <v-btn variant="outlined" :disabled="saving" @click="dialogOpen = false">キャンセル</v-btn>
+        <v-btn variant="flat" color="primary" :loading="saving" @click="save">{{ editingUid ? '更新' : '発行' }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
 <script setup lang="ts">
+import {requiredRules,requiredRule,emailRule} from '../../src/domain/input-rules.mjs'
+const editForm=ref<{validate:()=>Promise<{valid:boolean}>}|null>(null)
+const saveError=ref('')
 import type { StaffAccountRow, StaffRole } from '../gateways/staffAccountGateway.ts'
 
 const PAGE_SIZE = 20
 const { profile } = useSession()
 const gateway = useStaffAccountManagement()
-const { showSnackbar } = useAppSnackbar()
+const { showSnackbar, showValidationError } = useAppSnackbar()
 const accounts = ref<StaffAccountRow[]>([])
 const targetRole = ref<StaffRole>('general_staff')
 const loading = ref(false)
@@ -111,16 +114,23 @@ const load = async () => {
 }
 
 const openCreate = () => {
+  saveError.value='';
   editingUid.value = ''
   Object.assign(form, { displayName: '', email: '' })
   dialogOpen.value = true
 }
 const openEdit = (account: StaffAccountRow) => {
+  if (!account.enabled) return
+  saveError.value='';
   editingUid.value = account.uid
   Object.assign(form, { displayName: account.displayName, email: account.email })
   dialogOpen.value = true
 }
 const save = async () => {
+  if(saving.value)return
+  
+  if(!(await editForm.value?.validate())?.valid){showValidationError('入力内容に誤りがあります。赤字の項目を確認してください。');return}
+  saveError.value=''
   saving.value = true
   try {
     if (editingUid.value) {
@@ -138,7 +148,7 @@ const save = async () => {
     dialogOpen.value = false
     await load()
   } catch (error) {
-    showSnackbar(error instanceof Error ? error.message : '担当者アカウントを保存できませんでした。', 'error')
+    saveError.value=error instanceof Error ? error.message : '担当者アカウントを保存できませんでした。'
   } finally {
     saving.value = false
   }
@@ -150,7 +160,7 @@ const toggle = async (account: StaffAccountRow) => {
     showSnackbar(account.enabled ? '担当者アカウントを無効化しました。' : '担当者アカウントを再有効化しました。', 'success')
     await load()
   } catch (error) {
-    showSnackbar(error instanceof Error ? error.message : 'アカウント状態を変更できませんでした。', 'error')
+    loadError.value=error instanceof Error ? error.message : 'アカウント状態を変更できませんでした。'
   } finally {
     busyId.value = ''
   }

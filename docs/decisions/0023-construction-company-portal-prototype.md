@@ -2,6 +2,7 @@
 
 - Date: 2026-09-13
 - Status: Accepted
+- Partially superseded: [ADR 0034](0034-company-registration-without-hs-review.md), 2026-10-01, replaces per-submission HS approval with direct registration/extension. Account issuance and company boundaries remain. The implementation below is historical prototype behavior.
 - Related specification: [Construction-company portal workflow](../specification.md#construction-company-portal-workflow)
 
 ## Context

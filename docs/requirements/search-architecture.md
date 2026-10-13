@@ -1,5 +1,13 @@
 # Search Architecture
 
+## 2026-10-06 物件一覧の適用範囲
+
+物件／保証一覧は[検索仕様](search-and-list.md)に従い保証番号完全一致のみ。物件名・施主名・住所のtokenMap導入案は未採用で今回実装しない。以下の旧案件・マスタ構造の記述を現行物件一覧の検索要件に転用しない。他の検索軸は業務仕様の確定が先行する。
+
+## 2026-10-06 物件一覧の適用範囲
+
+物件／保証一覧は[検索仕様](search-and-list.md)に従い保証番号完全一致のみ。物件名・施主名・住所のtokenMap導入案は未採用で今回実装しない。以下の旧案件・マスタ構造の記述を現行物件一覧の検索要件に転用しない。他の検索軸は業務仕様の確定が先行する。
+
 ## Status
 
 The initial prototype technology decision is recorded in [decision 0002](../decisions/0002-prototype-stack-and-search.md). This record defines its scope and remaining design decisions.

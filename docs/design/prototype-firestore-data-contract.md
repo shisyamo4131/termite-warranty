@@ -1,5 +1,7 @@
 # Prototype Firestore Data Contract
 
+> Historical runtime contract: the [2026-10-03 meeting contract](meeting-prototype-2026-10-03.md) supersedes the overlapping prototype surfaces. Old modules remain for regression/reference but are not routed by the application root. Historical disposable test-data reset is not authorization for another reset. The meeting contract now defines annual counters, persisted insurance state and server-only replay receipts; existing trial data requires explicit migration before deployment. Production initial intake remains a separate pending operation.
+
 - Status: Approved for local prototype implementation only
 - Approved: 2026-09-10
 - Production authority: None; this is not the production schema or migration mapping

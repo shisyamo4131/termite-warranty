@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
-import { validateDevelopmentWorkflow } from '../scripts/development-workflow-contract.mjs'
+import { validateDevelopmentWorkflow, developmentDeployCondition } from '../scripts/development-workflow-contract.mjs'
+import { parse } from 'yaml'
+import vm from 'node:vm'
 
 const workflowUrl = new URL('../.github/workflows/deploy-development.yml', import.meta.url)
 const policyUrl = new URL('../governance/verification-policy.json', import.meta.url)
@@ -38,7 +40,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
     /must not use unconditional --force/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace("    if: github.event_name == 'workflow_dispatch'\n", ''), policy),
+    () => validateDevelopmentWorkflow(workflow.replace(`    if: ${developmentDeployCondition}\n`, ''), policy),
     /explicit manual workflow dispatch/,
   )
   assert.throws(
@@ -49,6 +51,29 @@ test('deploy cannot bypass verification or use a general force flag', async () =
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - name: Run domain tests\n        if: false'), policy),
     /domain-test must be unconditional and fail closed/,
   )
+})
+
+test('actual deployment condition routes only approved events and branches before and after opt-in', async () => {
+  const { workflow, policy } = await load()
+  const condition = parse(workflow).jobs.deploy.if
+  // This expression uses only boolean operators and string equality. Normalize
+  // strings to model GitHub's documented case-insensitive comparison semantics.
+  for (const flag of ['', 'false', 'TRUE', 'true']) {
+    for (const production of ['', 'true', 'TRUE']) {
+      for (const event of ['push', 'workflow_dispatch', 'pull_request']) {
+        for (const branch of ['main', 'dev', 'codex/production-readiness', 'refs/tags/dev']) {
+          const ref = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`
+          const enabled = flag.toLowerCase() === 'true'
+          const expected = enabled
+            ? branch === 'dev' && ['push', 'workflow_dispatch'].includes(event)
+            : branch === 'main' && event === 'workflow_dispatch' && production.toLowerCase() !== 'true'
+          assert.equal(vm.runInNewContext(condition, { github: { event_name: event, ref }, vars: { DEVELOPMENT_BRANCH_DEPLOY_ENABLED: flag.toLowerCase(), PRODUCTION_APP_DEPLOY_ENABLED: production.toLowerCase() } }), expected, `${flag}/${production}/${event}/${branch}`)
+        }
+      }
+    }
+  }
+  assert.throws(() => validateDevelopmentWorkflow(workflow.replace('cancel-in-progress: false', 'cancel-in-progress: true'), policy), /concurrency/)
+  assert.throws(() => validateDevelopmentWorkflow(workflow.replace('      - dev\n', '      - release\n'), policy), /branch routing/)
 })
 
 test('deploy must consume the verified Hosting artifact without rebuilding it', async () => {

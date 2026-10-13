@@ -1,14 +1,46 @@
 # Environments and Authentication Email
 
+## 2026-10-13 初期所有・引継ぎ順序の更新
+
+ProdはA（開発者個人アカウント）で組織なしとして先行構築し、後日HSへ引き継ぐ。HSの管理ルールが不明な段階でWorkspaceを用意しない。下記の「初期からHS所有」「HS管理者紐付け後に請求登録」という順序は置換する。初期請求先はAの既存Cloud Billingアカウントを使用し、後日HS側へ変更する方針で確定。実行前に既存請求先の実ID・利用権限・有効状態を照合する。オーナー交代とFirestore保持／読み書き／旧オーナー拒否はSpark試験で検証済み、請求先変更と組織移行は未検証。HS最終管理・開発者の同等保守権限は維持し、[Prod手順](../runbooks/production-bootstrap-review.md)のB／H工程に従う。実Prod構築・引継ぎは未実施。
+
+## 2026-10-08 オーナー決定による現在の状態
+
+本番DBはFirestore確定。HS所有・Dev分離・東京リージョンを維持。Prod workflowは構築情報が揃ってから、PITR等は構築後に設定。HS管理者のメールは受領、正式氏名確定は資料台帳に記録済み。開発者はHS管理者と同等の権限、通知先はオーナーGoogleアカウント。Firebaseへの管理者メール紐付け後に請求登録、予算設定は後発。[構築情報の不足一覧](../operations.md#2026-10-08-prod構築前の整理)。旧条件付きFirestore・最小権限のみという記述はこの決定で置換する。Prodの実識別子・IAM・課金・通知設定はまだ未実施。
+
 ## Confirmed Environment Requirements
 
 - Provide the mid-September 2026 prototype in a development environment.
 - Use separate Firebase projects for the development and production environments.
-- The development Firebase project is owned by the developer. House Solution owns and contractually controls the production Firebase/Google Cloud project and billing; its project ID, accounts, IAM bindings, and settings are recorded during provisioning.
+- The development Firebase project is owned by the developer. Production is initially provisioned by account A without an organization, then handed over to House Solution for final project and billing control under the 2026-10-13 amendment above. Use the existing Cloud Billing account of A initially, then change the billing association to HS. Billing reassignment remains unverified and is separate from project ownership. Record actual project ID, accounts, IAM bindings, and settings during provisioning and handover.
 - The provisioned and verified development Firebase project ID is `termite-warranty-dev`; its registered web app is `TermiteWarranty Dev Web`, its Hosting site is `termite-warranty-dev`, and its default Firestore location is `asia-northeast1` (Tokyo). These identifiers do not authorize or imply any production target.
 - Cloud Functions for the development prototype use `asia-northeast1` so callable operations are colocated with the development Firestore database. If Firestore is selected for production under HSC-022, production Firestore and Functions use `asia-northeast1`. Production uses the Blaze plan.
 - Production provisioning and implementation remain pending. The adopted operation plan covers environment-fixed deployment workflows, environment-specific authentication, verified artifacts, concurrency protection, rollback, monitoring, backups, and recovery; exact project settings and recorded identifiers are created during provisioning.
 - Existing-system homeowner data is not required for migration testing. Any use of actual homeowner data in the developer-owned development environment for another separately approved purpose requires a confidentiality agreement. Do not place that data in source control, documentation, test fixtures, or logs.
+
+## Confirmed Recovery Scope
+
+- Superseding owner decision on 2026-10-06: business clients and Functions always use `(default)`. Named databases are temporary restore/developer-verification space. Apply the complete verified image back to default, preserving independent control/current account authority/issued numbers, verify it, open administrator read-only/non-mutating CSV confirmation, then reopen only after separate external HS consent. Redeployment is allowed in principle. Current Dev named-DB data must survive migration; stopping, writing/deleting current data and deployment are not broadly authorized. [Design and concrete migration boundaries](../design/default-database-recovery.md). This is a confirmed target, not current deployed behavior.
+
+- Additional owner adoption on 2026-10-06: restore missing Auth accounts with their original UID, preserving surviving identities and current profile roles/enabled state. This covers total Auth loss when profile authority survives; corrupted credentials of surviving users are outside this increment. Implement/verify with fictional Local data first, without modifying normal Dev Auth. The [design](../design/backup-recovery-implementation.md#2026-10-06-missing-identity-auth-repair-increment) separates Local import from read-only Dev inspection and unverified live credential recovery.
+
+- Implementation-start instruction on 2026-10-06: implement the adopted Q&A scope. Local runtime/maintenance controls, administrator status UI, external CLI, preserved authorization/numbering and automatic-backup/Auth-export monitoring code are verified. This replaces the Q&A-time offline-only/unimplemented descriptions below for that code scope. Dev configuration, deployment, notification delivery, PITR restoration/cutover and owner-approved reopening are verified in the linked evidence. First managed-backup restoration remains unverified. Missing-identity import is Local-verified only; live Auth import remains unavailable. See [implementation design](../design/backup-recovery-implementation.md) and [operator runbook](../runbooks/backup-recovery.md).
+
+- Owner adoption on 2026-10-06: after cutover, retain the former database separately from normal business access until recovery verification and incident investigation are complete. Do not delete it immediately; decide deletion separately afterward. Retention duration, completion evidence and deletion procedure remain undecided. This policy is not authorization to execute live data deletion.
+
+- Owner adoption on 2026-10-06: the Dev drill includes isolated restored-database/data/behavior verification followed by temporarily putting normal Dev into maintenance and rehearsing connection cutover, awaiting-HS-verification and reopening. Coordinate normal-Dev downtime before execution. This does not include overwriting the existing database or rolling back live Dev Authentication users. Verify exact targets, settings/permissions and stop/cutover/rollback procedures before execution. The drill has not run.
+
+- Owner adoption on 2026-10-06: send automatic backup-failure email alerts to development, which investigates/responds and contacts HS outside the system when needed. Simultaneous automatic notification to HS administrators is not adopted. Verify actual recipients during production provisioning; detection, delivery/retry and monitoring are not implemented.
+
+- Owner decisions in this Codex chat on 2026-10-06: whole-business-database recovery only, with individual property/warranty recovery outside this preparation scope. The stated rationale is that the system is not multi-tenant.
+- Preserve ADR0032's automatic daily managed Firestore backups, PITR and separate Authentication backup policy. Real configuration/restoration remains unimplemented.
+- Development enters maintenance mode, proposes a safe recovery time and explains registrations/updates after that point that will not be recovered. Obtain HS approval outside the system before restoration. After restoration, development validates and reports; HS verifies and approves reopening before development lifts maintenance. Pre-restoration and reopening approvals are separate.
+- All recovery reporting, discussion and approval with HS occur outside the business system. An in-system approval button is not required. Specific external channels and approval evidence location/fields remain undecided.
+- Maintenance has recovery-in-progress and awaiting-HS-verification phases. During recovery, HS administrators see a maintenance notice only. After restoration, technical validation and account consistency checks, development opens viewing and non-mutating CSV export. Business registration, editing, deletion and report/billing status writes remain stopped until approved reopening. Availability during an outage is not guaranteed.
+- Preserve current Authentication users when only business data is damaged. Restore Authentication separately only when its own damage/loss requires recovery. In either case, development verifies identity correspondence, roles and disabled state against restored account documents. Unresolved inconsistencies block reopening. Technical restore and reconciliation procedures remain to be designed.
+- Development operates maintenance transitions, restoration, validation and reopening through dedicated commands outside the business application. In-app UI provides state/backup-history viewing only, with no recovery-operation buttons. The existing CLI is an offline mock only; the real route must be verified during application outage.
+- State/backup-history viewing is available to developer superusers and HS administrators, not general staff or construction-company accounts. Include the automatic backup last-success time, failure and absence of backups. During recovery in progress, HS administrators still receive a maintenance notice only. Screen and data-access controls are not implemented.
+- Technical recovery-time assessment, command/IAM contracts, detailed screen fields, stop/cutover/rollback mechanisms, Auth reconciliation and Dev rehearsal remain to be designed. No live restore, database cutover, IAM change or production provisioning has been performed under these decisions. See [ADR0032](../decisions/0032-production-firebase-operations.md#2026-10-06-recovery-operation-amendment) and the [technical remediation plan](../roadmaps/technical-remediation.md#2026-10-06-回答待ち期間の優先順位バックアップ設計検討).
 
 ## Confirmed Authentication-Email Requirements
 

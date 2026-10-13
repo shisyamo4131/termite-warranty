@@ -1,3 +1,6 @@
+import { createMeasuredFirestore, startFirestoreMetrics } from '../utils/firestoreMetrics.ts'
+import { startAuthDiagnostics, recordAuthFailure } from '../utils/authDiagnostics'
+const { getDoc, onSnapshot } = createMeasuredFirestore('recovery')
 import { getApp, getApps, initializeApp, type FirebaseOptions } from 'firebase/app'
 import {
   browserSessionPersistence,
@@ -5,14 +8,19 @@ import {
   getAuth,
   setPersistence,
 } from 'firebase/auth'
-import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
+import { connectFirestoreEmulator, getFirestore, doc } from 'firebase/firestore'
 import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+
+import { fixedRuntimeState } from '../../src/domain/fixed-recovery.mjs'
+import { initializeRecovery, recoveryRuntime, recoveryProblem, type RecoveryRuntime } from '../utils/recoveryClient'
 import { LOCAL_RUNTIME, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { hostedTarget, validateHostedOptions } from '../../functions/deployment-target.js'
 
 export default defineNuxtPlugin(async () => {
   const config = useRuntimeConfig()
   const localProjectId = config.public.firebaseProjectId
-  const developmentProjectId = config.public.firebaseDevProjectId
+  const target = hostedTarget({environment: config.public.firebaseDeploymentEnvironment,
+    project: config.public.firebaseHostedProjectId, appId: config.public.firebaseHostedAppId})
   const functionsRegion = config.public.firebaseFunctionsRegion
   const isLocal = new Set(['127.0.0.1', 'localhost']).has(window.location.hostname)
 
@@ -31,17 +39,17 @@ export default defineNuxtPlugin(async () => {
       authDomain: `${localProjectId}.firebaseapp.com`,
     }
   } else {
-    const response = await fetch('/__/firebase/init.json', { cache: 'no-store' })
+    const response = await fetch('/__/firebase/init.json', { cache: 'no-store', redirect: 'error' })
     if (!response.ok) throw new Error('Firebase Hosting configuration could not be loaded.')
     firebaseOptions = await response.json() as FirebaseOptions
-    if (developmentProjectId !== 'termite-warranty-dev' || firebaseOptions.projectId !== developmentProjectId) {
-      throw new Error('This build is not running on the approved Firebase development project.')
-    }
+    validateHostedOptions(target, firebaseOptions)
   }
 
   const app = getApps().length
     ? getApp()
     : initializeApp(firebaseOptions)
+  if (!isLocal) validateHostedOptions(target, app.options)
+  else if (app.options.projectId !== localProjectId) throw new Error('Existing Firebase application target mismatch.')
   const auth = getAuth(app)
   const firestore = getFirestore(app)
   const functions = getFunctions(app, functionsRegion)
@@ -55,7 +63,29 @@ export default defineNuxtPlugin(async () => {
     connectFunctionsEmulator(functions, LOCAL_RUNTIME.host, LOCAL_RUNTIME.functionsPort)
     emulatorState.__termiteWarrantyEmulatorsConnected = true
   }
-  await setPersistence(auth, browserSessionPersistence)
+  const diagnosticEndpoint = isLocal
+    ? `${localRuntimeUrl(LOCAL_RUNTIME.functionsPort)}/${localProjectId}/${functionsRegion}/reportAuthDiagnostics`
+    : `https://${functionsRegion}-${target.project}.cloudfunctions.net/reportAuthDiagnostics`
+  const stopDiagnostics = startAuthDiagnostics(diagnosticEndpoint)
+  if (import.meta.hot) import.meta.hot.dispose(stopDiagnostics)
+  try { await setPersistence(auth, browserSessionPersistence) }
+  catch (error) { recordAuthFailure('persistence', error); throw error }
+  const stopMetrics = startFirestoreMetrics(auth, functions)
+  if (import.meta.hot) import.meta.hot.dispose(stopMetrics)
+  try {
+    const result = fixedRuntimeState((await getDoc(doc(firestore, '_recovery/access'))).data()) as RecoveryRuntime
+    initializeRecovery(result)
+    onSnapshot(doc(firestore, '_recovery/access'), snapshot => {
+      const value = snapshot.data()
+      if (!value || value.protocol !== 2 || value.generation !== result.generation || value.phase !== result.phase || value.databaseId !== '(default)' || value.controlDatabaseId !== result.controlDatabaseId) {
+        recoveryRuntime.value = { ...result, phase: 'unavailable' }
+        // Force recreation of Firebase handles, profile listeners and caches.
+        window.location.reload()
+      }
+    }, () => { recoveryRuntime.value = { ...result, phase: 'unavailable' }; recoveryProblem.value = '接続状態を確認できません。再読込してください。' })
+  } catch {
+    recoveryProblem.value = 'システムの接続状態を確認できません。時間をおいて再読込してください。'
+  }
 
   return {
     provide: {

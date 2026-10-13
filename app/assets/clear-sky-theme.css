@@ -51,8 +51,7 @@ html {
   background: rgb(255 255 255 / 12%) !important;
 }
 
-.v-card,
-.v-dialog .v-card {
+.v-card:not(.lifecycle-card):not(.dialog-layout-card):not(.company-settings-card) {
   border: 1px solid var(--clear-sky-border);
   box-shadow: 0 3px 12px rgb(38 55 74 / 8%);
 }
@@ -174,22 +173,18 @@ html {
   background: var(--clear-sky-soft-surface);
 }
 
-.v-field__outline {
-  --v-field-border-opacity: 1;
-  color: var(--clear-sky-border);
-}
-
-.v-field--focused .v-field__outline {
-  color: var(--clear-sky-primary) !important;
-}
-
 .v-btn:focus-visible,
 .v-list-item:focus-visible,
-a:focus-visible,
-.v-field:focus-within {
+a:focus-visible {
   outline: 3px solid var(--clear-sky-focus);
   outline-offset: 2px;
 }
+
+/* Field borders and focus indicators use Vuetify defaults. */
+.v-form .v-text-field,
+.v-form .v-textarea { margin-bottom: 12px; }
+.v-input__details { padding-bottom: 6px; }
+.v-card-title { white-space: normal; overflow-wrap: anywhere; }
 
 .logout-button:focus-visible {
   outline-color: #fff;
@@ -229,7 +224,6 @@ a:hover {
   }
 }
 
-.v-btn--variant-text { color: var(--clear-sky-primary-hover) !important; }
 
 .detail-page-header {
   display: flex;
@@ -300,7 +294,103 @@ a:hover {
 }
 
 /* Keep dialog headings and actions fixed while the form area scrolls. */
-.v-dialog .v-card { display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
-.v-dialog .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-.v-dialog .v-card > .v-card-actions,
-.v-dialog .v-card > .v-card-item { flex: 0 0 auto; }
+/* Shared alert typography; colour and compact padding remain Vuetify-owned. */
+.v-alert { font-size: 0.875rem; line-height: 1.5; }
+/* Vuetify's default content spans two grid rows; use one shared centre line. */
+.v-alert.v-alert { grid-template-areas: "prepend content append close"; align-items: center; }
+.v-alert .v-alert-title { font-size: inherit; line-height: inherit; font-weight: 500; }
+.v-alert .v-alert__prepend { margin-inline-end: 12px; align-self: center; min-height: 1.5em; }
+.v-alert .v-alert__content { min-width: 0; overflow-wrap: anywhere; }
+
+.v-dialog > .v-overlay__content > .v-card { border: 0; display: flex; flex-direction: column; max-height: calc(100vh - 48px); }
+.v-dialog > .v-overlay__content > .v-card > .v-card-text { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.v-dialog > .v-overlay__content > .v-card > .v-card-actions,
+.v-dialog > .v-overlay__content > .v-card > .v-card-item { flex: 0 0 auto; }
+
+/* Business lists: compact controls, explicit counts and persistent column headings. */
+.business-help { margin-bottom: 16px; }
+.business-help > summary, .business-property-facts > summary { color: rgb(var(--v-theme-primary)); padding: 8px 0; cursor: pointer; }
+.business-help[open] > summary { margin-bottom: 8px; }
+.business-property-facts { margin-top: 20px; border-top: 1px solid var(--clear-sky-border); }
+.business-counts { display: flex; flex-wrap: wrap; gap: 16px 32px; padding-bottom: 12px; border-bottom: 1px solid var(--clear-sky-border); }
+.business-counts > div { display: flex; flex-direction: column; gap: 4px; }
+.business-counts span, .business-counts small { font-size: 0.8125rem; color: var(--clear-sky-muted-text); }
+.business-counts strong { font-size: 1.25rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.business-selection-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; }
+.business-selection-bar > .v-input { flex: 0 1 auto; }
+.business-list-table td { padding-top: 8px !important; padding-bottom: 8px !important; }
+.business-list-table th { white-space: nowrap; }
+.business-list-table .v-selection-control { min-height: 32px; }
+.business-search-actions { padding-top: 20px; }
+.property-search-actions { height: 56px; }
+@media (max-width: 599px) { .business-selection-bar > div { width: 100%; } .business-selection-bar .v-btn { max-width: 100%; height: auto; min-height: 40px; white-space: normal; } .business-counts { gap: 12px 20px; } }
+
+/* Vuetify reserves a page scrollbar by default, even when this workspace fits. */
+html:has(.business-main) { overflow-y: auto; }
+
+/* Keep application scrolling below the app bar; tables use the remaining space. */
+.business-main.v-main {
+  height: 100dvh;
+  flex: 0 0 auto;
+  min-height: 0;
+}
+.business-workspace {
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.business-workspace > * { flex-shrink: 0; }
+.business-results.v-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+.business-results-content.v-card-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 0 auto;
+}
+.business-results-content > * { flex-shrink: 0; }
+.business-results .business-list-table {
+  height: 128px;
+  min-height: 128px;
+  flex: 1 0 128px;
+}
+.business-list-table > .v-table__wrapper { min-height: 0; }
+
+/* Alerts keep their content height inside column flex layouts. */
+.business-workspace .v-alert { flex: 0 0 auto; }
+
+.business-navigation-item .v-list-item__prepend { margin-inline-end: 12px; }
+
+/* Adopted dialog shell: only the body scrolls, identity and normal actions remain visible. */
+.business-dialog > .business-dialog-toolbar, .business-dialog > .business-dialog-identity { flex: 0 0 auto; }
+.business-dialog-toolbar .v-toolbar__prepend { margin-inline: 20px 12px; }
+.business-dialog-toolbar .v-toolbar-title { font-size: 1.0625rem; font-weight: 600; min-width: 0; }
+.business-dialog-toolbar .v-toolbar-title__placeholder { white-space: normal; line-height: 1.3; overflow-wrap: anywhere; }
+.business-dialog-close { font-size: 1.75rem; line-height: 1; }
+.business-dialog-identity { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 16px 24px; background: rgb(var(--v-theme-surface)); border-bottom: 1px solid var(--clear-sky-border); }
+.business-dialog-subtitle { flex: 1 1 200px; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.business-section-title { font-size: .9375rem; line-height: 1.5; font-weight: 600; color: rgb(var(--v-theme-primary)); margin: 0 0 16px; padding: 8px 0; border-bottom: 1px solid var(--clear-sky-border); }
+.business-dialog .business-section-title:not(:first-child) { margin-top: 20px; }
+.business-dialog > .v-card-text { padding-top: 24px !important; }
+.business-dialog > .v-card-actions { border-top: 1px solid var(--clear-sky-border); padding: 16px 24px; gap: 8px; flex-wrap: wrap; }
+.business-cancellation-section { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--clear-sky-border); }
+.business-cancellation-section .business-section-title { color: rgb(var(--v-theme-error)); }
+@media (max-width: 599px) {
+  .business-dialog-identity { padding: 12px 16px; }
+  .business-dialog > .v-card-actions { padding: 12px 16px; }
+  .business-dialog .v-btn { max-width: 100%; }
+  .business-dialog .v-card-actions .v-btn, .business-cancellation-section .v-btn { height: auto; min-height: 40px; }
+  .business-dialog .v-card-actions .v-btn__content, .business-cancellation-section .v-btn__content { white-space: normal; }
+}
+
+/* Organization panes own their scrolling; the workspace stays within the viewport. */
+.business-workspace.business-organization-workspace { overflow: hidden; min-height: 0; }
+.business-organization-workspace > .organization-management { flex: 1 1 0; min-height: 0; }
+
+/* Page titles share the same icon definitions as the business navigation. */
+.business-page-title { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; }
+.business-page-title > .business-navigation-icon { flex: 0 0 20px; }
+.business-page-title > span:last-child { min-width: 0; overflow-wrap: anywhere; }

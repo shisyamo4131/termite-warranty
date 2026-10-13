@@ -1,8 +1,14 @@
+import {migrateInsuranceNotices} from './lib/insurance-notice-migration.mjs'
+import { migrateBillingQueries } from './lib/billing-query-migration.mjs'
+import { migrateInsuranceReportQueries } from './lib/insurance-report-query-migration.mjs'
+import { migrateDashboard } from './lib/dashboard-migration.mjs'
+import { migrateCertificateQueries } from './lib/certificate-query-migration.mjs'
 import { initializeApp } from 'firebase-admin/app'
 import { getAuth } from 'firebase-admin/auth'
 import { getFirestore, Timestamp } from 'firebase-admin/firestore'
 import { generateSearchTokens } from '../src/domain/search-tokens.mjs'
 import { buildCaseListProjection } from '../src/domain/case-list-projection.mjs'
+import { migrateMonthlyQueries } from './lib/monthly-query-migration.mjs'
 import { LOCAL_RUNTIME, resolveDedicatedEmulatorHost } from '../src/config/local-emulator.mjs'
 
 const projectId = 'demo-termite-warranty'
@@ -27,6 +33,12 @@ if (!projectId.startsWith('demo-')) {
 const app = initializeApp({ projectId })
 const auth = getAuth(app)
 const firestore = getFirestore(app)
+const fixedRuntime = { protocol: 2, generation: 1, phase: 'normal', databaseId: '(default)', controlDatabaseId: 'test-fixed-control' }
+await getFirestore(app, 'test-fixed-control').doc('recovery/runtime').set(fixedRuntime)
+await firestore.doc('_recovery/access').set(fixedRuntime)
+await migrateMonthlyQueries(firestore, { apply: true })
+await migrateBillingQueries(firestore, { apply: true })
+await migrateCertificateQueries(firestore, { apply: true })
 
 let user
 try {
@@ -292,6 +304,10 @@ if (!(await renewalWorkItemRef.get()).exists) {
     updatedAt: now,
   })
 }
+
+await migrateDashboard(firestore, getFirestore(app, fixedRuntime.controlDatabaseId), {generation:fixedRuntime.generation,operationId:'local-dashboard-seed'})
+await migrateInsuranceReportQueries(firestore, {apply:true,generation:fixedRuntime.generation})
+await migrateInsuranceNotices(firestore, getFirestore(app, fixedRuntime.controlDatabaseId), {generation:fixedRuntime.generation,operationId:'local-insurance-notice-seed'})
 
 console.log(`Seeded local emulator account: ${email} (${user.uid})`)
 console.log(`Seeded local contractor account: ${builderEmail} (${builderUser.uid})`)

@@ -14,5 +14,11 @@ ui-debug.log
 .env
 /.user-ui-workbench/
 
-# Short-lived GitHub Actions WIF credentials
+/tmp/
+/*.local.log
+
+# Short-lived GitHub WIF credentials
 gha-creds-*.json
+
+/.production-release/
+/.production-deploy/

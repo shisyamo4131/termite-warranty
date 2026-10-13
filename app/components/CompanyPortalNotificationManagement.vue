@@ -3,7 +3,7 @@
     <h1 class="text-h4 mb-2">通知管理</h1>
     <p class="text-body-2 text-medium-emphasis mb-6">保証更改の通知と、工務店から提出された仮データを管理します。</p>
     <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-    <v-alert type="info" density="compact" variant="tonal" class="mb-6">
+    <v-alert type="info" class="mb-4">
       メール通知は送信待ちキューへ記録する模擬実装です。メール配送サービスには接続していません。
     </v-alert>
 
@@ -31,7 +31,7 @@
   </section>
 
   <v-dialog v-model="renewalDialog" max-width="640">
-    <v-card title="保証更改依頼を作成">
+    <v-card :border="false" title="保証更改依頼を作成">
       <v-card-text>
         <v-select v-model="renewalCaseId" :items="renewalCandidates" item-title="label" item-value="id" label="案件" />
       </v-card-text>
@@ -43,9 +43,9 @@
   </v-dialog>
 
   <v-dialog v-model="reviewDialog" max-width="720">
-    <v-card title="仮データを確認">
+    <v-card :border="false" title="仮データを確認">
       <v-card-text v-if="reviewItem">
-        <v-alert v-if="reviewItem.status !== 'submitted'" type="info" variant="tonal" class="mb-4">
+        <v-alert v-if="reviewItem.status !== 'submitted'" type="info" class="mb-4">
           現在は工務店からの提出待ちです。
         </v-alert>
         <v-list density="compact">
@@ -89,7 +89,10 @@
 </template>
 
 <script setup lang="ts">
-import { collection, documentId, limit, onSnapshot, orderBy, query } from 'firebase/firestore'
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+const { onSnapshot } = createMeasuredFirestore('portalNotifications')
+
+import { collection, documentId, limit, orderBy, query } from 'firebase/firestore'
 import type { CompanyCaseWorkItem } from '../types/company-portal.ts'
 
 interface CompanyRow { id: string; name: string; active: boolean }

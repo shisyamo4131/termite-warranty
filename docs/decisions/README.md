@@ -12,6 +12,18 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
+| [0045](0045-legacy-property-list-retirement.md) | 旧一覧条件の拒否と所属付き保証案内 | Accepted | 2026-10-13 |
+| [0044](0044-branch-code-targeted-reads.md) | 本支店の既存コード管理記録による対象読取り | Accepted | 2026-10-13 |
+| [0043](0043-group-prefix-equality.md) | 保証接頭辞の完全一致・使用先記録なし・既存ID維持 | Accepted | 2026-10-13 |
+| [0042](0042-project-owned-governance.md) | プロジェクト所有のガバナンスと検証分類 | Accepted | 2026-10-10 |
+| [0041](0041-insurance-period-reporting-status.md) | 保険期間別の報告不要・今日基準の未報告件数（実装未着手） | Accepted | 2026-10-10 |
+| [0040](0040-dashboard-session-store.md) | ダッシュボード件数の共有Store（実装未着手） | Accepted | 2026-10-10 |
+| [0039](0039-monthly-query-projections.md) | 保険／請求の月別検索用項目 | Accepted | 2026-10-08 |
+| [0038](0038-production-firestore.md) | 本番DBはFirestore | Accepted | 2026-10-08 |
+| [0037](0037-reference-store-observability.md) | 共有参照Storeと使用量の観測 | Accepted | 2026-10-08 |
+| [0036](0036-account-mutation-serialization.md) | アカウント更新の直列化と結果不明時の復旧 | Accepted | 2026-10-05 |
+| [0035](0035-warranty-interval-lifecycle.md) | 保証区間に紐づく請求・保険報告と逆順取消 | Accepted | 2026-10-04 |
+| [0034](0034-company-registration-without-hs-review.md) | 工務店による承認待ちなしの新規登録・延長（所属保証グループ変更の部分は2026-10-08訂正） | Accepted; implementation pending | 2026-10-01 |
 | [0001](0001-provisional-access-control-posture.md) | Provisional access-control posture | Provisional | 2026-09-10 |
 | [0002](0002-prototype-stack-and-search.md) | Prototype stack and free-text search | Accepted | 2026-09-10 |
 | [0003](0003-firebase-authentication-and-account-lifecycle.md) | Firebase Authentication and account lifecycle | Accepted | 2026-09-10 |
@@ -20,7 +32,7 @@
 | [0006](0006-account-management-roles.md) | Account-management roles | Accepted | 2026-09-10 |
 | [0007](0007-development-and-production-isolation.md) | Development and production isolation | Accepted | 2026-09-10 |
 | [0008](0008-postal-code-address-api.md) | Postal-code address API | Superseded | 2026-09-10 |
-| [0009](0009-warranty-extension-history.md) | Warranty-extension history | Accepted | 2026-09-10 |
+| [0009](0009-warranty-extension-history.md) | Warranty-extension history | Superseded for warranty by 0033 | 2026-09-10 |
 | [0010](0010-best-effort-legacy-migration.md) | Best-effort legacy-data migration | Superseded | 2026-09-10 |
 | [0011](0011-no-initial-audit-log.md) | No initial operation-history or audit log | Accepted | 2026-09-10 |
 | [0012](0012-parallel-cutover-strategy.md) | Parallel cutover strategy | Superseded | 2026-09-10 |
@@ -44,6 +56,8 @@
 | [0030](0030-no-initial-homeowner-access.md) | No initial homeowner access | Accepted | 2026-09-17 |
 | [0031](0031-japan-post-postal-data.md) | Japan Post postal data for postal-code lookup | Accepted | 2026-09-17 |
 | [0032](0032-production-firebase-operations.md) | Production Firebase environment and operations | Accepted | 2026-09-17 |
+
+| [0033](0033-permanent-property-warranty.md) | One permanent warranty per property; 2026-10-07 UH receipt linkage by internal ID | Accepted; UH linkage implementation pending | 2026-09-29; amendment 2026-10-07 |
 
 ## Template
 

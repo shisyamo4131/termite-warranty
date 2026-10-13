@@ -1,3 +1,4 @@
+import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, test } from 'node:test'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
@@ -5,10 +6,10 @@ import { getAuth as getAdminAuth } from 'firebase-admin/auth'
 import { getFirestore } from 'firebase-admin/firestore'
 import { deleteApp, initializeApp } from 'firebase/app'
 import { connectAuthEmulator, createUserWithEmailAndPassword, getAuth, signInWithEmailAndPassword, signOut } from 'firebase/auth'
-import { connectFunctionsEmulator, getFunctions, httpsCallable } from 'firebase/functions'
-import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../../src/config/local-emulator.mjs'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
+import { LOCAL_RUNTIME, localRuntimeHost, localRuntimeUrl } from '../helpers/emulator-runtime.mjs'
 
-const projectId = 'demo-termite-warranty'
+const projectId = 'demo-termite-warranty-test'
 const password = 'Demo-only-password-123'
 if (process.env.FIRESTORE_EMULATOR_HOST !== localRuntimeHost(LOCAL_RUNTIME.firestorePort)) throw new Error('Staff account tests require the local emulator.')
 
@@ -41,6 +42,7 @@ before(async () => {
 })
 
 beforeEach(async () => {
+  await seedFixedRuntime(adminDb)
   await adminDb.recursiveDelete(adminDb.collection('staffAccounts'))
   await Promise.all([
     adminDb.doc(`staffAccounts/${identities.developer}`).set({ email: 'staff-developer@example.invalid', displayName: '開発者', role: 'developer_superuser', enabled: true }),
@@ -74,6 +76,14 @@ test('House Solution administrator manages only general-staff account lifecycle'
   await call('setStaffAccountEnabled', { uid: created.uid, enabled: false })
   assert.equal((await adminAuth.getUser(created.uid)).disabled, true)
   assert.equal((await adminDb.doc(`staffAccounts/${created.uid}`).get()).data()?.enabled, false)
+  const disabled=(await adminDb.doc(`staffAccounts/${created.uid}`).get()).data()
+  await assert.rejects(call('updateStaffAccount',{uid:created.uid,email:'blocked-disabled@example.invalid',displayName:'変更不可'}),error=>error.code==='functions/failed-precondition')
+  assert.deepEqual((await adminDb.doc(`staffAccounts/${created.uid}`).get()).data(),disabled)
+  assert.equal((await adminAuth.getUser(created.uid)).email,'updated-general@example.invalid')
+  assert.equal((await adminDb.doc(`accountMutationLocks/${created.uid}`).get()).exists,false)
+  await call('setStaffAccountEnabled',{uid:created.uid,enabled:true})
+  await call('updateStaffAccount',{uid:created.uid,email:'updated-general@example.invalid',displayName:'再有効化後の編集'})
+  assert.equal((await adminAuth.getUser(created.uid)).displayName,'再有効化後の編集')
 })
 
 test('developer manages administrators while administrator and general staff cannot cross the boundary', async () => {

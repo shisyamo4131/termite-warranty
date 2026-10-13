@@ -1,3 +1,5 @@
+import {createFirestoreCaseQuerySource} from '../app/repositories/firestoreCaseQuerySource.ts'
+import {useMasterManagement} from '../app/composables/useMasterManagement.ts'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
@@ -7,6 +9,7 @@ import { subscribeCaseDetail } from '../app/repositories/caseDetailRepository.ts
 import { subscribeCaseList } from '../app/repositories/caseListRepository.ts'
 import { planMasterReferenceQueries } from '../app/repositories/masterReferencePlan.ts'
 import {
+  createFirestoreMasterCatalogSource,
   emptyMasterCatalog,
   loadAllMasterCatalog,
   masterCollections,
@@ -201,10 +204,11 @@ test('case command gateway delegates exact command names, DTOs, results, and err
 
 test('master catalog repository loads each collection once and keeps active selection explicit', async () => {
   const requested = []
-  const all = await loadAllMasterCatalog({
+  await assert.rejects(loadAllMasterCatalog({
     async getCollection(name) { requested.push(name); return masterDocuments[name] },
-  })
-  assert.deepEqual(requested, masterCollections)
+  }), /旧マスタ全件取得/)
+  assert.deepEqual(requested, [])
+  const all=Object.fromEntries(Object.entries(masterDocuments).map(([name,rows])=>[name,rows.map(r=>({...r.data,id:r.id}))]))
   assert.equal(all.properties[0].name, '物件')
   const withInactive = { ...all, homeowners: [...all.homeowners, { id: 'inactive', name: '無効施主', active: false }] }
   assert.deepEqual(selectActiveMasters(withInactive).homeowners.map(item => item.id), ['homeowner-1'])
@@ -213,7 +217,8 @@ test('master catalog repository loads each collection once and keeps active sele
   })
 
   const expected = new Error('master load failed')
-  await assert.rejects(loadAllMasterCatalog({ getCollection: async () => { throw expected } }), error => error === expected)
+  await assert.rejects(loadAllMasterCatalog({ getCollection: async () => { throw expected } }), /旧マスタ全件取得/)
+  await assert.rejects(createFirestoreMasterCatalogSource({}).getCollection('properties'), /旧マスタ全件取得/)
 })
 
 test('case-list projection, cursor, and reference plans are deterministic and bounded', () => {
@@ -281,26 +286,22 @@ test('case list uses the parent projection, resolves bounded master references, 
   assert.equal(states.length, beforeStop)
 })
 
-test('filtered case list reads complete ordered collections and skips exact-reference listeners', () => {
+test('retired complete case list refuses before opening any subscriptions', () => {
   const source = new FakeCaseQuerySource()
-  const states = []
-  const stop = subscribeCaseList(source, state => states.push(state), () => '2026-09-01', undefined, true)
-
-  emitAllMasters(source)
-  source.emitCases([document('case-1', caseListData())])
-
-  assert.ok([...source.masters.values()].every(records => records[0].complete === true))
-  assert.equal(source.cases[0].complete, true)
-  assert.equal(source.masterReferences.length, 0)
-  assert.equal(states.at(-1).status, 'ready')
-  assert.equal(states.at(-1).nextCursor, null)
-  assert.equal(states.at(-1).rows[0].id, 'case-1')
-  stop()
+  assert.throws(()=>subscribeCaseList(source,()=>assert.fail('No partial success'),()=> '2026-09-01',undefined,true),/旧一覧の全件取得/)
+  assert([...source.masters.values()].every(entries=>entries.length===0));assert.equal(source.cases.length,0)
+  const direct=createFirestoreCaseQuerySource({})
+  assert.throws(()=>direct.subscribeCases(()=>{},()=>{},undefined,true),/旧一覧の全件取得/)
+  for(const name of masterCollections)assert.throws(()=>direct.subscribeMaster(name,()=>{},()=>{},undefined,true),/旧一覧の全件取得/)
 })
 
-test('filtered case lists read timestamp-free branches without an updatedAt ordering constraint', async () => {
-  const source = await readProjectFile('app/repositories/firestoreCaseQuerySource.ts')
-  assert.match(source, /complete\s*\?\s*name === 'branches'\s*\? collection\(firestore, name\)\s*:\s*createOrderedListQuery/)
+test('retired master management full reads refuse before touching Firestore', async t => {
+  const original=globalThis.useNuxtApp
+  globalThis.useNuxtApp=()=>({$firebase:{get firestore(){throw Error('Unexpected Firestore access')}}})
+  t.after(()=>{if(original===undefined)delete globalThis.useNuxtApp;else globalThis.useNuxtApp=original})
+  const source=useMasterManagement('property')
+  assert.throws(()=>source.subscribe(()=>{},()=>{},undefined,true),/旧一覧の全件取得/)
+  await assert.rejects(source.loadPropertyReferences({homeownerId:'old'}),/旧物件の参照候補全件取得/)
 })
 
 test('case list replaces exact-reference generations and ignores their late callbacks', () => {
@@ -441,19 +442,6 @@ test('case detail becomes ready after its exact case, warranty, and referenced-m
   stop()
 })
 
-test('case UI consumers use narrow boundaries and the aggregate composable is gone', async () => {
-  const expectations = [
-    ['app/components/PrototypeDashboard.vue', ['useCaseList', 'useCaseCommands', 'useMasterCatalog']],
-    ['app/components/DashboardOverview.vue', ['useCaseList']],
-    ['app/components/CaseDetail.vue', ['useCaseDetail', 'useMasterCatalog']],
-    ['app/components/CaseEditDialog.vue', ['useCaseCommands']],
-    ['app/components/AppliedWarrantyDialog.vue', ['useCaseCommands', 'useMasterCatalog']],
-    ['app/components/CaseFilterPanel.vue', ['canonicalLocalDate']],
-  ]
-  for (const [path, names] of expectations) {
-    const source = await readProjectFile(path)
-    assert.doesNotMatch(source, /usePrototypeData/)
-    for (const name of names) assert.match(source, new RegExp(name))
-  }
+test('the old aggregate composable remains removed', async () => {
   await assert.rejects(readProjectFile('app/composables/usePrototypeData.ts'), error => error?.code === 'ENOENT')
 })

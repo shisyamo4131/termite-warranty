@@ -4,12 +4,17 @@ on:
   push:
     branches:
       - main
+      - dev
   workflow_dispatch:
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
+
+concurrency:
+  group: development-deployment
+  cancel-in-progress: false
 
 jobs:
   verify:
@@ -39,9 +44,6 @@ jobs:
 
       - name: Run domain tests
         run: npm test
-
-      - name: Verify maintenance bootstrap contracts
-        run: node --test test/production-bootstrap.test.mjs
 
       - name: Type-check the application
         run: npm run typecheck
@@ -73,7 +75,8 @@ jobs:
   deploy:
     name: Deploy to termite-warranty-dev
     needs: verify
-    if: github.event_name == 'workflow_dispatch'
+    # Transition remains off until separately approved repository configuration.
+    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')
     runs-on: ubuntu-latest
     environment: development
     steps:

@@ -9,6 +9,7 @@
         </v-container>
       </v-main>
     </template>
+    <RecoveryNotice v-else-if="blocked" />
     <template v-else-if="loading">
       <v-main><v-progress-linear indeterminate color="primary" /></v-main>
     </template>
@@ -20,15 +21,14 @@
       </v-container>
       </v-main>
     </template>
-    <ConstructionCompanyPortal v-else-if="profile.accountType === 'construction_company'" />
-    <NuxtLayout v-else>
-      <NuxtPage />
-    </NuxtLayout>
+    <MeetingPrototype v-else />
   </v-app>
 </template>
 
 <script setup lang="ts">
 const route = useRoute()
 const { profile, loading } = useSession()
+import { recoveryRuntime } from './utils/recoveryClient'
+const blocked = computed(() => recoveryRuntime.value.phase === 'unavailable' || recoveryRuntime.value.phase === 'recovering' || recoveryRuntime.value.phase === 'verification' && !!profile.value && (profile.value.accountType !== 'staff' || !['developer_superuser','house_solution_administrator'].includes(profile.value.role)))
 const isAuthenticationAction = computed(() => route.path === '/auth/action' || route.path === '/auth/action/')
 </script>

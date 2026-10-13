@@ -1,0 +1,110 @@
+{
+  "fictionalOnly": true,
+  "cloudImportsPerformed": false,
+  "headers": [
+    "外部キー（＊）",
+    "支店コード（＊）",
+    "物件名（＊）",
+    "施主電話番号",
+    "郵便番号",
+    "住所",
+    "建物名",
+    "建築面積（＊）",
+    "断熱材あり（＊）",
+    "資材名",
+    "申込日（＊）",
+    "引渡日（＊）",
+    "最長保証期間（＊）",
+    "備考"
+  ],
+  "files": [
+    {
+      "filename": "01-common-success-3.csv",
+      "records": 3,
+      "bytes": 958,
+      "format": "common",
+      "preparedRows": 3,
+      "localErrors": []
+    },
+    {
+      "filename": "02-existing-key-reject-2.csv",
+      "records": 2,
+      "bytes": 743,
+      "format": "common",
+      "preparedRows": 2,
+      "localErrors": []
+    },
+    {
+      "filename": "03-infile-duplicate-reject-2.csv",
+      "records": 2,
+      "bytes": 743,
+      "format": "common",
+      "preparedRows": 1,
+      "localErrors": [
+        "ファイル内で外部キーが重複しています。"
+      ]
+    },
+    {
+      "filename": "04-unknown-branch-reject-2.csv",
+      "records": 2,
+      "bytes": 743,
+      "format": "common",
+      "preparedRows": 2,
+      "localErrors": []
+    },
+    {
+      "filename": "05-uh-success-2.csv",
+      "records": 2,
+      "bytes": 692,
+      "format": "common-uh",
+      "preparedRows": 2,
+      "localErrors": []
+    },
+    {
+      "filename": "06-over-limit-reject-301.csv",
+      "records": 301,
+      "bytes": 70904,
+      "format": "common",
+      "preparedRows": 0,
+      "localErrors": [
+        "取込対象は300件以内にしてください。"
+      ]
+    },
+    {
+      "filename": "07-optional-boundary-success-300.csv",
+      "records": 300,
+      "bytes": 70669,
+      "format": "common",
+      "preparedRows": 300,
+      "localErrors": []
+    },
+    {
+      "filename": "08-required-address-reject.csv",
+      "records": 1,
+      "bytes": 481,
+      "format": "required",
+      "preparedRows": 0,
+      "localErrors": [
+        "本登録には住所が必要です。"
+      ]
+    },
+    {
+      "filename": "09-expired-initial-reject.csv",
+      "records": 1,
+      "bytes": 511,
+      "format": "common",
+      "preparedRows": 1,
+      "localErrors": []
+    },
+    {
+      "filename": "10-month-only-date-reject.csv",
+      "records": 1,
+      "bytes": 497,
+      "format": "common-uh",
+      "preparedRows": 0,
+      "localErrors": [
+        "申込日は有効な年月日（YYYY-MM-DD）で入力してください。"
+      ]
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { createMeasuredFirestore } from '../utils/firestoreMetrics.ts'
+import { recordAuthFailure } from '../utils/authDiagnostics'
+const { getDoc, onSnapshot } = createMeasuredFirestore('session')
 import {
   browserSessionPersistence,
   onAuthStateChanged,
@@ -7,7 +10,7 @@ import {
   signOut,
   type User,
 } from 'firebase/auth'
-import { doc, getDoc, onSnapshot, type Unsubscribe } from 'firebase/firestore'
+import { doc, type Unsubscribe } from 'firebase/firestore'
 import type { SessionProfile } from '../types/company-portal.ts'
 
 const currentUser = shallowRef<User | null>(null)
@@ -18,12 +21,14 @@ let initialized = false
 let profileSubscription: Unsubscribe | undefined
 let authGeneration = 0
 
+let retryProfile: (() => Promise<void>) | undefined
+
 export function useSession() {
   const { $firebase } = useNuxtApp()
 
   if (!initialized) {
     initialized = true
-    onAuthStateChanged($firebase.auth, async (user) => {
+    const loadProfile = async (user: User | null) => {
       const generation = ++authGeneration
       profileSubscription?.()
       profileSubscription = undefined
@@ -38,7 +43,12 @@ export function useSession() {
 
       const staffRef = doc($firebase.firestore, 'staffAccounts', user.uid)
       const companyRef = doc($firebase.firestore, 'constructionCompanyAccounts', user.uid)
-      const [staffSnapshot, companySnapshot] = await Promise.all([getDoc(staffRef), getDoc(companyRef)])
+      let timeout: ReturnType<typeof setTimeout> | undefined
+      try {
+      const [staffSnapshot, companySnapshot] = await Promise.race([
+        Promise.all([getDoc(staffRef), getDoc(companyRef)]),
+        new Promise<never>((_, reject) => { timeout = setTimeout(() => reject(new Error('account-timeout')), 15000) }),
+      ])
       if (generation !== authGeneration) return
       const accountRef = staffSnapshot.exists() ? staffRef : companySnapshot.exists() ? companyRef : null
       if (!accountRef) {
@@ -60,7 +70,7 @@ export function useSession() {
             profile.value = null
             errorMessage.value = '利用可能なアカウントを確認できません。'
             loading.value = false
-            void signOut($firebase.auth)
+            void signOut($firebase.auth).catch(() => {})
             return
           }
           profile.value = isStaff
@@ -71,33 +81,50 @@ export function useSession() {
             : {
                 accountType: 'construction_company', uid: user.uid,
                 constructionCompanyId: String(data.constructionCompanyId ?? ''),
-                companyName: String(data.companyName ?? ''), displayName: String(data.companyName ?? ''),
+                companyName: String(data.companyName ?? ''), displayName: String(data.displayName ?? data.companyName ?? ''),
+                scope: data.scope, branchId: String(data.branchId ?? ''),
                 email: String(data.email ?? user.email ?? ''), role: 'construction_company', enabled: true,
               }
           loading.value = false
         },
-        () => {
+        (error) => {
           if (generation !== authGeneration) return
+          recordAuthFailure('profile_listen', error)
           profile.value = null
           errorMessage.value = 'アカウントが無効化されたか、認証確認に失敗しました。'
           loading.value = false
-          void signOut($firebase.auth)
+          void signOut($firebase.auth).catch(() => {})
         },
       )
-    })
+      } catch (error) {
+        if (generation === authGeneration) {
+          recordAuthFailure('profile_read', error)
+          profile.value = null
+          errorMessage.value = 'アカウント情報を取得できませんでした。接続を確認して再試行してください。'
+        }
+      } finally {
+        if (timeout) clearTimeout(timeout)
+        if (generation === authGeneration) loading.value = false
+      }
+    }
+    retryProfile = () => loadProfile($firebase.auth.currentUser)
+    onAuthStateChanged($firebase.auth, loadProfile)
   }
 
   const login = async (email: string, password: string) => {
     errorMessage.value = ''
-    await setPersistence($firebase.auth, browserSessionPersistence)
-    await signInWithEmailAndPassword($firebase.auth, email, password)
+    try { await setPersistence($firebase.auth, browserSessionPersistence) }
+    catch (error) { recordAuthFailure('persistence', error); throw error }
+    try { await signInWithEmailAndPassword($firebase.auth, email, password) }
+    catch (error) { recordAuthFailure('sign_in', error); throw error }
   }
 
   const logout = () => signOut($firebase.auth)
   const resetPassword = async (email: string) => {
     $firebase.auth.languageCode = 'ja'
-    await sendPasswordResetEmail($firebase.auth, email)
+    try { await sendPasswordResetEmail($firebase.auth, email) }
+    catch (error) { recordAuthFailure('password_reset', error); throw error }
   }
 
-  return { currentUser, profile, loading, errorMessage, login, logout, resetPassword }
+  return { currentUser, profile, loading, errorMessage, login, logout, resetPassword, retryProfile: () => retryProfile?.() }
 }

@@ -1,3 +1,4 @@
+import { withRuntimeGeneration } from '../utils/recoveryClient.ts'
 import { sendPasswordResetEmail, type Auth } from 'firebase/auth'
 import { httpsCallable, type Functions } from 'firebase/functions'
 
@@ -29,7 +30,7 @@ export const createStaffAccountGateway = (invoker: StaffAccountInvoker, sendSetu
 export const createFirebaseStaffAccountGateway = (functions: Functions, auth: Auth) => createStaffAccountGateway({
   async invoke<TInput, TResult>(name: string, input: TInput) {
     const callable = httpsCallable<TInput, TResult>(functions, name)
-    return (await callable(input)).data
+    return (await callable(withRuntimeGeneration(input))).data
   },
 }, async (email) => {
   auth.languageCode = 'ja'

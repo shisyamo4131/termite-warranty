@@ -1,3 +1,4 @@
+import { withRuntimeGeneration } from '../utils/recoveryClient.ts'
 import { httpsCallable, type Functions } from 'firebase/functions'
 import type { NewCaseWorkItemInput, WorkItemResponse } from '../types/company-portal.ts'
 
@@ -31,6 +32,6 @@ export const createCompanyPortalGateway = (invoker: CompanyPortalInvoker) => ({
 export const createFirebaseCompanyPortalGateway = (functions: Functions) => createCompanyPortalGateway({
   async invoke<TInput, TResult>(name: string, input: TInput) {
     const callable = httpsCallable<TInput, TResult>(functions, name)
-    return (await callable(input)).data
+    return (await callable(withRuntimeGeneration(input))).data
   },
 })
