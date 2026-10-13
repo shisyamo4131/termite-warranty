@@ -2,6 +2,8 @@
 
 ## 通常公開版の再配備なし照合（2026-10-14準備）
 
+実施結果：本人の文章承認後にPR #10をmain `a6e55b7` へ統合し、専用run `38448391530` で全5項目一致。同じ配備SAでHostingの期待／一覧／集計1005件が1回目に一致、資格情報削除成功。通常enable=falseを維持。以下は再実行時の手順で、今回の統合・読取り承認は取得済み。[証拠・次の境界](../operations.md#2026-10-14-pr-10統合と配備saによる読取り照合)。過去の直後失敗の原因確定や、自動配備再開の承認ではない。
+
 新しい [inspect-production-application workflow](../../.github/workflows/inspect-production-application.yml) はmainの手動起動だけに限定する。公開用と同じproduction環境・配備SA・排他グループを使用し、通常enableが明示的にfalseでなければ認証前に停止する。GitHub tokenへ過去runのartifact取得用actions:readを指定するが、Cloud IAMは追加しない。初回使用にはこのworkflowのmain統合と読取り実行について本人の文章承認を得る。以前のPR #9の公開承認を新PRへ転用しない。
 
 1. [公開成果物の固定記録](../../deliverables/production-bootstrap-2026-10-13/published-release.json)と、実際の公開版・main・配備停止を再確認する。記録は公開元SHA、成功verifyから保存したartifact ID／run ID／bundle digest、初回保守provider基準版を固定する。実行workflowのSHAと公開元SHAは別々に検証し、GITHUB_SHAを上書きしない。
