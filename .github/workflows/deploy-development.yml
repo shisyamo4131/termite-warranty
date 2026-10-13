@@ -40,6 +40,9 @@ jobs:
       - name: Run domain tests
         run: npm test
 
+      - name: Verify maintenance bootstrap contracts
+        run: node --test test/production-bootstrap.test.mjs
+
       - name: Type-check the application
         run: npm run typecheck
 
