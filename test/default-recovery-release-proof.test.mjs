@@ -147,6 +147,45 @@ test('provider stability ignores object key order but preserves every field, typ
  }
 })
 
+test('Hosting read settling accepts only exact files after temporary count or EXPECTED status',async()=>{
+ for(const mode of ['count','missing','status']) {
+  const f=fixture(),read=f.request;let observations=0,waits=0
+  f.request=async url=>{const value=await read(url);if(url.endsWith('/versions/version1')){observations++;if(mode==='count'&&observations<3)value.fileCount='0'}if(url.endsWith('/version1/files')&&observations<3){if(mode==='missing')value.files=[];if(mode==='status')value.files[0].status='EXPECTED'}return value}
+  const result=await hostingReleaseProof({...f,settle:true,wait:async ms=>{assert.equal(ms,5000);waits++}})
+  assert.deepEqual(result,{files:1,observations:3});assert.equal(waits,2)
+ }
+})
+
+test('Hosting settling is bounded and does not accept a persistent missing file',async()=>{
+ const f=fixture();f.values.get(`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1`).fileCount='0'
+ let waits=0
+ await assert.rejects(()=>hostingReleaseProof({...f,settle:true,wait:async()=>{waits++}}),e=>proofDiagnostic(e).reasonCode==='file-count-mismatch')
+ assert.equal(waits,3)
+})
+
+test('Hosting settling immediately rejects content, malformed files, configuration and live changes',async()=>{
+ for(const mode of ['hash','extra','duplicate','invalid-status','config','live']) {
+  const f=fixture(),url=`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1`,files=f.values.get(url+'/files').files
+  if(mode==='hash')files[0].hash='changed'
+  if(mode==='extra')files.push({path:'/extra',hash:'unknown',status:'ACTIVE'})
+  if(mode==='duplicate')files.push({...files[0]})
+  if(mode==='invalid-status')files[0].status='UNKNOWN'
+  if(mode==='config')f.values.get(url).config={rewrites:[{glob:'**',path:'/unexpected'}]}
+  if(mode==='live'){f.values.get(url).fileCount='0';const read=f.request;let reads=0;f.request=async u=>{const v=await read(u);if(u.endsWith('/channels/live')&&++reads>1)v.release.name='changed';return v}}
+  let waits=0;await assert.rejects(()=>hostingReleaseProof({...f,settle:true,wait:async()=>{waits++}}));assert.equal(waits,0,mode)
+ }
+})
+
+test('Hosting settling never lets a pending file hide a later hash mismatch',async()=>{
+ const f=fixture(),url=`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1/files`,files=f.values.get(url).files
+ files[0].status='EXPECTED'
+ f.inputs.hostingFiles.set('/second','expected-hash')
+ files.push({path:'/second',hash:'different-hash',status:'ACTIVE'})
+ let waits=0
+ await assert.rejects(()=>hostingReleaseProof({...f,settle:true,wait:async()=>{waits++}}),e=>proofDiagnostic(e).reasonCode==='hash-mismatch')
+ assert.equal(waits,0)
+})
+
 test('release diagnostics separate hash, configuration, live changes and unknown errors without leaking values',async()=>{
  const f=fixture();f.values.get(`https://firebasehosting.googleapis.com/v1beta1/sites/${f.site}/versions/version1/files`).files[0].hash='secret-hash-canary'
  assert.deepEqual((await releaseProof(f))[1].diagnostic,{stage:'hosting-files',reasonCode:'hash-mismatch'})

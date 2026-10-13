@@ -1,5 +1,21 @@
 # Operations
 
+## 2026-10-13 通常Prod公開とHosting照合の追加対策
+
+本人の文章による追加承認（同日、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）を受け、Cloud Billing APIだけを有効化。要求送信後のoperation名検査はexit 1となったが、POSTを再送せずoperationの完了・エラーなし、service ENABLED、billingEnabled=trueをGET確認（exit 0）。請求先・プラン・IAM・未使用Extensions APIは変更していない。
+
+同じmain `c5bad4fef524e88d54f704d20eace86f88907f3d` と保存済みCI成果物で失敗jobだけを再実行。[deploy job 115305524583](https://github.com/shisyamo4131/termite-warranty/actions/runs/38393431460/job/115305524583)は21 Functions・2DB Rules・索引・Scheduler・Hostingを配備し、配備stepはexit 0。通常アプリの公開版は `sites/termite-warranty-prod/versions/687f6af6e7b168a2`。配備後のCI照合はRules 2件・索引・21 Functions／21 source archivesで成功し、Hostingだけ `hosting-files / identity-mismatch` でexit 1。資格情報後処理は成功。通常enableをfalseへ戻して読戻し（各exit 0）し、再配備していない。
+
+保存artifact `11812251266` をconnectorで取得し、ZIP SHA-256 `aee9f68045486adf34f35934e79393d5a3af75d6792b705b6010d98918830453` とbundle digest `0f97e488348b2904d45aad43feace3e3c07ff527271f0ec016130652f68920a0` を照合。既存Local CLI認証を使った独立読取りで同じ成果物との5項目全一致（Rules 2、索引、Functions、Hosting1005ファイル）を確認、exit 0。これは配備SAによる直後CIの成功とは別の証拠。実GETでCloud Run21、Scheduler1、業務DB索引22、PITR無効・日次backup予定0を確認（exit 0）。Rulesは配備成果物と一致し、以前の空基盤用全拒否Rulesではない。業務文書・Authユーザーは作成していない。
+
+原因はHostingファイル照合に絞れたが、旧診断は件数・状態・重複等を同じコードにしており、失敗時の具体的な応答は保存されていない。現在の1005ファイルは全ACTIVE・重複なしで、うち2件は既定initファイル。公式[Version](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions)はfileCountをFINALIZED後に計算すると説明し、[files.list](https://firebase.google.com/docs/reference/hosting/rest/v1beta1/sites.versions.files/list)はEXPECTED／ACTIVEを定義する。公開直後の反映差は可能性であり、今回の確定原因とはしない。
+
+追加実装はProdの読取り照合だけを最大4回・間隔5秒（待機合計最大15秒、通信時間別）へ限定する。同じ公開版を固定し、件数不一致またはEXPECTEDだけを再確認する。全取得ファイルのpath／hash／状態を先に検査し、内容・未知状態・重複・設定・公開版変更・APIエラーは即停止。再配備は自動再試行しない。旧共通経路は既定1回を維持。新しい理由コードで件数と未ACTIVEを区別する。main未反映・実CIでの反映待ち解消は未実証。
+
+Local回帰 `node --test test/default-recovery-release-proof.test.mjs` は21成功、`npm test` は478成功・2skip、各exit 0。sandbox内の全単体は一時ファイルrename／realpathのEPERMで9失敗したため、同じ試験を通常権限で再実行して成功。変更分類はbuild-release-deployと検証動作変更の和、包括7ゲートを選択しPR CIで最終確認する。Rulesゲートも共通proof変更で失効するため再実行対象。業務仕様・データ形状・ADR・governance方針は不変。運用、環境仕様、roadmap、索引、changelog、日程PDFを同期する。
+
+PR #9の旧head `34fe799` の文書限定merge承認は新しい照合処理を含まない。更新したPRのCI成功後に具体的なheadと公開範囲を文章で確認し、承認までmain統合・enable再開・再配備は行わない。保護設定は本人の保留を維持。main push配備とバックアップ環境の完成は未達。以下は先行工程時点の記録。
+
 ## 2026-10-13 通常Prod初回配備の停止と原因確定
 
 停止後の変更は運用証拠・IAM適用メタデータ・関連文書・PDFだけ。アプリ／workflow／依存関係・仕様の業務要件・データ契約・ADR・governance方針は変更していない。文書のgovernance確認、PDF生成・2ページ描画、`git diff --check` は各exit 0、両ページの表示を確認。包括検証は同mainの成功verify jobを再利用し、文書だけの変更で失効しないアプリ検証を重複実行しない。外部配備の完了gateは失敗のままで未達。承認済みPR #9 headは変更せず、この停止記録は別のLocal変更として保持する。

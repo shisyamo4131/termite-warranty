@@ -51,6 +51,6 @@ export async function inspectProductionRelease(bundle,{providerVersion,credentia
     return bytes
   }
   const checks=await infrastructureChecks({project:target.project,request,expectedRules:bundle.rules,indexConfig:bundle.indexes,
-    releaseChecks:()=>releaseProof({project:target.project,control:target.control,site:target.site,inputs:bundle.inputs,request,readArchive,providerVersion,readPublic:async url=>(await read(url,{publicRead:true,max:16384})).toString()})})
+    releaseChecks:()=>releaseProof({project:target.project,control:target.control,site:target.site,inputs:bundle.inputs,request,readArchive,providerVersion,hostingSettling:true,readPublic:async url=>(await read(url,{publicRead:true,max:16384})).toString()})})
   return {cloudWrites:false,ready:checks.length===5&&checks.every(c=>c.status==='pass'),checks}
 }

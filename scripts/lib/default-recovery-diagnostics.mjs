@@ -5,7 +5,7 @@ const stages = new Set(['release-proof', 'project-metadata', 'functions-proof', 
   'api-read', 'public-config-read'])
 const reasons = new Set(['unknown', 'http-error', 'transport-error', 'invalid-response',
   'identity-mismatch', 'configuration-mismatch', 'baseline-mismatch', 'hash-mismatch',
-  'snapshot-changed', 'artifact-mismatch'])
+  'snapshot-changed', 'artifact-mismatch', 'file-count-mismatch', 'file-not-active'])
 const diagnostics = new WeakMap()
 
 export function proofFailure(stage, reason, httpStatus) {

@@ -125,7 +125,7 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
   if(snapshot(await paged(request,inventoryURL,'functions'))!==snapshot(functions))fail()
   return {functions:names.length,sourceArchives:archives.size}
 }
-export async function hostingReleaseProof({project,projectNumber,site,request,inputs}) {
+export async function hostingReleaseProof({project,projectNumber,site,request,inputs,settle=false,wait=ms=>new Promise(resolve=>setTimeout(resolve,ms))}) {
   let stage='hosting-site'
   const fail=(reason='identity-mismatch')=>{throw proofFailure(stage,reason)}
   if(typeof site!=='string'||!/^[-a-z0-9]+$/.test(site))fail()
@@ -134,26 +134,40 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
   const channelURL=`https://firebasehosting.googleapis.com/v1beta1/sites/${site}/channels/live`,channel=await request(channelURL),name=channel.release?.version?.name
   if(channel.name!==`sites/${site}/channels/live`||channel.release?.type!=='DEPLOY'||typeof name!=='string'||!new RegExp(`^sites/${site}/versions/[-a-zA-Z0-9]+$`).test(name))fail()
   if(inputs.providerLiveVersion!==undefined&&inputs.providerLiveVersion!==name)fail('snapshot-changed')
-  stage='hosting-version'
-  const version=await request(`https://firebasehosting.googleapis.com/v1beta1/${name}`)
-  if(version.name!==name||version.status!=='FINALIZED')fail()
-  if(canonical(normalizedConfig(version.config))!==canonical(inputs.servingConfig))fail('configuration-mismatch')
-  stage='hosting-files'
-  const files=await paged(request,`https://firebasehosting.googleapis.com/v1beta1/${name}/files`,'files'),seen=new Set()
-  for(const file of files){if(file.status!=='ACTIVE'||typeof file.path!=='string'||seen.has(file.path))fail();if(inputs.hostingFiles.get(file.path)!==file.hash)fail('hash-mismatch');seen.add(file.path)}
-  if(seen.size!==inputs.hostingFiles.size||String(version.fileCount)!==String(seen.size))fail()
-  stage='hosting-stability'
-  const latest=await request(channelURL)
-  if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail('snapshot-changed')
-  return {files:seen.size}
+  for(let observation=1;observation<=(settle?4:1);observation++) {
+    try {
+      stage='hosting-version'
+      const version=await request(`https://firebasehosting.googleapis.com/v1beta1/${name}`)
+      if(version.name!==name||version.status!=='FINALIZED')fail()
+      if(canonical(normalizedConfig(version.config))!==canonical(inputs.servingConfig))fail('configuration-mismatch')
+      stage='hosting-files'
+      const files=await paged(request,`https://firebasehosting.googleapis.com/v1beta1/${name}/files`,'files'),seen=new Set()
+      let pending=false
+      for(const file of files){if(typeof file.path!=='string'||seen.has(file.path))fail();if(!inputs.hostingFiles.has(file.path)||inputs.hostingFiles.get(file.path)!==file.hash)fail('hash-mismatch');if(file.status==='EXPECTED')pending=true;else if(file.status!=='ACTIVE')fail();seen.add(file.path)}
+      if(pending)fail('file-not-active')
+      if(seen.size!==inputs.hostingFiles.size||String(version.fileCount)!==String(seen.size))fail('file-count-mismatch')
+      stage='hosting-stability'
+      const latest=await request(channelURL)
+      if(latest.release?.name!==channel.release.name||latest.release?.version?.name!==name)fail('snapshot-changed')
+      return {files:seen.size,...(settle?{observations:observation}:{})}
+    } catch(error) {
+      const diagnostic=proofDiagnostic(error)
+      if(!settle||observation===4||diagnostic.stage!=='hosting-files'||!['file-count-mismatch','file-not-active'].includes(diagnostic.reasonCode))throw error
+      // Retry only GET verification, never deployment. Pin the original live release.
+      stage='hosting-stability'
+      const current=await request(channelURL)
+      if(current.release?.name!==channel.release.name||current.release?.version?.name!==name)fail('snapshot-changed')
+      await wait(5000)
+    }
+  }
 }
-export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic}) {
+export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic,hostingSettling=false}) {
   const checks=[]
   let projectNumber
   try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch(error){return ['functions-release-proof','hosting-release-proof'].map(id=>({id,status:'blocked',diagnostic:proofDiagnostic(error,'project-metadata')}))}
   const hosting=async()=>{
     const expected=providerVersion?await bindProviderInitialization({project,projectNumber,site,priorVersion:providerVersion,request,readPublic,inputs}):inputs
-    return hostingReleaseProof({project,projectNumber,site,request,inputs:expected})
+    return hostingReleaseProof({project,projectNumber,site,request,inputs:expected,settle:hostingSettling})
   }
   for(const [id,run] of [['functions-release-proof',()=>functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs})],['hosting-release-proof',hosting]]) {
     try{checks.push({id,status:'pass',summary:await run()})}catch(error){checks.push({id,status:'blocked',diagnostic:proofDiagnostic(error,id==='functions-release-proof'?'functions-proof':'hosting-proof')})}
