@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-13追記：承認済みの5ファイル限定PRをmainへ統合し、SDK／Firebase CLIのProd Hosting読取りを実証。公開・IAM変更なし。初回公開の限定統合依存を棚卸し済み。[最新現在地](roadmaps/production-readiness.md)と[実行証拠](operations.md#2026-10-13-sdkfirebase-cli読取り経路の確認)を参照。
+
 2026-10-13公開準備・統合レビュー後：[初回保守公開の成果物](../deliverables/production-bootstrap-2026-10-13/README.md)、[手順・運用権限案](runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)。公開・IAM変更は未実行。最新残工数は12〜18時間（推定）へ更新し、23日／月末の条件付き目標を維持。[現在地](roadmaps/production-readiness.md)を優先する。
 
 現行のProd準備は[事前構築ロードマップ](roadmaps/production-readiness.md)を参照。2026-10-13の追加承認で空のProd基盤・Hosting限定配備SA／WIF・GitHub production環境・main保護を設定。認証専用の限定PR統合後、短期認証・別job再認証・environmentなし拒否を実証した。通常配備CI・Prod接続、初期化・管理者・初回投入・復旧／バックアップはLocal実装・事前検証済み。初回公開・通常アプリ統合／配備・運用SA権限・提供前保護は未了。以下の「実Cloud構築未実施」「実装未着手」は前工程の記録。

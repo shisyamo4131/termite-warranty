@@ -1,5 +1,11 @@
 # Prod事前構築・認証・配備ロードマップ
 
+## 現在地：SDK・CLI読取りの実証後（2026-10-13）
+
+認証専用[PR #5](https://github.com/shisyamo4131/termite-warranty/pull/5)を承認・必須CI成功後にmainへ統合。[実run 38379568530](https://github.com/shisyamo4131/termite-warranty/actions/runs/38379568530)でGoogle認証ライブラリとFirebase CLIの読取り、対象一致・空liveを確認。公開・IAM変更・DB書込みなし。初回保守公開のスクリプト依存11ファイルを棚卸しし、main既存1・今回追加1・後続追加9と公開workflow／回帰試験に分けた。[統合準備と残件](../runbooks/production-bootstrap-review.md#sdkcli確認と公開workflowの統合準備2026-10-13)。
+
+実CLI認証の残件は解消。初回公開用の限定tree検証・設置承認・公開／照合、通常アプリ統合、運用／実行主体と権限、入力・HS受入れは残る。未計測の統合／権限作業があるため残工数12〜18時間を保守的に維持。10月23日構築と月末納品の条件は変更せず、PDF再改訂は不要と判断。初回公開工程は未完了で部分加点なし。以下は過去工程の記録。
+
 ## 現在地：初回保守公開準備と統合・権限レビュー後（2026-10-13）
 
 [公開用成果物](../../deliverables/production-bootstrap-2026-10-13/README.md)を生成し、実対象9項目を照合用JSONへ整理。管理APIでProd liveに公開版なしを確認。非稼働workflow・公開前後のhash／対象照合・初回公開に旧版rollbackがない場合の停止手順をレビューした。[具体手順・権限案・レビュー範囲](../runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)。公開・権限付与・GitHub設定は未実施。

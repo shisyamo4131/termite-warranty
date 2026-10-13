@@ -1,5 +1,6 @@
 import test from 'node:test'
 import './production-auth-probe.test.mjs'
+import './production-sdk-probe.test.mjs'
 import assert from 'node:assert/strict'
 import {tokenBridge,validateFederationConfig,operatorCredentials} from '../scripts/lib/operator-credentials.mjs'
 import {productionDeploymentPlan} from '../scripts/lib/production-deployment-plan.mjs'

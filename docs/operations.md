@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-13 SDK・Firebase CLI読取り経路の確認
+
+初回保守公開前の実経路確認として、配備なしの手動専用workflow・固定対象probe・専用試験を追加。前回のREST probeと異なり、Google認証ライブラリ／明示WIF ADCとFirebase CLIを使用する。Cloud書込み・IAM変更・公開は含まない。[手順と初回公開の依存棚卸し](runbooks/production-bootstrap-review.md#sdkcli確認と公開workflowの統合準備2026-10-13)。
+
+オーナーの追加承認後、[PR #5](https://github.com/shisyamo4131/termite-warranty/pull/5) の5ファイルを必須CI成功後に通常merge。候補 `315360738bb2419848e4cbe53ffdfc3e6ee7983c`、main merge `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`。[CI run 38379146872](https://github.com/shisyamo4131/termite-warranty/actions/runs/38379146872) は既存包括7ゲートの各step success、Dev配備jobはskip。実SDK確認は[run 38379568530](https://github.com/shisyamo4131/termite-warranty/actions/runs/38379568530)の全stepがsuccess。固定結果は `sdkRead=true, cliRead=true, emptyLive=true, cloudResourceWrites=false`。Google認証ライブラリ経由のSDK読取り、Firebase CLIのHosting一覧、site／Web app／URL一致、live公開版なしを実証し、短期ADC後処理も成功。期限切れ後の更新・運用SA・公開後照合はこの成功に含まない。
+
+Local最終試験：`node --test test/production-sdk-probe.test.mjs` は4成功・exit 0、`npm test` は462成功・既存2skip・exit 0（`tmp/prod-sdk-unit-final.log`）。変更分類はbuild-release-deploy＋governance-permissions-agents＋documentation-only、包括7ゲートを選定。今回のworkflow／probe／試験は型・通常画面build・Rules／Functions／seedの失効対象に変更せず、`397b5423b84df168c8ed7c69aeb33d89fb726dd3` の5ゲート（`npm run typecheck`、`npm run build`、`npm run test:rules`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、各exit 0）を再利用する。対象sourceと依存のdiffが空であることを再確認。`pwsh -NoProfile -File scripts/check-governance.ps1` と `git diff --check` は文書反映後ともにexit 0。権限・governance policy・商品仕様・データ契約は不変で、それらの改訂は不要。
+
+主作業ブランチの変更ファイルは `.github/workflows/verify-production-sdk.yml`、`scripts/production-sdk-probe.mjs`、`test/production-sdk-probe.test.mjs`、`test/production-readiness.test.mjs`、`docs/runbooks/production-bootstrap-review.md`、`docs/roadmaps/production-readiness.md`、`docs/operations.md`、`docs/README.md`、`CHANGELOG.md`。main限定PRには既存helperと短期ADCのGit除外だけを補っており、主ブランチの通常アプリを一括統合していない。残工数・日付は変わらず、全体ロードマップ／PDFは前回12〜18時間の計画を維持。次は公開用限定treeと照合試験の統合、対象commitを指定した公開承認。
+
 ## 2026-10-13 初回保守公開の準備・統合レビュー・権限案
 
 オーナーの継続指示により準備・読取り・レビューだけを実施。開始HEAD `55ff33b57a490a0da6ad2cf38db94c858a722cea`、作業ツリーclean。公開／IAM付与／GitHub設定変更／main merge／業務データ操作はなし。配備SAの既存認証を使ったGETでliveはHTTP 200・releaseなしを確認。運用SAのbindingは空。role定義と公式資料を照合し、[段階別権限案・手順・残件](runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)へ集約した。提案を実設定や権限十分の証拠と混同しない。

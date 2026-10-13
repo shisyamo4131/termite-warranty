@@ -1,5 +1,19 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## SDK・CLI確認と公開workflowの統合準備（2026-10-13）
+
+実REST認証に続き、`google-github-actions/auth` が生成する明示WIF ADCを既存 `operator-credentials.mjs`／Google認証ライブラリとFirebase CLIで使用する、配備なしの手動専用workflowを準備した。[PR #5](https://github.com/shisyamo4131/termite-warranty/pull/5) はmain `e5b9cb1605bba18deecdde534730186ed94925a1` に対する5ファイル限定、候補commit `315360738bb2419848e4cbe53ffdfc3e6ee7983c`。オーナーは必須CI成功後の通常mergeと読取り試験を承認した。公開・IAM変更・DB書込みは対象外。
+
+固定site／Web app／標準URLの一致、live公開版なしをSDK経由のGETで確認し、同じ短期ADCで `hosting:sites:list` を実行する。main・production・手動イベントと既存repository不変IDの制限を維持する。資格情報とCLI本文はログ／artifactへ出さず、失敗時は工程名だけを報告。長期token／Emulator／ADC未指定を拒否する。専用4試験と通常試験462成功・2skipに加え、承認後の実run `38379568530` がSDK／CLI読取り・空live一致・ADC後処理をすべて成功。main mergeは `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`。これは期限切れ更新・運用SA・公開後照合の実証ではない。
+
+公開workflowは引き続き未設置・enable未設定。mainに対する静的importの依存閉包は以下11スクリプト。`scripts/functions-domain.mjs` は既存mainと同一、`scripts/lib/operator-credentials.mjs` はPR #5で先行追加し、残り9ファイルとworkflow・必要な専用回帰試験を別の限定統合候補とする。これは最小変更数の確定ではなく、実行時依存の棚卸しである。通常アプリ全差分の統合は前提にしない。
+
+- 入口：`scripts/prepare-production-bootstrap.mjs`、`scripts/inspect-production-bootstrap.mjs`、`scripts/check-production-deployment.mjs`
+- 直接helper：`scripts/lib/production-bootstrap-hosting.mjs`、`scripts/lib/production-deployment-plan.mjs`、`scripts/lib/operator-credentials.mjs`
+- 推移依存：`scripts/lib/default-recovery-release-proof.mjs`、`scripts/lib/default-recovery-build.mjs`、`scripts/lib/default-recovery-provider-init.mjs`、`scripts/lib/default-recovery-diagnostics.mjs`、`scripts/functions-domain.mjs`
+
+公開用templateを設置する前に、この限定treeで生成・空site拒否／公開済み拒否・公開後照合・全7ゲートを検証する。復旧helperのimportはFunctions配備の許可ではない。公開enableと対象commitの承認、実公開後の照合が揃うまで初回保守公開は未完了。SDK／CLI読取りは実証できたが公開用限定treeと通常アプリ統合・運用権限の所要が未計測のため、残工数12〜18時間を保守的に据え置き、23日構築・月末納品の条件と既存PDFの日付は変更しない。
+
 ## 公開準備・統合レビュー・運用権限案（2026-10-13）
 
 本節は準備・レビュー結果と未承認案。公開、main統合、GitHub変数設定、IAM付与、DB／Auth操作は今回実施しない。実行前の本人確認を維持する。[レビュー用成果物](../../deliverables/production-bootstrap-2026-10-13/README.md)に静的HTML・配信設定・期待hash・検証済みtargetを保存した。
