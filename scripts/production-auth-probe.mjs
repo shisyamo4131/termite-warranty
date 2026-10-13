@@ -35,7 +35,7 @@ export async function probe(mode,{env=process.env,fetcher=fetch,now=Date.now}={}
       if(body.length>1048576)fail()
       const parsed=JSON.parse(body)
       const code=typeof parsed.error==='string'?parsed.error:parsed.error?.status
-      apiCode=['invalid_grant','invalid_target','invalid_request','PERMISSION_DENIED','NOT_FOUND','UNAUTHENTICATED'].includes(code)?code:'none'
+      apiCode=['invalid_grant','unauthorized_client','invalid_target','invalid_request','PERMISSION_DENIED','NOT_FOUND','UNAUTHENTICATED'].includes(code)?code:'none'
       if(/attribute condition/i.test(parsed.error_description??''))apiCode='attribute-condition'
       return {ok:response.ok,status:response.status,body:parsed}
     }
@@ -47,8 +47,8 @@ export async function probe(mode,{env=process.env,fetcher=fetch,now=Date.now}={}
       stage='sts-exchange';status=null
       const exchanged=await request('https://sts.googleapis.com/v1/token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audience:target.audience,grantType:'urn:ietf:params:oauth:grant-type:token-exchange',requestedTokenType:'urn:ietf:params:oauth:token-type:access_token',scope:'https://www.googleapis.com/auth/cloud-platform',subjectTokenType:'urn:ietf:params:oauth:token-type:jwt',subjectToken:oidc.body.value})})
       if(mode==='deny') {
-        if(exchanged.status!==400||exchanged.body.error!=='invalid_grant'||! /attribute condition/i.test(exchanged.body.error_description??'')||exchanged.body.access_token)fail()
-        return {mode,result:'pass',reason:'provider-attribute-condition-rejected',cloudResourceWrites:false}
+        if(exchanged.status!==400||!['invalid_grant','unauthorized_client'].includes(exchanged.body.error)||! /attribute condition/i.test(exchanged.body.error_description??'')||exchanged.body.access_token)fail()
+        return {mode,result:'pass',reason:'provider-attribute-condition-rejected',oauthErrorCode:exchanged.body.error,cloudResourceWrites:false}
       }
       if(!exchanged.ok||!token(exchanged.body.access_token)||!(exchanged.body.expires_in>0))fail()
       stage='sa-impersonation';status=null

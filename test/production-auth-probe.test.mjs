@@ -31,7 +31,9 @@ test('successful probe performs two fresh exchanges and only metadata GETs',asyn
 })
 test('negative probe requires attribute-condition rejection, not just any failure',async()=>{
   const s=server('deny');assert.equal((await probe('deny',{env,now,fetcher:s.fetcher})).reason,'provider-attribute-condition-rejected');assert.equal(s.calls.length,2)
-  for(const body of [{error:'invalid_grant',error_description:'expired token'},{access_token:'unexpected-token'},{error:'permission_denied'}]){
+  const unauthorized=server('deny',{match:u=>u.includes('sts.googleapis.com'),body:{error:'unauthorized_client',error_description:'The given credential is rejected by the attribute condition.'},status:400})
+  assert.equal((await probe('deny',{env,now,fetcher:unauthorized.fetcher})).oauthErrorCode,'unauthorized_client')
+  for(const body of [{error:'invalid_grant',error_description:'expired token'},{error:'unauthorized_client',error_description:'other reason'},{error:'unauthorized_client',error_description:'The given credential is rejected by the attribute condition.',access_token:'unexpected-token'},{error:'other',error_description:'attribute condition'},{access_token:'unexpected-token'},{error:'permission_denied'}]){
     const bad=server('deny',{match:u=>u.includes('sts.googleapis.com'),body,status:400});await assert.rejects(()=>probe('deny',{env,now,fetcher:bad.fetcher}))
   }
 })
