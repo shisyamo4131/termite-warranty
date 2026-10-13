@@ -1,5 +1,11 @@
 # Prod事前構築・認証・配備ロードマップ
 
+## 現在地：通常初回配備の権限検査で停止（2026-10-13）
+
+公開承認後にmain `c5bad4f` の包括7ゲート・Prod成果物・WIF・基盤照合が成功したが、CLIの既定App Engine SA actAs不足で配備前に停止。enable=falseへ戻し、実環境の保守版／全拒否Rules維持とFunctions・索引未作成を独立確認。追加IAMは承認後に解消。再配備で業務DB索引22件まで作成し、Cloud Billing API未有効で再停止、enable=falseへ戻した。API先行有効化は承認待ち。PR #9のCIは成功したが、初回公開成功というmerge条件が未成立。[原因・証拠](../operations.md#2026-10-13-通常prod初回配備の停止と原因確定)、[具体対応案](../runbooks/production-bootstrap-review.md#既定app-engine-saの追加対応案2026-10-13)。
+
+22日まで9〜14時間の暫定枠は減らさず維持する。統合CI・配備3〜5時間枠に追加IAM／再配備照合を含める判断で、他の権限不足や外部待ちが判明したら再見積りする。10月23日構築・30日納品判定は引き続き条件付き目標。保護設定の再開、HS試用2日・最終受入日の確定が必要。配備成功・進捗加点とは扱わない。以下は先行工程の記録。
+
 ## 現在地：通常配備IAM設定・統合CI修正後（2026-10-13）
 
 本人承認後に通常配備／業務／運用のIAM、運用専用WIF・main限定environment、東京build repositoryを設定・読戻し。既定build SAのEditorは除去した。通常アプリの[PR #8](https://github.com/shisyamo4131/termite-warranty/pull/8)はCIで共有コード未生成とCRLF試験準備の不具合を発見して修正。Localは単体474成功・2skip、型検査・build成功。修正後CIは単体476・Rules201を含む包括7ゲート成功。mainへ通常mergeし、専用WIF／operatorで2DBのSDK読取り・資格情報後処理も実証。通常アプリ公開・後続main更新の配備照合は残る。[実行証拠](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。保守公開版は不変、backup／PITR／Auth bucketは本人指示で保留中。

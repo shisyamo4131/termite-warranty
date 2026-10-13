@@ -8,6 +8,17 @@
     "readback": "Roles, project/SA/repository bindings, operator provider and main-only GitHub environment matched; build Editor absent; no user-managed keys",
     "runtimeAuthenticationVerified": false,
     "operatorAuthenticationVerified": true,
+    "appspotFollowup": {
+      "date": "2026-10-13",
+      "status": "applied-and-readback-verified",
+      "serviceAccount": "termite-warranty-prod@appspot.gserviceaccount.com",
+      "removedProjectRole": "roles/editor",
+      "addedServiceAccountRole": "roles/iam.serviceAccountUser",
+      "member": "serviceAccount:prod-deployer@termite-warranty-prod.iam.gserviceaccount.com",
+      "otherBindingsPreserved": true,
+      "reason": "Firebase CLI 15.29.0 unconditionally checks default App Engine SA actAs before Functions deployment",
+      "executionEvidence": "docs/operations.md#2026-10-13-通常prod初回配備の停止と原因確定"
+    },
     "operatorReadOnlyRun": "https://github.com/shisyamo4131/termite-warranty/actions/runs/38393474263"
   },
   "project": "termite-warranty-prod",

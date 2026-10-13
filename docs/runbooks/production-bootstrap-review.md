@@ -1,5 +1,26 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## Cloud Billing APIの追加準備案（2026-10-13）
+
+既定SA修正後の配備は業務DB索引22件まで部分反映し、Cloud Billing API有効化拒否で停止。enable=false、保守Hostingと両DB全拒否Rulesは維持。12 APIの読取りでCloud Billingと未使用Extensionsだけ未有効を確認した。
+
+追加承認案は確認済みProdの `cloudbilling.googleapis.com` だけを既存管理側認証で有効化し、operation結果・サービスENABLED・billingEnabled=trueを読戻す。請求先変更・契約変更・配備SAの権限追加は行わない。Cloud APIの有効化は前回6 APIとは別の外部変更として本人確認する。Extensionsは今回不要で変更しない。未知のoperation結果はPOST再送せずGETで確認する。
+
+承認後は既存の22索引を保持し、同じmain／保存artifact／保護停止パラメータを確認して失敗deploy jobのみ再実行。再失敗ならenable解除・読取り調査。公開・配備後照合成功まではPR #9をmergeしない。無関係なAPI・Owner／Editor・API有効化権限で回避しない。
+
+## 既定App Engine SAの追加対応案（2026-10-13）
+
+後続の本人承認（同日・同task）により、下記のEditor除去・限定actAs追加を実行し読戻し済み。同main・同成果物の失敗配備jobを再実行中。公開成功・main自動配備成功はまだ未確認。以下は承認提示時の具体構成と停止条件を保持したもの。
+
+状態：初回通常配備はCLIのappspot SA利用権限検査で停止し、通常enable=falseへ戻した。独立読取りでも保守Hosting・全拒否Rules・Functions／索引未作成を確認。[実行証拠](../operations.md#2026-10-13-通常prod初回配備の停止と原因確定)。以下は追加承認待ちで、実行済みIAM計画へ混入しない。
+
+- 現行：deployerのactAsは4 SAだけ。CLI 15.29.0は別途 `termite-warranty-prod@appspot.gserviceaccount.com` のactAsを要求する。この既定SAのproject権限はEditor、App Engineアプリ不存在、Functions／Cloud Runは0件。
+- 提案：まずproject policyから当該appspot SAだけのEditorを除去・読戻しし、projectの他メンバーは保持。その後、当該SA policyに `prod-deployer@termite-warranty-prod.iam.gserviceaccount.com` だけの `roles/iam.serviceAccountUser` を追加・読戻しする。いずれもetagで競合防止。業務runtimeは明示した既存3 SAのまま、appspotへの業務権限や鍵は付けない。
+- 理由・影響：CLIの事前条件を満たしつつ、Editor付きSAを利用できる範囲を配備主体へ広げない。[Google公式のactAs・既定SA権限説明](https://docs.cloud.google.com/iam/docs/service-accounts-actas)。この利用権限は前回の4 SA承認に含まれないため、本人の実行前承認が必要。
+- 再開案：対象SHA・保護パラメータ・保守版・未配備状態・成功verify jobと保存artifactの存在／digestを再確認。enableをtrueに戻し、同じrunの失敗deploy jobだけを再実行する。成功済みverifyの同SHA・同digest成果物を再照合して使う。初回公開と実照合成功後だけ、承認済みPR #9 head `34fe799` を通常mergeしてmain更新配備を検証する。
+- 停止・差戻し：再失敗・結果不明ならenable=false、再配備せず読取り調査。追加bindingの除去やEditor復元は別判断とし、Editorを自動復元しない。追加IAM以外の必要権限が判明したら範囲を確定して再確認。バックアップ／PITR／Auth bucketは引き続き保留。
+- 完了条件：IAM読戻し、同一artifact照合、実配備成功、Rules／索引／Functions／Hostingの実一致、続くmain更新配備成功。現時点では配備前の包括検証と原因確定までで、完成とはしない。
+
 ## main自動配備・バックアップ環境の完成目標（2026-10-13）
 
 同日オーナーが「mainへのpushで正常配備」「バックアップに必要な環境の完成」を継続作業のゴールとし、簡単な検証の実施を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。準備だけで完了としない。既存の公開・IAM直前確認と、延期した課金保護設定の具体確認は維持する。通知先は本人指定の開発側宛先で確定、将来変更可能。実アドレスはリポジトリへ保存しない。

@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-13現在：承認後に通常enable・保護パラメータ・provider版を登録。main `c5bad4f` の初回配備はappspot SAのactAs不足で配備前停止し、通常enable=falseへ戻して読戻し済み。保護パラメータはautomation=false／他3項目空、保守版・両DB全拒否を維持。既定SAのEditor除去・deployer限定actAsは追加承認後に適用。その再配備は業務DB索引22件まで進み、Cloud Billing API未有効で停止。enable=falseへ戻した。API先行有効化は承認待ち。[原因・実状態](../operations.md#2026-10-13-通常prod初回配備の停止と原因確定)。以下の未設定記述は先行記録。
+
 2026-10-13実認証追記：main `c5bad4f` で運用専用workflowが成功。固定project／2DB metadata・SDK読取り・資格情報後処理を実証。空の初期化状態は未初期化として報告。通常アプリはmainへ統合済みだがenable未設定で未公開。[証拠](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。
 
 2026-10-13 IAM追加承認後：通常配備の6 custom role・2DB条件・build source条件・指定4 SAのactAs・operator専用WIFを適用し読戻し一致。既定build Compute SAのEditorを除去し、logWriter・source読取り・東京gcf-artifacts writerへ限定。Docker repositoryは7日超image削除、GitHub production-operationsはmainのみ。5アプリSAに長期鍵なし。[実設定JSON](../../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)と[実行記録](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)を現在値とする。以下のIAM未設定は先行工程の記録。保護設定は引き続き本人保留、実認証・通常アプリ公開は未実証。
