@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-13最新：初回保守公開workflowを必須CI成功後に限定統合。公開enableは未設定、実公開は別承認。[現在地](roadmaps/production-readiness.md)と[実行手順](runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)を参照。
+
 2026-10-13追記：承認済みの5ファイル限定PRをmainへ統合し、SDK／Firebase CLIのProd Hosting読取りを実証。公開・IAM変更なし。初回公開の限定統合依存を棚卸し済み。[最新現在地](roadmaps/production-readiness.md)と[実行証拠](operations.md#2026-10-13-sdkfirebase-cli読取り経路の確認)を参照。
 
 2026-10-13公開準備・統合レビュー後：[初回保守公開の成果物](../deliverables/production-bootstrap-2026-10-13/README.md)、[手順・運用権限案](runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)。公開・IAM変更は未実行。最新残工数は12〜18時間（推定）へ更新し、23日／月末の条件付き目標を維持。[現在地](roadmaps/production-readiness.md)を優先する。

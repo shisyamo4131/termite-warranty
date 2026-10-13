@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-13 初回保守公開の統合準備：公開用workflowはmain pushの包括検証後、`PRODUCTION_BOOTSTRAP_ENABLED=true` かつ `PRODUCTION_BOOTSTRAP_REVISION` が実行SHAに完全一致するときだけ公開jobを許可する。target JSONは確認済み9項目。変数登録・enable・実公開は別承認で、現時点では未設定。[限定統合・公開前後照合](../runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)。通常アプリのenable、既存SA権限、延期中の保護設定は変更しない。
+
 2026-10-13公開準備：同日の管理API GETで `sites/termite-warranty-prod/channels/live` はHTTP 200・releaseなし。[対象9項目と静的成果物](../../deliverables/production-bootstrap-2026-10-13/README.md)をLocalに保存した。GitHub変数への登録・公開は未実施。運用SAの接続bindingなしを再確認。専用運用pool／environment・段階的権限とFunctions実行主体は[未承認案](../runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)であり、実設定表に採用済みとして加えない。
 
 ## 2026-10-13 main保護と認証試験の開始

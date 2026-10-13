@@ -1,5 +1,15 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 初回保守公開の限定統合（2026-10-13）
+
+継続指示に基づき、[PR #6](https://github.com/shisyamo4131/termite-warranty/pull/6)を準備。基準main `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`、最終候補 `3e67ffdc1cea94b727749811d2c9dcc907a96160`。13ファイル限定：公開workflow、10スクリプト、専用試験、既存Dev workflowへの試験step追加だけ。既存アプリ／Dev配備条件／IAMを変更しない。必須CI成功後、継続指示の範囲でmain `1564f07427b63a2d73776542eb28341d166c9d7a` へ統合済み。統合直前にrepository／production変数が未設定であることを再確認し、実公開は別承認のまま。main run `38381393703` はverify成功・publish skip。取得した生成物3ファイルはレビュー版と全byte一致。公開承認候補はこのmain SHAとrunである。
+
+`.github/workflows/deploy-production-bootstrap.yml` を実行用正本とし、templateは設計参照として保持する。main push時に包括7ゲートと専用9試験を実施し、同SHAの保守HTMLをartifact化する。artifact名はSHAと実行回次を含み、再実行時も同一attemptの成果物だけを渡す。公開jobは `PRODUCTION_BOOTSTRAP_ENABLED=true` と `PRODUCTION_BOOTSTRAP_REVISION=github.sha` の両方が必要。入口CLIも承認revision不一致を拒否する。ダウンロード後、認証前にHTML全byte・ルート3項目／公開1ファイル・配信設定・期待hash・siteを照合。余分なファイル、symlink、改変、別siteは停止する。短期ADCはcleanupを明示し、排他と空live確認を維持する。
+
+公開承認時に、対象main commitとそのpush run、repository変数として登録する9項目の `PRODUCTION_TARGET_JSON`、承認revision、enableを具体的に提示する。設定前にmain SHA・既存変数・live状態を再確認。無関係な次pushを待たず承認済みSHAのrunだけを対象とする。[GitHub公式手順](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/re-run-workflows-and-jobs?tool=cli)に基づくrun再実行では元のSHA／refを維持する。workflow全体を再実行し、検証・生成・公開を同じattempt内で行う。publish job単独の再実行は新attemptに対応するartifactがないため行わない。変数の再評価とpublish条件成立は実行時に確認し、不成立時に別SHAへ切り替えない。承認なしで変数を登録／変更しない。公開後は照合結果のprovider versionと公開HTMLを確認し、enable解除を同じ承認範囲として提示する。結果不明なら再配備せず読取り調査して停止する。
+
+事前GETでProd Web構成のproject／app／sender一致と照合対象6項目の存在を確認。キーや本文は保存／出力しない。既存 `roles/firebasehosting.admin` に `firebase.clients.get` があることも定義で確認。実公開後の予約ファイル・配信結果は未確認で、管理APIの成功を代用しない。今回もバックアップ／PITR・運用SA・通常アプリ配備は対象外。
+
 ## SDK・CLI確認と公開workflowの統合準備（2026-10-13）
 
 実REST認証に続き、`google-github-actions/auth` が生成する明示WIF ADCを既存 `operator-credentials.mjs`／Google認証ライブラリとFirebase CLIで使用する、配備なしの手動専用workflowを準備した。[PR #5](https://github.com/shisyamo4131/termite-warranty/pull/5) はmain `e5b9cb1605bba18deecdde534730186ed94925a1` に対する5ファイル限定、候補commit `315360738bb2419848e4cbe53ffdfc3e6ee7983c`。オーナーは必須CI成功後の通常mergeと読取り試験を承認した。公開・IAM変更・DB書込みは対象外。

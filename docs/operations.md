@@ -1,5 +1,18 @@
 # Operations
 
+## 2026-10-13 初回保守公開workflowの限定統合準備
+
+継続指示に基づき公開無効の[PR #6](https://github.com/shisyamo4131/termite-warranty/pull/6)を作成。候補 `3e67ffdc1cea94b727749811d2c9dcc907a96160`、main基準 `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`。変更は13ファイル限定（10スクリプト・公開workflow・専用試験・既存Dev workflowへの3行の試験step）。通常アプリ全差分・Dev配備条件・IAMを統合／変更しない。[公開前後の停止条件と実行手順](runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)。公開・変数設定はまだ未承認で未実行。
+
+承認commit一致、成果物の認証前照合、SHA＋attemptを含むartifact名、ADC cleanupを追加。既存試験8件を独立ファイルへ移し、改変HTML／余分ファイル／別site／書換え期待値を拒否する1件を追加。Local `node --test test/production-bootstrap.test.mjs` は9成功・exit 0、`npm test` は463成功・既存2skip・exit 0（`tmp/prod-bootstrap-unit-final.log`）。[最終候補CI 38380943787](https://github.com/shisyamo4131/termite-warranty/actions/runs/38380943787) は包括7ゲートと専用試験が成功、Dev配備skip。通常mergeによりmain `1564f07427b63a2d73776542eb28341d166c9d7a` へ統合済み。公開無効の[main検証・成果物生成run 38381393703](https://github.com/shisyamo4131/termite-warranty/actions/runs/38381393703) はverify成功・publish skip。成果物 `maintenance-1564f07427b63a2d73776542eb28341d166c9d7a-1`（artifact ID `11803497238`、digest `sha256:885ce81d4ff8700a4ecead139004e70b907b107408960dd93ca1939d942fe52d`）を取得し、ルート構成と3ファイル全byteが既存レビュー成果物と一致、照合exit 0。初期のfocused実行では親試験と抽出先を両方指定したため8件重複実行しており、28出力を28件の独立試験とは数えない。最終通常試験では1回ずつ実行。
+
+Prod Web構成GETは対象3識別子一致・照合対象6項目あり、キー／本文は非出力。既存Hosting admin roleにはWeb構成の読取権限 `firebase.clients.get` があると定義で確認。これは実公開の成功ではない。main・repository／production変数は事前読み戻し時に公開enable未設定。統合後もempty-site検査は `kind=empty-hosting-site, cloudWrites=false`、exit 0。Cloud書込みなし。
+
+変更分類はbuild-release-deploy＋governance-permissions-agents＋documentation-onlyで包括7ゲートを選択。型・画面build・Rules／Functions／seedの失効対象は変更せず、既存 `397b5423b84df168c8ed7c69aeb33d89fb726dd3` に対する `npm run typecheck`、`npm run build`、`npm run test:rules`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` の各exit 0をLocalでは再利用。`pwsh -NoProfile -File scripts/check-governance.ps1` は文書反映後exit 0。最終文書に対するgovernance／diffもexit 0。限定main候補および統合後mainのCIでも、包括7ゲートの各コマンドと専用試験がexit 0で完了。商品仕様・データ契約・governance policy・IAMは不変。実装された公開ガードを環境仕様／手順へ反映し、ADRの新規決定はない。
+
+
+主ブランチの所有差分は14ファイル：`.github/workflows/deploy-production-bootstrap.yml`、`scripts/check-production-bootstrap-artifact.mjs`、`scripts/check-production-deployment.mjs`、`scripts/prepare-production-bootstrap.mjs`、`test/production-bootstrap.test.mjs`、`test/production-readiness.test.mjs`、`docs/runbooks/production-bootstrap.workflow.yml.template`、`docs/runbooks/production-bootstrap-review.md`、`docs/requirements/environment-configuration.md`、`docs/roadmaps/production-readiness.md`、`docs/operations.md`、`docs/README.md`、`deliverables/production-bootstrap-2026-10-13/README.md`、`CHANGELOG.md`。main限定PRの既存Dev workflowへの専用試験追加は、主ブランチでは既存 `npm test` からのimportで実行済みのため二重追加しない。今後の全体統合時に検証入口を照合する。残工数12〜18時間と日程条件は保守的に据え置き、PDF／全体納品ロードマップの再改訂は不要。次のユーザー操作は、対象main SHAの初回保守公開と3変数設定・実行後enable解除の承認。
+
 ## 2026-10-13 SDK・Firebase CLI読取り経路の確認
 
 初回保守公開前の実経路確認として、配備なしの手動専用workflow・固定対象probe・専用試験を追加。前回のREST probeと異なり、Google認証ライブラリ／明示WIF ADCとFirebase CLIを使用する。Cloud書込み・IAM変更・公開は含まない。[手順と初回公開の依存棚卸し](runbooks/production-bootstrap-review.md#sdkcli確認と公開workflowの統合準備2026-10-13)。

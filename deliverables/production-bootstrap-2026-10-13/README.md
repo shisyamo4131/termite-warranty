@@ -8,7 +8,7 @@
 - `.gitattributes`：レビュー用artifactの改行をLFへ固定し、Windows checkoutでも生成元と期待hashの一致を保つ。
 - `target.json`：9項目の対象照合用。APIキー・個人情報・秘密鍵なし。GitHub変数には未登録。
 
-手順・承認事項・権限案は[Prod手順](../../docs/runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)へ集約。既存の非稼働[workflowテンプレート](../../docs/runbooks/production-bootstrap.workflow.yml.template)はmain push起動＋明示enable方式。設置、対象値登録、enable、公開対象commitをまとめてレビューし、公開直前に本人承認を得る。現状は設置もenableも行わない。
+手順・承認事項・権限案は[Prod手順](../../docs/runbooks/production-bootstrap-review.md#公開準備統合レビュー運用権限案2026-10-13)へ集約。既存の非稼働[workflowテンプレート](../../docs/runbooks/production-bootstrap.workflow.yml.template)はmain push起動＋明示enable方式。設置、対象値登録、enable、公開対象commitをまとめてレビューし、公開直前に本人承認を得る。限定統合の現況は[最新手順](../../docs/runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)を参照。統合時は公開enableを未設定とし、公開時には承認revision一致と認証前の成果物照合も必須とする。
 
 公開直前に同revisionの生成物を再照合し、短期認証ライブラリ／Firebase CLI経路の実確認、liveにreleaseなし、対象Webとの一致、進行中の配備なしを確認する。既存公開版があれば初回公開を停止する。公開後のGETでは3ファイル（HTMLとFirebase予約2ファイル）、全hash、配信設定、Web構成、releaseの不変を確認してprovider versionを記録する。HTMLのHTTP本文と表示も確認する。
 

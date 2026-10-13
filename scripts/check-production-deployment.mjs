@@ -4,6 +4,7 @@ import {productionDeploymentPlan,validateProductionTarget} from './lib/productio
 try {
   const e=process.env,target=validateProductionTarget(JSON.parse(e.PRODUCTION_TARGET_JSON??''))
   if(process.argv.length>3||process.argv[2]!==undefined&&process.argv[2]!=='--application')throw Error('Unknown deployment mode.')
+  if(process.argv[2]!=='--application'&&e.PRODUCTION_BOOTSTRAP_REVISION!==e.GITHUB_SHA)throw Error('Approved bootstrap revision missing or mismatched.')
   if(process.argv[2]==='--application'&&(e.PRODUCTION_APP_DEPLOY_ENABLED!=='true'||!new RegExp(`^sites/${target.site}/versions/[-a-zA-Z0-9]+$`).test(e.PRODUCTION_PROVIDER_VERSION??'')))throw Error('Application deployment activation or provider baseline missing.')
   const plan=productionDeploymentPlan(target,{event:e.GITHUB_EVENT_NAME,ref:e.GITHUB_REF,repositoryId:e.GITHUB_REPOSITORY_ID,ownerId:e.GITHUB_REPOSITORY_OWNER_ID,revision:e.GITHUB_SHA,artifactRevision:e.PRODUCTION_ARTIFACT_REVISION,environment:e.PRODUCTION_ENVIRONMENT,verified:e.PRODUCTION_VERIFY_RESULT==='success'})
   if(!e.GITHUB_OUTPUT)throw Error('GitHub output missing.')

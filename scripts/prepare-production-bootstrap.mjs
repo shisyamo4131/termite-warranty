@@ -3,6 +3,7 @@ import {mkdir,writeFile} from 'node:fs/promises'
 import {resolve,join} from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {maintenanceHtml,maintenanceInputs} from './lib/production-bootstrap-hosting.mjs'
+export function bootstrapConfig(){return {hosting:{public:'public',headers:[{source:'**',headers:[{key:'Cache-Control',value:'no-cache, no-store, must-revalidate'}]}],rewrites:[{source:'**',destination:'/index.html'}],ignore:['**/gha-creds-*.json','**/node_modules/**']}}}
 export async function prepareBootstrap(directory) {
   const output=resolve(directory)
   // Never replace an existing directory or mix a bootstrap with an application.
@@ -10,8 +11,7 @@ export async function prepareBootstrap(directory) {
   try {
     await mkdir(join(output,'public'))
     await writeFile(join(output,'public/index.html'),maintenanceHtml,{flag:'wx'})
-    const hosting={public:'public',headers:[{source:'**',headers:[{key:'Cache-Control',value:'no-cache, no-store, must-revalidate'}]}],rewrites:[{source:'**',destination:'/index.html'}],ignore:['**/gha-creds-*.json','**/node_modules/**']}
-    await writeFile(join(output,'firebase.json'),JSON.stringify({hosting},null,2)+'\n',{flag:'wx'})
+    await writeFile(join(output,'firebase.json'),JSON.stringify(bootstrapConfig(),null,2)+'\n',{flag:'wx'})
     await writeFile(join(output,'expected.json'),JSON.stringify({kind:'maintenance-only',files:Object.fromEntries(maintenanceInputs().hostingFiles),applicationReleaseVerified:false},null,2)+'\n',{flag:'wx'})
     return {mode:'local-preparation',cloudWrites:false,output}
   }catch(error){

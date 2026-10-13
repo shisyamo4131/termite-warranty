@@ -1,5 +1,11 @@
 # Prod事前構築・認証・配備ロードマップ
 
+## 現在地：初回保守公開workflowの限定統合後（2026-10-13）
+
+[PR #6](https://github.com/shisyamo4131/termite-warranty/pull/6)の13ファイル限定候補は必須CI・専用9試験を通過し、公開無効でmain `1564f07427b63a2d73776542eb28341d166c9d7a` へ統合。承認commit一致、認証前の成果物照合、SHA＋実行回次での受渡しを実装。main上の包括検証・生成が成功し、公開jobはskip。生成物3ファイルはレビュー版と全byte一致。公開／IAM／DB変更は未実施。[具体手順](../runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)。
+
+次は生成結果・対象commitを示して初回保守公開を承認確認し、公開後の版・hash・Web構成を照合する。通常アプリ統合、運用／実行権限、管理者等の入力、HS受入れ、提供前保護も残る。未計測作業を含め12〜18時間の保守的な残工数枠を維持し、10月23日構築・月末納品の条件とPDFは据え置く。初回公開完了・進捗加点とは扱わない。以下は各工程時点の記録。
+
 ## 現在地：SDK・CLI読取りの実証後（2026-10-13）
 
 認証専用[PR #5](https://github.com/shisyamo4131/termite-warranty/pull/5)を承認・必須CI成功後にmainへ統合。[実run 38379568530](https://github.com/shisyamo4131/termite-warranty/actions/runs/38379568530)でGoogle認証ライブラリとFirebase CLIの読取り、対象一致・空liveを確認。公開・IAM変更・DB書込みなし。初回保守公開のスクリプト依存11ファイルを棚卸しし、main既存1・今回追加1・後続追加9と公開workflow／回帰試験に分けた。[統合準備と残件](../runbooks/production-bootstrap-review.md#sdkcli確認と公開workflowの統合準備2026-10-13)。
