@@ -27,6 +27,8 @@
 
 ### 通常配備IAMの承認・適用結果
 
+PR #8は包括CI成功後にmain `c5bad4fef524e88d54f704d20eace86f88907f3d` へ通常merge。運用専用run `38393474263` でWIF／operatorのmetadata・SDK読取り・資格情報削除が成功。初期化文書は未作成。配備SAの通常Functions配備と業務runtimeの実動作は未実証。次の公開候補はこのmainのHosting・東京21Functions・2DB Rules／索引とScheduler。保護4パラメータはautomation=false、残り空。保守provider基準版を保持し、公開承認後に3変数（通常enable／保護パラメータ／provider版）を設定、既存main push run全体を再実行する。成功後の文書更新main pushでも自動配備を照合する。失敗・結果不明ならenableを解除し、再配備せず読取り診断する。バックアップ保護・DB文書／Authユーザー作成・追加IAMはこの公開に含めない。
+
 2026-10-13、本人が以下の具体設定一式を承認。同日6 custom role、project binding、指定4 SAだけのactAs、operatorへのWIF接続、専用pool/provider、東京Docker repository／7日cleanup／build writer、main限定GitHub環境を適用し読戻し一致。既定build SAのEditorは除去済み。5アプリSAのuser-managed keyは0。backup／diagnosticsへ業務権限は付けない。初回project照合はJSON項目順の比較不具合でexit 1になったが、独立読取りで反映済みを確認し、意味の一致比較へ直して照合・未実行SA設定を完了（exit 0）。アプリの実認証・配備は未実証で、追加権限が必要なら個別に提示する。
 
 [role／binding／WIF条件のJSON](../../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)がレビュー対象。カスタムroleで使う65の異なる権限は、実ProdのIAM一覧14ページで全件対応を確認。不要なScheduler locations 2権限はBETAだったため候補から除いた。DB条件はDB全体の権限であり、特定文書だけへの制限ではない。

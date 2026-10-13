@@ -1,6 +1,6 @@
 # Documentation Map
 
-2026-10-13 IAM追加承認後：通常配備IAM・運用専用WIF・main限定環境・build保管先を設定し読戻し済み。通常アプリPRのfresh CI不具合を修正中、実公開と保護設定は未実施。[最新現在地と9〜14時間の残見積り](roadmaps/production-readiness.md#現在地通常配備iam設定統合ci修正後2026-10-13)、[実行証拠](operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。23日構築・月末目標を維持し、PDFへ保護保留と成立条件を反映。
+2026-10-13 IAM追加承認後：通常配備IAM・運用専用WIF・main限定環境・build保管先を設定し読戻し済み。通常アプリPRのfresh CI不具合を修正し包括CI成功後にmainへ統合、運用SAの2DB SDK読取りを実証。実公開と保護設定は未実施。[最新現在地と9〜14時間の残見積り](roadmaps/production-readiness.md#現在地通常配備iam設定統合ci修正後2026-10-13)、[実行証拠](operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。23日構築・月末目標を維持し、PDFへ保護保留と成立条件を反映。
 
 2026-10-13追記：指定GmailのFirebase通知と実Hostingを照合し、公開後照合失敗に直接関連する変更は確認されず。[調査記録](operations.md#2026-10-13-firebase通知の照合運用権限の着手)。優先1は[運用read-only権限・Functions主体分離の具体化](runbooks/production-bootstrap-review.md#運用権限とfunctions実行主体の具体化2026-10-13着手)まで着手。実設定・配備は未実施、見積りとPDF日付は据え置き。
 

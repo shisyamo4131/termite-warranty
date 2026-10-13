@@ -2,6 +2,12 @@
 
 ## 2026-10-13 通常Prod配備の実行主体と基盤準備
 
+最終PR CI [38392476231](https://github.com/shisyamo4131/termite-warranty/actions/runs/38392476231)で包括7ゲート全成功。単体476成功・skip 0、Rules／Callableは2＋199＝201成功、型検査・build・両構文・governanceも各step成功（exit 0）。Localの2skipもfresh CIでは実行された。PR #8を通常mergeし、main `c5bad4fef524e88d54f704d20eace86f88907f3d` とPR最終 `ec7185f` のtree差分0を確認。配備enableは未設定のまま、通常Prod workflowはskip。mainの保護は維持する。
+
+運用専用[run 38393474263](https://github.com/shisyamo4131/termite-warranty/actions/runs/38393474263)は同mainで全step成功。専用WIF→operator短期認証→Firebase project／両DB metadata→Firestore SDKの固定パス読取りまで成功（exit 0）。businessMarker／runtime／operatorLock／activeOperationはすべて不存在、`initializationVerified:false`、`cloudResourceWrites:false`。資格情報ファイルの削除も成功。6件のLocal guard試験は通過したが、許可外条件の実STS拒否・許可外DBの実IAM拒否はこのrunで実証していない。
+
+main版のProd固有build／bundle独立照合は各exit 0、1085ファイル、digest `2995d251bec520123481d0ea004f85874c299aecf89e1a37989f378938aae022`。公開候補はHosting1003ファイル・東京21Functions・2DB Rules・22複合索引／33field overrides。backup automation=falseと他3保護パラメータ空を保持。次は具体公開承認、通常配備の実行／照合、後続main更新での自動配備実証。公開と初期化、提供前保護は未了。
+
 後続の本人承認に基づき、[確定IAM一式](../deliverables/production-bootstrap-2026-10-13/runtime-iam-plan.json)を適用・読戻し済み。6 custom role、8件のproject追加案（同role／conditionのmembersはAPIで統合）、5 SA policy、東京gcf-artifacts Docker repository・7日超image cleanup・build writer、運用専用pool/provider、GitHub production-operations main限定を確認。build Compute SAのEditorを除去。他メンバーはetagを使って保持し、5アプリSAにuser-managed keyなし。role・pool・repository・SA設定の最終確認コマンドは各exit 0。初回project反映後の照合はJSON項目順比較でexit 1、独立GETで適用済みを確認し、比較を訂正して読戻し一致。追加権限を広げて回避していない。
 
 変更後の独立読取り（exit 0）で `(default)` PITR無効・backup schedule 0・Auth退避bucket未作成、東京Functions 0、Hosting保守版 `a377bd20176a2ac5` 不変を確認。業務DB／Authの実データ操作・公開なし。実運用SAの短期認証とSDK読取りはworkflowのmain統合後に確認する。

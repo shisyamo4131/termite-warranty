@@ -2,7 +2,7 @@
 
 ## 現在地：通常配備IAM設定・統合CI修正後（2026-10-13）
 
-本人承認後に通常配備／業務／運用のIAM、運用専用WIF・main限定environment、東京build repositoryを設定・読戻し。既定build SAのEditorは除去した。通常アプリの[PR #8](https://github.com/shisyamo4131/termite-warranty/pull/8)はCIで共有コード未生成とCRLF試験準備の不具合を発見して修正。Localは単体474成功・2skip、型検査・build成功。CI全体・main統合・実運用認証・通常アプリ配備は残る。[実行証拠](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。保守公開版は不変、backup／PITR／Auth bucketは本人指示で保留中。
+本人承認後に通常配備／業務／運用のIAM、運用専用WIF・main限定environment、東京build repositoryを設定・読戻し。既定build SAのEditorは除去した。通常アプリの[PR #8](https://github.com/shisyamo4131/termite-warranty/pull/8)はCIで共有コード未生成とCRLF試験準備の不具合を発見して修正。Localは単体474成功・2skip、型検査・build成功。修正後CIは単体476・Rules201を含む包括7ゲート成功。mainへ通常mergeし、専用WIF／operatorで2DBのSDK読取り・資格情報後処理も実証。通常アプリ公開・後続main更新の配備照合は残る。[実行証拠](../operations.md#2026-10-13-通常prod配備の実行主体と基盤準備)。保守公開版は不変、backup／PITR／Auth bucketは本人指示で保留中。
 
 22日までの残作業を**9〜14時間（推定）**へ見直す。統合CI・通常配備3〜5、運用認証1〜3、入力照合1〜2、HS支援4。旧10〜15時間から完了したIAM設定を除き、fresh CI修正と実配備照合を明示した。14〜22日の7平日×6時間＝42時間を確保する仮定では余力28〜33時間。外部待ち・大幅な実配備不具合はこの上限に含めない。23日の最終構築3〜4時間、26〜27日の保護実証・正式投入12時間、28日の修正6時間は別枠を維持する。
 

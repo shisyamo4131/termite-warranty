@@ -6,7 +6,9 @@
     "approvedPlanSha256": "82b8568ceb60046c56dd554104abc4d14adb4cf2dd0d04f853fe72edb07c44eb",
     "scope": "IAM and build foundation only; publication and backup protection excluded",
     "readback": "Roles, project/SA/repository bindings, operator provider and main-only GitHub environment matched; build Editor absent; no user-managed keys",
-    "runtimeAuthenticationVerified": false
+    "runtimeAuthenticationVerified": false,
+    "operatorAuthenticationVerified": true,
+    "operatorReadOnlyRun": "https://github.com/shisyamo4131/termite-warranty/actions/runs/38393474263"
   },
   "project": "termite-warranty-prod",
   "projectNumber": "988295873733",

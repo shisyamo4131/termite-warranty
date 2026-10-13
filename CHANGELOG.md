@@ -2,6 +2,8 @@
 
 ## 2026-10-13 通常Prod配備・運用認証の後続準備
 
+- 通常アプリPR #8の包括CI成功後にmainへ統合。運用専用WIF／SAで2DBのmetadata・SDK読取りと資格情報後処理を実証。通常公開と保護設定は未実施。
+
 - 承認済み通常配備IAM・運用WIF・main限定環境を設定し読戻し。既定build SAのEditorを限定権限へ置換し、東京image保管先の7日cleanupを設定。公開・保護設定は未実施。
 - fresh CIで判明した自社設定UI試験のCRLF対応漏れを修正し、LF／CRLF両方でcache／読取り／保存を検証。
 
