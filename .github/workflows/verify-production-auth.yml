@@ -1,0 +1,57 @@
+name: Verify production federation without deployment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-auth-verification
+  cancel-in-progress: false
+jobs:
+  authenticate:
+    timeout-minutes: 5
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node --test test/production-auth-probe.test.mjs
+      - run: node scripts/production-auth-probe.mjs allow --execute-approved
+  reauthenticate:
+    timeout-minutes: 5
+    needs: authenticate
+    runs-on: windows-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/production-auth-probe.mjs allow --execute-approved
+  deny-without-environment:
+    timeout-minutes: 5
+    needs: reauthenticate
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: node scripts/production-auth-probe.mjs deny --execute-approved
