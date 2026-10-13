@@ -5,11 +5,13 @@ import {pathToFileURL} from 'node:url'
 export const target=Object.freeze({project:'termite-warranty-prod',number:'988295873733',repository:'shisyamo4131/termite-warranty',repositoryId:'1363463339',ownerId:'72244713',serviceAccount:'prod-deployer@termite-warranty-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/988295873733/locations/global/workloadIdentityPools/github-production/providers/github'})
 const fail=()=>{throw Error('Production authentication probe failed; credentials and response bodies suppressed.')}
 const token=value=>typeof value==='string'&&value.length>0&&!/\s/.test(value)
+const checkNames=['mode','actions','event','ref','repository','repositoryId','ownerId','revision','issuer','audience','subject','expiry','oidcEndpoint','requestToken']
+function checkAll(checks){for(const [check,ok] of Object.entries(checks))if(!ok){const error=Error('Probe precondition mismatch');error.probeCheck=check;throw error}}
 export function checkContext(env,mode) {
   const checks={mode:['allow','deny'].includes(mode),actions:env.GITHUB_ACTIONS==='true',event:env.GITHUB_EVENT_NAME==='workflow_dispatch',ref:env.GITHUB_REF==='refs/heads/main',repository:env.GITHUB_REPOSITORY===target.repository,repositoryId:env.GITHUB_REPOSITORY_ID===target.repositoryId,ownerId:env.GITHUB_REPOSITORY_OWNER_ID===target.ownerId,revision:/^[a-f0-9]{40}$/.test(env.GITHUB_SHA??'')}
-  for(const [check,ok] of Object.entries(checks))if(!ok){const error=Error('Context mismatch');error.probeCheck=check;throw error}
+  checkAll(checks)
   const url=new URL(env.ACTIONS_ID_TOKEN_REQUEST_URL)
-  if(url.protocol!=='https:'||!url.hostname.endsWith('.actions.githubusercontent.com')||url.username||url.password||url.port||!token(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN))fail()
+  checkAll({oidcEndpoint:url.protocol==='https:'&&url.hostname.endsWith('.actions.githubusercontent.com')&&!url.username&&!url.password&&!url.port,requestToken:token(env.ACTIONS_ID_TOKEN_REQUEST_TOKEN)})
   url.searchParams.set('audience',target.audience)
   return url
 }
@@ -18,11 +20,11 @@ export function checkClaims(jwt,mode,now=Date.now()) {
   if(parts.length!==3)fail()
   const c=JSON.parse(Buffer.from(parts[1],'base64url').toString('utf8'))
   const sub=`repo:${target.repository}:${mode==='allow'?'environment:production':'ref:refs/heads/main'}`
-  if(c.iss!=='https://token.actions.githubusercontent.com'||c.aud!==target.audience||c.repository_id!==target.repositoryId||c.repository_owner_id!==target.ownerId||c.ref!=='refs/heads/main'||c.event_name!=='workflow_dispatch'||c.sub!==sub||!Number.isFinite(c.exp)||c.exp*1000<now+30000)fail()
+  checkAll({issuer:c.iss==='https://token.actions.githubusercontent.com',audience:c.aud===target.audience,repositoryId:c.repository_id===target.repositoryId,ownerId:c.repository_owner_id===target.ownerId,ref:c.ref==='refs/heads/main',event:c.event_name==='workflow_dispatch',subject:c.sub===sub,expiry:Number.isFinite(c.exp)&&c.exp*1000>=now+30000})
   // Local claims are a safety check, not signature verification; Google STS verifies the JWT.
 }
 export async function probe(mode,{env=process.env,fetcher=fetch,now=Date.now}={}) {
-  let stage='context',status=null
+  let stage='context',status=null,apiCode='none'
   try {
     const oidcUrl=checkContext(env,mode)
     const request=async(url,options={})=>{
@@ -31,7 +33,11 @@ export async function probe(mode,{env=process.env,fetcher=fetch,now=Date.now}={}
       if(Number(response.headers.get('content-length')??0)>1048576)fail()
       const body=await response.text()
       if(body.length>1048576)fail()
-      return {ok:response.ok,status:response.status,body:JSON.parse(body)}
+      const parsed=JSON.parse(body)
+      const code=typeof parsed.error==='string'?parsed.error:parsed.error?.status
+      apiCode=['invalid_grant','invalid_target','invalid_request','PERMISSION_DENIED','NOT_FOUND','UNAUTHENTICATED'].includes(code)?code:'none'
+      if(/attribute condition/i.test(parsed.error_description??''))apiCode='attribute-condition'
+      return {ok:response.ok,status:response.status,body:parsed}
     }
     for(let attempt=0;attempt<(mode==='allow'?2:1);attempt++) {
       stage='oidc-request';status=null
@@ -58,8 +64,8 @@ export async function probe(mode,{env=process.env,fetcher=fetch,now=Date.now}={}
     }
     return {mode,result:'pass',freshExchanges:2,project:target.project,cloudResourceWrites:false,expiryRefreshTested:false}
   }catch(error){
-    const check=['mode','actions','event','ref','repository','repositoryId','ownerId','revision'].includes(error?.probeCheck)?`; check=${error.probeCheck}`:''
-    throw Error(`Production authentication probe failed at ${stage} (HTTP ${status??'unavailable'}${check}); credentials and response bodies suppressed.`)
+    const check=checkNames.includes(error?.probeCheck)?`; check=${error.probeCheck}`:''
+    throw Error(`Production authentication probe failed at ${stage} (HTTP ${status??'unavailable'}; category=${apiCode}${check}); credentials and response bodies suppressed.`)
   }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href) {
