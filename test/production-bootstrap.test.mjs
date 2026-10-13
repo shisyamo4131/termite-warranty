@@ -130,3 +130,12 @@ test('downloaded bootstrap artifact refuses altered HTML, extra file, wrong site
     }finally{await rm(root,{recursive:true,force:true})}
   }
 })
+
+test('published baseline inspection is manual, main-only and never deploys or uploads credentials',async()=>{
+  const w=parse(await readFile(new URL('../.github/workflows/inspect-production-bootstrap.yml',import.meta.url),'utf8'))
+  assert.deepEqual(w.on,{workflow_dispatch:null});assert.equal(w.jobs.inspect.if,"github.ref == 'refs/heads/main'")
+  assert.equal(w.jobs.inspect.environment,'production');assert.equal(w.concurrency['cancel-in-progress'],false)
+  const allowed=['npx --yes npm@11.19.1 ci','node --test test/production-bootstrap.test.mjs','$env:PRODUCTION_TARGET_JSON | Set-Content -Encoding utf8 production-target.json','node scripts/inspect-production-bootstrap.mjs production-target.json']
+  for(const step of w.jobs.inspect.steps){if(step.uses)assert.ok(['actions/checkout@v7','actions/setup-node@v7','google-github-actions/auth@v3'].includes(step.uses));else assert.ok(allowed.includes(step.run));assert.equal(step['continue-on-error'],undefined)}
+  assert.equal(w.jobs.inspect.steps.find(s=>s.uses==='google-github-actions/auth@v3').with.cleanup_credentials,true)
+})

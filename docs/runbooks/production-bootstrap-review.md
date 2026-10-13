@@ -1,5 +1,13 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 初回公開後の状態と読取り再照合（2026-10-13）
+
+オーナーがmain `1564f07427b63a2d73776542eb28341d166c9d7a` の保守HTML、3変数登録、run `38381393703` 全体の再実行、照合後enable解除を承認。attempt 2は公開まで成功したが直後の照合は失敗し、enableをfalseへ戻した。再配備・削除・IAM変更は行わない。GETでは保守版 `sites/termite-warranty-prod/versions/a377bd20176a2ac5` と期待内容が一致し、既存CLI認証で同じ照合関数も成功。初回CI失敗の原因は未確定。
+
+同じ配備SA／WIFで再公開せず確認する `.github/workflows/inspect-production-bootstrap.yml` を[PR #7](https://github.com/shisyamo4131/termite-warranty/pull/7)で追加。main・production・手動起動だけを許可し、既存の照合関数を実行する。受入条件・hash・公開物は変更しない。必須CI成功後main `21f41565fee5ea25396e924f7e0cd5d1770f3c30` へ統合し、[run 38383742806](https://github.com/shisyamo4131/termite-warranty/actions/runs/38383742806)で同じ基準版の読取り照合が全step成功。enable falseを再確認した。最初のCI失敗原因は未確定のまま残す。公開版のsource SHAは1564f074のまま。新main pushでもenable falseと承認SHA不一致で公開を拒否する。
+
+残工数は11〜17時間の暫定推定へ更新。初回保守公開2〜3時間を外し、初回CI照合失敗の原因・再照合手順確認1〜2時間を追加。日付は変更せず、22日までの残認証・統合・入力成立を23日構築の条件とする。PDFも公開済み／原因未確定を分けて更新。業務利用開始、通常アプリ配備、運用IAM、バックアップ／PITRは未実施。
+
 ## 初回保守公開の限定統合（2026-10-13）
 
 継続指示に基づき、[PR #6](https://github.com/shisyamo4131/termite-warranty/pull/6)を準備。基準main `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`、最終候補 `3e67ffdc1cea94b727749811d2c9dcc907a96160`。13ファイル限定：公開workflow、10スクリプト、専用試験、既存Dev workflowへの試験step追加だけ。既存アプリ／Dev配備条件／IAMを変更しない。必須CI成功後、継続指示の範囲でmain `1564f07427b63a2d73776542eb28341d166c9d7a` へ統合済み。統合直前にrepository／production変数が未設定であることを再確認し、実公開は別承認のまま。main run `38381393703` はverify成功・publish skip。取得した生成物3ファイルはレビュー版と全byte一致。公開承認候補はこのmain SHAとrunである。

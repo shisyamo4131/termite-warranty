@@ -1,5 +1,18 @@
 # Operations
 
+## 2026-10-13 初回保守公開と読取り照合
+
+オーナーがtask `01a133e7-092f-71f0-b5e7-43a8b7833ab9` で、検証済みmain `1564f07427b63a2d73776542eb28341d166c9d7a` の保守表示を公開すること、repositoryの対象JSON・承認revision・enableの3変数登録、run全体の再実行、公開照合後のenable解除を明示承認。IAM・DB・Auth・Functions変更は含まない。直前のmain一致・両scopeの変数未設定を確認し、登録後に9項目・SHA・enableの完全一致を読戻した。承認済みrun `38381393703` attempt 2を起動し、同SHA／refを確認。attempt 2の包括検証、認証前artifact照合、空site検査、Hosting公開、再認証は成功したが、直後の `Inspect initial maintenance baseline` は失敗。短期ADC後処理は成功。再配備せず `PRODUCTION_BOOTSTRAP_ENABLED=false` を設定し読戻した。最初のrun全体はfailureであり成功へ書き換えない。
+
+公開後のGETで、live版 `sites/termite-warranty-prod/versions/a377bd20176a2ac5` はDEPLOY／FINALIZED・3ファイル、HTML hashと配信設定が期待値一致。公開HTMLはHTTP 200・全byte一致、Content-Type `text/html; charset=utf-8`、Cache-Control `no-cache, no-store, must-revalidate`。Web構成6項目も管理APIと公開init.jsonが一致。資格情報・APIキー本文は非出力。
+
+開発者側の既存CLI認証で同じ `inspectBootstrap` をGETだけで再実行し、`kind=maintenance-provider-baseline`・同version・`applicationReleaseVerified=false`・`cloudWrites=false`、exit 0を確認した。これは同じ配備SA経路の成功とは区別する。初回CI失敗の原因は未確定で、伝播遅延等を断定しない。同じWIF／配備SAで再公開せず正式照合だけを行う[PR #7](https://github.com/shisyamo4131/termite-warranty/pull/7)を準備（候補 `9ec1dc9775904d5465bbcb2fa0c91d254ffce6c6`、2ファイル限定）。Local専用10試験・exit 0、`npm test` は464成功・2skip・exit 0（`tmp/prod-bootstrap-inspect-unit.log`）。公開コマンド・artifact uploadは含まず、照合関数や受入条件は変更しない。 必須CI [38383309590](https://github.com/shisyamo4131/termite-warranty/actions/runs/38383309590) が成功後にmain `21f41565fee5ea25396e924f7e0cd5d1770f3c30` へ通常merge。同じ配備SA／WIFの[独立照合run 38383742806](https://github.com/shisyamo4131/termite-warranty/actions/runs/38383742806)は全step成功。同じversionの `maintenance-provider-baseline`、`applicationReleaseVerified=false`、`cloudWrites=false` を確認し、enable falseを再読戻し。再配備なし。公開版は1564f074から生成した版のままで、最初のCI失敗原因だけを未確定の残件として保持。
+
+
+今回の公開後の所有差分は `.github/workflows/inspect-production-bootstrap.yml`、`test/production-bootstrap.test.mjs` と、運用記録・Prod手順・環境仕様・Prod／納品ロードマップ・文書索引・両deliverables README・日程PDF生成元／出力・changelog。既存通常アプリ、Rules、Functions、データ契約、governance契約／policy、IAMは変更しない。初回公開成功を業務アプリ／納品完了へ換算しない。
+
+残工数は11〜17時間（暫定推定）へ見直し。初回公開2〜3時間を外し、最初のCI照合失敗の原因切り分け1〜2時間を追加。42時間確保なら余力25〜31時間。23日構築・30日納品判定の目標と必須条件は維持し、既存PDFを改訂。生成コマンド `python deliverables/production-schedule-2026-10-05/build_pdf.py`（bundled Python）はexit 0、`pdftoppm -r 110 -png` はexit 0。2ページの文字・工数／日付をpypdfで検査し、両ページの描画で文字切れ・重なりなしを確認。外部共有は行わない。Local最終464成功・2skipと各未失効5ゲートの再利用は直下の選定に従い、文書反映後の `pwsh -NoProfile -File scripts/check-governance.ps1`、`git diff --check`、8文書のローカルリンク検査、pypdfの2ページ／工数・日付検査はすべてexit 0。
+
 ## 2026-10-13 初回保守公開workflowの限定統合準備
 
 継続指示に基づき公開無効の[PR #6](https://github.com/shisyamo4131/termite-warranty/pull/6)を作成。候補 `3e67ffdc1cea94b727749811d2c9dcc907a96160`、main基準 `b0cbf676e43f09a4cf9f20eb5cc4195d1e681ba2`。変更は13ファイル限定（10スクリプト・公開workflow・専用試験・既存Dev workflowへの3行の試験step）。通常アプリ全差分・Dev配備条件・IAMを統合／変更しない。[公開前後の停止条件と実行手順](runbooks/production-bootstrap-review.md#初回保守公開の限定統合2026-10-13)。公開・変数設定はまだ未承認で未実行。
