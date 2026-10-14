@@ -101,6 +101,8 @@ Prod固有の成果物生成・全体bundleのdigestと対象確認・認証前g
 
 ## 7. 失敗・復旧・リリース前
 
+2026-10-14 PR23でDevへ統合・配備・実測済み（Prod未反映）：共通のFunctions配備照合は関数単位で最大4件ずつ読取り、source／service／revisionの全検査と終端の一覧再照合を維持する。同一archiveは進行中の検査も共有する。失敗時は開始済みbatchを終えて停止し、後続batchを開始しない。Hostingの待機上限や全5照合の成功条件は変更しない。[Dev実測・承認境界](../operations.md#2026-10-14-pr23のdev実証pr24の統合準備)を参照。
+
 失敗／結果不明時は該当環境のenableをfalseにして次の自動配備を止める。これは実行中jobの停止やCloud巻戻しではない。既存run・成果物・部分反映を読取り確認してから修正する。同じ結果不明の配備を盲目的に再送しない。Git revertはDB復元ではない。
 
 Dev受入れに使う配備runは、resolver・verify・deployと証跡artifactが同一attemptで成功している必要がある。原因と部分反映を確認して再試行するときは、軽量な元PR照合からrun全体を再実行する。失敗deploy jobだけの再実行を、受入れ証拠一式が揃ったrunと見なさない。

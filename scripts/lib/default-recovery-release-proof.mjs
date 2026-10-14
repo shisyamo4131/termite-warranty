@@ -94,7 +94,10 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
   const inventoryURL=`https://cloudfunctions.googleapis.com/v2/projects/${project}/locations/-/functions`
   const functions=await paged(request,inventoryURL,'functions')
   const names=[],archives=new Map()
-  for(const f of functions) {
+  // Bound independent function reads; drain every started read before failing.
+  // Keep each function's source -> service -> revision ordering and final inventory check.
+  for(let offset=0;offset<functions.length;offset+=4) {
+   const results=await Promise.allSettled(functions.slice(offset,offset+4).map(async f=>{
     const match=f.name?.match(/^projects\/([^/]+)\/locations\/([^/]+)\/functions\/(\w+)$/)
     if(!match||![project,projectNumber].includes(match[1])||match[2]!==inputs.region||f.state!=='ACTIVE'||f.environment!=='GEN_2'||names.includes(match[3])||!inputs.functionNames.includes(match[3]))fail()
     names.push(match[3])
@@ -106,7 +109,9 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     const source=build.sourceProvenance?.resolvedStorageSource??build.source?.storageSource
     if(!source||!/^[1-9]\d*$/.test(String(source.generation??''))||typeof source.object!=='string'||!source.object||!new Set([`gcf-v2-sources-${projectNumber}-${inputs.region}`,`gcf-v2-uploads-${projectNumber}-${inputs.region}`]).has(source.bucket))fail()
     const archiveKey=canonical(source)
-    if(!archives.has(archiveKey)){const bytes=await readArchive(source);compareSource(readSourceZip(bytes),inputs.sourceFiles);archives.set(archiveKey,true)}
+    // Cache the in-flight proof, not just success, so shared sources are read once.
+    if(!archives.has(archiveKey))archives.set(archiveKey,(async()=>{const bytes=await readArchive(source);compareSource(readSourceZip(bytes),inputs.sourceFiles)})())
+    await archives.get(archiveKey)
     const runName=service.service
     if(typeof runName!=='string'||!new RegExp(`^projects/(${project}|${projectNumber})/locations/${inputs.region}/services/[a-z0-9-]+$`).test(runName))fail()
     const run=await request(`https://run.googleapis.com/v2/${runName}`),rev=revisionName(runName,service.revision)
@@ -118,6 +123,9 @@ export async function functionsReleaseProof({project,projectNumber,control,reque
     if(revision.name!==rev||revision.reconciling===true||!revision.conditions?.some(c=>c.type==='Ready'&&c.state==='CONDITION_SUCCEEDED')||revision.conditions.some(c=>c.state!=='CONDITION_SUCCEEDED'))fail()
     controlEnvironment(revision.containers,control,inputs.expectedEnvironment)
     if(expectedIdentity&&revision.serviceAccount!==expectedIdentity)fail()
+   }))
+   const failed=results.find(result=>result.status==='rejected')
+   if(failed)throw failed.reason
   }
   if(canonical(names.sort())!==canonical(inputs.functionNames))fail()
   // Recheck the complete provider snapshot, retaining raw environments only in memory.
