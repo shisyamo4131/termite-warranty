@@ -1,6 +1,42 @@
 # Operations
 
-## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（実施中）
+## 2026-10-14 記録文書の統合と文書専用配備省略（導入中）
+
+本人が記録文書の両段階PR統合を指示し、PR19をdev宛てに作成。その後、成果物・実行設定に影響しない文書だけは検証後統合してDev／Prod配備を省略、混在／不明は省略しない方針を明示採用した。既存run38525106697は取消せずsuccess終了を確認。分類はCI／検証動作／文書、包括7gateとdocumentation-routing／governance-toolsのfocused回帰を選択。許可8文書・差分の同一性／ファイル種別・両環境の分岐／失敗拒否を実装し、手順・ADR・設計・変更履歴へ反映。アプリ・DB schema・Cloud IAM・保護設定・日程の変更はない。
+
+Local実装検証：`node --test test/documentation-changes.test.mjs` は7成功、既存3ファイルの局所回帰は88成功、`npm test` は通常権限で566成功・既存symlink制約2skip、`node --test test/governance-tools.test.mjs` は10成功、`./scripts/check-governance.ps1` と `git diff --check` も各exit 0。サンドボックス下の全単体は一時ファイルrename/realpath制限で10失敗・exit 1となり、通常権限の再実行で解消。ガバナンス試験は追加focused登録に必要なfixtureファイル不足を修正し、その後の一時ファイル置換制限も通常権限で再検証した。失敗をskipへ変更していない。最終PRで包括7gateを実行し、途中の成功を未完了gateの代わりにしない。
+
+文書専用経路の導入コードを含む今回のPRは混在扱いであり、包括検証・Dev配備・その版の本人受入れ・mainへのPR／Prod配備を省略しない。これらの実結果はPR／Actionsと完了報告へ残す。本人の旧Dev受入れを新版へ転記しない。将来の文書専用PRでは配備も受入れ記録も不要。既存文書をmain未統合のまま放置する恒常運用は採らない。
+## 2026-10-14 本人Dev受入れ・PR18統合・Prod実配備（両段階PRの実証完了）
+
+本人はtask `01a133e7-092f-71f0-b5e7-43a8b7833ab9` で「Dev cbec3c3の業務受入れ完了」と明示。現dev・成功配備run38519554310 attempt4・PR18 headが `cbec3c3845ee251023df4d213dbdef52decc0135` に一致し、進行中配備がないことを読取り後、[受入れrun38523528230](https://github.com/shisyamo4131/termite-warranty/actions/runs/38523528230)をdevで実行した。job115718481731の記録コマンド・artifact保存・後処理は成功／exit 0。owner actor72244713、受入れartifact11874428439を確認した。本人の受入れを代行したものではない。
+
+[PR18](https://github.com/shisyamo4131/termite-warranty/pull/18)をreadyにし、[run38522081043 attempt2](https://github.com/shisyamo4131/termite-warranty/actions/runs/38522081043/attempts/2)を再実行。resolver115718862835／verify115719105254が成功。元PR17 run38518228192 attempt1→Dev run38519554310 attempt4→本人受入れrun38523528230の連鎖を実APIで検証し、包括7コマンド・Rules群は再実行せず成功証拠を再利用。PR上のDev再配備もskipした。先行attempt1の未受入れ拒否と、記録後の正常通過を同じDev版で実証した。
+
+main保護（必須check・strict・管理者適用）とProd enable=true／保護false・他3値空を読み直し、PR18をhead固定で通常merge／exit 0。mainは `c5ea07046a27d16a7e8bf42edc0df02a0b8a3c5c`。GitHub Git APIでmainと受入れDevのtree `5457743a481ce4d64e0063e38b46925ea9ead8e7` が一致することを確認した。SHAが違っても内容は同じ。
+
+実main pushの[Prod run38523851537](https://github.com/shisyamo4131/termite-warranty/actions/runs/38523851537)は全体success。reuse job115719491459がPR18最新attempt2／artifact11875077101と上記連鎖を再検証し、`reuse=true, source=accepted-dev`。verify115719761445は包括7コマンドをskipし、Prod固有の `prepare-production-release.mjs` と最終bundle検査をそれぞれexit 0で実行。Rules VMはskip。deploy115720322848は対象guard・bundle再検査・stage・WIF・predeploy・Firebase配備・再認証・cloud照合・後処理がすべて成功／exit 0。全5項目pass、Functions21／sourceArchives21、Hosting1005ファイルは2回目の観測で件数も一致。main pushに伴うDev／保守公開の重複jobは実行しなかった。
+
+独立した `node tmp/check-final-production-state.mjs` もexit 0：公開版 `sites/termite-warranty-prod/versions/8ff1a266bc55ff54`、21 Functions ACTIVE、automation=false／他3保護入力空、PITR無効、日次予定0。Devの管理API GET＋assertもexit 0でPITR無効・日次予定0・Scheduler PAUSEDを確認。今回IAM変更・保護設定の有効化・業務／Authデータ操作は行っていない。
+
+| 工程 | 従前の実測／設計 | 今回の実測 | 判定 |
+| --- | --- | --- | --- |
+| 改修→dev PRの包括検証 | 直前PR16：8分13秒 | PR17：7分50秒 | 7gate維持。23秒差を再利用効果としない |
+| dev統合後の検証・成果物準備 | run38517384486：7分17秒 | 1分17秒 | 6分／82.4%短縮 |
+| Dev配備job／dev全体 | 旧自動配備の比較実測なし | 2分47秒／4分18秒 | 実配備・全5照合・保護保留確認を維持 |
+| 本人受入れの記録job | 実記録なし | 35秒 | 06:39:53Z→06:40:28Z。本人の業務確認時間は除外 |
+| dev→main PR | 共通包括検証を繰り返す設計。旧経路の同条件実測なし | 1分17秒 | 06:41:07Z→06:42:24Z。元PR・Dev・本人記録の照合のみ |
+| mainの配備前準備 | 直前run38514373769：1分57秒 | 2分35秒 | 38秒増。証拠連鎖確認50秒、verify103秒、間2秒 |
+| Prod配備job | 3分35秒 | 3分03秒 | 32秒短縮。Firebase配備18秒・cloud照合78秒を含む |
+| main全体 | 5分36秒 | 5分41秒 | 5秒増。06:43:09Z→06:48:50Z。今回main側の短縮とはしない |
+
+全工程の実行時間を足すと7分50秒＋4分18秒＋35秒＋1分17秒＋5分41秒＝19分41秒。人の受入れ・操作・run間の待機を除く合計であり、要求から完了までの実経過時間ではない。直前の「PR＋main＝13分49秒」はDev配備・本人記録・昇格PRを含まないため、その合計との単純比較は不適切。重複削減は包括検証を元PR1回に集約できた事実と工程別実測で評価する。元試験561件・連携201件は削減していない。過去の全再実行main11分40秒に比べ、今回は5分59秒短いが、同一環境・同一版の対照実験ではない。VM準備等の変動を含み、次回の所要時間を保証しない。
+
+配備経路の実装・Dev自動配備・本人記録連携・mainからのProd実証は完了。バックアップ等はリリース直前まで保留。初期化・管理者・正式投入・HS受入れ等の納品条件は別途維持し、今回の開発側Dev受入れをHS最終受入れと扱わない。業務仕様・schema・データ契約・ADRの判断・日程／PDFは変更なし。結果は既存の運用・手順・環境・技術ロードマップ・変更履歴・文書索引・設計の状態参照へ反映する。
+
+文書変更だけを同じ主repositoryの結果保存branchへcommit/pushする。受入れ済みtreeを動かさないため、文書の追加分はdev/mainへ未統合のまま保存し、後続の改修→dev PRに含める。新しいrepository／worktreeは作成しない。文書変更の選択gate `./scripts/check-governance.ps1` と差分検査 `git diff --check` は個別実行で両方exit 0。配備版の包括7gateは上記連鎖で再利用し、文書結果追記を理由に業務試験・配備をもう一度実行しない。
+
+## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（以下はDev実証・本人受入れ前の記録）
 
 本人の後続指示で改修→dev／dev→mainともPRを使う方針へ切替。分類は検証動作／build-release-deploy／文書。包括7gateとpolicy-focused回帰を選択。共通包括検証は改修→dev PRで実行し、同一treeならdev統合後・Dev→main PR・main統合後で再利用する。Dev成果物を元PRから引継ぎ、Dev実配備照合と本人受入れ、Prod固有確認は維持。mainも元PRからの証拠連鎖を再確認。業務仕様・schema・データ契約・納品日程は変更しない。バックアップ等は保留。
 
@@ -8,7 +44,66 @@
 
 比較基準：直前PR16の8分13秒、main9edf012の配備前1分57秒・配備job3分35秒・main全体5分36秒、合計13分49秒。新たなDev配備工程は別枠で測り、Dev工程を除外した短縮を全体短縮と混同しない。本人の業務受入れ時間は自動処理時間に含めない。
 
-現在の読取り：主checkout1か所、originは既存repository、PR16のhead/baseも同一repository。dev branchなし、development環境のbranch制限なし、Dev用secretはrepository側に存在。Dev実資源は21 Functions・control=recovery-control・backup automation=false。Firebase project number1039792105037、Web app1:1039792105037:web:39be28742dfbc14be65e04、現在Hosting基準版e90487f9ea2b4646を確認。初回API読取りはquota project不足で一部403、同じDevをquotaヘッダーで指定した再読取りはexit0。Cloud設定変更ではない。
+着手時の読取り：主checkout1か所、originは既存repository、PR16のhead/baseも同一repository。dev branchなし、development環境のbranch制限なし、Dev用secretはrepository側に存在。Dev実資源は21 Functions・control=recovery-control・backup automation=false。Firebase project number1039792105037、Web app1:1039792105037:web:39be28742dfbc14be65e04、初回Hosting基準版e90487f9ea2b4646を確認。初回API読取りはquota project不足で一部403、同じDevをquotaヘッダーで指定した再読取りはexit0。Cloud設定変更ではない。
+
+### 両段階PRへの切替・最終包括検証
+
+[PR17](https://github.com/shisyamo4131/termite-warranty/pull/17) head `ce245a3c037554fc49b28a5612f1e00fb3cc4dce` をdevへ通常mergeし、devは `cbec3c3845ee251023df4d213dbdef52decc0135`。両者のtreeは `5457743a481ce4d64e0063e38b46925ea9ead8e7`。mainは9edf012のまま。devにPR必須・必須check `Verify development deployment`・strict同期・管理者適用・他者承認0・会話解決・force push／削除禁止を設定して読戻し済み。development環境はdevだけを許可。別repository／worktreeは作成していない。
+
+最終包括run [38518228192](https://github.com/shisyamo4131/termite-warranty/actions/runs/38518228192)、verify job115704894963は成功。7gateはそれぞれ独立stepでexit 0：`./scripts/check-governance.ps1`、`npm test`（561成功・fail0・skip0）、`npm run typecheck`、`npm run build`、`npm run test:rules`（201成功・全3群終了）、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`。PR対象のsetup・artifact・後処理も成功。Local最終包括単体は559成功・既存symlink制約2skip／exit 0、局所88成功／exit 0、policy-focused `node --test test/governance-tools.test.mjs` は10成功／exit 0。最後の比較workflow対象branch変更後の `node --test test/verification-evidence.test.mjs` は73成功／exit 0。その後の最終CIで561全件を実行した。
+
+比較run [38518228034](https://github.com/shisyamo4131/termite-warranty/actions/runs/38518228034) は成功。`node scripts/test-rules.mjs --baseline`、各3 shard、`--failure-probe`、集約比較はexit 0。全201件の試験ID一致、意図的な失敗の検出、Emulator停止、lock削除を確認。試験本体は従来335,941 ms→並列207,792 ms（128,149 ms／38.1%短縮）。この値は既存並列化の再確認であり、今回の結果再利用による追加短縮と合算しない。変更前から進行中だったrunも中断せず終了させ、本切替ではrun取消なし。
+
+### Dev初回導入の停止と修正（通常所要時間とは別枠）
+
+Dev push run [38519554310](https://github.com/shisyamo4131/termite-warranty/actions/runs/38519554310) attempt1は元PR17／run38518228192／attempt1の再利用に成功。包括7コマンド・Rules3 VMをskipし、Hosting artifact11873381203を固定取得、digest照合後に引継いだ。Devの検証証跡と成果物は新run/attemptへ再保存する。
+
+attempt1配備はScheduler更新403／exit 2で停止。監査ログによりDev配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gserviceaccount.com` の `cloudscheduler.jobs.update` 不足を確認。enable=falseへ停止し、21 Functions ACTIVE・automation=false・control一致・Hosting旧版維持・日次予定0・PITR無効・Scheduler PAUSEDを独立に読戻した。attempt2はFirebase配備exit 0だが、Functionsソース照合API読取り403で照合exit 1。Rules2件・索引・Hosting1005件はpass。再びenable=falseとし、ソースbucketのIAMを確認した。403を反映待ちとして扱っていない。
+
+承認済みDev自動配備の範囲で、不足IAMを次の最小構成へ補完した。Schedulerは公式のresource属性対応一覧にないため、特定job限定条件が効くと仮定せずDev projectスコープの2権限に限定。作成・削除・実行・pause/resume権限は追加しない。
+
+| 追加role | 権限 | 付与先と範囲 |
+| --- | --- | --- |
+| projects/termite-warranty-dev/roles/developmentSchedulerDeployment | cloudscheduler.jobs.get、cloudscheduler.jobs.update | 上記Dev配備SA、Dev projectのみ |
+| projects/termite-warranty-dev/roles/developmentReleaseSourceReader | storage.objects.get | 上記Dev配備SA、実ソースbucket `gcf-v2-sources-1039792105037-asia-northeast1` だけ |
+| projects/termite-warranty-dev/roles/developmentProtectionStateReader | datastore.backupSchedules.list | 上記Dev配備SA、`resource.name == 'projects/termite-warranty-dev/databases/(default)'` 条件 |
+
+各role／bindingを実APIで読戻し、指定権限・SA1件との一致をassertしてexit 0。作成時にPowerShell引数分割による400、読戻しコードの配列参照誤りによるexit 1があり、修正後に再検証した。source role作成直後のbucket bindingは400だったが、bucket所有projectNumberとrole所属一致を読み直した後、同じbindingの再試行・読戻しは成功。伝播遅延の可能性はあるが、400原因は断定しない。既存bindingは維持した。Firebase配備後もScheduler PAUSEDを独立確認。Prod IAM・Auth退避先・保護有効化・業務／Authデータは変更しない。追加bindingだけを外せばこのIAM追加を取り消せるが、その場合は自動配備もfalseに戻す。
+
+attempt3はFirebase配備exit 0、公開後全5項目pass（Functions21・ソースarchive21・Hosting1005）。続く保護保留読取りでexit 1となりenable=falseへ戻した。既存datastore.userにはbackupSchedules.listがなく、上表の一覧読取り1権限をdefault DB条件付きで追加・読戻しassert／exit 0。実行や設定変更を許可していない。初回配備前に照合用の権限を一括確認し切れず、段階的な不足発見と再試行が発生した。これを通常のCI所要時間やタイムラグと混同しない。
+
+同一dev SHAのattempt4は成功。実行回を揃えた受入れ証拠を残すため、失敗jobだけでなく軽量照合から再実行した。成功済みPRの包括7gateとHosting成果物は再利用し、Cloud IAM変更だけを理由に同一ソースの試験を再実行していない。本人のDev業務受入れ記録・dev→main成功・新方式のmain→Prod実証は未了。
+
+公式根拠：[Scheduler IAM](https://docs.cloud.google.com/scheduler/docs/access-control?hl=en)、[IAM resource属性の対応一覧](https://docs.cloud.google.com/iam/docs/conditions-resource-attributes)。
+
+### 最終Dev実証・工程別比較・残件
+
+Dev run38519554310／attempt4／上記cbec3c3はsuccess。resolver job115713509763とverify job115713702494で元PR17の7gate成功を再利用し、7コマンド・Rules3群をskip、元のHosting artifactを取得・保存した。deploy job115713966478は準備 `node scripts/development-deployment.mjs prepare`、明示2DB／Functions／HostingのFirebase配備、`node scripts/development-deployment.mjs check` がそれぞれexit 0、認証後処理も成功。全5項目pass、Functions21・sourceArchives21・Hosting1005、PITR無効・日次予定0・automation=falseを確認した。
+
+独立API読戻しもassert／exit 0：公開版 `sites/termite-warranty-dev/versions/e9445887fbcdb56e`、21 Functions ACTIVE、control=recovery-control、automation=false、PITR無効、日次予定0、Scheduler PAUSED。GitHub変数の読戻しexit 0：Dev enable=true、Prod enable=true、Prod保護入力はfalse／他3値空。既存Dev Auth退避先の削除・新設・有効化はしていない。Prod配備／Prod Cloud設定は今回変更なし。
+
+実APIのrun／job／artifact／treeを `validateDevelopmentDeployment` で再検証してexit 0。run38519554310 attempt4→元PR run38518228192 attempt1が成立し、humanAcceptanceRecorded=false。コネクタがhead_sha付きworkflow検索URLを400で拒否したため、この読取り検証のみ既存GitHub認証をメモリ内で利用する実装readerへ切替。資格情報は出力・保存しない。
+
+[draft PR18](https://github.com/shisyamo4131/termite-warranty/pull/18) はdev→main、head cbec3c3、未統合。[run38522081043](https://github.com/shisyamo4131/termite-warranty/actions/runs/38522081043) は受入れ未登録の拒否試験で、resolver job115714854101が `Dev acceptance required: no valid owner record for this exact deployed tree.`／exit 1。verifyも失敗、Rules・配備はskipした。これは意図した拒否の証拠であり、通常昇格の成功やその所要時間として扱わない。mainは9edf012を維持。
+
+| 工程（job開始→終了。開始前待機・人の作業を除く） | 従前 | 今回の最終成功観測 | 比較・限界 |
+| --- | --- | --- | --- |
+| PR共通包括検証 | PR16：8分13秒 | 改修→dev PR17：7分50秒 | 全7gate維持。23秒差を再利用の効果としない |
+| dev統合後の検証・成果物準備 | 切替前dev run38517384486：7分17秒 | 1分17秒 | 6分短縮（82.4%）。包括検証・Hosting再buildの重複なし |
+| Dev配備job | 自動配備未有効のため比較用成功実測なし | 2分47秒 | npm導入50秒、準備3秒、Firebase配備23秒、公開後照合78秒を含む |
+| dev run開始→配備後処理完了 | 同上 | 4分18秒 | 06:24:00Z→06:28:18Z。上2工程間の14秒待機も含む |
+| dev→main PR | 共通包括検証を再実行する設計 | 証拠・本人受入れ照合だけの設計 | 実PRで未受入れ拒否を確認。受入れ後の正常経路は未実測 |
+| main統合後→Prod | 直前方式：準備1分57秒、配備3分35秒、全体5分36秒 | 新しいDev連鎖での実証待ち | 共通結果再利用を拡張、Prod固有build・全5照合は維持 |
+
+Devの最終観測は同一版の再配備であり、Functionsを実変更する場合も23秒で終わるとはしない。従前Dev runは同じ業務ソースの旧workflowで、配備は無効、検証だけの実測である。PR＋Dev＋Prodの一貫した正常経路総時間は本人受入れ・Prod実証前のため未確定。延べ検証runner時間はdev旧13分43秒（153＋236＋303＋131秒）→今回1分15秒（36＋39秒）、12分28秒削減。並列runnerの和をユーザー待ち時間へ加算しない。
+
+初回導入の停止3回は通常経路と分離：attempt1は4分40秒（Scheduler更新権限不足）、attempt2は4分23秒（実ソース読取り不足）、attempt3は4分33秒（保護予定読取り不足）。これに原因調査・IAM設定・伝播／再試行待ちが加わった。試験再利用の不具合として全試験を繰り返すことはせず、原PRの成功証拠は維持した。最終successまでを示し、初回配備で一度も失敗しなかったとは記載しない。
+
+変更24ファイル：`.github/workflows/{compare-rules,deploy-development,record-development-acceptance}.yml`、`.gitignore`、`scripts/{development-acceptance,development-deployment,development-workflow-contract,verification-evidence}.mjs`、`scripts/lib/{development-verification,rules-test-workflow,verification-evidence,verification-reuse-workflow}.mjs`、`test/{development-workflow-contract,rules-runner,verification-evidence}.test.mjs`、`governance/{verification-policy.json,governance.lock.toml}`、`docs/{operations.md,runbooks/application-deployment.md,requirements/environment-configuration.md,decisions/0046-verification-reuse-and-dev-acceptance.md,design/tr-003-verification-deploy-gates.md,roadmaps/technical-remediation.md}`、`CHANGELOG.md`。業務仕様・schema・データ契約・納品日程・PDFは非影響。結果追記は既存5文書に限定し、実装／policy／依存を変更せず、最終PRの包括証拠とfocused regressionを維持する。
+
+残件は本人がDev `cbec3c3845ee251023df4d213dbdef52decc0135` を業務受入れ→dev上で明示受入れworkflow（deployment_run_id=38519554310）→PR18照合成功→通常main merge→Prod実配備と全5照合→新方式の後半実測追記。新たなスキーマ変更や納品条件追加はなく、保護保留を継続。完了を装う受入れ記録や本task専用repositoryは作成していない。
+
+結果追記5文書の分類はdocumentation-only。`./scripts/check-governance.ps1` と `git diff --check` はそれぞれexit 0。元PRのtreeと受入れ対象devを動かさないよう、結果文書は同じ主repository内の結果保存branchへcommit/pushし、dev/mainへ未統合とする。包括7gate・policy-focused試験は実装／設定／依存の追加変更がないため上記成功証拠を再利用。受入れ前の文書だけの再配備は行わない。
 
 
 ## 2026-10-14 PR検証再利用・Dev受入れ連携（実装・Prod実証完了）
@@ -2125,6 +2220,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
 - Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; unknownImpactGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]
+- FocusedRegression: id=documentation-routing; triggerPaths=[scripts/documentation-changes.mjs,scripts/lib/documentation-workflow.mjs,.github/workflows/deploy-development.yml,.github/workflows/deploy-production.yml]; command=node --test test/documentation-changes.test.mjs; completionRequired=True
 - FocusedRegression: id=governance-tools; triggerPaths=[scripts/render-governance.ps1,scripts/check-governance.ps1,scripts/lib/governance-policy.ps1,test/governance-tools.test.mjs,governance/verification-policy.json]; command=node --test test/governance-tools.test.mjs; completionRequired=True
 - RuntimeProfile: id=powershell; platform=windows; edition=PowerShell; executable=pwsh; versionRule=minimum-major=7; required=True; supportStatus=supported
 - Class: id=documentation-only; triggers=[Markdown or documentation files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
@@ -2135,7 +2231,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 - Class: id=governance-permissions-agents; triggers=[governance contract/tool/migration changes\, effective permissions or agent authority\, executable configuration\, or verification behavior\; excludes only the bounded owner-approved reference-target clarification in project-guidance-metadata]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Class: id=build-release-deploy; triggers=[build\, dependency\, release\, or deploy configuration]; iterationGateIds=[governance-check,app-typecheck]; targetedRegressionGateIds=[governance-check,domain-test,app-typecheck,app-build]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Gate: id=governance-check; command=./scripts/check-governance.ps1; stages=[iteration,targeted,completion,release]; includes=[]; invalidatedBy=[any governance input\, policy\, configuration\, or managed artifact change]; evidenceDestination=task completion report
-- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/verification-evidence.mjs\, scripts/development-acceptance.mjs\, scripts/development-deployment.mjs\, scripts/lib/development-verification.mjs\, scripts/lib/verification-*.mjs\, test/verification-evidence.test.mjs\, .github/workflows/record-development-acceptance.yml\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/documentation-changes.mjs\, scripts/lib/documentation-workflow.mjs\, test/documentation-changes.test.mjs\, scripts/verification-evidence.mjs\, scripts/development-acceptance.mjs\, scripts/development-deployment.mjs\, scripts/lib/development-verification.mjs\, scripts/lib/verification-*.mjs\, test/verification-evidence.test.mjs\, .github/workflows/record-development-acceptance.yml\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
 - Gate: id=app-typecheck; command=npm run typecheck; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[app/**\, nuxt.config.ts\, tsconfig.json\, package.json\, or package-lock.json changes]; evidenceDestination=task completion report
 - Gate: id=app-build; command=npm run build; stages=[targeted,completion]; includes=[]; invalidatedBy=[application\, Nuxt\, dependency\, TypeScript\, or build configuration changes]; evidenceDestination=task completion report
 - Gate: id=firestore-rules-test; command=npm run test:rules; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[firestore.rules\, firebase.json\, functions/**\, src/domain/**\, Functions domain preparation helpers\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/emulator/**\, test/firestore*.test.mjs\, test/helpers/**\, data-contract\, emulator tests\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, app persistence\, dependency\, Node.js/Java/Firebase CLI runtime\, or emulator configuration changes]; evidenceDestination=task completion report

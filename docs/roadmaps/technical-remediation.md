@@ -1,8 +1,10 @@
 # Technical Remediation Backlog
 
-## 2026-10-14 改修→dev→mainの両段階PR・検証連鎖（実施中）
+## 2026-10-14 改修→dev→mainの両段階PR・検証連鎖（実証完了）
 
 本人の後続指示により両段階PRを採用し、共通包括検証は改修→dev PRに集約。同一treeの成功結果をdev push・Dev→main PR・main pushへ引き継ぐ。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)の拡張と[配備手順](../runbooks/application-deployment.md)に従う。完了条件は拒否系／分岐試験、包括7gate、Dev push実配備・5照合・保護停止、本人受入れ後のPR再利用実証、従前との工程別比較。本人受入れを自動試験で代替しない。実測は[運用記録](../operations.md)。保護保留・納品条件は維持。
+
+PR17をdev cbec3c3へ統合。最終包括7gate成功（単体561・連携201・skip0）、比較201件一致・失敗検出・終了成功。Dev run38519554310 attempt4は元PR結果／Hosting成果物再利用、実配備・全5照合・保護停止確認まで成功。検証・成果物準備7分17秒→1分17秒、Dev全体4分18秒。初回IAM不足3件は限定権限を補い読戻し・再実証した。本人の同版Dev受入れ後、記録run38523528230成功、PR18の未受入れ拒否→記録後成功（1分17秒）を実証。通常merge後main c5ea070のProd run38523851537も結果再利用・固有build・配備・全5照合まで成功（5分41秒、直前方式より5秒増）。本改善の実証残件はなし。保護保留・正式投入・HS受入れ等の納品条件は維持し、納品全体の完了や加点とはしない。
 
 
 ## 2026-10-14 次段階：PR結果再利用とDev受入れ連携（実装・Prod実証完了）

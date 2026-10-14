@@ -21,6 +21,10 @@
 
 両branchはPR必須・`Verify development deployment` 成功必須・最新base同期・管理者適用・force push／削除禁止。他者の必須承認は0人。適用済みかは実branch保護を読み直す。変更前の作業branchには必要な最新main/devを取り込み、競合解消を含む最終内容を改修→dev PRで検証する。
 
+Devの既存配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gserviceaccount.com` は、既存配備権限に加え、project内のScheduler get/update（`developmentSchedulerDeployment`）と、実Functionsソースbucket `gcf-v2-sources-1039792105037-asia-northeast1` のstorage.objects.getだけ（`developmentReleaseSourceReader`）を持つ。初回配備前にこれらも読戻す。SchedulerはPAUSEDを維持し、create/delete/run/pause/resumeは追加しない。ソースの保管bucketが変わった場合は権限を広げず、実対象と必要範囲を再確認する。[導入時の停止・修正](../operations.md)を参照。
+
+保護停止の照合には `developmentProtectionStateReader` の `datastore.backupSchedules.list` も必要。付与は `resource.name == 'projects/termite-warranty-dev/databases/(default)'` 条件に限定する。配備権限だけでなく、Functions一覧・Cloud Run実revision・実ソースのmetadata／内容・Rules／索引・Hosting・DB metadata・backupSchedulesの読取り経路も初回切替前にまとめて確認する。一般的なEditor追加で代用しない。
+
 | GitHub変数 | 期待値・確認事項 |
 | --- | --- |
 | DEVELOPMENT_BRANCH_DEPLOY_ENABLED | 実切替完了後true。実施中は運用記録で確認 |
@@ -31,6 +35,19 @@
 | PRODUCTION_RECOVERY_PARAMETERS_JSON | automation=false、他3値空 |
 
 ## 3. 改修branch→dev PR
+
+### 文書だけの変更（2026-10-14採用）
+
+配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。
+
+判定の許可対象は `scripts/documentation-changes.mjs` の8ファイル：CHANGELOG.md、docs/README.md、docs/operations.md、docs/design/tr-003-verification-deploy-gates.md、docs/requirements/environment-configuration.md、docs/roadmaps/production-readiness.md、docs/roadmaps/technical-remediation.md、当手順書。既存の通常ファイルの内容修正だけを許可する。新規・削除・名前変更・symlink・実行属性変更・他ファイルとの混在は通常経路へ戻す。新たな対象を追加する際は成果物／実行入力への影響を確認し、判定実装・試験・当手順を通常PRで更新する。
+
+1. PRでは同一repositoryの実base／headと仮統合commitの両親を照合し、baseから仮統合結果までの全差分を判定する。dev→mainでは累積差分を見て、以前の未投入アプリ変更を文書扱いしない。
+2. 文書専用PRでも必須check `Verify development deployment` を実行する。`./scripts/check-governance.ps1` と `node scripts/documentation-changes.mjs verify`（判定の再確認・`git diff --check`）が両方成功してから通常mergeする。CIの包括検証証跡／Hosting成果物を捏造して発行しない。
+3. dev／mainへのmerge pushでもbefore→afterの全差分を独立判定する。正常な2親merge・対象branch・完全な履歴が確認できる場合だけ省略する。文書検証を再実行し、ビルド・Cloud認証・配備・配備後照合は実行しない。公開版が更新されていないことは「配備済み」と区別して報告する。
+4. 混在・比較不能・未認識ファイル・手動実行は省略せず通常経路へ戻す。判定job自体や文書検証の失敗は統合／配備を停止する。省略経路を導入／変更するPR自身はCI変更を含むため文書専用扱いにしない。
+
+文書の統合後はbranch先頭と最後に配備したSHAが異なることがある。次のアプリ変更は通常経路でDevへ配備し、その実配備版の本人受入れを記録する。未投入のアプリ変更がdevにある場合は文書だけのPRで業務受入れを迂回できない。問題時は同じPR経路で文書専用判定を撤回し、通常検証・配備へ戻す。バックアップ・PITR・Auth退避等の保留を解除しない。
 
 1. Local実装／Local受入れ後、改修branchをpushし、dev宛てPRを作る。
 2. CIで以下の7gateを独立stepとして実行する。Rulesは独立VM3群で試験し、全件成功・同一SHA/run/attempt・Emulator終了を集約する。失敗／欠落／skipを合格にしない。
@@ -66,7 +83,11 @@ Dev業務受入れ後、ownerがActionsの `Record explicit development acceptan
 
 記録はDev現head・配備／公開後照合・元の包括試験を検証する。保持／有効30日だが、元試験の期限を記録更新だけで延長できない。実施していない業務受入れを自動作成しない。受入れ処理自体の更新も改修→dev PRで検証してDevへ入れ、その版のDev上で記録する。mainへ先行直送する例外は不要。
 
+2026-10-14の実例：本人の「Dev cbec3c3の業務受入れ完了」を受け、配備run38519554310 attempt4と現devの完全SHA一致を確認。受入れrun38523528230が成功し、同じ版のPR18 run38522081043 attempt2は元PR・Dev配備・本人記録の照合だけで成功した。受入れ記録jobは35秒、PR照合は1分17秒。将来の操作ではこれらのIDをコピーせず、その回の実配備・本人受入れ版を使う。
+
 その後dev→main PRを作成する。PRの必須checkは元PR→Dev配備→本人記録を独立照合し、同一treeなら包括試験を再実行しない。受入れなし・版違い・失効・別actor・producer変更・配備後照合欠落は停止する。改修branch→mainの直接PRは拒否する。受入れ後に変更した場合は新しい版のDev検証／配備／受入れが必要。
+
+受入れ前に差分確認用のdraft PRを用意することはできるが、受入れなしで必須checkが失敗するのは意図した停止である。合格やProd配備完了と扱わない。本人受入れ記録後、同じdev版のPR照合を再実行する。
 
 ## 6. main push→Prod配備
 
@@ -79,6 +100,8 @@ Prod固有の成果物生成・全体bundleのdigestと対象確認・認証前g
 ## 7. 失敗・復旧・リリース前
 
 失敗／結果不明時は該当環境のenableをfalseにして次の自動配備を止める。これは実行中jobの停止やCloud巻戻しではない。既存run・成果物・部分反映を読取り確認してから修正する。同じ結果不明の配備を盲目的に再送しない。Git revertはDB復元ではない。
+
+Dev受入れに使う配備runは、resolver・verify・deployと証跡artifactが同一attemptで成功している必要がある。原因と部分反映を確認して再試行するときは、軽量な元PR照合からrun全体を再実行する。失敗deploy jobだけの再実行を、受入れ証拠一式が揃ったrunと見なさない。
 
 Prodの `inspect-production-application.yml` は固定receipt用であり、最新の任意配備へ無条件流用しない。対象run/artifact/revision/digestの一致と有効期限を確認する。期限切れの元成果物を再buildで代用して一致確認済みにしない。
 

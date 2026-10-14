@@ -173,8 +173,8 @@ test('feature PR runs full CI, Dev reuses or falls back, and main PR requires ac
   const w=workflow('deploy-development.yml')
   assert.deepEqual(workflow('compare-rules.yml').on.pull_request.branches,['dev'])
   for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['main','dev','codex/change'])for(const base of ['dev','main',''])for(const reuse of ['true','false'])for(const result of ['success','failure','skipped']){
-    const context={always:()=>true,github:{event_name:event,ref:'refs/heads/'+branch,base_ref:base},needs:{source:{result,outputs:{reuse}}}}
-    assert.equal(vm.runInNewContext(w.jobs.source.if,context),event==='pull_request'&&base==='main'||['push','workflow_dispatch'].includes(event)&&branch==='dev')
+    const context={always:()=>true,github:{event_name:event,ref:'refs/heads/'+branch,base_ref:base},needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},source:{result,outputs:{reuse}}}}
+    assert.equal(vm.runInNewContext(w.jobs.source.if.slice(3,-2),context),event==='pull_request'&&base==='main'||['push','workflow_dispatch'].includes(event)&&branch==='dev')
     assert.equal(vm.runInNewContext(w.jobs.rules.if.slice(3,-2),context),!(event==='push'&&branch==='main')&&result!=='failure'&&reuse!=='true'&&!(event==='pull_request'&&base==='main'))
   }
   for(const mutate of [w=>{w.jobs.source.if='true'},w=>{w.jobs.source.steps[2].env={}},w=>{w.jobs.source.steps[2]['continue-on-error']=true},w=>{w.jobs.verify.steps[0].run='echo success'},w=>{w.jobs.verify.steps.find(s=>s.name==='Record verified source evidence').if='false'}]){
@@ -200,7 +200,7 @@ test('main routing: reuse skips only comprehensive repeats; missing proof falls 
   const w=workflow('deploy-production.yml')
   assert.equal(validateProductionWorkflow(stringify(w),policy),true)
   for(const enabled of ['true','false'])for(const reuseResult of ['success','failure','skipped','cancelled'])for(const proof of ['true','false',''])for(const rules of ['success','failure','skipped','cancelled']){
-    const context={always:()=>true,vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled},needs:{reuse:{result:reuseResult,outputs:{reuse:proof}},rules:{result:rules}}}
+    const context={always:()=>true,vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled},needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},reuse:{result:reuseResult,outputs:{reuse:proof}},rules:{result:rules}}}
     const allowed=enabled==='true'&&reuseResult==='success'&&(proof==='true'||rules==='success')
     assert.equal(vm.runInNewContext(w.jobs.verify.if.slice(3,-2),context),allowed)
     for(const gate of policy.comprehensiveGateIds){const s=w.jobs.verify.steps.find(s=>s.run===policy.gates.find(g=>g.id===gate).command);assert.equal(vm.runInNewContext(s.if.slice(3,-2),context),proof!=='true')}
@@ -230,7 +230,7 @@ test('deployment after intentional shard skip requires successful verification a
   // skipped ancestors. The immediate verification result still must be success.
   assert.ok(condition.includes('!cancelled()'))
   for(const cancelled of [true,false])for(const result of ['success','failure','skipped','cancelled'])for(const enabled of ['true','false']){
-    assert.equal(vm.runInNewContext(condition.slice(3,-2),{cancelled:()=>cancelled,needs:{verify:{result}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}}),!cancelled&&result==='success'&&enabled==='true')
+    assert.equal(vm.runInNewContext(condition.slice(3,-2),{cancelled:()=>cancelled,needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},verify:{result}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}}),!cancelled&&result==='success'&&enabled==='true')
   }
   w.jobs.deploy.if=condition.replace('!cancelled() && ','')
   assert.throws(()=>validateProductionWorkflow(stringify(w),policy))

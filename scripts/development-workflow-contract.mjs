@@ -1,7 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { parse } from 'yaml'
+import { parse, stringify } from 'yaml'
+import {withoutDocumentationRouting} from './lib/documentation-workflow.mjs'
 import {validateRulesHandoff,developmentVerifyCondition} from './lib/rules-test-workflow.mjs'
 import {validateEvidencePublisher,validateDevelopmentReuseWorkflow,devFallbackCondition,devRulesCondition} from './lib/verification-reuse-workflow.mjs'
 
@@ -50,7 +51,8 @@ const steps = (job) => {
 }
 
 export function validateDevelopmentWorkflow(workflow, policy) {
-  const parsed = parse(workflow)
+  const parsed = withoutDocumentationRouting(parse(workflow),'development')
+  workflow = stringify(parsed,{lineWidth:0})
   if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null, pull_request: { branches: ['dev','main'] } })
     || parsed.concurrency?.group !== 'development-deployment' || parsed.concurrency?.['cancel-in-progress'] !== false) {
     throw new Error('Development workflow must preserve branch routing and non-cancelling deployment concurrency.')

@@ -1,7 +1,8 @@
 name: Verify and deploy Firebase production application
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 permissions:
   contents: read
   actions: read
@@ -9,8 +10,23 @@ concurrency:
   group: production-bootstrap
   cancel-in-progress: false
 jobs:
-  reuse:
+  scope:
+    name: Classify documentation scope
+    runs-on: windows-latest
+    outputs:
+      documentationOnly: ${{ steps.scope.outputs.documentationOnly }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: scope
+        run: node scripts/documentation-changes.mjs classify
     if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+  reuse:
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true') }}
     runs-on: windows-latest
     outputs:
       reuse: ${{ steps.evidence.outputs.reuse }}
@@ -24,14 +40,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verification-evidence.mjs resolve
+    needs:
+      - scope
   rules:
-    needs: reuse
-    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true' }}
+    needs:
+      - reuse
+      - scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true') }}
     uses: ./.github/workflows/verify-rules.yml
   verify:
-    needs: [reuse, rules]
-    # No unconfigured production build or accidental deployment on adoption.
-    if: ${{ always() && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.result == 'success' && (needs.reuse.outputs.reuse == 'true' || needs.rules.result == 'success') }}
+    needs:
+      - reuse
+      - rules
+      - scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.result == 'success' && (needs.reuse.outputs.reuse == 'true' || needs.rules.result == 'success')) }}
     runs-on: windows-latest
     outputs:
       digest: ${{ steps.bundle.outputs.digest }}
@@ -47,7 +69,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
       - run: npx --yes npm@11.19.1 ci
       - name: Record verified reuse decision
         if: ${{ needs.reuse.outputs.reuse == 'true' }}
@@ -90,8 +112,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
   deploy:
-    needs: verify
-    if: ${{ !cancelled() && needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    needs:
+      - verify
+      - scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (!cancelled() && needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true') }}
     runs-on: windows-latest
     environment: production
     permissions:
@@ -138,3 +162,21 @@ jobs:
           service_account: ${{ steps.target.outputs.service_account }}
       - name: Verify deployed Rules indexes Functions and Hosting
         run: node scripts/check-production-release.mjs cloud .production-release
+  documentation:
+    name: Verify documentation without deployment
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Check documentation governance
+        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
+        run: ./scripts/check-governance.ps1
+      - name: Verify documentation scope and whitespace
+        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
+        run: node scripts/documentation-changes.mjs verify
