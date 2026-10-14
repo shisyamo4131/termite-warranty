@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-14 Dev promotion reuse / automatic deployment preparation
+
+- Accepted same-tree Dev verification and explicit owner acceptance can replace duplicate dev-to-main PR execution; main independently rechecks the original evidence.
+- Dev CI prepares explicit two-DB deployment, preserves disabled backup parameters and checks the deployed release plus protection hold. External activation/results are tracked in operations.
+
+
 ## 2026-10-14 PR検証再利用・Dev受入れ記録
 
 - mainでPRの成功結果と全ファイルtreeを照合し、同じ内容の包括7検証を再利用。条件不成立時は全検証し、Prod固有build・配備前後照合は毎回維持。

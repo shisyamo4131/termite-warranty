@@ -42,7 +42,10 @@ export function assertJobs(jobs,run,{deployment=false}={}){
   }
   if(deployment){
     const rows=jobs.filter(job=>job.name==='Deploy to termite-warranty-dev')
-    if(rows.length!==1||!successful(rows[0])||!rows[0].steps.some(step=>step.name==='Deploy Firestore, Functions, and Hosting'&&step.conclusion==='success'))throw Error('Dev deployment did not succeed.')
+    if(rows.length!==1||!successful(rows[0])||!['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'].every(name=>{
+      const steps=rows[0].steps.filter(step=>step.name===name)
+      return steps.length===1&&steps[0].status==='completed'&&steps[0].conclusion==='success'
+    }))throw Error('Dev deployment did not succeed.')
   }
 }
 export function assertArtifact(artifacts,run,name,now=Date.now()){

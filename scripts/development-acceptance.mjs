@@ -5,7 +5,7 @@ import {repository,ownerId,git,githubReader,completeList,validateVerification,as
 
 export const acceptanceWorkflow='.github/workflows/record-development-acceptance.yml'
 const trustedFiles=[acceptanceWorkflow,'scripts/development-acceptance.mjs','scripts/lib/verification-evidence.mjs',
-  'scripts/verification-evidence.mjs','.github/workflows/deploy-development.yml','governance/verification-policy.json']
+  'scripts/verification-evidence.mjs','scripts/development-deployment.mjs','.github/workflows/deploy-development.yml','governance/verification-policy.json']
 
 export async function recordDevelopmentAcceptance(read,input,{actorId,actor,runId,attempt,now=Date.now()}={}){
   if(Number(actorId)!==ownerId||input.confirm!=='true'||!/^\d+$/.test(input.deployment_run_id??'')||

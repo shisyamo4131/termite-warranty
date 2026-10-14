@@ -22,3 +22,5 @@ gha-creds-*.json
 
 /.production-release/
 /.production-deploy/
+/firebase.development.generated.json
+/functions/.env.termite-warranty-dev

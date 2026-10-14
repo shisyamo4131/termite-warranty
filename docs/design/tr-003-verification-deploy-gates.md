@@ -1,5 +1,14 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-14 accepted Dev promotion reuse and automatic Dev deployment
+
+The new owner instruction extends ADR0046. A dev-to-main PR runs a read-only promotion resolver before the required verification check. The resolver independently validates same-repository source, exact full Git tree, owner acceptance, all original Dev gates/shards and deployment including post-deploy proof. Missing acceptance blocks; it is never fabricated. All other PRs and dev pushes retain the complete suite. The required check runs with bounded always() and fails when neither complete shards nor a successful accepted-Dev resolver exists. Only the validated promotion path skips npm installation, seven commands, Rules VMs and unused Hosting artifact construction. It publishes a tree-bound CI admission artifact after recording the source evidence.
+
+Main revalidates the original acceptance and Dev deployment, then verifies the latest PR's successful resolver/check steps and metadata. This avoids treating transitive reuse as a new execution of seven tests. PR metadata failure selects the existing full main fallback; missing Dev acceptance stops. Tests cover both routing and actual PowerShell refusal commands.
+
+Dev deployment prepares explicit two-DB configuration and unchanged disabled recovery parameters on an exact dev CI checkout, using only the existing Dev service-account secret. It preserves the verified Hosting artifact without rebuilding. Source preparation runs before Firebase deployment. Read-only post-deploy checks reuse the existing five infrastructure/release checks, followed by PITR/daily-backup hold checks. Successful deployment is required before owner acceptance. No business data or Auth writes are used for validation. Actual results and timings belong in operations; until recorded, external activation and acceptance are unverified.
+
+
 ## 2026-10-14 adopted PR evidence reuse and Dev acceptance linkage
 
 The owner's next-stage instruction supersedes the deferral below. [ADR 0046](../decisions/0046-verification-reuse-and-dev-acceptance.md) records the decision. PR still executes all seven gates and three isolated shards. Only main's duplicate execution is replaced by a current, same-tree successful PR proof. No change to the Rules runner, test identities, repetitions, shutdown checks or production release proof is included.

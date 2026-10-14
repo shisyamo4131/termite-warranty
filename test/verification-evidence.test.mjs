@@ -4,10 +4,11 @@ import {readFileSync} from 'node:fs'
 import {parse,stringify} from 'yaml'
 import vm from 'node:vm'
 import {repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
-import {findReusableVerification} from '../scripts/verification-evidence.mjs'
+import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification} from '../scripts/verification-evidence.mjs'
 import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow} from '../scripts/development-acceptance.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {validateDevelopmentWorkflow} from '../scripts/development-workflow-contract.mjs'
+import {preservedDevelopmentParameters,developmentConfig} from '../scripts/development-deployment.mjs'
 
 const revision='a'.repeat(40),merged='b'.repeat(40),tree='c'.repeat(40),blob='d'.repeat(40)
 const policy=JSON.parse(readFileSync(new URL('../governance/verification-policy.json',import.meta.url)))
@@ -17,7 +18,7 @@ function fixture({dev=false}={}){
   const run={id:101,run_attempt:1,repository:{id:repositoryId,owner:{id:ownerId}},head_repository:{id:repositoryId},path:verificationWorkflow,event:dev?'push':'pull_request',head_branch:dev?'dev':'codex/change',head_sha:revision,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}
   const job=name=>({name,run_id:run.id,run_attempt:1,status:'completed',conclusion:'success',steps:[]})
   const jobs=[{...job('Verify development deployment'),steps:[...gateSteps,'Publish comprehensive verification evidence','Upload comprehensive verification evidence'].map(step)},...['shard-property-warranty','shard-default-recovery','shard-historical-intake'].map(id=>job(`rules / shard (${id})`))]
-  if(dev)jobs.push({...job('Deploy to termite-warranty-dev'),steps:[step('Deploy Firestore, Functions, and Hosting')]})
+  if(dev)jobs.push({...job('Deploy to termite-warranty-dev'),steps:['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'].map(step)})
   const artifact=(name,r=run)=>({id:200+r.id,name,expired:false,size_in_bytes:500,expires_at:new Date(Date.now()+86400000).toISOString(),workflow_run:{id:r.id,repository_id:repositoryId,head_repository_id:repositoryId,head_sha:r.head_sha}})
   const artifacts=[artifact(evidenceName(tree,1))]
   const pulls=[{number:15,merged_at:new Date().toISOString(),merge_commit_sha:merged,base:{ref:'main',repo:{id:repositoryId}},head:{ref:run.head_branch,sha:revision,repo:{id:repositoryId}}}]
@@ -34,6 +35,18 @@ function fixture({dev=false}={}){
   return {run,jobs,artifacts,pulls,data,read,artifact}
 }
 const verify=f=>validateVerification(f.read,f.run,tree,{event:'pull_request',branch:'codex/change',revision})
+
+test('Dev deployment fixes both DB targets and retains disabled backup parameters',()=>{
+  const fn=()=>({state:'ACTIVE',serviceConfig:{environmentVariables:{RECOVERY_CONTROL_DATABASE:'recovery-control',RECOVERY_BACKUP_AUTOMATION:'false',RECOVERY_AUTH_BACKUP_BUCKET:'retained-fixture'}}})
+  const params=preservedDevelopmentParameters([fn(),fn()]);assert.equal(params.RECOVERY_BACKUP_AUTOMATION,'false');assert.equal(params.RECOVERY_AUTH_BACKUP_BUCKET,'retained-fixture')
+  const config=developmentConfig({hosting:{public:'.output/public',rewrites:[]}})
+  assert.deepEqual(config.firestore.map(x=>x.database),['(default)','recovery-control']);assert.equal(config.hosting.site,'termite-warranty-dev')
+  for(const mutate of [x=>{x.state='FAILED'},x=>{x.serviceConfig.environmentVariables.RECOVERY_BACKUP_AUTOMATION='true'},x=>{x.serviceConfig.environmentVariables.RECOVERY_CONTROL_DATABASE='(default)'},x=>{x.serviceConfig.environmentVariables.RECOVERY_AUTH_BACKUP_BUCKET='other'},x=>{x.serviceConfig.environmentVariables.RECOVERY_AUTH_BACKUP_BUCKET='bad\nvalue'}]){const x=fn();mutate(x);assert.throws(()=>preservedDevelopmentParameters([fn(),x]))}
+})
+test('acceptance refuses Dev deploy without successful post-deployment and protection proof',async()=>{
+  const f=fixture({dev:true});f.jobs.at(-1).steps.at(-1).conclusion='skipped'
+  await assert.rejects(recordDevelopmentAcceptance(f.read,inputs(),identity))
+})
 
 test('same complete source tree reuses successful PR despite different merge SHA',async()=>{
   const f=fixture(),proof=await findReusableVerification(f.read,tree,merged)
@@ -103,6 +116,58 @@ function acceptedFixture(){
   const original=f.read;f.read=async path=>path.startsWith('/contents/')?{sha:f.sourceBlob??blob}:original(path)
   return f
 }
+
+const promotionEvent=()=>({pull_request:{head:{ref:'dev',sha:revision,repo:{id:repositoryId}},base:{ref:'main',repo:{id:repositoryId}}}})
+test('accepted Dev promotion reuses the original full CI and deployment without running another suite',async()=>{
+  const f=acceptedFixture(),proof=await resolveDevelopmentPromotion(f.read,tree,promotionEvent(),{blob:()=>blob})
+  assert.equal(proof.reuse,true);assert.equal(proof.runId,101);assert.deepEqual(proof.gates,gateSteps)
+})
+for(const [name,change] of [
+  ['foreign Dev branch',(f,e)=>{e.pull_request.head.repo.id++}],
+  ['missing acceptance',f=>{f.recordJob.conclusion='failure'}],
+  ['failed Dev suite',f=>{f.jobs[1].conclusion='failure'}],
+  ['different accepted revision',(f,e)=>{e.pull_request.head.sha=merged}],
+])test('PR reuse refuses '+name,async()=>{const f=acceptedFixture(),e=promotionEvent();change(f,e);await assert.rejects(resolveDevelopmentPromotion(f.read,tree,e,{blob:()=>blob}))})
+test('feature PR never reuses Dev evidence',async()=>{
+  const e=promotionEvent();e.pull_request.head.ref='codex/change'
+  assert.equal((await resolveDevelopmentPromotion(()=>{throw Error('Must not read')},tree,e)).reuse,false)
+})
+function promotionFixture(){
+  const f=acceptedFixture(),run={...f.run,id:103,event:'pull_request'},job=(name,names)=>({name,run_id:103,run_attempt:1,status:'completed',conclusion:'success',steps:names.map(step)})
+  const jobs=[job('Resolve accepted Dev promotion',['Resolve accepted Dev verification']),job('Verify development deployment',['Require verification or accepted Dev evidence','Record accepted Dev verification','Publish comprehensive verification evidence','Upload comprehensive verification evidence'])]
+  f.pulls[0].head.ref='dev'
+  f.data.set(`/actions/workflows/deploy-development.yml/runs?event=pull_request&head_sha=${revision}&per_page=100`,{total_count:1,workflow_runs:[run]})
+  f.data.set('/actions/runs/103/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  f.data.set('/actions/runs/103/artifacts?per_page=100',{total_count:1,artifacts:[f.artifact(evidenceName(tree,1),run)]})
+  return {...f,promotionRun:run,promotionJobs:jobs}
+}
+test('main independently revalidates Dev acceptance and PR admission for transitive reuse',async()=>{
+  const f=promotionFixture(),proof=await findReusableVerification(f.read,tree,merged,{blob:()=>blob})
+  assert.equal(proof.reuse,true);assert.equal(proof.source,'accepted-dev');assert.equal(proof.acceptance.deployment.runId,101)
+})
+for(const [name,change] of [
+  ['failed admission',f=>{f.promotionJobs[0].conclusion='failure'}],
+  ['skipped proof',f=>{f.promotionJobs[1].steps[1].conclusion='skipped'}],
+  ['wrong attempt',f=>{f.promotionJobs[1].run_attempt=2}],
+  ['missing source',f=>{f.promotionJobs.shift();f.data.get('/actions/runs/103/attempts/1/jobs?per_page=100').total_count=1}],
+])test('main falls back when promotion PR has '+name,async()=>{
+  const f=promotionFixture();change(f);assert.equal((await findReusableVerification(f.read,tree,merged,{blob:()=>blob})).reuse,false)
+})
+test('main cannot replace invalidated Dev acceptance with full CI',async()=>{
+  const f=promotionFixture();f.recordArtifact.expired=true
+  await assert.rejects(findReusableVerification(f.read,tree,merged,{blob:()=>blob}),/Dev acceptance required/)
+})
+test('PR routing keeps full Dev push tests and skips shards only on Dev promotion',()=>{
+  const w=workflow('deploy-development.yml')
+  for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['main','dev','codex/change'])for(const head of ['dev','codex/change','']){
+    const context={github:{event_name:event,ref:'refs/heads/'+branch,head_ref:head}}
+    assert.equal(vm.runInNewContext(w.jobs.promotion.if,context),event==='pull_request'&&head==='dev')
+    assert.equal(vm.runInNewContext(w.jobs.rules.if,context),!(event==='push'&&branch==='main')&&!(event==='pull_request'&&head==='dev'))
+  }
+  for(const mutate of [w=>{w.jobs.promotion.if='true'},w=>{w.jobs.promotion.steps[2].env={}},w=>{w.jobs.promotion.steps[2]['continue-on-error']=true},w=>{w.jobs.verify.steps[0].run='echo success'},w=>{w.jobs.verify.steps.find(s=>s.name==='Record accepted Dev verification').if='false'}]){
+    const changed=workflow('deploy-development.yml');mutate(changed);assert.throws(()=>validateDevelopmentWorkflow(stringify(changed),policy))
+  }
+})
 test('promotion consumes matching owner record and independently revalidates Dev deployment',async()=>{
   const f=acceptedFixture(),proof=await requireDevelopmentAcceptance(f.read,tree,revision,{blob:()=>blob})
   assert.equal(proof.recordRunId,102);assert.equal(proof.deployment.runId,101)

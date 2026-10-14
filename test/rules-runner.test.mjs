@@ -53,10 +53,15 @@ test('CI shards preserve isolation, fail-fast off and required artifact dependen
   const workflow=parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8'))
   validateRulesHandoff(workflow,developmentVerifyCondition)
   for(const result of ['success','failure','cancelled','skipped']){
-    const command=workflow.jobs.verify.steps[0].run.replace('${{ needs.rules.result }}',result)
+    const command=workflow.jobs.verify.steps[0].run.replaceAll('${{ needs.rules.result }}',result).replaceAll('${{ needs.promotion.outputs.reuse }}','false').replaceAll('${{ needs.promotion.result }}','skipped')
     const processResult=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
     assert.ifError(processResult.error)
     assert.equal(processResult.status===0,result==='success','Required PR check: '+result)
+  }
+  for(const result of ['success','failure','cancelled','skipped']){
+    const command=workflow.jobs.verify.steps[0].run.replaceAll('${{ needs.rules.result }}','skipped').replaceAll('${{ needs.promotion.outputs.reuse }}','true').replaceAll('${{ needs.promotion.result }}',result)
+    const execution=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
+    assert.ifError(execution.error);assert.equal(execution.status===0,result==='success','Accepted Dev admission: '+result)
   }
   for(const mutate of [copy=>delete copy.jobs.verify.needs,copy=>copy.jobs.verify.steps.shift(),copy=>copy.jobs.verify.if=developmentVerifyCondition,copy=>copy.jobs.rules.if='false',copy=>copy.jobs.rules.secrets='inherit',
     copy=>copy.jobs.verify.steps.find(row=>row.run==='npm run test:rules').env={},

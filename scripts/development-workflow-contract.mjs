@@ -3,9 +3,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 import {validateRulesHandoff,developmentVerifyCondition} from './lib/rules-test-workflow.mjs'
-import {validateEvidencePublisher} from './lib/verification-reuse-workflow.mjs'
+import {validateEvidencePublisher,validateDevelopmentReuseWorkflow,devFallbackCondition} from './lib/verification-reuse-workflow.mjs'
 
-export const developmentDeployCondition = "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')"
+export const developmentDeployCondition = "${{ !cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}"
 
 const jobSections = (workflow) => {
   const lines = workflow.split(/\r?\n/)
@@ -109,7 +109,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
     const matchingSteps = verifySteps.flatMap((step, index) => step.run === gate.command ? [{ step, index }] : [])
     if (matchingSteps.length !== 1) throw new Error(`Verification job must run ${gateId} exactly once as its own step.`)
     const match = matchingSteps[0]
-    if (typeof match.step.if === 'string' || typeof match.step['continue-on-error'] === 'string') {
+    if (match.step.if !== devFallbackCondition || typeof match.step['continue-on-error'] === 'string') {
       throw new Error(`Verification gate ${gateId} must be unconditional and fail closed.`)
     }
     if (match.index <= previousIndex) throw new Error(`Verification gate order does not match the policy at ${gateId}.`)
@@ -138,12 +138,15 @@ export function validateDevelopmentWorkflow(workflow, policy) {
     throw new Error('Deploy job must not rebuild the verified Hosting artifact.')
   }
   const deployments = deployCommands.filter(command => /(?:^|\s)(?:npx\s+)?firebase\s+deploy(?:\s|$)/.test(command))
-  const allowedDeployment = 'npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
+  const allowedDeployment = 'npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
   if (deployments.length !== 1 || deployments[0] !== allowedDeployment) {
     throw new Error('Deploy job must use the explicit development project and target set.')
   }
+  const deploySteps=parsed.jobs.deploy.steps,prepare=deploySteps.findIndex(s=>s.run==='node scripts/development-deployment.mjs prepare'),publish=deploySteps.findIndex(s=>s.run===allowedDeployment),check=deploySteps.findIndex(s=>s.run==='node scripts/development-deployment.mjs check')
+  if(prepare<0||prepare>=publish||check<=publish||deploySteps.some(s=>s.if||s['continue-on-error']))throw Error('Dev preparation and deployed release proof are mandatory.')
   validateRulesHandoff(parsed,developmentVerifyCondition)
   validateEvidencePublisher(parsed)
+  validateDevelopmentReuseWorkflow(parsed,policy)
   return true
 }
 

@@ -1,5 +1,14 @@
 # Dev／Prod 通常アプリの配備手順
 
+## 2026-10-14 追加採用：Dev配備の検証をPRにも再利用
+
+本節は以下の「Dev→PR包括試験を残す」「Dev切替は対象外」という前段階の記載を更新する。実有効化状態は運用記録を確認する。通常の改修PRとdev pushでは包括7検証を実行する。Dev配備後は全5照合と保護停止確認が成功してから本人が業務受入れを行い、従来の手動受入れworkflowで成功run／exact revisionを記録する。その後dev→main PRを作る。同一treeのDev包括検証・配備・本人記録を照合できた場合だけPRの包括再実行を省略する。mainでも元Dev証拠を再検証する。受入れなし・版違いは統合しない。
+
+Dev自動配備の準備はCI内で2DB接続を明示し、既存Functionsの保護falseと保持入力の一貫性を確認して行う。既存Dev用secretを使い、Prod用認証は流用しない。Firebase配備後にRules・索引・Functionsソース／構成・Hostingを確認し、日次予定0／PITR無効を読戻す。失敗時はDEVELOPMENT_BRANCH_DEPLOY_ENABLED=falseで以降の配備を止め、部分反映を調べる。実行中jobの停止や巻戻しを意味しない。受入れ処理／workflow変更は先に基盤PRでmainへ統合してdevを同期する。
+
+PRは同じrepository内のbranch間で差分・検証結果を確認し統合する申請。別repository／worktreeは不要。ActionsもPR必須ではなく、ここではdev pushでDev配備、保護済みmainへのPR mergeで生じるmain pushでProd配備を起動する。main保護を迂回する直接pushは行わない。
+
+
 2026-10-14制定。後続担当者が通常配備を繰り返すための現行手順。基盤作成・過去の承認経緯は[Prod構築記録](production-bootstrap-review.md)、確認済み結果は[運用記録](../operations.md)、要求は[環境仕様](../requirements/environment-configuration.md)を参照する。実行のたびに対象・変数・main・実行中jobを読み直し、この文書の過去SHAを配備対象として再利用しない。
 
 ## 1. 対象と保留事項

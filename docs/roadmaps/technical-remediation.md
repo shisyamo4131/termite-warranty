@@ -1,5 +1,10 @@
 # Technical Remediation Backlog
 
+## 2026-10-14 Dev→main重複削減とDev自動配備（実施中）
+
+本人が残るDev→PR包括試験重複の削減とDev自動配備開始を指示。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)の拡張と[配備手順](../runbooks/application-deployment.md)に従う。完了条件は拒否系／分岐試験、包括7gate、Dev push実配備・5照合・保護停止、本人受入れ後のPR再利用実証、従前との工程別比較。本人受入れを自動試験で代替しない。実測は[運用記録](../operations.md)。保護保留・納品条件は維持。
+
+
 ## 2026-10-14 次段階：PR結果再利用とDev受入れ連携（実装・Prod実証完了）
 
 本人指示により着手。同一tree・信頼できる最新成功PR結果をmainで再利用し、証跡不備なら包括7検証へ戻す。dev→mainには明示受入れ記録を要求する。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[設計](../design/tr-003-verification-deploy-gates.md)、[実測](../operations.md)。完了条件は拒否系・分岐試験、包括PR成功、実main pushでの再利用とProd全5照合、従前との工程別比較。Dev自動配備有効化と実業務受入れ記録は別工程。保護保留と納品条件は維持し、試験途中の部分加点なし。
