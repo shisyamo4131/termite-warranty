@@ -1,8 +1,10 @@
 # Technical Remediation Backlog
 
-## 2026-10-14 次段階：PR結果再利用とDev受入れ連携（実証中）
+## 2026-10-14 次段階：PR結果再利用とDev受入れ連携（実装・Prod実証完了）
 
 本人指示により着手。同一tree・信頼できる最新成功PR結果をmainで再利用し、証跡不備なら包括7検証へ戻す。dev→mainには明示受入れ記録を要求する。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[設計](../design/tr-003-verification-deploy-gates.md)、[実測](../operations.md)。完了条件は拒否系・分岐試験、包括PR成功、実main pushでの再利用とProd全5照合、従前との工程別比較。Dev自動配備有効化と実業務受入れ記録は別工程。保護保留と納品条件は維持し、試験途中の部分加点なし。
+
+PR15／16でmain9edf012へ統合。最終PR包括7gate成功（単体538・連携201・skip0）。main push run38514373769でPR結果再利用、Prod build・配備・全5照合成功。main11分40秒→5分36秒、PR＋main18分50秒→13分49秒。初回試行で発見したpretestへのFunctions生成依存を修正し、欠落／旧内容回帰と再配備で確認。Dev受入れの実記録は未実施で、実装／架空証跡試験と区別する。Dev切替・実受入れ後の初回記録照合、Dev→PR重複削減は残る。保護保留・納品gateは維持。
 
 ## 2026-10-14 CI重複削減と連携試験の分離（完了）
 

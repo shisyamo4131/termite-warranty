@@ -1,14 +1,65 @@
 # Operations
 
-## 2026-10-14 PR検証再利用・Dev受入れ連携（実証中）
+## 2026-10-14 PR検証再利用・Dev受入れ連携（実装・Prod実証完了）
 
 本人の次段階実行指示（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）により[ADR0046](decisions/0046-verification-reuse-and-dev-acceptance.md)を採用。PRの包括7検証は維持し、mainは最新PRの成功・全tree一致・24時間以内・同一run/attemptの証跡を確認して再利用する。不成立時は従来の包括実行へ戻す。dev→mainでは別途、ownerが成功したDev配備へ結び付けた明示受入れ記録を照合し、欠落時は停止する。Dev自動配備の有効化・実業務受入れ・IAM・保護設定は対象外。
 
-分類は検証動作／build-release-deploy／文書、包括7gateとpolicy変更の `node --test test/governance-tools.test.mjs` を選択。追加／変更は両配備workflow、受入れworkflow、証跡／受入れscriptとcontract、単体試験、package試験登録、policyの失効対象と生成文書、設計／ADR／手順／技術ロードマップ／changelog。業務仕様・schema・データ契約・納品日程の条件は変えないため、それらと日程PDFは変更しない。局所67試験はexit 0。包括Local実行とpolicy試験はsandboxのEPERMで失敗したため成功扱いせず、通常実行権限で再確認中。PR／main実測は後記へ記録する。
+分類は検証動作／build-release-deploy／文書、包括7gateとpolicy変更の `node --test test/governance-tools.test.mjs` を選択。追加／変更は両配備workflow、受入れworkflow、証跡／受入れscriptとcontract、単体試験、package試験登録、policyの失効対象と生成文書、設計／ADR／手順／技術ロードマップ／changelog。業務仕様・schema・データ契約・納品日程の条件は変えないため、それらと日程PDFは変更しない。局所67試験はexit 0。包括Local実行とpolicy試験はsandboxのEPERMで失敗したため成功扱いせず、通常実行権限で単体とpolicy試験を再確認済み（exit 0）。最終PR／main実測は後記。
 
-比較基準は直前PR14の検証7分10秒、main059bc7e7の検証8分04秒・deploy3分32秒・main全体11分40秒、PR＋main18分50秒。新実装の試験・実配備が完了するまで短縮値や完了を推定で埋めない。Dev記録の実workflow実行は未実施であり、Localの架空証跡による正負試験と区別する。
+比較基準は直前PR14の検証7分10秒、main059bc7e7の検証8分04秒・deploy3分32秒・main全体11分40秒、PR＋main18分50秒。測定は完了runのみを採用し、中止／失敗runを通常経路の比較に使わない。Dev記録の実workflow実行は未実施であり、Localの架空証跡による正負試験と区別する。
 
-PR #15 head571d7af／run38512159938は包括7検証成功（単体536・skip0、連携201・終了成功）。main7547e20のrun38512864632ではtree `8cdf62d901effb1344a5627b7120da234d05ccd2` 一致と再利用成功、3群／7コマンドskipまで実証。その後Prod成果物作成exit 1、配備job未実行で停止し、enable=falseへ変更した。CIログは安全な一般エラーのみだったが、fresh runnerには追跡外 `functions/domain` がなく、従来の `npm test` のpretestが生成を担っていたことを確認。空ディレクトリの回帰試験で同じ欠落を再現（exit 1）し、生成をProd buildの入力hash採取前に実行する修正で、欠落・旧内容の両方が解消（exit 0）。修正後Local単体535成功・既存symlink制約2skip／exit 0。修正版の包括PR・main配備を再実証する。生成準備の失敗やbuild後の入力変化は引き続き拒否し、検証条件を緩和しない。導入時の停止／修正時間を通常配備の短縮値に混ぜない。
+PR #15 head571d7af／run38512159938は包括7検証成功（単体536・skip0、連携201・終了成功）。main7547e20のrun38512864632ではtree `8cdf62d901effb1344a5627b7120da234d05ccd2` 一致と再利用成功、3群／7コマンドskipまで実証。その後Prod成果物作成exit 1、配備job未実行で停止し、enable=falseへ変更した。CIログは安全な一般エラーのみだったが、fresh runnerには追跡外 `functions/domain` がなく、従来の `npm test` のpretestが生成を担っていたことを確認。空ディレクトリの回帰試験で同じ欠落を再現（exit 1）し、生成をProd buildの入力hash採取前に実行する修正で、欠落・旧内容の両方が解消（exit 0）。修正後Local単体535成功・既存symlink制約2skip／exit 0。修正版の包括PR・main配備は後記のとおり再実証済み。生成準備の失敗やbuild後の入力変化は引き続き拒否し、検証条件を緩和しない。導入時の停止／修正時間を通常配備の短縮値に混ぜない。
+
+### 修正後の最終証拠と従前比較
+
+最終版はPR [#16](https://github.com/shisyamo4131/termite-warranty/pull/16) head `8b52ecdf25d99f52048b6b09cf3af9ad5278264f`、包括run [38513553839](https://github.com/shisyamo4131/termite-warranty/actions/runs/38513553839) の成功後に通常mergeした。mainは `9edf012bab0ff9242aafab90683df4d7efac5f7d`。PR／mainのGit treeは `b5801b515871bd66191f5b52eb96e9c844f4e482` で一致する。PR #15での導入、#16での修正を合わせて22ファイルを変更。機能変更はmain統合済み、実測結果を残す後続文書commitは既存作業branchへ保存する。
+
+PR verify job115688784587の各コマンドは独立stepで全てexit 0：
+
+| 選択した包括gate / command | 最終PR結果 | mainでの扱い |
+| --- | --- | --- |
+| governance / `./scripts/check-governance.ps1` | 成功 | 同一treeの成功結果を再利用 |
+| domain / `npm test` | 538成功・fail0・skip0 | 同上 |
+| typecheck / `npm run typecheck` | 成功 | 同上 |
+| build / `npm run build` | 成功 | 同上。Prod固有buildは別途実行 |
+| Rules / `npm run test:rules` | 81＋62＋58＝201成功、全3群の終了確認成功 | 同上。mainの3 VMはskip |
+| Functions / `node scripts/check-functions-syntax.mjs` | 成功 | 同上 |
+| seed / `node --check scripts/seed-emulator.mjs` | 成功 | 同上 |
+
+単体は従前487件を維持し51件追加。版違い、古い／失敗／skip結果、別run/attempt、異なるrepository/owner、未受入れ、受入れ後の版変更、producer変更、workflow迂回、取消、Functions生成物欠落／旧内容を検証した。補強後の局所 `node --test test/verification-evidence.test.mjs test/development-workflow-contract.test.mjs test/production-application.test.mjs` は69成功・skip0／exit 0。policy変更の `node --test test/governance-tools.test.mjs` は10成功／exit 0（その後の変更はfocused triggerに該当せず証拠を再利用）。Localの既存symlink制約2skipはCIでは全件実行された。連携runner／試験planは変更していないため、前段の従来方式対3群比較workflowは再実行せず、PRで既存201件を全実行した。
+
+[Prod run38514373769](https://github.com/shisyamo4131/termite-warranty/actions/runs/38514373769)：event=push、上記main SHA、attempt=1、success。reuse job115689742763はPR16/run38513553839/attempt1/artifact11871131584を照合し `reuse=true`。verify job115689893200で再利用根拠を記録し、7コマンドは意図的にskip、Prod build・local照合・artifact保存は各exit 0。bundle1085ファイル、digest `cdee955026a0813c5a77c3e662fb38e5d9b236d884ea5efd083560d9b43d211a`。deploy job115690283551の対象guard・成果物照合・stage・認証・事前読取り・配備・公開後照合・後処理が成功。全5項目pass：default Rules、control Rules、索引、21 Functions／21 archives、Hosting1005ファイル（観測2回目で期待／一覧／集計一致）。mainのDev run38514373728／保守run38514373653はskip。
+
+| 通常経路（job開始→終了、開始前待機・人のレビューを除く） | 従前PR14／main059bc7e7 | 最終PR16／main9edf012 | 差 |
+| --- | --- | --- | --- |
+| PR包括検証全体 | 7分10秒 | 8分13秒 | 1分03秒増 |
+| main配備前全体 | 8分04秒 | 1分57秒 | 6分07秒短縮 |
+| Prod deploy job | 3分32秒 | 3分35秒 | 3秒増 |
+| main開始→配備・後処理完了 | 11分40秒 | 5分36秒 | 6分04秒短縮（52.0%） |
+| PR検証＋main通常経路 | 18分50秒 | 13分49秒 | 5分01秒短縮（26.6%） |
+
+mainの時刻は05:00:52Z→05:06:28Z。PRは04:51:40Z→04:59:53Z。通常経路の和は人の統合待ちを含まない比較指標で、壁時計上の連続時間ではない。
+
+| main内の処理 | 従前 | 今回 | 意味 |
+| --- | --- | --- | --- |
+| 連携3群の最長job（準備含む） | 5分01秒 | 再実行なし | PRの201件成功を再利用 |
+| 7コマンド本体合計（Rulesは集約だけ） | 69秒 | 再実行なし | 試験削除ではなく成功証拠参照 |
+| PR証拠照合job（VM準備含む） | なし | 30秒 | 新たに追加した確認 |
+| Prod用生成・bundle作成 | 28秒 | 20秒 | 毎回実行。生成準備を自身で行う |
+| Firebase配備step | 25秒 | 21秒 | 毎回実行 |
+| 公開後5照合step | 84秒 | 89秒 | 毎回実行 |
+
+これらの内訳はjob全体と重なるため足し合わせない。PR側は削減対象外で、今回の物件群npm導入52→86秒、同群試験step198→217秒などの実行時間差があった。追加した受入れ要否確認と証跡出力／保存は合計2秒。各1回の観測であり、残した処理の速度差を再利用の効果と断定しない。PR15の同じ包括方式では6分35秒だった。延べ検証runner時間は従前29分00秒→今回16分36秒（PR14分41秒＋main1分55秒）。配備・一回限りの導入検証・中止runは除外。
+
+導入作業の別枠：ガード補強による旧PR run38511844397と38513432294の中止、PR15成功後のmain試行38512864632の配備前停止（開始→終了2分37秒）、Functions生成物の欠落を再現する失敗試験、修正・PR16全検証を行った。これらを通常配備時間に加算したり短縮効果に含めたりしない。試験前処理への依存を解消後、fresh main runnerでbuildと公開まで成功した。
+
+完了後のGitHub変数読戻し（exit 0）：Prod通常enable=true、Dev branch enable未設定、Prod `RECOVERY_BACKUP_AUTOMATION=false`／他3保護入力は空。バックアップ・PITR・Auth退避の設定／有効化、Cloud IAM変更、Dev公開、業務データ操作は本変更に含まない。
+
+残件：Dev自動配備の切替、実Dev配備→本人受入れ→手動記録workflow→dev/main照合の初回実証。記録／照合コードは架空API証跡で正負確認済みだが、実Devでの業務受入れや所要時間を確認済みとはしない。Dev→main PRの包括検証重複は現段階では残す。日程／納品gate／保護保留は変更せず、納品進捗への加点なし。後続担当は[配備手順](runbooks/application-deployment.md)から開始する。
+
+変更ファイル（22）：`.github/workflows/{deploy-development,deploy-production,record-development-acceptance}.yml`、`scripts/{verification-evidence,development-acceptance,development-workflow-contract,production-workflow-contract,prepare-production-release}.mjs`、`scripts/lib/{verification-evidence,verification-reuse-workflow}.mjs`、`test/{verification-evidence,production-application}.test.mjs`、`package.json`、`governance/{verification-policy.json,governance.lock.toml}`、`docs/{operations.md,decisions/README.md,decisions/0046-verification-reuse-and-dev-acceptance.md,design/tr-003-verification-deploy-gates.md,roadmaps/technical-remediation.md,runbooks/application-deployment.md}`、`CHANGELOG.md`。業務仕様・データ契約・日程PDFは非影響。生成policy summary／lockは更新、AGENTS生成内容は不変。
+
+実測追記4文書の分類はdocumentation-only。最終の `./scripts/check-governance.ps1` と `git diff --check` はexit 0。実装・依存・試験・workflowをその後変更していないため、policyに従いPR16の残り6gateとfocused regression証拠を再利用し、結果文書のためだけの再配備は行わない。
 
 ## 2026-10-14 CI重複削減・隔離並列化（完了）
 

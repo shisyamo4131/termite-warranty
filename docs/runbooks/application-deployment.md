@@ -52,7 +52,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 
 同一内容なら同じ業務試験を機械的に繰り返す必要はない。Git treeで全追跡ファイル（lock・試験・workflow含む）を比較し、24時間以内の最新PR run/attemptの7検証・3群・証跡artifactを照合する。merge commit SHAが異なってもtree一致なら再利用可能。Prod固有の接続設定・対象／権限・最終成果物と、公開後のRules／索引／Functions／Hosting一致確認は残す。別変更の混入、期限切れ、CI証跡欠落／読取り不可は包括7検証を再実行。統合PR不明またはdev受入れ未確認は停止する。
 
-dev→mainを使う際は、実Dev受入れ後にownerがActionsの `Record explicit development acceptance` をmain上で手動実行する。入力は成功したdev pushの `deployment_run_id`、受入れた40文字の `accepted_revision`、機密を含めない受入れ記録参照 `acceptance_reference`、本人確認 `confirm=true`。Devの現head・全CI・配備成功を確認して記録し、run URLを残す。有効／保持30日。版・受入れ処理実装が変わった場合や失効時は再照合・再記録する。実施していない業務受入れを確認済みにしない。PR側とmain側で記録を読取り再照合する。Dev→PRの包括試験は現段階では残る。
+dev→mainを使う際は、実Dev受入れ後にownerがActionsの `Record explicit development acceptance` をmain上で手動実行する。入力は成功したdev pushの `deployment_run_id`、受入れた40文字の `accepted_revision`、機密を含めない受入れ記録参照 `acceptance_reference`、本人確認 `confirm=true`。Devの現head・全CI・配備成功を確認して記録し、run URLを残す。有効／保持30日。版・受入れ処理実装が変わった場合や失効時は再照合・再記録する。実施していない業務受入れを確認済みにしない。PR側とmain側で記録を読取り再照合する。Dev→PRの包括試験は現段階では残る。受入れ処理自体や照合対象のworkflow／policyを改修する場合は、レビュー済みの基盤変更PRをmainへ先行統合してdevへ同期する。古いmainの記録処理で新しい処理の受入れを証明しようとせず、同期後のDev配備・受入れを記録する。
 
 1. 受入済みの変更を作業branchへcommit／pushし、main宛てPRを作る。mainへ直接pushして保護を迂回しない。PRの変更ファイル・head SHA・対象・バックアップ無効維持をレビューする。
 2. 必須CI `Verify development deployment` の成功と最新mainとの同期を確認する。名前にdevelopmentが含まれていてもPRでは検証のみで、Dev配備成功の意味ではない。
