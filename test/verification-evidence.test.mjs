@@ -171,6 +171,7 @@ test('main cannot replace invalidated Dev acceptance with full CI',async()=>{
 })
 test('feature PR runs full CI, Dev reuses or falls back, and main PR requires acceptance',()=>{
   const w=workflow('deploy-development.yml')
+  assert.deepEqual(workflow('compare-rules.yml').on.pull_request.branches,['dev'])
   for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['main','dev','codex/change'])for(const base of ['dev','main',''])for(const reuse of ['true','false'])for(const result of ['success','failure','skipped']){
     const context={always:()=>true,github:{event_name:event,ref:'refs/heads/'+branch,base_ref:base},needs:{source:{result,outputs:{reuse}}}}
     assert.equal(vm.runInNewContext(w.jobs.source.if,context),event==='pull_request'&&base==='main'||['push','workflow_dispatch'].includes(event)&&branch==='dev')

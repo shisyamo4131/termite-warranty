@@ -1,7 +1,7 @@
 name: Compare Rules execution modes
 on:
   pull_request:
-    branches: [dev, main]
+    branches: [dev]
     paths: ['scripts/test-rules.mjs', 'scripts/compare-rules.mjs', 'scripts/lib/rules-test-*.mjs', 'scripts/lib/test-emulator*.mjs', '.github/workflows/verify-rules.yml', '.github/workflows/compare-rules.yml']
 permissions:
   contents: read
