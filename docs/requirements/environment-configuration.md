@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-14現行方針：[通常配備手順](../runbooks/application-deployment.md)を後続作業の入口とする。Dev／Prodとも日次バックアップ・PITR・Auth退避等の設定／有効化はリリース直前まで保留し、HS試行後の確定スキーマで再検証する。Devの実読取りは日次予定0・PITR無効・21 Functions・automation=false。既存Auth退避先／検証情報の設定値は残存するが有効化しない。Prodは解除状態を維持。main→Prodは有効、devブランチ・Dev切替変数は未設定で、Dev自動配備は未切替。以下の古い再開時期・切替予定を現行設定と混同しない。
+
 2026-10-14現行：main `fe910d7` の実pushで通常Prod配備・公開後の全5項目照合が成功。通常enable=true、公開版 `sites/termite-warranty-prod/versions/8a11a472a633bca4`、21 Functions ACTIVE。配備後も日次予定0・backup実体0・PITR無効・Auth退避先不存在・automation=false／保護入力空を独立読戻し。保護はHS試行後のスキーマ確認まで再開しない。[証拠](../operations.md#2026-10-14-main-push正常自動配備を実証現行)。
 
 2026-10-14最新：包括承認で先行作成した保護設定は、HS試行に伴うスキーマ変更の可能性を理由とした本人の解除指示で取り消した。実読戻しは日次予定0・backup実体0・PITR無効・Auth退避bucket不存在・automation=false。バックアップ専用IAM／秘密値退避／通知設定は未実施。HS試行後にスキーマを確認して再設定する。現在目標はmain push正常配備に限定し、提供前保護要件は維持。[解除記録](../operations.md#2026-10-14-prodバックアップ設定の解除)。以下は先行工程の記録。

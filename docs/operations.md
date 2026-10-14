@@ -1,5 +1,13 @@
 # Operations
 
+## 2026-10-14 通常配備手順の制定と保護保留の統一
+
+[通常配備手順](runbooks/application-deployment.md)を制定。main→Prodは有効、remoteにdevなし・Dev切替変数未設定を実確認。新たなmain push検証は未実施。仕様・環境仕様・ロードマップ・索引・構築手順へ、両環境の保護をリリース直前まで保留する本人指示を反映する。
+
+事前読取り：Prodの21 Functions ACTIVE、公開版8a11a472a633bca4、日次予定0・PITR無効・automation=false／3入力空を再確認（`node tmp/check-final-production-state.mjs` exit 0）。DevはFirebase project ID／numberを照合し、Firestore DB／backupSchedules／Functions v2 GETで日次予定0・PITR無効・21 Functions・automation=false・control=recovery-controlを確認（読取りcommand exit 0）。DevのAuth退避先／検証情報の入力は残存。既存退避物の有無・内容は今回確認せず、削除も有効化も行わない。
+
+変更分類は文書＋実配備。文書のgovernance確認と、新mainの包括7検証・配備・照合を必要gateとする。アプリ、workflow、IAM、データ契約、恒久的な保護方式、governanceは変更しないためADR／データ契約は更新しない。
+
 ## 2026-10-14 main push正常自動配備を実証（現行）
 
 現在目標を達成。PR #12 head `0a08f8b981cfa3e06ef7ef174021c1a70276eec2` は包括CI run `38456598371` 成功後、承認範囲で通常merge（exit 0）。main `fe910d710b7971f2030ef7d3d12841bb63cad12f` と検証済みheadのtree差分0。実push・attempt 1の[Prod run 38458075742](https://github.com/shisyamo4131/termite-warranty/actions/runs/38458075742)がsuccessとなり、手動再実行に依存しない通常配備と直後照合を実証した。

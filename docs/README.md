@@ -1,5 +1,7 @@
 # Documentation Map
 
+現行の反復配備は[Dev／Prod通常アプリの配備手順](runbooks/application-deployment.md)を入口とする。main→Prodは有効、dev→Devは未切替。2026-10-14の本人指示により、両環境のバックアップ・PITR・Auth退避等はリリース直前まで保留する。以下の「HS試行後」は以前の判断時点の記録であり、この時期指定を優先する。
+
 2026-10-14現行：[main push正常Prod配備と全5項目照合を実証](operations.md#2026-10-14-main-push正常自動配備を実証現行)。バックアップ設定は解除済みで、HS試行後のスキーマ確認まで延期。残6〜9時間、23日構築・30日納品判定の条件付き目標と[PDF](../output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-13.pdf)を更新。[ロードマップ](roadmaps/production-readiness.md)。以下は先行記録。
 
 2026-10-14最新：本人指示でProdバックアップ設定を解除し、日次予定0・PITR無効・空のAuth退避先削除を実確認。HS試行後のスキーマ確認まで再設定を延期。現在目標はmain push正常配備。[解除記録](operations.md#2026-10-14-prodバックアップ設定の解除)、[ロードマップ](roadmaps/production-readiness.md)。以下は先行工程の記録。
