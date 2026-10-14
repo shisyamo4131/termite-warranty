@@ -1,10 +1,59 @@
 # Operations
 
-## 2026-10-14 CI重複削減・隔離並列化（検証中）
+## 2026-10-14 PR検証再利用・Dev受入れ連携（実証中）
+
+本人の次段階実行指示（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）により[ADR0046](decisions/0046-verification-reuse-and-dev-acceptance.md)を採用。PRの包括7検証は維持し、mainは最新PRの成功・全tree一致・24時間以内・同一run/attemptの証跡を確認して再利用する。不成立時は従来の包括実行へ戻す。dev→mainでは別途、ownerが成功したDev配備へ結び付けた明示受入れ記録を照合し、欠落時は停止する。Dev自動配備の有効化・実業務受入れ・IAM・保護設定は対象外。
+
+分類は検証動作／build-release-deploy／文書、包括7gateとpolicy変更の `node --test test/governance-tools.test.mjs` を選択。追加／変更は両配備workflow、受入れworkflow、証跡／受入れscriptとcontract、単体試験、package試験登録、policyの失効対象と生成文書、設計／ADR／手順／技術ロードマップ／changelog。業務仕様・schema・データ契約・納品日程の条件は変えないため、それらと日程PDFは変更しない。局所67試験はexit 0。包括Local実行とpolicy試験はsandboxのEPERMで失敗したため成功扱いせず、通常実行権限で再確認中。PR／main実測は後記へ記録する。
+
+比較基準は直前PR14の検証7分10秒、main059bc7e7の検証8分04秒・deploy3分32秒・main全体11分40秒、PR＋main18分50秒。新実装の試験・実配備が完了するまで短縮値や完了を推定で埋めない。Dev記録の実workflow実行は未実施であり、Localの架空証跡による正負試験と区別する。
+
+## 2026-10-14 CI重複削減・隔離並列化（完了）
 
 本人採用（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）により、main pushでのDev側重複検証、無効な保守公開の検証を停止し、Rules／連携試験を独立した3 VMへ分ける。各VMの試験は直列、全結果を同一SHA/run/attemptで集約。従来方式の実行を比較workflowに残し、試験ID・件数の完全一致と失敗検出・終了処理を確認する。変更分類は検証動作＋build/release/deploy＋文書、包括7検証を選択。業務仕様・スキーマ・データ契約・IAM・保護方式は変更しないため仕様／ADR／データ契約は更新しない。設計・通常配備手順・技術ロードマップ・changelogを更新。PR結果の再利用とDev自動配備の有効化は対象外。
 
-比較基準（既存main `7ec1e450`）：PR run38500441387のverify 9分17秒／Rules 6分32秒、Prod run38501319971のverify 8分50秒／Rules 6分14秒、deploy 3分29秒。deploy内のFirebase配備は26秒、配備後照合95秒。別のDev重複verifyは9分14秒だが並行していたため、その停止分をそのまま待ち時間短縮に加算しない。改善版の測定結果は未確定。
+比較基準（既存main `7ec1e450`）：PR run38500441387のverify 9分17秒／Rules 6分32秒、Prod run38501319971のverify 8分50秒／Rules 6分14秒、deploy 3分29秒。deploy内のFirebase配備は26秒、配備後照合95秒。別のDev重複verifyは9分14秒だが並行していたため、その停止分をそのまま待ち時間短縮に加算しない。改善版の実測は以下に記録する。
+
+### 同一版比較・PR結果
+
+PR #14 head `88eb80c033d2f5f427c4649d8fe4f841cc2eaa7f`。比較run [38505346542](https://github.com/shisyamo4131/termite-warranty/actions/runs/38505346542) は全job成功。従来201件と3群の81＋62＋58件について、ファイル・行・列・試験名の全ID一致、失敗0、skip0、終了確認成功。独立Windows VMでDB/Auth/ポート/作業領域を共有せず、各群内は直列。重い競合試験の反復回数と442件試験の内容は変更なし。
+
+| 同一版の測定 | elapsed | result / exit |
+| --- | --- | --- |
+| 従来方式 `node scripts/test-rules.mjs --baseline` | 409,078 ms（6分49秒） | 201成功 / 0 |
+| property-warranty群 | 227,290 ms（3分47秒） | 81成功 / 0 |
+| default-recovery群 | 124,234 ms（2分4秒） | 62成功 / 0 |
+| historical-intake群 | 144,536 ms（2分25秒） | 58成功 / 0 |
+| `node scripts/compare-rules.mjs` | jobログ参照 | identical=true / 0 |
+| `node scripts/test-rules.mjs --failure-probe` | 比較時間に含めない | 意図的失敗検出・ポート解放・lock削除 / 0 |
+
+最長群との比較で181,788 ms（約3分2秒、44.4%）短縮。これはEmulator起動／停止込みの試験時間で、VM待機／Node・依存導入／artifact転送は含まない。補強前の同一試験コードでの比較run38504955491も201件一致（425,139→196,373 ms）。ホストや実行負荷による変動があるため固定保証にはしない。
+
+最終PR run [38505346546](https://github.com/shisyamo4131/termite-warranty/actions/runs/38505346546) は3群とverify成功、Dev配備skip。包括7検証はverifyの独立stepで全てexit 0：governance、`npm test`（487成功・skip0）、typecheck、build、`npm run test:rules`（201件の同一run集約）、Functions syntax、seed syntax。最初のshard開始03:17:51Z→verify終了03:25:01Z＝7分10秒。前回PRの9分17秒から2分7秒短縮。旧版が実行枠を使用した待機時間は別扱い。4 jobの延べ実行時間は14分40秒で、並列化による待ち時間短縮と計算資源削減は同義ではない。
+
+局所検証：runner/workflow/Prod/保守36試験exit 0、失敗伝播補強後15試験exit 0。必須PRチェックの先頭PowerShellをsuccess/failure/cancelled/skippedで実行し、successだけexit 0、それ以外は非ゼロを確認。通常単体のLocal再実行は485成功・既存symlink制約2skip・exit 0（制限環境での初回失敗を成功証拠に使わず、CIでは全487件成功）。governance確認exit 0。
+
+PR #14は比較・必須CI成功後に通常merge（command exit 0）、main `059bc7e7d556ed24e621fa99a7cae38166e5249d`。mainのDev run38506307208と保守run38506307272は意図どおりskipped。結果を残す文書以外に、比較後の試験／実装変更はない。
+
+### main push／Prodの実証と時間比較
+
+[Prod run38506307296](https://github.com/shisyamo4131/termite-warranty/actions/runs/38506307296)：event=push、attempt=1、上記main SHA、success。3群は81／62／58件成功・Emulator停止。verify job115665887256の包括7 commandはすべて独立stepでexit 0（単体487・skip0、Rules集約201）。bundleは1085ファイル、digest `4fa8f219515c335ec73decb76d962cc056cd9fd93dd18176e62a4f7f912a3c11`。deploy job115666704609の配備／Cloud照合は各exit 0、後処理も成功。default Rules・control Rules・索引・21 Functions／21 source archives・Hosting1005ファイルの全5項目pass。Hostingは観測2回目に期待／一覧／集計1005件が一致。
+
+| 通常経路の実測（待機・人のレビューを除く） | 前回 | 今回 | 差 |
+| --- | --- | --- | --- |
+| PR検証全体 | 9分17秒 | 7分10秒 | 2分7秒短縮 |
+| Prod配備前検証全体 | 8分50秒 | 8分04秒 | 46秒短縮 |
+| Prod deploy job | 3分29秒 | 3分32秒 | 3秒増 |
+| main最初の検証開始→配備・後処理完了（job間隔含む） | 12分22秒 | 11分40秒 | 42秒短縮 |
+| PR検証＋main通常経路 | 21分39秒 | 18分50秒 | 2分49秒短縮 |
+
+今回のmain経路は03:27:04Z→03:38:44Z。配備前は3群の完了後に別VMで依存導入・他の検証・Prod bundle生成を行うため、試験単体の短縮が全部は残らない。deploy内訳は環境準備・事前照合等約99秒、Firebase配備25秒、公開後照合84秒、後処理4秒。前回の配備26秒に対し、Prodそのものが数分の業務試験を要求しているわけではない。
+
+計算資源：今回PRの延べjob時間14分40秒、main検証14分20秒。前回PR9分17秒＋Prod検証8分50秒＋重複Dev9分14秒の合計27分21秒に対し、今回は29分00秒（配備・一回限りの比較は両方とも除外）。待ち時間は短縮したが、通常検証の延べ使用時間はこの測定で1分39秒増。金額への換算は行わない。今回の導入作業には旧版比較・意図的失敗試験・PR必須チェックの失敗伝播補強／再確認が別途含まれるため、導入作業全体の所要時間を通常配備時間にしない。
+
+残件は別段階のPR検証結果再利用と、Dev受入れ済み内容をmain配備へ結び付ける証跡。Dev自動配備有効化・IAM変更・両環境のバックアップ/PITR/Auth退避設定は行っていない。今回の実装はmain統合済み。最終実測記録は作業ブランチへまとめてcommit/pushし、記録のためだけの追加Prod配備は行わない。変更ファイルの正本は[PR #14差分](https://github.com/shisyamo4131/termite-warranty/pull/14/files)と結果記録commit。業務試験・アプリ・データ契約は変更なし。
+
+最終記録の変更ファイルは `CHANGELOG.md`、`docs/operations.md`、`docs/roadmaps/technical-remediation.md`、`docs/runbooks/application-deployment.md`、`docs/design/tr-003-verification-deploy-gates.md`。文書のみのため、最終記録にはdocumentation-onlyのgovernance gateと差分確認を選択し、他6 gateは再実行しない。コード・試験・設定・依存・成果物は上記mainの成功証跡を無効化する変更がない。新規文書はなく既存索引リンクは維持、generated governance／ポリシーJSON／権限／仕様／データ契約は変更しない。
 
 ## 2026-10-14 通常配備手順の制定と保護保留の統一
 
@@ -2022,7 +2071,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 - Class: id=governance-permissions-agents; triggers=[governance contract/tool/migration changes\, effective permissions or agent authority\, executable configuration\, or verification behavior\; excludes only the bounded owner-approved reference-target clarification in project-guidance-metadata]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Class: id=build-release-deploy; triggers=[build\, dependency\, release\, or deploy configuration]; iterationGateIds=[governance-check,app-typecheck]; targetedRegressionGateIds=[governance-check,domain-test,app-typecheck,app-build]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Gate: id=governance-check; command=./scripts/check-governance.ps1; stages=[iteration,targeted,completion,release]; includes=[]; invalidatedBy=[any governance input\, policy\, configuration\, or managed artifact change]; evidenceDestination=task completion report
-- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/verification-evidence.mjs\, scripts/development-acceptance.mjs\, scripts/lib/verification-*.mjs\, test/verification-evidence.test.mjs\, .github/workflows/record-development-acceptance.yml\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
 - Gate: id=app-typecheck; command=npm run typecheck; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[app/**\, nuxt.config.ts\, tsconfig.json\, package.json\, or package-lock.json changes]; evidenceDestination=task completion report
 - Gate: id=app-build; command=npm run build; stages=[targeted,completion]; includes=[]; invalidatedBy=[application\, Nuxt\, dependency\, TypeScript\, or build configuration changes]; evidenceDestination=task completion report
 - Gate: id=firestore-rules-test; command=npm run test:rules; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[firestore.rules\, firebase.json\, functions/**\, src/domain/**\, Functions domain preparation helpers\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/emulator/**\, test/firestore*.test.mjs\, test/helpers/**\, data-contract\, emulator tests\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, app persistence\, dependency\, Node.js/Java/Firebase CLI runtime\, or emulator configuration changes]; evidenceDestination=task completion report

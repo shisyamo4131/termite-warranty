@@ -48,11 +48,17 @@ gh variable list --repo shisyamo4131/termite-warranty
 
 ## 3. main更新によるProd配備
 
+目標の工程は「Local実装→Local受入れ→dev push／Dev配備→Dev受入れ→main統合／Prod配備」。Dev自動配備は未切替。PRのCI成功はDev受入れ完了ではない。2026-10-14の次段階では、PR包括検証をmainで再利用する仕組みと、dev→mainの受入れ記録照合を導入する。実証状態は運用記録を参照。
+
+同一内容なら同じ業務試験を機械的に繰り返す必要はない。Git treeで全追跡ファイル（lock・試験・workflow含む）を比較し、24時間以内の最新PR run/attemptの7検証・3群・証跡artifactを照合する。merge commit SHAが異なってもtree一致なら再利用可能。Prod固有の接続設定・対象／権限・最終成果物と、公開後のRules／索引／Functions／Hosting一致確認は残す。別変更の混入、期限切れ、CI証跡欠落／読取り不可は包括7検証を再実行。統合PR不明またはdev受入れ未確認は停止する。
+
+dev→mainを使う際は、実Dev受入れ後にownerがActionsの `Record explicit development acceptance` をmain上で手動実行する。入力は成功したdev pushの `deployment_run_id`、受入れた40文字の `accepted_revision`、機密を含めない受入れ記録参照 `acceptance_reference`、本人確認 `confirm=true`。Devの現head・全CI・配備成功を確認して記録し、run URLを残す。有効／保持30日。版・受入れ処理実装が変わった場合や失効時は再照合・再記録する。実施していない業務受入れを確認済みにしない。PR側とmain側で記録を読取り再照合する。Dev→PRの包括試験は現段階では残る。
+
 1. 受入済みの変更を作業branchへcommit／pushし、main宛てPRを作る。mainへ直接pushして保護を迂回しない。PRの変更ファイル・head SHA・対象・バックアップ無効維持をレビューする。
 2. 必須CI `Verify development deployment` の成功と最新mainとの同期を確認する。名前にdevelopmentが含まれていてもPRでは検証のみで、Dev配備成功の意味ではない。
 3. 保護条件を満たすPRを通常mergeする。このmergeによる**main push**が通常Prod workflowを起動する。承認されたPRのheadを固定してmergeし、merge後のmain SHAを取得する。
 4. Actionsの `Verify and deploy Firebase production application` で、event=`push`・branch=`main`・head SHA=merge後SHAを照合する。新規実行のattempt 1を追跡し、過去runの再実行を「今回のmain push成功」に代用しない。
-5. rulesの3 jobがそれぞれ独立VM上で成功し、verify jobの7項目、bundle作成・local照合・artifact保存が成功したことを確認する。CIの `npm run test:rules` は同一SHA・run・attemptの全3結果を集約し、全件成功とEmulator終了を検査する。欠落・別attempt・失敗があれば配備しない。再実行はconsumerだけでなくworkflow全体を対象とする。bundleのrevision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。秘密値や認証ファイルを証跡へ含めない。
+5. reuse jobの判定を確認する。`reuse=true` なら参照PR run/attempt・tree・7項目の成功根拠がverifyの `Record verified reuse decision` に残り、mainの3群と7コマンドは意図的にskipする。`reuse=false` なら3群を独立VMで実行し、verifyで7項目を実行する。CIの `npm run test:rules` は同一SHA・run・attemptの全3結果を集約し全件成功と終了を検査する。どちらの経路もbundle作成・local照合・artifact保存を必須とし、revision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。失敗時はconsumerだけでなくworkflow全体を再評価する。秘密値や認証ファイルを証跡へ含めない。
 6. deploy jobで認証前guard、同じbundleのlocal照合・stage、WIF認証、predeploy読取り、Firebase配備、再認証、Cloud照合、認証後処理が成功するまで待つ。Firebase配備stepだけで完了にしない。
 
 | 必須検証command | 合格条件 |
@@ -65,7 +71,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 | `node scripts/check-functions-syntax.mjs` | exit 0 |
 | `node --check scripts/seed-emulator.mjs` | exit 0 |
 
-これらはCIの独立stepで結果を残す。文書だけの変更でも、実配備を行う本手順では包括7検証を省略しない。workflow本体が実行コマンドの正本であり、手元から同名projectへ直接配備して代用しない。
+これらはPR CIの独立stepで結果を残す。文書だけの変更でも実配備では包括7検証を選択し、mainでは条件を満たす同一treeのPR結果を再利用できる。条件不成立時はmainで全実行する。再利用を新たな実行成功と記載せず、元runと各gateの成功根拠を残す。workflow本体が実行コマンドの正本であり、手元から同名projectへ直接配備して代用しない。
 
 ## 4. 配備直後の合否
 
