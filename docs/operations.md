@@ -2,11 +2,33 @@
 
 ## 2026-10-14 通常配備手順の制定と保護保留の統一
 
-[通常配備手順](runbooks/application-deployment.md)を制定。main→Prodは有効、remoteにdevなし・Dev切替変数未設定を実確認。新たなmain push検証は未実施。仕様・環境仕様・ロードマップ・索引・構築手順へ、両環境の保護をリリース直前まで保留する本人指示を反映する。
+[通常配備手順](runbooks/application-deployment.md)を制定。main→Prodは有効、remoteにdevなし・Dev切替変数未設定を実確認。PR #13を包括CI成功後に通常mergeし、新たなmain pushのProd配備・全5項目照合まで成功。仕様・環境仕様・ロードマップ・索引・構築手順へ、両環境の保護をリリース直前まで保留する本人指示を反映する。
 
 事前読取り：Prodの21 Functions ACTIVE、公開版8a11a472a633bca4、日次予定0・PITR無効・automation=false／3入力空を再確認（`node tmp/check-final-production-state.mjs` exit 0）。DevはFirebase project ID／numberを照合し、Firestore DB／backupSchedules／Functions v2 GETで日次予定0・PITR無効・21 Functions・automation=false・control=recovery-controlを確認（読取りcommand exit 0）。DevのAuth退避先／検証情報の入力は残存。既存退避物の有無・内容は今回確認せず、削除も有効化も行わない。
 
 変更分類は文書＋実配備。文書のgovernance確認と、新mainの包括7検証・配備・照合を必要gateとする。アプリ、workflow、IAM、データ契約、恒久的な保護方式、governanceは変更しないためADR／データ契約は更新しない。
+
+### 手順書に沿った再実証結果
+
+手順書を含むPR #13 head `d10261a2f3a53e032c1d9d4363ef995a6efac67e` の包括CI run `38500441387`／job `115645867353` は7検証すべてexit 0（単体485・skip0、Rules201・Emulator停止）。保護を迂回しない通常merge commandはexit 0。main `7ec1e450d5db7d38d059497d6ca57dc9e967d3e8` とPR headのtree差分0を確認（exit 0）。
+
+[Prod run 38501319971](https://github.com/shisyamo4131/termite-warranty/actions/runs/38501319971)はevent=push、attempt=1、success。verify job `115648705646` の独立stepで下記7検証を再実行し、各exit 0。bundleは1085ファイル、digest `882fd411bc2e4470169fe0fc86af893573c5e3bf9941c7026b7b2f714fdac505`。deploy job `115651223226` の配備・Cloud照合は各exit 0、認証後処理も成功。2DB Rules・索引・21 Functions／21 source archives・Hosting全5項目pass。Hostingの期待／一覧／集計1005件は観測2回目に一致した。
+
+| command | result | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 成功 | 0 |
+| `npm test` | 485成功・0skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 201成功・Emulator停止 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+独立読戻し `node tmp/check-final-production-state.mjs`／`node tmp/remove-prod-protection.mjs verify` は各exit 0。公開版 `sites/termite-warranty-prod/versions/03b8eb1612ff40de`、releaseTime `2026-10-14T02:40:31.362Z`、21 Functions ACTIVE、日次予定0・backup実体0・PITR無効・Auth退避bucket不存在。両環境のFunctions v2／Firestore GETで、各21関数すべてautomation=false、日次予定0・PITR無効をassertしexit 0。Devの過去入力は保持し、新たなDev配備は行っていない。通常enable=trueを読戻しexit 0。公開無効の保守待機run `38501319987` はcancel command exit 0、最終cancelledを確認。
+
+手順書・保留方針はmainへ統合済み。結果記録はこの後の文書だけのcommitとして作業branchへ保存し、追加配備を起こすためだけの再mergeは行わない。Localのgovernance確認・相対リンク確認・diff確認、PDF生成・2ページ描画は各exit 0で表示確認済み。最終結果追記はアプリ／workflow／依存を変更しないため上記包括証拠を再利用し、文書governanceとdiff確認を再実行する。包括gateの省略なし。
+
+23日構築・30日納品判定の条件付き目標、残6〜9時間の見積りは維持。初期化／管理者、構築入力、HS試行・受入れ、リリース直前の保護・正式投入は残る。Dev自動配備の切替は別の後続作業で、今回のProd配備実証や既存残枠への加点／織込みは行わない。スキーマ変更は内容確定後に再見積りする。
 
 ## 2026-10-14 main push正常自動配備を実証（現行）
 
