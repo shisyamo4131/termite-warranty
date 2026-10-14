@@ -131,6 +131,9 @@ test('main routing: reuse skips only comprehensive repeats; missing proof falls 
 test('workflow mutation guards prevent bypassing fallback, proof, or production checks',()=>{
   for(const mutate of [
     w=>{w.jobs.reuse.steps.at(-1)['continue-on-error']=true},
+    w=>{w.jobs.rules['continue-on-error']=true},
+    w=>{w.jobs.rules.with={bypass:true}},
+    w=>{w.jobs.reuse.permissions={'id-token':'write'}},
     w=>{w.jobs.verify.if='always()'},
     w=>{w.jobs.verify.steps.find(s=>s.run==='npm test').if='false'},
     w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs report').env={}},

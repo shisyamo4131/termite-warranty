@@ -6,7 +6,8 @@ export function validateProductionReuseWorkflow(w,policy){
   if(w.permissions.actions!=='read'||!reuse||reuse.if!=="${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}"||reuse['runs-on']!=='windows-latest'||
     reuse.outputs?.reuse!=='${{ steps.evidence.outputs.reuse }}'||reuse.outputs?.proof!=='${{ steps.evidence.outputs.proof }}'||
     JSON.stringify(verify.needs)!==JSON.stringify(['reuse','rules'])||verify.if!==productionVerifyCondition||rules.needs!=='reuse'||
-    rules.if!=="${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true' }}"||rules.uses!=='./.github/workflows/verify-rules.yml')fail()
+    rules.if!=="${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true' }}"||rules.uses!=='./.github/workflows/verify-rules.yml'||
+    rules.secrets||rules.with||rules['continue-on-error']||reuse.permissions||reuse.environment)fail()
   const resolver=reuse.steps.filter(s=>s.run)
   if(reuse['continue-on-error']||reuse.steps.some(s=>s.if||s['continue-on-error']||/secrets\.|google-github-actions\/auth/.test(JSON.stringify(s)))||
     resolver.length!==1||resolver[0].run!=='node scripts/verification-evidence.mjs resolve'||resolver[0].id!=='evidence'||resolver[0].env?.GH_TOKEN!=='${{ github.token }}')fail()
