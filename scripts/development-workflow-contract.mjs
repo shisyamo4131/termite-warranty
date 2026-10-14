@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
+import {validateRulesHandoff,developmentVerifyCondition} from './lib/rules-test-workflow.mjs'
 
 export const developmentDeployCondition = "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')"
 
@@ -140,6 +141,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   if (deployments.length !== 1 || deployments[0] !== allowedDeployment) {
     throw new Error('Deploy job must use the explicit development project and target set.')
   }
+  validateRulesHandoff(parsed,developmentVerifyCondition)
   return true
 }
 

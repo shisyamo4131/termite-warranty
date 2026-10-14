@@ -30,7 +30,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 ```
 
 1. originが `https://github.com/shisyamo4131/termite-warranty.git`、作業差分が今回レビュー対象だけであることを確認する。未確認の変更をstageしない。
-2. GitHub Actionsで進行中／待機中の通常・保守公開・読取り照合を確認する。Prodは `production-bootstrap` 排他groupを共有し、自動取消ししない。待機を失敗と扱って再実行しない。公開無効の保守workflowでも検証が走るため、通常配備が順番待ちになることがある。
+2. GitHub Actionsで進行中／待機中の通常・保守公開・読取り照合を確認する。Prodは `production-bootstrap` 排他groupを共有し、自動取消ししない。待機を失敗と扱って再実行しない。保守workflowの検証は公開enableと承認SHAが一致する場合だけ実行する。
 3. 下表と実変数、[target.json](../../deliverables/production-bootstrap-2026-10-13/target.json)の9項目を照合する。権限・請求・API・対象が変わった場合は通常手順を止め、構築記録と実資源で確認する。secret本文を表示・保存しない。
 
 | GitHub変数 | 通常運用の期待値 |
@@ -52,7 +52,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 2. 必須CI `Verify development deployment` の成功と最新mainとの同期を確認する。名前にdevelopmentが含まれていてもPRでは検証のみで、Dev配備成功の意味ではない。
 3. 保護条件を満たすPRを通常mergeする。このmergeによる**main push**が通常Prod workflowを起動する。承認されたPRのheadを固定してmergeし、merge後のmain SHAを取得する。
 4. Actionsの `Verify and deploy Firebase production application` で、event=`push`・branch=`main`・head SHA=merge後SHAを照合する。新規実行のattempt 1を追跡し、過去runの再実行を「今回のmain push成功」に代用しない。
-5. verify jobの7項目、bundle作成・local照合・artifact保存の成功を確認する。bundleのrevision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。秘密値や認証ファイルを証跡へ含めない。
+5. rulesの3 jobがそれぞれ独立VM上で成功し、verify jobの7項目、bundle作成・local照合・artifact保存が成功したことを確認する。CIの `npm run test:rules` は同一SHA・run・attemptの全3結果を集約し、全件成功とEmulator終了を検査する。欠落・別attempt・失敗があれば配備しない。再実行はconsumerだけでなくworkflow全体を対象とする。bundleのrevision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。秘密値や認証ファイルを証跡へ含めない。
 6. deploy jobで認証前guard、同じbundleのlocal照合・stage、WIF認証、predeploy読取り、Firebase配備、再認証、Cloud照合、認証後処理が成功するまで待つ。Firebase配備stepだけで完了にしない。
 
 | 必須検証command | 合格条件 |

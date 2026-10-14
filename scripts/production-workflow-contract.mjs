@@ -1,4 +1,5 @@
 import {parse} from 'yaml'
+import {validateRulesHandoff} from './lib/rules-test-workflow.mjs'
 const fail=()=>{throw Error('Production workflow does not preserve deployment gates.')}
 export function validateProductionWorkflow(text,policy){
   const w=parse(text),v=w.jobs?.verify,d=w.jobs?.deploy
@@ -21,5 +22,6 @@ export function validateProductionWorkflow(text,policy){
   if(!(stage>local&&stage<auth[0]&&predeploy>auth[0]&&predeploy<deployments[0]))fail()
   if(d.steps[deployments[0]].run!=='npx --no-install firebase deploy --non-interactive --project $env:TARGET_PROJECT --config .production-deploy/firebase.json --only firestore,functions,hosting'||d.steps.some(s=>/nuxt generate|npm run build|prepare-production-release|prepare:functions/.test(s.run??'')))fail()
   for(const i of auth)if(d.steps[i].with?.project_id!=='${{ steps.target.outputs.project }}'||d.steps[i].with?.service_account!=='${{ steps.target.outputs.service_account }}'||d.steps[i].with?.workload_identity_provider!=='${{ steps.target.outputs.provider }}'||d.steps[i].with?.credentials_json)fail()
+  validateRulesHandoff(w,"${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}")
   return true
 }

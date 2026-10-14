@@ -1,0 +1,45 @@
+name: Compare Rules execution modes
+on:
+  pull_request:
+    branches: [main]
+    paths: ['scripts/test-rules.mjs', 'scripts/compare-rules.mjs', 'scripts/lib/rules-test-*.mjs', 'scripts/lib/test-emulator*.mjs', '.github/workflows/verify-rules.yml', '.github/workflows/compare-rules.yml']
+permissions:
+  contents: read
+jobs:
+  rules:
+    uses: ./.github/workflows/verify-rules.yml
+  baseline:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npx --yes npm@11.19.1 ci
+      - run: node scripts/test-rules.mjs --baseline
+      - run: node scripts/test-rules.mjs --failure-probe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rules-${{ github.sha }}-${{ github.run_attempt }}-baseline
+          path: tmp/rules-receipts/baseline.json
+          if-no-files-found: error
+          retention-days: 1
+  compare:
+    needs: [rules, baseline]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
+          path: tmp/rules-receipts
+          merge-multiple: true
+      - run: node scripts/compare-rules.mjs

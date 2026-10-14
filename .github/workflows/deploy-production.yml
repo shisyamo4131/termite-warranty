@@ -8,7 +8,11 @@ concurrency:
   group: production-bootstrap
   cancel-in-progress: false
 jobs:
+  rules:
+    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    uses: ./.github/workflows/verify-rules.yml
   verify:
+    needs: rules
     # No unconfigured production build or accidental deployment on adoption.
     if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
     runs-on: windows-latest
@@ -32,7 +36,14 @@ jobs:
       - run: npm test
       - run: npm run typecheck
       - run: npm run build
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
+          path: tmp/rules-receipts
+          merge-multiple: true
       - run: npm run test:rules
+        env:
+          RULES_TEST_RECEIPTS: tmp/rules-receipts
       - run: node scripts/check-functions-syntax.mjs
       - run: node --check scripts/seed-emulator.mjs
       - id: bundle

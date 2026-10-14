@@ -17,8 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  rules:
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+    uses: ./.github/workflows/verify-rules.yml
   verify:
     name: Verify development deployment
+    needs: rules
+    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
     runs-on: windows-latest
     steps:
       - name: Check out the repository
@@ -51,7 +56,14 @@ jobs:
       - name: Build the application
         run: npm run build
 
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
+          path: tmp/rules-receipts
+          merge-multiple: true
       - name: Run Firestore and Callable Emulator tests
+        env:
+          RULES_TEST_RECEIPTS: tmp/rules-receipts
         run: npm run test:rules
 
       - name: Check Functions syntax

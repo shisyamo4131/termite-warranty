@@ -83,6 +83,7 @@ test('bootstrap workflow preserves all verification gates before auth, same-revi
   assert.deepEqual(workflow.permissions,{contents:'read'})
   assert.equal(workflow.concurrency['cancel-in-progress'],false)
   const verify=workflow.jobs.verify.steps,publish=workflow.jobs.publish.steps
+  assert.equal(workflow.jobs.verify.if,"${{ vars.PRODUCTION_BOOTSTRAP_ENABLED == 'true' && vars.PRODUCTION_BOOTSTRAP_REVISION == github.sha }}")
   for(const command of ['./scripts/check-governance.ps1','npm test','npm run typecheck','npm run build','npm run test:rules','node scripts/check-functions-syntax.mjs','node --check scripts/seed-emulator.mjs'])assert.ok(verify.some(s=>s.run===command))
   assert.ok(!verify.some(s=>s.uses?.startsWith('google-github-actions/auth')))
   assert.equal(workflow.jobs.publish.needs,'verify')

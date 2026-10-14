@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    if: ${{ vars.PRODUCTION_BOOTSTRAP_ENABLED == 'true' && vars.PRODUCTION_BOOTSTRAP_REVISION == github.sha }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
