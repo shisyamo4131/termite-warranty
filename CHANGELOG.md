@@ -4,6 +4,7 @@
 
 - Both integrations use PRs. Complete feature-to-Dev PR evidence and Hosting artifacts can be reused after Dev integration; accepted Dev proof is independently revalidated by the promotion PR and main. Owner acceptance runs on the exact Dev revision.
 - Dev CI prepares explicit two-DB deployment, preserves disabled backup parameters and checks the deployed release plus protection hold. External activation/results are tracked in operations.
+- PR17 merged into dev; comprehensive verification passed (561 unit / 201 integration tests). Dev push reused the PR evidence and Hosting artifact, deployed successfully and passed all five release checks plus protection hold. Preparation fell from 7m17s to 1m17s in the measured runs. Three initial deployment-account permission gaps were corrected with scoped roles and read back. Draft dev-to-main PR18 rejects missing owner acceptance; main/Prod promotion remains pending that acceptance.
 
 
 ## 2026-10-14 PR検証再利用・Dev受入れ記録

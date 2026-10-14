@@ -1,6 +1,6 @@
 # Operations
 
-## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（実施中）
+## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（Dev実証済み・本人受入れ待ち）
 
 本人の後続指示で改修→dev／dev→mainともPRを使う方針へ切替。分類は検証動作／build-release-deploy／文書。包括7gateとpolicy-focused回帰を選択。共通包括検証は改修→dev PRで実行し、同一treeならdev統合後・Dev→main PR・main統合後で再利用する。Dev成果物を元PRから引継ぎ、Dev実配備照合と本人受入れ、Prod固有確認は維持。mainも元PRからの証拠連鎖を再確認。業務仕様・schema・データ契約・納品日程は変更しない。バックアップ等は保留。
 
@@ -8,7 +8,66 @@
 
 比較基準：直前PR16の8分13秒、main9edf012の配備前1分57秒・配備job3分35秒・main全体5分36秒、合計13分49秒。新たなDev配備工程は別枠で測り、Dev工程を除外した短縮を全体短縮と混同しない。本人の業務受入れ時間は自動処理時間に含めない。
 
-現在の読取り：主checkout1か所、originは既存repository、PR16のhead/baseも同一repository。dev branchなし、development環境のbranch制限なし、Dev用secretはrepository側に存在。Dev実資源は21 Functions・control=recovery-control・backup automation=false。Firebase project number1039792105037、Web app1:1039792105037:web:39be28742dfbc14be65e04、現在Hosting基準版e90487f9ea2b4646を確認。初回API読取りはquota project不足で一部403、同じDevをquotaヘッダーで指定した再読取りはexit0。Cloud設定変更ではない。
+着手時の読取り：主checkout1か所、originは既存repository、PR16のhead/baseも同一repository。dev branchなし、development環境のbranch制限なし、Dev用secretはrepository側に存在。Dev実資源は21 Functions・control=recovery-control・backup automation=false。Firebase project number1039792105037、Web app1:1039792105037:web:39be28742dfbc14be65e04、初回Hosting基準版e90487f9ea2b4646を確認。初回API読取りはquota project不足で一部403、同じDevをquotaヘッダーで指定した再読取りはexit0。Cloud設定変更ではない。
+
+### 両段階PRへの切替・最終包括検証
+
+[PR17](https://github.com/shisyamo4131/termite-warranty/pull/17) head `ce245a3c037554fc49b28a5612f1e00fb3cc4dce` をdevへ通常mergeし、devは `cbec3c3845ee251023df4d213dbdef52decc0135`。両者のtreeは `5457743a481ce4d64e0063e38b46925ea9ead8e7`。mainは9edf012のまま。devにPR必須・必須check `Verify development deployment`・strict同期・管理者適用・他者承認0・会話解決・force push／削除禁止を設定して読戻し済み。development環境はdevだけを許可。別repository／worktreeは作成していない。
+
+最終包括run [38518228192](https://github.com/shisyamo4131/termite-warranty/actions/runs/38518228192)、verify job115704894963は成功。7gateはそれぞれ独立stepでexit 0：`./scripts/check-governance.ps1`、`npm test`（561成功・fail0・skip0）、`npm run typecheck`、`npm run build`、`npm run test:rules`（201成功・全3群終了）、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`。PR対象のsetup・artifact・後処理も成功。Local最終包括単体は559成功・既存symlink制約2skip／exit 0、局所88成功／exit 0、policy-focused `node --test test/governance-tools.test.mjs` は10成功／exit 0。最後の比較workflow対象branch変更後の `node --test test/verification-evidence.test.mjs` は73成功／exit 0。その後の最終CIで561全件を実行した。
+
+比較run [38518228034](https://github.com/shisyamo4131/termite-warranty/actions/runs/38518228034) は成功。`node scripts/test-rules.mjs --baseline`、各3 shard、`--failure-probe`、集約比較はexit 0。全201件の試験ID一致、意図的な失敗の検出、Emulator停止、lock削除を確認。試験本体は従来335,941 ms→並列207,792 ms（128,149 ms／38.1%短縮）。この値は既存並列化の再確認であり、今回の結果再利用による追加短縮と合算しない。変更前から進行中だったrunも中断せず終了させ、本切替ではrun取消なし。
+
+### Dev初回導入の停止と修正（通常所要時間とは別枠）
+
+Dev push run [38519554310](https://github.com/shisyamo4131/termite-warranty/actions/runs/38519554310) attempt1は元PR17／run38518228192／attempt1の再利用に成功。包括7コマンド・Rules3 VMをskipし、Hosting artifact11873381203を固定取得、digest照合後に引継いだ。Devの検証証跡と成果物は新run/attemptへ再保存する。
+
+attempt1配備はScheduler更新403／exit 2で停止。監査ログによりDev配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gserviceaccount.com` の `cloudscheduler.jobs.update` 不足を確認。enable=falseへ停止し、21 Functions ACTIVE・automation=false・control一致・Hosting旧版維持・日次予定0・PITR無効・Scheduler PAUSEDを独立に読戻した。attempt2はFirebase配備exit 0だが、Functionsソース照合API読取り403で照合exit 1。Rules2件・索引・Hosting1005件はpass。再びenable=falseとし、ソースbucketのIAMを確認した。403を反映待ちとして扱っていない。
+
+承認済みDev自動配備の範囲で、不足IAMを次の最小構成へ補完した。Schedulerは公式のresource属性対応一覧にないため、特定job限定条件が効くと仮定せずDev projectスコープの2権限に限定。作成・削除・実行・pause/resume権限は追加しない。
+
+| 追加role | 権限 | 付与先と範囲 |
+| --- | --- | --- |
+| projects/termite-warranty-dev/roles/developmentSchedulerDeployment | cloudscheduler.jobs.get、cloudscheduler.jobs.update | 上記Dev配備SA、Dev projectのみ |
+| projects/termite-warranty-dev/roles/developmentReleaseSourceReader | storage.objects.get | 上記Dev配備SA、実ソースbucket `gcf-v2-sources-1039792105037-asia-northeast1` だけ |
+| projects/termite-warranty-dev/roles/developmentProtectionStateReader | datastore.backupSchedules.list | 上記Dev配備SA、`resource.name == 'projects/termite-warranty-dev/databases/(default)'` 条件 |
+
+各role／bindingを実APIで読戻し、指定権限・SA1件との一致をassertしてexit 0。作成時にPowerShell引数分割による400、読戻しコードの配列参照誤りによるexit 1があり、修正後に再検証した。source role作成直後のbucket bindingは400だったが、bucket所有projectNumberとrole所属一致を読み直した後、同じbindingの再試行・読戻しは成功。伝播遅延の可能性はあるが、400原因は断定しない。既存bindingは維持した。Firebase配備後もScheduler PAUSEDを独立確認。Prod IAM・Auth退避先・保護有効化・業務／Authデータは変更しない。追加bindingだけを外せばこのIAM追加を取り消せるが、その場合は自動配備もfalseに戻す。
+
+attempt3はFirebase配備exit 0、公開後全5項目pass（Functions21・ソースarchive21・Hosting1005）。続く保護保留読取りでexit 1となりenable=falseへ戻した。既存datastore.userにはbackupSchedules.listがなく、上表の一覧読取り1権限をdefault DB条件付きで追加・読戻しassert／exit 0。実行や設定変更を許可していない。初回配備前に照合用の権限を一括確認し切れず、段階的な不足発見と再試行が発生した。これを通常のCI所要時間やタイムラグと混同しない。
+
+同一dev SHAのattempt4は成功。実行回を揃えた受入れ証拠を残すため、失敗jobだけでなく軽量照合から再実行した。成功済みPRの包括7gateとHosting成果物は再利用し、Cloud IAM変更だけを理由に同一ソースの試験を再実行していない。本人のDev業務受入れ記録・dev→main成功・新方式のmain→Prod実証は未了。
+
+公式根拠：[Scheduler IAM](https://docs.cloud.google.com/scheduler/docs/access-control?hl=en)、[IAM resource属性の対応一覧](https://docs.cloud.google.com/iam/docs/conditions-resource-attributes)。
+
+### 最終Dev実証・工程別比較・残件
+
+Dev run38519554310／attempt4／上記cbec3c3はsuccess。resolver job115713509763とverify job115713702494で元PR17の7gate成功を再利用し、7コマンド・Rules3群をskip、元のHosting artifactを取得・保存した。deploy job115713966478は準備 `node scripts/development-deployment.mjs prepare`、明示2DB／Functions／HostingのFirebase配備、`node scripts/development-deployment.mjs check` がそれぞれexit 0、認証後処理も成功。全5項目pass、Functions21・sourceArchives21・Hosting1005、PITR無効・日次予定0・automation=falseを確認した。
+
+独立API読戻しもassert／exit 0：公開版 `sites/termite-warranty-dev/versions/e9445887fbcdb56e`、21 Functions ACTIVE、control=recovery-control、automation=false、PITR無効、日次予定0、Scheduler PAUSED。GitHub変数の読戻しexit 0：Dev enable=true、Prod enable=true、Prod保護入力はfalse／他3値空。既存Dev Auth退避先の削除・新設・有効化はしていない。Prod配備／Prod Cloud設定は今回変更なし。
+
+実APIのrun／job／artifact／treeを `validateDevelopmentDeployment` で再検証してexit 0。run38519554310 attempt4→元PR run38518228192 attempt1が成立し、humanAcceptanceRecorded=false。コネクタがhead_sha付きworkflow検索URLを400で拒否したため、この読取り検証のみ既存GitHub認証をメモリ内で利用する実装readerへ切替。資格情報は出力・保存しない。
+
+[draft PR18](https://github.com/shisyamo4131/termite-warranty/pull/18) はdev→main、head cbec3c3、未統合。[run38522081043](https://github.com/shisyamo4131/termite-warranty/actions/runs/38522081043) は受入れ未登録の拒否試験で、resolver job115714854101が `Dev acceptance required: no valid owner record for this exact deployed tree.`／exit 1。verifyも失敗、Rules・配備はskipした。これは意図した拒否の証拠であり、通常昇格の成功やその所要時間として扱わない。mainは9edf012を維持。
+
+| 工程（job開始→終了。開始前待機・人の作業を除く） | 従前 | 今回の最終成功観測 | 比較・限界 |
+| --- | --- | --- | --- |
+| PR共通包括検証 | PR16：8分13秒 | 改修→dev PR17：7分50秒 | 全7gate維持。23秒差を再利用の効果としない |
+| dev統合後の検証・成果物準備 | 切替前dev run38517384486：7分17秒 | 1分17秒 | 6分短縮（82.4%）。包括検証・Hosting再buildの重複なし |
+| Dev配備job | 自動配備未有効のため比較用成功実測なし | 2分47秒 | npm導入50秒、準備3秒、Firebase配備23秒、公開後照合78秒を含む |
+| dev run開始→配備後処理完了 | 同上 | 4分18秒 | 06:24:00Z→06:28:18Z。上2工程間の14秒待機も含む |
+| dev→main PR | 共通包括検証を再実行する設計 | 証拠・本人受入れ照合だけの設計 | 実PRで未受入れ拒否を確認。受入れ後の正常経路は未実測 |
+| main統合後→Prod | 直前方式：準備1分57秒、配備3分35秒、全体5分36秒 | 新しいDev連鎖での実証待ち | 共通結果再利用を拡張、Prod固有build・全5照合は維持 |
+
+Devの最終観測は同一版の再配備であり、Functionsを実変更する場合も23秒で終わるとはしない。従前Dev runは同じ業務ソースの旧workflowで、配備は無効、検証だけの実測である。PR＋Dev＋Prodの一貫した正常経路総時間は本人受入れ・Prod実証前のため未確定。延べ検証runner時間はdev旧13分43秒（153＋236＋303＋131秒）→今回1分15秒（36＋39秒）、12分28秒削減。並列runnerの和をユーザー待ち時間へ加算しない。
+
+初回導入の停止3回は通常経路と分離：attempt1は4分40秒（Scheduler更新権限不足）、attempt2は4分23秒（実ソース読取り不足）、attempt3は4分33秒（保護予定読取り不足）。これに原因調査・IAM設定・伝播／再試行待ちが加わった。試験再利用の不具合として全試験を繰り返すことはせず、原PRの成功証拠は維持した。最終successまでを示し、初回配備で一度も失敗しなかったとは記載しない。
+
+変更24ファイル：`.github/workflows/{compare-rules,deploy-development,record-development-acceptance}.yml`、`.gitignore`、`scripts/{development-acceptance,development-deployment,development-workflow-contract,verification-evidence}.mjs`、`scripts/lib/{development-verification,rules-test-workflow,verification-evidence,verification-reuse-workflow}.mjs`、`test/{development-workflow-contract,rules-runner,verification-evidence}.test.mjs`、`governance/{verification-policy.json,governance.lock.toml}`、`docs/{operations.md,runbooks/application-deployment.md,requirements/environment-configuration.md,decisions/0046-verification-reuse-and-dev-acceptance.md,design/tr-003-verification-deploy-gates.md,roadmaps/technical-remediation.md}`、`CHANGELOG.md`。業務仕様・schema・データ契約・納品日程・PDFは非影響。結果追記は既存5文書に限定し、実装／policy／依存を変更せず、最終PRの包括証拠とfocused regressionを維持する。
+
+残件は本人がDev `cbec3c3845ee251023df4d213dbdef52decc0135` を業務受入れ→dev上で明示受入れworkflow（deployment_run_id=38519554310）→PR18照合成功→通常main merge→Prod実配備と全5照合→新方式の後半実測追記。新たなスキーマ変更や納品条件追加はなく、保護保留を継続。完了を装う受入れ記録や本task専用repositoryは作成していない。
+
+結果追記5文書の分類はdocumentation-only。`./scripts/check-governance.ps1` と `git diff --check` はそれぞれexit 0。元PRのtreeと受入れ対象devを動かさないよう、結果文書は同じ主repository内の結果保存branchへcommit/pushし、dev/mainへ未統合とする。包括7gate・policy-focused試験は実装／設定／依存の追加変更がないため上記成功証拠を再利用。受入れ前の文書だけの再配備は行わない。
 
 
 ## 2026-10-14 PR検証再利用・Dev受入れ連携（実装・Prod実証完了）
