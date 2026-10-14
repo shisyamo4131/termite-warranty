@@ -1,5 +1,13 @@
 # Operations
 
+## 2026-10-14 PRのアプリ検証とRulesの並行化（draft・未統合）
+
+PR #23と独立した改修branchで、アプリ側6gateとRules3群を並行化。必須check `Verify development deployment` は両producerの成功、同一checkout SHA/tree/run/attempt、Rules全件とEmulator終了、一意なHosting成果物ID／metadataを照合する。文書専用と再利用の正常skipは区別し、失敗／取消／異常skipを拒否する。全gate成功前に残ったHosting成果物だけでは配備・再利用できない。[設計](design/tr-003-verification-deploy-gates.md)、[手順](runbooks/application-deployment.md)、[ADR0046](decisions/0046-verification-reuse-and-dev-acceptance.md)。
+
+比較基準はPR23 run38535518949 attempt1（head cd644bf2917052eaa4338206b91095aa1e6c9235）。GitHub API再取得でsuccessを確認。created 08:29:54Z→updated 08:38:25Zで8分31秒、分類42秒、最長Rules4分49秒、直列verify2分52秒。並行化後の実測結果は該当draft PRのCI／比較報告を参照する。約2分の短縮は事前見込みであり、Dev／Prodの既存再利用時間へ加算しない。試験対象版・VM待機差を含む比較として報告する。
+
+変更分類は検証動作／build-release-deploy／文書。包括7gateと文書分岐focused回帰を選択。業務仕様・schema・data contract・依存・IAM・governance policy・納品進捗は不変。既存文書への追補だけで新規indexは不要。ローカル検証・独立レビュー・draft PR CIと比較結果は該当PRへ保存する。実Dev／Prod統合・配備、新版の本人受入れは未承認・未実施。旧証跡／旧受入れを新版へ流用せず、問題時は通常PRで当変更をrevertする。
+
 ## 2026-10-14 文書専用経路の通常導入・本人受入れ・Prod反映
 
 [PR19](https://github.com/shisyamo4131/termite-warranty/pull/19)の包括run38526269102は全7gate成功（単体568成功・Rules/Callable201成功・失敗／skipなし）。混在変更を文書扱いせず、dev `d834f20b2e4a6716b45595a7902cf23464ce809d` のrun38527195023で元PRの検証・Hosting成果物を再利用し、Dev配備・全5照合・保護保留確認が成功した。

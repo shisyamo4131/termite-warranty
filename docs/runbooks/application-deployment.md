@@ -36,6 +36,8 @@ Devの既存配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gs
 
 ## 3. 改修branch→dev PR
 
+並行化の追加改修はdraft・未統合。採用後の包括検証ではアプリ側6gateとRules3群を並行実行する。最後の必須check `Verify development deployment` が全producer成功・Rules全件／終了・同SHA/tree/run/attempt・Hosting artifact ID／metadataを照合して包括証跡を発行する。アプリjobやHosting upload単独の成功は統合条件ではない。失敗／取消／一部jobだけの再実行では証跡が揃わないため、原因修正後にworkflow全体を再実行する。Hosting再buildは行わない。文書専用／再利用時は両producerの正常skipを集約checkが確認する。
+
 ### 文書だけの変更（2026-10-14採用）
 
 配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。

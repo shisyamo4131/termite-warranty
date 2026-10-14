@@ -52,7 +52,7 @@ test('documentation or scope failure never reaches either environment or compreh
       const context={always:()=>true,cancelled:()=>false,vars:{DEVELOPMENT_BRANCH_DEPLOY_ENABLED:'true',PRODUCTION_APP_DEPLOY_ENABLED:'true'},github:{event_name:'push',ref:'refs/heads/'+(kind==='development'?'dev':'main'),base_ref:''},needs:{scope:{result:status,outputs:{documentationOnly:docs}},verify:{result:'success'},source:{result:'success',outputs:{reuse:'true'}},reuse:{result:'success',outputs:{reuse:'true'}},rules:{result:'skipped'}}}
       assert.equal(vm.runInNewContext(w.jobs.deploy.if.slice(3,-2),context),status==='success'&&docs!=='true')
       if(docs==='true'&&status==='success'){
-        for(const name of kind==='development'?['source','rules']:['reuse','rules','verify'])assert.equal(vm.runInNewContext(w.jobs[name].if.slice(3,-2),context),false)
+      for(const name of kind==='development'?['source','rules','application']:['reuse','rules','verify'])assert.equal(vm.runInNewContext(w.jobs[name].if.slice(3,-2),context),false)
         if(kind==='development')for(const name of ['Publish comprehensive verification evidence','Upload comprehensive verification evidence','Upload verified Hosting artifact'])assert.equal(vm.runInNewContext(w.jobs.verify.steps.find(s=>s.name===name).if.slice(3,-2),context),false)
       }
     }
@@ -61,7 +61,7 @@ test('documentation or scope failure never reaches either environment or compreh
 test('required Dev check accepts docs only after successful scope; normal failures remain failures',()=>{
   const command=workflow('development').jobs.verify.steps[0].run
   for(const scope of ['success','failure','skipped'])for(const docs of ['true','false','']){
-    const run=command.replaceAll('${{ needs.scope.result }}',scope).replaceAll('${{ needs.scope.outputs.documentationOnly }}',docs).replaceAll('${{ needs.source.outputs.reuse }}','false').replaceAll('${{ needs.source.result }}','skipped').replaceAll('${{ needs.rules.result }}','skipped')
+    const run=command.replaceAll('${{ needs.scope.result }}',scope).replaceAll('${{ needs.scope.outputs.documentationOnly }}',docs).replaceAll('${{ needs.source.outputs.reuse }}','false').replaceAll('${{ needs.source.result }}','skipped').replaceAll('${{ needs.rules.result }}','skipped').replaceAll('${{ needs.application.result }}','skipped')
     const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',run],{encoding:'utf8',windowsHide:true})
     assert.ifError(result.error);assert.equal(result.status===0,scope==='success'&&docs==='true')
   }

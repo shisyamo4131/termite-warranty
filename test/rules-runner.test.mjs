@@ -1,4 +1,5 @@
 import {withoutDocumentationRouting} from '../scripts/lib/documentation-workflow.mjs'
+import {withoutParallelVerification} from '../scripts/lib/verification-parallel-workflow.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises'
@@ -51,7 +52,7 @@ test('CI shards preserve isolation, fail-fast off and required artifact dependen
     ['if-no-files-found: error','if-no-files-found: warn'],['node scripts/test-rules.mjs --shard','echo ignored --shard']]){
     assert.notEqual(producer.replace(from,to),producer);assert.throws(()=>validateRulesProducer(producer.replace(from,to)))
   }
-  const workflow=withoutDocumentationRouting(parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8')),'development')
+  const workflow=withoutDocumentationRouting(withoutParallelVerification(parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8'))),'development')
   validateRulesHandoff(workflow,developmentVerifyCondition)
   for(const result of ['success','failure','cancelled','skipped']){
     const command=workflow.jobs.verify.steps[0].run.replaceAll('${{ needs.rules.result }}',result).replaceAll('${{ needs.source.outputs.reuse }}','false').replaceAll('${{ needs.source.result }}','skipped')

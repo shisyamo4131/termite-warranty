@@ -29,13 +29,13 @@ export async function validateDevelopmentDeployment(read,run,current,revision){
   const jobs=await completeList(read,`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`,'jobs')
   assertSuccessfulJob(jobs,run,'Resolve verified source',['Resolve source verification'])
   assertSuccessfulJob(jobs,run,'Deploy to termite-warranty-dev',['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'])
-  const verify=assertSuccessfulJob(jobs,run,'Verify development deployment',['Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence','Check Hosting artifact','Upload verified Hosting artifact'])
+  const verify=assertSuccessfulJob(jobs,run,'Verify development deployment',['Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence'])
   const source=await findDevelopmentVerification(read,current,revision,{maxAge:30*86400000})
-  if(gateSteps.every(name=>verify.steps.some(s=>s.name===name&&s.conclusion==='success'))){
-    return {...await validateVerification(read,run,current,{event:'push',branch:'dev',revision,deployment:true,maxAge:30*86400000}),source:'dev-fallback'}
+  if(verify.steps.some(s=>s.name==='Verify application results and Hosting artifact'&&s.conclusion==='success')){
+    return {...await validateVerification(read,run,current,{event:'push',branch:'dev',revision,deployment:true,hosting:true,maxAge:30*86400000}),source:'dev-fallback'}
   }
   if(!source.reuse)throw Error('Original PR evidence unavailable for reused Dev verification.')
-  assertSuccessfulJob(jobs,run,'Verify development deployment',['Record verified source evidence','Download source PR Hosting artifact'])
+  assertSuccessfulJob(jobs,run,'Verify development deployment',['Record verified source evidence','Download source PR Hosting artifact','Check Hosting artifact','Upload verified Hosting artifact'])
   const artifacts=await completeList(read,`/actions/runs/${run.id}/artifacts`,'artifacts')
   const artifact=assertArtifact(artifacts,run,evidenceName(current,run.run_attempt))
   return {runId:run.id,attempt:run.run_attempt,artifactId:artifact.id,revision,tree:current,gates:gateSteps,source}

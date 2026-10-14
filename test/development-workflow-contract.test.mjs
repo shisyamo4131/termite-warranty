@@ -26,7 +26,7 @@ test('removing any comprehensive gate makes the workflow contract fail', async (
     assert.equal(typeof command, 'string')
     const changed = workflow.replace(`run: ${command}`, 'run: node -e "process.exit(1)"')
     assert.notEqual(changed, workflow, `${gateId} fixture must alter the workflow`)
-    assert.throws(() => validateDevelopmentWorkflow(changed, policy), new RegExp(gateId))
+    assert.throws(() => validateDevelopmentWorkflow(changed, policy), new RegExp(gateId+'|Parallel verification'))
   }
 })
 
@@ -46,10 +46,10 @@ test('deploy cannot bypass verification or use a general force flag', async () =
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - continue-on-error: true\n      - name: Run domain tests'), policy),
-    /Documentation routing|must not bypass/,
+    /Documentation routing|Parallel verification|must not bypass/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.verify.steps.find(s=>s.run==='npm test').if='false'}), policy),
+    () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.application.steps.find(s=>s.run==='npm test').if='false'}), policy),
     /Documentation routing/,
   )
 })
@@ -79,11 +79,11 @@ test('deploy must consume the verified Hosting artifact without rebuilding it', 
   const { workflow, policy } = await load()
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('          include-hidden-files: true\n', ''), policy),
-    /upload the verified Hosting artifact/,
+    /Parallel verification|upload the verified Hosting artifact/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace("Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf", "Test-Path -LiteralPath '.output/public'"), policy),
-    /reject a missing Hosting index artifact/,
+    /Parallel verification|reject a missing Hosting index artifact/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replaceAll('actions/download-artifact@v8', 'actions/cache@v4'), policy),
@@ -106,7 +106,7 @@ test('both jobs use the fixed npm installer and verification cannot deploy', asy
   assert.throws(() => validateDevelopmentWorkflow(changedInstall, policy), /Deploy job must install with the repository npm version/)
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - name: Forbidden deploy\n        run: npx firebase deploy\n\n      - name: Run domain tests'), policy),
-    /Documentation routing|must not perform a deployment/,
+    /Documentation routing|Parallel verification|must not perform a deployment/,
   )
 })
 

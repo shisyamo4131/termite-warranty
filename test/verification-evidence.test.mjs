@@ -3,8 +3,9 @@ import {test} from 'node:test'
 import {readFileSync} from 'node:fs'
 import {parse,stringify} from 'yaml'
 import vm from 'node:vm'
-import {repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
-import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification} from '../scripts/verification-evidence.mjs'
+import {spawnSync} from 'node:child_process'
+import {repository,repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
+import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification,applicationIdentity,verifyApplication} from '../scripts/verification-evidence.mjs'
 import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow} from '../scripts/development-acceptance.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {validateDevelopmentWorkflow} from '../scripts/development-workflow-contract.mjs'
@@ -18,7 +19,7 @@ const step=name=>({name,status:'completed',conclusion:'success'})
 function fixture({dev=false}={}){
   const run={id:101,run_attempt:1,repository:{id:repositoryId,owner:{id:ownerId}},head_repository:{id:repositoryId},path:verificationWorkflow,event:dev?'push':'pull_request',head_branch:dev?'dev':'codex/change',head_sha:revision,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}
   const job=name=>({name,run_id:run.id,run_attempt:1,status:'completed',conclusion:'success',steps:[]})
-  const jobs=[{...job('Verify development deployment'),steps:[...gateSteps,'Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence','Check Hosting artifact','Upload verified Hosting artifact'].map(step)},...['shard-property-warranty','shard-default-recovery','shard-historical-intake'].map(id=>job(`rules / shard (${id})`))]
+  const jobs=[{...job('Verify development deployment'),steps:['Run Firestore and Callable Emulator tests','Verify application results and Hosting artifact','Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence','Check Hosting artifact','Upload verified Hosting artifact'].map(step)},...['shard-property-warranty','shard-default-recovery','shard-historical-intake'].map(id=>job(`rules / shard (${id})`)),{...job('Verify application gates'),steps:[...gateSteps.filter(n=>n!=='Run Firestore and Callable Emulator tests'),'Publish application identity','Check Hosting artifact','Upload verified Hosting artifact'].map(step)}]
   if(dev)jobs.push({...job('Resolve verified source'),steps:[step('Resolve source verification')]})
   if(dev)jobs.push({...job('Deploy to termite-warranty-dev'),steps:['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'].map(step)})
   const artifact=(name,r=run)=>({id:200+r.id,name,expired:false,size_in_bytes:500,expires_at:new Date(Date.now()+86400000).toISOString(),workflow_run:{id:r.id,repository_id:repositoryId,head_repository_id:repositoryId,head_sha:r.head_sha}})
@@ -35,12 +36,12 @@ function fixture({dev=false}={}){
   ])
   if(dev){
     const sourceRevision='e'.repeat(40),sourceRun={...run,id:100,event:'pull_request',head_branch:'codex/change',head_sha:sourceRevision}
-    const sourceJobs=structuredClone(jobs.slice(0,4)).map(j=>({...j,run_id:100}))
+    const sourceJobs=structuredClone(jobs.slice(0,5)).map(j=>({...j,run_id:100}))
     const sourceArtifacts=[artifact(evidenceName(tree,1),sourceRun),{...artifact(`firebase-hosting-${tree}-1`,sourceRun),id:402}]
     data.set(`/commits/${revision}/pulls?per_page=100`,[{number:14,merged_at:new Date().toISOString(),merge_commit_sha:revision,base:{ref:'dev',repo:{id:repositoryId}},head:{ref:'codex/change',sha:sourceRevision,repo:{id:repositoryId}}}])
     data.set(`/git/commits/${sourceRevision}`,{tree:{sha:tree}})
     data.set(`/actions/workflows/deploy-development.yml/runs?event=pull_request&head_sha=${sourceRevision}&per_page=100`,{total_count:1,workflow_runs:[sourceRun]})
-    data.set('/actions/runs/100/attempts/1/jobs?per_page=100',{total_count:4,jobs:sourceJobs})
+    data.set('/actions/runs/100/attempts/1/jobs?per_page=100',{total_count:5,jobs:sourceJobs})
     data.set('/actions/runs/100/artifacts?per_page=100',{total_count:2,artifacts:sourceArtifacts})
   }
   const read=async path=>{assert.ok(data.has(path),'Unexpected API path: '+path);return data.get(path)}
@@ -86,7 +87,7 @@ for(const [name,mutate] of [
   ['incomplete inventory',f=>{f.data.get(`/actions/runs/101/artifacts?per_page=100`).total_count=101}],
 ])test('rejects '+name,async()=>{const f=fixture();mutate(f);await assert.rejects(verify(f))})
 for(const name of gateSteps)test('rejects skipped comprehensive gate '+name,async()=>{
-  const f=fixture();f.jobs[0].steps.find(s=>s.name===name).conclusion='skipped';await assert.rejects(verify(f))
+  const f=fixture();f.jobs.flatMap(j=>j.steps).find(s=>s.name===name).conclusion='skipped';await assert.rejects(verify(f))
 })
 test('latest failed PR run does not reuse an older passing run',async()=>{
   const f=fixture(),list=f.data.get(`/actions/workflows/deploy-development.yml/runs?event=pull_request&head_sha=${revision}&per_page=100`)
@@ -221,7 +222,7 @@ test('workflow mutation guards prevent bypassing fallback, proof, or production 
   for(const mutate of [
     w=>{w.jobs.verify.steps.find(s=>s.id==='evidence').if='always()'},
     w=>{w.jobs.verify.steps.find(s=>s.name==='Upload comprehensive verification evidence').with.path='other'},
-    w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
+    w=>{w.jobs.application.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
   ]){const w=workflow('deploy-development.yml');mutate(w);assert.throws(()=>validateDevelopmentWorkflow(stringify(w),policy))}
 })
 test('deployment after intentional shard skip requires successful verification and refuses cancellation',()=>{
@@ -251,7 +252,8 @@ test('metadata reader limits token to repository API and disables redirects',asy
 
 function reusedDevFixture(){
   const f=promotionFixture(),verify=f.jobs.find(j=>j.name==='Verify development deployment')
-  for(const s of verify.steps)if(gateSteps.includes(s.name))s.conclusion='skipped'
+  for(const s of verify.steps)if(gateSteps.includes(s.name)||s.name==='Verify application results and Hosting artifact')s.conclusion='skipped'
+  const app=f.jobs.find(j=>j.name==='Verify application gates');app.conclusion='skipped';app.steps=[]
   verify.steps.push(step('Record verified source evidence'),step('Download source PR Hosting artifact'))
   return f
 }
@@ -273,4 +275,71 @@ test('Dev fallback executes its complete suite when source proof is unavailable'
 test('direct Dev push without a merged feature PR cannot be admitted',async()=>{
   const f=acceptedFixture();f.data.set('/commits/'+revision+'/pulls?per_page=100',[])
   await assert.rejects(validateDevelopmentDeployment(f.read,f.run,tree,revision),/Promotion admission/)
+})
+
+const appEnv=()=>({GITHUB_REPOSITORY:repository,GITHUB_EVENT_NAME:'pull_request',GITHUB_SHA:revision,GITHUB_RUN_ID:'101',GITHUB_RUN_ATTEMPT:'1'})
+test('aggregate binds application checkout, six successful gates and immutable Hosting artifact to this execution',async()=>{
+  const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision)
+  assert.deepEqual(await verifyApplication(f.read,{...expected},expected,'401'),expected)
+  for(const key of Object.keys(expected))await assert.rejects(verifyApplication(f.read,{...expected,[key]:'foreign'},expected,'401'))
+  await assert.rejects(verifyApplication(f.read,{...expected},expected,'402'))
+  for(const key of Object.keys(appEnv()))assert.throws(()=>applicationIdentity({...appEnv(),[key]:'foreign'},tree,revision))
+  assert.throws(()=>applicationIdentity(appEnv(),merged,merged))
+})
+for(const [name,change] of [
+  ['failed',j=>j.conclusion='failure'],['cancelled',j=>j.conclusion='cancelled'],['skipped',j=>j.conclusion='skipped'],
+  ['unfinished',j=>j.status='in_progress'],['foreign run',j=>j.run_id++],['old attempt',j=>j.run_attempt++],
+  ['missing',j=>j.name='other'],['Hosting upload skipped',j=>j.steps.at(-1).conclusion='skipped'],
+])test('aggregate and downstream reuse refuse application producer '+name,async()=>{
+  const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision)
+  change(f.jobs[4]);await assert.rejects(verifyApplication(f.read,expected,expected,'401'));await assert.rejects(verify(f))
+})
+test('aggregate refuses duplicate app job and stale, duplicate or foreign Hosting metadata',async()=>{
+  for(const mutate of [
+    f=>{f.jobs.push(structuredClone(f.jobs[4]));f.data.get('/actions/runs/101/attempts/1/jobs?per_page=100').total_count++},
+    f=>f.artifacts[1].expired=true,f=>f.artifacts[1].name=`firebase-hosting-${merged}-1`,
+    f=>f.artifacts[1].workflow_run.head_sha=merged,f=>f.artifacts[1].workflow_run.id++,
+    f=>{f.artifacts.push(structuredClone(f.artifacts[1]));f.data.get('/actions/runs/101/artifacts?per_page=100').total_count++},
+    f=>f.run.run_attempt++,f=>f.run.repository.id++,
+  ]){const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision);mutate(f);await assert.rejects(verifyApplication(f.read,expected,expected,'401'))}
+})
+test('Hosting artifact from a successful app cannot authorize reuse after Rules or aggregate failure',async()=>{
+  for(const index of [0,1,2,3])for(const conclusion of ['failure','cancelled','skipped']){
+    const f=fixture();f.jobs[index].conclusion=conclusion;await assert.rejects(verify(f))
+  }
+})
+test('parallel topology and producer mutations cannot bypass the required aggregate',()=>{
+  const w=workflow('deploy-development.yml')
+  assert.deepEqual(w.jobs.application.needs,w.jobs.rules.needs)
+  assert.equal(w.jobs.application.if,w.jobs.rules.if)
+  assert.deepEqual(w.jobs.verify.needs,['rules','source','scope','application'])
+  assert.equal(w.jobs.verify.name,'Verify development deployment')
+  for(const mutate of [
+    w=>w.jobs.application.if='true',w=>w.jobs.application.needs=['scope'],w=>w.jobs.application.permissions={'id-token':'write'},
+    w=>w.jobs.application.environment='development',w=>w.jobs.application['continue-on-error']=true,
+    w=>w.jobs.application.outputs.artifactId='401',w=>w.jobs.application.outputs.proof='forged',
+    w=>w.jobs.application.steps.push({run:'echo extra'}),w=>w.jobs.application.steps.reverse(),
+    w=>w.jobs.application.steps.find(s=>s.id==='hosting').with.path='other',
+    w=>w.jobs.application.steps.find(s=>s.id==='evidence').run='echo success',
+    w=>w.jobs.verify.needs.pop(),w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').if='false',
+    w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').env.APPLICATION_HOSTING_ARTIFACT_ID='401',
+    w=>w.jobs.verify.steps.find(s=>s.name==='Upload verified Hosting artifact').if='true',
+  ]){const changed=structuredClone(w);mutate(changed);assert.throws(()=>validateDevelopmentWorkflow(stringify(changed),policy))}
+})
+test('actual aggregate admission refuses failed/cancelled/unexpected skips and admits only full, docs or reused paths',()=>{
+  const command=workflow('deploy-development.yml').jobs.verify.steps[0].run
+  const cases=[
+    ['false','false','skipped','success','success',true],['false','false','success','success','success',true],
+    ['true','false','skipped','skipped','skipped',true],['false','true','success','skipped','skipped',true],
+    ...['failure','cancelled','skipped'].flatMap(bad=>[['false','false','skipped',bad,'success',false],['false','false','skipped','success',bad,false]]),
+    ['false','true','failure','skipped','skipped',false],['false','true','skipped','skipped','skipped',false],
+    ['false','true','success','success','skipped',false],['false','true','success','skipped','success',false],
+    ['true','false','skipped','skipped','success',false],
+  ]
+  for(const [docs,reuse,source,rules,application,allowed] of cases){
+    const values={'scope.result':'success','scope.outputs.documentationOnly':docs,'source.outputs.reuse':reuse,'source.result':source,'rules.result':rules,'application.result':application}
+    const run=command.replace(/\$\{\{ needs\.([^} ]+) \}\}/g,(_,key)=>values[key])
+    const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',run],{encoding:'utf8',windowsHide:true})
+    assert.ifError(result.error);assert.equal(result.status===0,allowed,JSON.stringify({docs,reuse,source,rules,application,stderr:result.stderr}))
+  }
 })

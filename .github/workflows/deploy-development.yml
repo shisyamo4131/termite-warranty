@@ -57,19 +57,17 @@ jobs:
       - scope
     if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main')) }}
     uses: ./.github/workflows/verify-rules.yml
-  verify:
-    name: Verify development deployment
-    outputs:
-      hostingName: ${{ steps.evidence.outputs.hostingName }}
+  application:
+    name: Verify application gates
     needs:
-      - rules
       - source
       - scope
-    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main')) }}
     runs-on: windows-latest
+    outputs:
+      proof: ${{ steps.evidence.outputs.proof }}
+      artifactId: ${{ steps.hosting.outputs.artifact-id }}
     steps:
-      - name: Require verification or source evidence
-        run: if ('${{ needs.scope.result }}' -ne 'success') { throw 'Change scope failed.' } elseif ('${{ needs.scope.outputs.documentationOnly }}' -ne 'true') { if ('${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.source.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.source.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' } }
       - name: Check out the repository
         uses: actions/checkout@v7
         with:
@@ -105,6 +103,52 @@ jobs:
       - name: Build the application
         if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
         run: npm run build
+      - name: Check Functions syntax
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        run: node scripts/check-functions-syntax.mjs
+      - name: Check Emulator seed syntax
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        run: node --check scripts/seed-emulator.mjs
+      - name: Publish application identity
+        id: evidence
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        run: node scripts/verification-evidence.mjs publish-application
+      - name: Check Hosting artifact
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
+      - name: Upload verified Hosting artifact
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.evidence.outputs.hostingName }}
+          path: .output/public
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+        id: hosting
+  verify:
+    name: Verify development deployment
+    outputs:
+      hostingName: ${{ steps.evidence.outputs.hostingName }}
+    needs:
+      - rules
+      - source
+      - scope
+      - application
+    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
+    runs-on: windows-latest
+    steps:
+      - name: Require verification or source evidence
+        run: if ('${{ needs.scope.result }}' -ne 'success') { throw 'Change scope failed.' } elseif ('${{ needs.scope.outputs.documentationOnly }}' -ne 'true') { if ('${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.source.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.source.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' } } if ('${{ needs.scope.outputs.documentationOnly }}' -eq 'true' -or '${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.application.result }}' -ne 'skipped' -or '${{ needs.rules.result }}' -ne 'skipped') { throw 'Unexpected verification producer execution.' } } elseif ('${{ needs.application.result }}' -ne 'success') { throw 'Application verification failed.' }
+      - name: Check out the repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
       - uses: actions/download-artifact@v8
         if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
         with:
@@ -116,12 +160,13 @@ jobs:
         env:
           RULES_TEST_RECEIPTS: tmp/rules-receipts
         run: npm run test:rules
-      - name: Check Functions syntax
+      - name: Verify application results and Hosting artifact
         if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
-        run: node scripts/check-functions-syntax.mjs
-      - name: Check Emulator seed syntax
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
-        run: node --check scripts/seed-emulator.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPLICATION_VERIFICATION_PROOF: ${{ needs.application.outputs.proof }}
+          APPLICATION_HOSTING_ARTIFACT_ID: ${{ needs.application.outputs.artifactId }}
+        run: node scripts/verification-evidence.mjs check-application
       - name: Record verified source evidence
         if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true') }}
         env:
@@ -141,10 +186,10 @@ jobs:
         run: node scripts/verification-evidence.mjs publish
         if: ${{ needs.scope.outputs.documentationOnly != 'true' && (true) }}
       - name: Check Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (github.event_name != 'pull_request' || github.base_ref != 'main') }}
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request') }}
         run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
       - name: Upload verified Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (github.event_name != 'pull_request' || github.base_ref != 'main') }}
+        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request') }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.evidence.outputs.hostingName }}
