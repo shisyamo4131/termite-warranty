@@ -7,7 +7,7 @@ on:
       - dev
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
 
 permissions:
   contents: read
@@ -18,34 +18,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  promotion:
-    name: Resolve accepted Dev promotion
-    if: github.event_name == 'pull_request' && github.head_ref == 'dev'
+  source:
+    name: Resolve verified source
+    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev')
     runs-on: windows-latest
     outputs:
       reuse: ${{ steps.evidence.outputs.reuse }}
       proof: ${{ steps.evidence.outputs.proof }}
+      hostingArtifactId: ${{ steps.evidence.outputs.hostingArtifactId }}
+      sourceRunId: ${{ steps.evidence.outputs.sourceRunId }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Resolve accepted Dev verification
+      - name: Resolve source verification
         id: evidence
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/verification-evidence.mjs resolve-dev
+        run: node scripts/verification-evidence.mjs resolve-development
   rules:
-    if: (github.event_name != 'push' || github.ref != 'refs/heads/main') && !(github.event_name == 'pull_request' && github.head_ref == 'dev')
+    needs: source
+    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main') }}
     uses: ./.github/workflows/verify-rules.yml
   verify:
     name: Verify development deployment
-    needs: [rules, promotion]
+    outputs:
+      hostingName: ${{ steps.evidence.outputs.hostingName }}
+    needs: [rules, source]
     if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
     runs-on: windows-latest
     steps:
-      - name: Require verification or accepted Dev evidence
-        run: if ('${{ needs.promotion.outputs.reuse }}' -eq 'true') { if ('${{ needs.promotion.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.promotion.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' }
+      - name: Require verification or source evidence
+        run: if ('${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.source.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.source.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' }
       - name: Check out the repository
         uses: actions/checkout@v7
 
@@ -56,81 +61,91 @@ jobs:
           cache: npm
 
       - name: Set up Java
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - name: Check explicit Dev promotion acceptance
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+      - name: Check feature PR admission
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verification-evidence.mjs check-pr
 
       - name: Install dependencies
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npx --yes npm@11.19.1 ci
 
       - name: Check project governance
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: ./scripts/check-governance.ps1
 
       - name: Run domain tests
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm test
 
       - name: Type-check the application
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm run typecheck
 
       - name: Build the application
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm run build
 
       - uses: actions/download-artifact@v8
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         with:
           pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
           path: tmp/rules-receipts
           merge-multiple: true
       - name: Run Firestore and Callable Emulator tests
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         env:
           RULES_TEST_RECEIPTS: tmp/rules-receipts
         run: npm run test:rules
 
       - name: Check Functions syntax
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: node scripts/check-functions-syntax.mjs
 
       - name: Check Emulator seed syntax
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: node --check scripts/seed-emulator.mjs
 
-      - name: Check Hosting artifact
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
-        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
-
-      - name: Upload verified Hosting artifact
-        if: ${{ needs.promotion.outputs.reuse != 'true' }}
-        uses: actions/upload-artifact@v7
-        with:
-          name: firebase-hosting-${{ github.sha }}
-          path: .output/public
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 1
-
-      - name: Record accepted Dev verification
-        if: ${{ needs.promotion.outputs.reuse == 'true' }}
+      - name: Record verified source evidence
+        if: ${{ needs.source.outputs.reuse == 'true' }}
         env:
-          VERIFICATION_REUSE_PROOF: ${{ needs.promotion.outputs.proof }}
+          VERIFICATION_REUSE_PROOF: ${{ needs.source.outputs.proof }}
         run: node scripts/verification-evidence.mjs report
+
+      - name: Download source PR Hosting artifact
+        if: ${{ needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request' }}
+        uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.source.outputs.hostingArtifactId }}
+          run-id: ${{ needs.source.outputs.sourceRunId }}
+          github-token: ${{ github.token }}
+          path: .output/public
+          digest-mismatch: error
 
       - name: Publish comprehensive verification evidence
         id: evidence
         run: node scripts/verification-evidence.mjs publish
+      - name: Check Hosting artifact
+        if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
+        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
+
+      - name: Upload verified Hosting artifact
+        if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.evidence.outputs.hostingName }}
+          path: .output/public
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+
       - name: Upload comprehensive verification evidence
         uses: actions/upload-artifact@v7
         with:
@@ -142,7 +157,7 @@ jobs:
   deploy:
     name: Deploy to termite-warranty-dev
     needs: verify
-    # Only a successful verified dev revision may deploy; skipped promotion ancestors are expected.
+    # Only a successful verified dev revision may deploy; skipped source ancestors are expected.
     if: ${{ !cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: development
@@ -162,7 +177,7 @@ jobs:
       - name: Download verified Hosting artifact
         uses: actions/download-artifact@v8
         with:
-          name: firebase-hosting-${{ github.sha }}
+          name: ${{ needs.verify.outputs.hostingName }}
           path: .output/public
 
       - name: Authenticate to Google Cloud

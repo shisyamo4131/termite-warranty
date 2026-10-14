@@ -1,8 +1,8 @@
 # Changelog
 
-## 2026-10-14 Dev promotion reuse / automatic deployment preparation
+## 2026-10-14 Feature-to-Dev-to-main PR evidence chain
 
-- Accepted same-tree Dev verification and explicit owner acceptance can replace duplicate dev-to-main PR execution; main independently rechecks the original evidence.
+- Both integrations use PRs. Complete feature-to-Dev PR evidence and Hosting artifacts can be reused after Dev integration; accepted Dev proof is independently revalidated by the promotion PR and main. Owner acceptance runs on the exact Dev revision.
 - Dev CI prepares explicit two-DB deployment, preserves disabled backup parameters and checks the deployed release plus protection hold. External activation/results are tracked in operations.
 
 

@@ -1,17 +1,16 @@
 # 0046 同一内容のPR検証再利用とDev受入れ記録
 
-## 2026-10-14 拡張：Dev→main PRの重複削減（採用・実証中）
+## 2026-10-14 最終採用：改修→dev→mainの両段階PRと検証連鎖
 
-本人がDev配備時の検証結果・受入れ記録のPR再利用とDev自動配備設定開始を指示。同一treeのDev push包括7検証・3群・配備後5照合・保護停止確認と、ownerの明示受入れが揃ったdev→mainだけ、PRでの再実行を証拠照合へ置換する。通常の改修PRとDev pushは包括試験を維持する。mainではPRの照合成功だけを信用せず、元Dev配備・本人記録も再検証する。欠落／版違いのDev受入れは停止、PRのCI証拠不備はmain包括再実行。実際の業務受入れを自動生成しない。
+本人の後続指示で、共通包括検証を改修branch→dev PRに集約する。dev統合後は、一意な統合PR・最新run/attempt・24時間以内・全tree一致・全7gate/3群成功・期限内artifactを照合して再利用する。PRで生成したDev Hosting成果物もrun/attempt/treeに結び付くartifact IDで取得し、digest不一致は拒否する。DevのHosting再buildは不要。証跡不備はDevで包括再実行し、統合PR不明は停止する。
 
-Devは既存secret・development環境でdev pushを配備する。2DBを明示し、現在の制御DB接続と保護falseを確認してから準備する。過去の退避先等3値は一貫した現在値だけを保持し有効化しない。配備後は既存の共通照合処理でRules2件・索引・Functionsソース／構成・Hosting全件を確認し、PITR無効・日次予定0を確認する。業務データ変更・保護有効化・新規IAMは含まない。
+Dev配備後の5照合と保護停止確認は必須。本人がそのDev版で業務受入れ後、dev上の手動受入れworkflowを実行する。記録runのhead・入力版・実Dev配備版を一致させ、owner／再実行actor・producer blob・30日以内の元PRとDev配備を確認する。Dev→main PRとmain統合後は、この元PR→Dev配備→本人受入れの連鎖を独立再検証する。mainへの改修branch直接PRは拒否する。受入れ欠落を包括試験で代替しない。PRの照合結果自体が不備ならmainは包括再実行するが、Dev受入れは省略できない。
 
-導入は基盤PRを先にmainへ統合してdevへ同期し、初回Dev配備後に本人受入れを記録する。問題時はDev enable=falseで次回配備を停止し、状態確認後に通常PRで本変更を戻す。業務仕様・schema・包括gate IDは不変。拒否系・分岐・全7gate・Dev実配備を検証し、実受入れが未了ならPR再利用の実運用実証を未了と報告する。
+両branchはPR必須・必須CI成功・最新base同期・管理者適用・force push/削除禁止とする。他者承認は従来どおり0人。development環境の許可branchはdevだけ。導入時は既存mainからdevを作成し、未統合PR17をdevへ向け直す。進行中試験は中断せず完了後に新方針へ切替。新方式の受入れ処理をmainへ先行直送する例外は設けない。
 
+包括gate ID・試験内容・業務schemaは不変。Hosting/evidence/受入れartifactは30日保持。受入れ時には元PRが30日以内である必要があり、記録し直すだけで古い試験の期限を延長しない。Prod固有build・対象／成果物・全5照合は維持する。バックアップ等は保留、Devの既存退避情報は保持して有効化しない。問題時は該当enable=falseで新規配備を停止し、状態確認後、同じPR経路でrevertする。データ巻戻しとは区別する。
 
-- Date: 2026-10-14
-- Status: Accepted
-- Approval: owner, task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`。「PR結果の再利用とDev受入れ記録との連携」の次段階を実行する指示。
+拒否系／分岐・成果物metadata・全7gate・実Dev push再利用／配備を検証し、本人受入れ前はDev→main実運用実証を未了と記録する。実証結果と工程別比較は[運用記録](../operations.md)。以下は前段階の採用経緯であり、本節が現行方針。
 
 ## Decision and rationale
 

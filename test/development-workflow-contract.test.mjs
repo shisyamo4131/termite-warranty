@@ -48,7 +48,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
     /must not bypass/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace("      - name: Run domain tests\n        if: ${{ needs.promotion.outputs.reuse != 'true' }}", '      - name: Run domain tests\n        if: false'), policy),
+    () => validateDevelopmentWorkflow(workflow.replace("      - name: Run domain tests\n        if: ${{ needs.source.outputs.reuse != 'true' }}", '      - name: Run domain tests\n        if: false'), policy),
     /domain-test must be unconditional and fail closed/,
   )
 })

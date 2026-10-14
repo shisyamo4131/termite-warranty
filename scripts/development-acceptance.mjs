@@ -2,10 +2,11 @@ import {readFile,writeFile,mkdir,appendFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {repository,ownerId,git,githubReader,completeList,validateVerification,assertRun,assertArtifact} from './lib/verification-evidence.mjs'
+import {validateDevelopmentDeployment} from './lib/development-verification.mjs'
 
 export const acceptanceWorkflow='.github/workflows/record-development-acceptance.yml'
 const trustedFiles=[acceptanceWorkflow,'scripts/development-acceptance.mjs','scripts/lib/verification-evidence.mjs',
-  'scripts/verification-evidence.mjs','scripts/development-deployment.mjs','.github/workflows/deploy-development.yml','governance/verification-policy.json']
+  'scripts/verification-evidence.mjs','scripts/lib/development-verification.mjs','scripts/development-deployment.mjs','.github/workflows/deploy-development.yml','governance/verification-policy.json']
 
 export async function recordDevelopmentAcceptance(read,input,{actorId,actor,runId,attempt,now=Date.now()}={}){
   if(Number(actorId)!==ownerId||input.confirm!=='true'||!/^\d+$/.test(input.deployment_run_id??'')||
@@ -15,7 +16,7 @@ export async function recordDevelopmentAcceptance(read,input,{actorId,actor,runI
   const head=await read('/git/commits/'+input.accepted_revision)
   const current=await read('/branches/dev')
   if(current.commit?.sha!==input.accepted_revision)throw Error('Dev advanced after the accepted deployment.')
-  const proof=await validateVerification(read,run,head.tree.sha,{event:'push',branch:'dev',revision:input.accepted_revision,deployment:true,maxAge:30*86400000})
+  const proof=await validateDevelopmentDeployment(read,run,head.tree.sha,input.accepted_revision)
   return {schema:1,kind:'development-acceptance',tree:head.tree.sha,revision:input.accepted_revision,deployment:proof,
     actor,actorId:Number(actorId),recordRunId:runId,attempt,acceptedAt:new Date(now).toISOString(),reference:input.acceptance_reference.trim()}
 }
@@ -26,7 +27,8 @@ export async function requireDevelopmentAcceptance(read,targetTree,revision,{blo
     for(const run of runs.sort((a,b)=>b.id-a.id)){
       if(run.conclusion!=='success')continue
       try{
-        assertRun(run,{event:'workflow_dispatch',branch:'main',revision:run.head_sha,path:acceptanceWorkflow,maxAge:30*86400000})
+        assertRun(run,{event:'workflow_dispatch',branch:'dev',revision:run.head_sha,path:acceptanceWorkflow,maxAge:30*86400000})
+        if(run.head_sha!==revision)throw Error('Acceptance must run on the accepted Dev revision.')
         if(run.actor?.id!==ownerId||run.triggering_actor?.id!==ownerId)throw Error('Foreign acceptance actor.')
         const artifacts=await completeList(read,`/actions/runs/${run.id}/artifacts`,'artifacts')
         const pattern=new RegExp(`^dev-acceptance-${targetTree}-(\\d+)-${run.run_attempt}$`)
@@ -46,7 +48,7 @@ export async function requireDevelopmentAcceptance(read,targetTree,revision,{blo
           }))throw Error('Acceptance job evidence missing.')
         const deploymentRunId=Number(pattern.exec(matched[0].name)[1]),deployment=await read('/actions/runs/'+deploymentRunId)
         // Revalidate deployment and full CI; a human record alone never substitutes for them.
-        const proof=await validateVerification(read,deployment,targetTree,{event:'push',branch:'dev',revision,deployment:true,maxAge:30*86400000})
+        const proof=await validateDevelopmentDeployment(read,deployment,targetTree,revision)
         return {recordRunId:run.id,artifactId:matched[0].id,actorId:ownerId,deployment:proof}
       }catch{continue}
     }
@@ -55,8 +57,9 @@ export async function requireDevelopmentAcceptance(read,targetTree,revision,{blo
 }
 
 async function main(){
-  if(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||process.env.GITHUB_REF!=='refs/heads/main')throw Error('Acceptance recording is main manual-only.')
+  if(process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||process.env.GITHUB_REF!=='refs/heads/dev')throw Error('Acceptance recording is Dev manual-only.')
   const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'))
+  if(event.inputs?.accepted_revision!==process.env.GITHUB_SHA||git('rev-parse','HEAD')!==process.env.GITHUB_SHA)throw Error('Acceptance must execute the exact accepted revision.')
   const receipt=await recordDevelopmentAcceptance(githubReader(process.env.GH_TOKEN),event.inputs,{actorId:process.env.GITHUB_ACTOR_ID,actor:process.env.GITHUB_ACTOR,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT})
   await mkdir('tmp',{recursive:true});await writeFile('tmp/development-acceptance.json',JSON.stringify(receipt,null,2))
   const name=`dev-acceptance-${receipt.tree}-${receipt.deployment.runId}-${process.env.GITHUB_RUN_ATTEMPT}`
