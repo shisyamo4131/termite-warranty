@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises'
+import {mkdtemp,rm,readFile,writeFile,mkdir} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {parse,stringify} from 'yaml'
@@ -13,8 +13,25 @@ import {productionReadAllowed,inspectProductionRelease} from '../scripts/lib/pro
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {proofDiagnostic} from '../scripts/lib/default-recovery-diagnostics.mjs'
 import {productionInspectionPlan} from '../scripts/lib/production-inspection-plan.mjs'
+import {prepareProductionRelease} from '../scripts/prepare-production-release.mjs'
+import {assertFunctionsDomainSynchronized} from '../scripts/functions-domain.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',site:'fictional-site',appId:'1:123456:web:aaaa',control:'recovery-control',serviceAccount:'deploy@fictional-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/123456/locations/global/workloadIdentityPools/fictional/providers/github',repositoryId:'123',ownerId:'456'}
 const revision='a'.repeat(40),parameters={RECOVERY_BACKUP_AUTOMATION:'false',RECOVERY_AUTH_BACKUP_BUCKET:'',RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE:'',RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE:''}
+
+test('production build prepares absent or stale Functions sources without npm test side effects',async t=>{
+  for(const stale of [false,true]){
+    const root=await mkdtemp(join(tmpdir(),'fictional-production-source-'))
+    t.after(()=>rm(root,{recursive:true,force:true}))
+    const sourceDirectory=join(root,'src/domain'),outputDirectory=join(root,'functions/domain')
+    await mkdir(sourceDirectory,{recursive:true});await writeFile(join(sourceDirectory,'fixture.mjs'),'export const value=2')
+    if(stale){await mkdir(outputDirectory,{recursive:true});await writeFile(join(outputDirectory,'fixture.mjs'),'export const value=1')}
+    const boundary=Error('test reached clean build boundary');let reached=false
+    await assert.rejects(prepareProductionRelease({root,target,revision,parameters,build:async()=>{
+      await assertFunctionsDomainSynchronized({sourceDirectory,outputDirectory});reached=true;throw boundary
+    }}),error=>error===boundary)
+    assert.equal(reached,true)
+  }
+})
 
 test('published inspection requires main manual execution, disabled deployment and an immutable same-target receipt',()=>{
  const receipt={project:target.project,site:target.site,revision,runId:'123',artifactId:'456',digest:'b'.repeat(64),providerVersion:`sites/${target.site}/versions/prior`}
