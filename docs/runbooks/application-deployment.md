@@ -36,6 +36,8 @@ Devの既存配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gs
 
 ## 3. 改修branch→dev PR
 
+並行化の追加改修はdraft・未統合。採用後の包括検証ではアプリ側6gateとRules3群を並行実行する。最後の必須check `Verify development deployment` が全producer成功・Rules全件／終了・同SHA/tree/run/attempt・Hosting artifact ID／metadataを照合して包括証跡を発行する。アプリjobやHosting upload単独の成功は統合条件ではない。失敗／取消／一部jobだけの再実行では証跡が揃わないため、原因修正後にworkflow全体を再実行する。Hosting再buildは行わない。文書専用／再利用時は両producerの正常skipを集約checkが確認する。
+
 ### 文書だけの変更（2026-10-14採用）
 
 配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。
@@ -99,7 +101,7 @@ Prod固有の成果物生成・全体bundleのdigestと対象確認・認証前g
 
 ## 7. 失敗・復旧・リリース前
 
-2026-10-14 Local改善（未統合・実環境未検証）：共通のFunctions配備照合は関数単位で最大4件ずつ読取り、source／service／revisionの全検査と終端の一覧再照合を維持する。同一archiveは進行中の検査も共有する。失敗時は開始済みbatchを終えて停止し、後続batchを開始しない。Hostingの待機上限や全5照合の成功条件は変更しない。[状態・模擬測定・承認境界](../operations.md#2026-10-14-functions配備照合の限定並列化未統合)を参照。
+2026-10-14 PR23でDevへ統合・配備・実測済み（Prod未反映）：共通のFunctions配備照合は関数単位で最大4件ずつ読取り、source／service／revisionの全検査と終端の一覧再照合を維持する。同一archiveは進行中の検査も共有する。失敗時は開始済みbatchを終えて停止し、後続batchを開始しない。Hostingの待機上限や全5照合の成功条件は変更しない。[Dev実測・承認境界](../operations.md#2026-10-14-pr23のdev実証pr24の統合準備)を参照。
 
 失敗／結果不明時は該当環境のenableをfalseにして次の自動配備を止める。これは実行中jobの停止やCloud巻戻しではない。既存run・成果物・部分反映を読取り確認してから修正する。同じ結果不明の配備を盲目的に再送しない。Git revertはDB復元ではない。
 

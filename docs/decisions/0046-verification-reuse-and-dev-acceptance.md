@@ -1,5 +1,13 @@
 # 0046 同一内容のPR検証再利用とDev受入れ記録
 
+## 2026-10-14 追補：包括PRのアプリ検証とRulesを並行実行
+
+本人の追加指示により、包括検証のアプリ側6gateとRules3群を別VMで同時実行する。必須check名 `Verify development deployment` は成功集約として維持する。アプリjobが作ったHostingを一度だけ保存し、集約jobが同一checkout SHA/tree/run/attempt、6gateの実step成功、一意なHosting artifact IDとGitHub metadataを照合する。Rulesは既存の同SHA/run/attemptの全試験・終了証跡を集約する。両方成功した場合だけ包括証跡を発行する。片側の成功や残存Hosting単独を配備／再利用の許可にしない。
+
+理由は、Rules完了後のアプリ検証待ちを短縮するため。新しい試験形式・API polling・再build・Cloud権限は追加しない。文書専用／証跡再利用時は両producerの正常skipを要求し、失敗・取消・異常skipは停止する。元PR→Dev→本人受入れ→mainの照合先は実際のgate所有jobへ更新する。旧方式の証跡を新版の証跡として受け入れず、既存のtree／trusted blob制約を維持する。draft検証後の追加承認はPR23／24のDev統合・自動配備・実測まで。新版の本人業務受入れ、main統合／Prod配備の承認を含まない。
+
+検証は包括7gate、文書分岐・並行producer・証跡／成果物の拒否系と独立レビュー、実PRの工程別比較。Dev実測は追加承認の下で行い、結果は運用記録へ残す。Prodは未承認。巻戻しは当変更一式を通常PRでrevertし、直列検証へ戻す。業務仕様・DB・既存保護設定の移行はない。
+
 ## 2026-10-14 追補：無影響の文書修正だけは配備しない
 
 本人の明示指示により、成果物・実行設定に影響しない文書だけの変更には文書検証経路を追加する。許可した既存Markdown8件の通常ファイル修正に限定し、PRの実base→仮統合結果、merge pushのbefore→afterをそれぞれ照合する。混在・不明・新規／削除／改名・特殊ファイルは通常経路を維持する。両段階PRと文書governance／差分検査は必須。Cloud認証・build・配備・新たな本人業務受入れ記録は不要で、包括検証を実行した証跡も発行しない。

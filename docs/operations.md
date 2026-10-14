@@ -1,5 +1,23 @@
 # Operations
 
+## 2026-10-14 PR23のDev実証・PR24の統合準備
+
+オーナーがPR23／24のDev統合・自動配備・実測を追加承認。main統合／Prod配備、権限／認証情報変更、バックアップ／PITR／Auth退避の新設は対象外。以下のdraft・未承認表記は導入前の記録であり、この節を現在地とする。Dev保護はstrict・管理者適用・必須checkあり、development環境はdevのみ、進行中／待機中Actionsなしを確認して通常mergeした。バイパス・保護変更なし。
+
+[PR23](https://github.com/shisyamo4131/termite-warranty/pull/23) head cd644bfをDev `369025704a17180d7a15ebe4c3601c0989576175` へ統合。[Dev run38544338346 attempt1](https://github.com/shisyamo4131/termite-warranty/actions/runs/38544338346)はsuccess、watchのexit 0。元PRの包括7gate／Hosting成果物を再利用。準備・Firebase配備・配備後照合stepは各成功／exit 0、認証後処理まで成功。全5照合pass、Functions21・sourceArchives21・Hosting1005（2回目観測）、PITR=false・dailySchedules=0・backupAutomation=falseを確認。Functions21件はソース変更なしで再配備skipだが、ソース／構成／revisionの照合は実行した。
+
+同じcreatedAt→updatedAtで、直前実Dev run38527195023（07:15:53Z→07:20:09Z）は4分16秒、今回（09:42:37Z→09:47:11Z）は4分34秒。分類40→42秒、元証跡照合29→55秒、verify35→43秒、配備job2分21秒→1分59秒。配備後照合は95→73秒（22秒短縮）だが、これはFunctionsだけの計測ではなくHosting等を含む。実Firebase配備17→18秒。前段のVM／API待機変動を含み、全体は18秒増。模擬試験の約65%短縮をCloud全体へ流用しない。
+
+PR24は最新devを取り込み、文書競合では両PRの記録を保持。両変更を含む最終PR CI・Dev配備を再確認する。機能コード・Rules・schema・依存の変更はなく、既存の同一tree・全gate・全照合条件を維持。新版の本人業務受入れとmain／Prodは未実施・別判断。最終実測は後続の当記録とPRへ保存する。
+
+## 2026-10-14 PRのアプリ検証とRulesの並行化（draft・未統合）
+
+PR #23と独立した改修branchで、アプリ側6gateとRules3群を並行化。必須check `Verify development deployment` は両producerの成功、同一checkout SHA/tree/run/attempt、Rules全件とEmulator終了、一意なHosting成果物ID／metadataを照合する。文書専用と再利用の正常skipは区別し、失敗／取消／異常skipを拒否する。全gate成功前に残ったHosting成果物だけでは配備・再利用できない。[設計](design/tr-003-verification-deploy-gates.md)、[手順](runbooks/application-deployment.md)、[ADR0046](decisions/0046-verification-reuse-and-dev-acceptance.md)。
+
+比較基準はPR23 run38535518949 attempt1（head cd644bf2917052eaa4338206b91095aa1e6c9235）。GitHub API再取得でsuccessを確認。created 08:29:54Z→updated 08:38:25Zで8分31秒、分類42秒、最長Rules4分49秒、直列verify2分52秒。並行化後の実測結果は該当draft PRのCI／比較報告を参照する。約2分の短縮は事前見込みであり、Dev／Prodの既存再利用時間へ加算しない。試験対象版・VM待機差を含む比較として報告する。
+
+変更分類は検証動作／build-release-deploy／文書。包括7gateと文書分岐focused回帰を選択。業務仕様・schema・data contract・依存・IAM・governance policy・納品進捗は不変。既存文書への追補だけで新規indexは不要。ローカル検証・独立レビュー・draft PR CIと比較結果は該当PRへ保存する。実Dev／Prod統合・配備、新版の本人受入れは未承認・未実施。旧証跡／旧受入れを新版へ流用せず、問題時は通常PRで当変更をrevertする。
+
 ## 2026-10-14 Functions配備照合の限定並列化（未統合）
 
 接続確認後の追加依頼により、配備／検証時間と残作業を再調査。開始HEADは `7f7e54b24e4fb328a9fa0ab0bedce37090947276`、treeは `e74d3489ca62c1d397a7bda565f0e2a272433a4a`、主checkoutの未コミット変更なし。元タスクの非公開セッションは調査せず、本記録・配備手順・実Actionsを使用。作業branchは `codex/deployment-proof-read-concurrency`。新規PRはdraft、dev／main統合・auto-merge・実配備は親への影響報告と承認後とする。
