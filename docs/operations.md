@@ -1,6 +1,20 @@
 # Operations
 
-## 2026-10-14 記録文書の統合と文書専用配備省略（導入中）
+## 2026-10-14 文書専用経路の通常導入・本人受入れ・Prod反映
+
+[PR19](https://github.com/shisyamo4131/termite-warranty/pull/19)の包括run38526269102は全7gate成功（単体568成功・Rules/Callable201成功・失敗／skipなし）。混在変更を文書扱いせず、dev `d834f20b2e4a6716b45595a7902cf23464ce809d` のrun38527195023で元PRの検証・Hosting成果物を再利用し、Dev配備・全5照合・保護保留確認が成功した。
+
+本人は2026-10-14、task `01a133e7-092f-71f0-b5e7-43a8b7833ab9` でこのDev版の「受入れ完了とします」と明示。実dev／成功配備／PR20 headの一致を読戻し、[受入れrun38528801514](https://github.com/shisyamo4131/termite-warranty/actions/runs/38528801514)をdevで実行。記録・artifact保存・後処理すべて成功。旧版の受入れは流用していない。[PR20](https://github.com/shisyamo4131/termite-warranty/pull/20)のrun38527746348 attempt2も元PR→Dev→本人記録の照合でsuccessとなり、head固定の通常mergeはexit 0。main `145245cf4e1ee8abcaa4ef3921dad43319964b47` と受入れDevのtree `e1582b0a5270d8b66eb3b6eb0db630eaa803c7f6` は一致した。
+
+実main pushの[Prod run38529464496](https://github.com/shisyamo4131/termite-warranty/actions/runs/38529464496)はsuccess。元の包括7gateを再利用し、Prod固有の成果物準備・bundle検査・対象／認証確認・配備・再認証・公開後5照合・後処理は各step成功／exit 0。Functions21・sourceArchives21、Hosting1005件は2回目観測で一致。文書専用jobはskipされ、CI導入自身を省略対象にしないことを実証した。
+
+独立した `node tmp/check-final-production-state.mjs` はexit 0：Prod公開版 `sites/termite-warranty-prod/versions/88903ed3b3a48ef2`（releaseTime 2026-10-14T07:41:32.949Z）、21 Functions ACTIVE、automation=false・他3保護入力空、PITR無効・日次予定0。Dev管理API GETもexit 0で公開版 `sites/termite-warranty-dev/versions/335f6810d4f92d52`（releaseTime 2026-10-14T07:18:31.114Z）、PITR無効・日次予定0。最初のDev読取りassertはPowerShellでnullを1件と数えてexit 1となったが、空値を除外した再確認で0件を確認。Cloud設定の不具合や変更ではない。
+
+今回の実測は包括PR8分09秒、dev push4分12秒、受入れ記録job1分37秒、main push6分15秒（分類37秒・再利用照合45秒・成果物検証1分49秒・配備job2分56秒とjob間待機）。前回main5分41秒から34秒増であり、通常アプリ変更の配備時間短縮とはしない。文書専用判定には分類jobの時間が加わる。本人の業務受入れ時間や操作間待機は含まない。
+
+この結果追記は許可された既存文書だけに限定し、改修→dev／dev→mainのPRで文書検証後に統合する。実証条件は4段階のscope=true・文書検証成功・Cloud配備job skip・上記両公開版／releaseTime不変。結果と工程別時間は当該PR／Actionsへ保存し、そのrun IDを追記するためだけの追加文書commitは作らない。業務仕様・schema・ADR判断・ガバナンス設定・日程／PDFは今回の結果追記では不変。バックアップ・PITR・Auth退避等はリリース直前まで保留する。
+
+## 2026-10-14 記録文書の統合と文書専用配備省略（導入時の記録）
 
 本人が記録文書の両段階PR統合を指示し、PR19をdev宛てに作成。その後、成果物・実行設定に影響しない文書だけは検証後統合してDev／Prod配備を省略、混在／不明は省略しない方針を明示採用した。既存run38525106697は取消せずsuccess終了を確認。分類はCI／検証動作／文書、包括7gateとdocumentation-routing／governance-toolsのfocused回帰を選択。許可8文書・差分の同一性／ファイル種別・両環境の分岐／失敗拒否を実装し、手順・ADR・設計・変更履歴へ反映。アプリ・DB schema・Cloud IAM・保護設定・日程の変更はない。
 

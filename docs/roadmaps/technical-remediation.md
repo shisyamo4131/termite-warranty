@@ -1,5 +1,9 @@
 # Technical Remediation Backlog
 
+## 2026-10-14 文書専用変更の配備省略
+
+PR19／20で限定8文書の変更判定・文書検証・両環境配備省略をdev／mainへ統合。導入自身はCI変更を含むため通常経路を通し、包括568単体／201連携成功、Dev d834f20配備・本人受入れ記録38528801514、main145245cのProd run38529464496・全5照合成功。[手順](../runbooks/application-deployment.md#文書だけの変更2026-10-14採用)と[実行記録](../operations.md)に記載。結果追記の文書専用PR／pushで文書検証・配備skip・公開版不変を確認し、その最終証拠と工程別比較は該当PR／Actionsへ保存する。混在／不明は通常経路を維持。保護保留・業務仕様・納品条件は不変。
+
 ## 2026-10-14 改修→dev→mainの両段階PR・検証連鎖（実証完了）
 
 本人の後続指示により両段階PRを採用し、共通包括検証は改修→dev PRに集約。同一treeの成功結果をdev push・Dev→main PR・main pushへ引き継ぐ。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)の拡張と[配備手順](../runbooks/application-deployment.md)に従う。完了条件は拒否系／分岐試験、包括7gate、Dev push実配備・5照合・保護停止、本人受入れ後のPR再利用実証、従前との工程別比較。本人受入れを自動試験で代替しない。実測は[運用記録](../operations.md)。保護保留・納品条件は維持。
