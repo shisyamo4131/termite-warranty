@@ -1,6 +1,35 @@
 # Operations
 
-## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（Dev実証済み・本人受入れ待ち）
+## 2026-10-14 本人Dev受入れ・PR18統合・Prod実配備（両段階PRの実証完了）
+
+本人はtask `01a133e7-092f-71f0-b5e7-43a8b7833ab9` で「Dev cbec3c3の業務受入れ完了」と明示。現dev・成功配備run38519554310 attempt4・PR18 headが `cbec3c3845ee251023df4d213dbdef52decc0135` に一致し、進行中配備がないことを読取り後、[受入れrun38523528230](https://github.com/shisyamo4131/termite-warranty/actions/runs/38523528230)をdevで実行した。job115718481731の記録コマンド・artifact保存・後処理は成功／exit 0。owner actor72244713、受入れartifact11874428439を確認した。本人の受入れを代行したものではない。
+
+[PR18](https://github.com/shisyamo4131/termite-warranty/pull/18)をreadyにし、[run38522081043 attempt2](https://github.com/shisyamo4131/termite-warranty/actions/runs/38522081043/attempts/2)を再実行。resolver115718862835／verify115719105254が成功。元PR17 run38518228192 attempt1→Dev run38519554310 attempt4→本人受入れrun38523528230の連鎖を実APIで検証し、包括7コマンド・Rules群は再実行せず成功証拠を再利用。PR上のDev再配備もskipした。先行attempt1の未受入れ拒否と、記録後の正常通過を同じDev版で実証した。
+
+main保護（必須check・strict・管理者適用）とProd enable=true／保護false・他3値空を読み直し、PR18をhead固定で通常merge／exit 0。mainは `c5ea07046a27d16a7e8bf42edc0df02a0b8a3c5c`。GitHub Git APIでmainと受入れDevのtree `5457743a481ce4d64e0063e38b46925ea9ead8e7` が一致することを確認した。SHAが違っても内容は同じ。
+
+実main pushの[Prod run38523851537](https://github.com/shisyamo4131/termite-warranty/actions/runs/38523851537)は全体success。reuse job115719491459がPR18最新attempt2／artifact11875077101と上記連鎖を再検証し、`reuse=true, source=accepted-dev`。verify115719761445は包括7コマンドをskipし、Prod固有の `prepare-production-release.mjs` と最終bundle検査をそれぞれexit 0で実行。Rules VMはskip。deploy115720322848は対象guard・bundle再検査・stage・WIF・predeploy・Firebase配備・再認証・cloud照合・後処理がすべて成功／exit 0。全5項目pass、Functions21／sourceArchives21、Hosting1005ファイルは2回目の観測で件数も一致。main pushに伴うDev／保守公開の重複jobは実行しなかった。
+
+独立した `node tmp/check-final-production-state.mjs` もexit 0：公開版 `sites/termite-warranty-prod/versions/8ff1a266bc55ff54`、21 Functions ACTIVE、automation=false／他3保護入力空、PITR無効、日次予定0。Devの管理API GET＋assertもexit 0でPITR無効・日次予定0・Scheduler PAUSEDを確認。今回IAM変更・保護設定の有効化・業務／Authデータ操作は行っていない。
+
+| 工程 | 従前の実測／設計 | 今回の実測 | 判定 |
+| --- | --- | --- | --- |
+| 改修→dev PRの包括検証 | 直前PR16：8分13秒 | PR17：7分50秒 | 7gate維持。23秒差を再利用効果としない |
+| dev統合後の検証・成果物準備 | run38517384486：7分17秒 | 1分17秒 | 6分／82.4%短縮 |
+| Dev配備job／dev全体 | 旧自動配備の比較実測なし | 2分47秒／4分18秒 | 実配備・全5照合・保護保留確認を維持 |
+| 本人受入れの記録job | 実記録なし | 35秒 | 06:39:53Z→06:40:28Z。本人の業務確認時間は除外 |
+| dev→main PR | 共通包括検証を繰り返す設計。旧経路の同条件実測なし | 1分17秒 | 06:41:07Z→06:42:24Z。元PR・Dev・本人記録の照合のみ |
+| mainの配備前準備 | 直前run38514373769：1分57秒 | 2分35秒 | 38秒増。証拠連鎖確認50秒、verify103秒、間2秒 |
+| Prod配備job | 3分35秒 | 3分03秒 | 32秒短縮。Firebase配備18秒・cloud照合78秒を含む |
+| main全体 | 5分36秒 | 5分41秒 | 5秒増。06:43:09Z→06:48:50Z。今回main側の短縮とはしない |
+
+全工程の実行時間を足すと7分50秒＋4分18秒＋35秒＋1分17秒＋5分41秒＝19分41秒。人の受入れ・操作・run間の待機を除く合計であり、要求から完了までの実経過時間ではない。直前の「PR＋main＝13分49秒」はDev配備・本人記録・昇格PRを含まないため、その合計との単純比較は不適切。重複削減は包括検証を元PR1回に集約できた事実と工程別実測で評価する。元試験561件・連携201件は削減していない。過去の全再実行main11分40秒に比べ、今回は5分59秒短いが、同一環境・同一版の対照実験ではない。VM準備等の変動を含み、次回の所要時間を保証しない。
+
+配備経路の実装・Dev自動配備・本人記録連携・mainからのProd実証は完了。バックアップ等はリリース直前まで保留。初期化・管理者・正式投入・HS受入れ等の納品条件は別途維持し、今回の開発側Dev受入れをHS最終受入れと扱わない。業務仕様・schema・データ契約・ADRの判断・日程／PDFは変更なし。結果は既存の運用・手順・環境・技術ロードマップ・変更履歴・文書索引・設計の状態参照へ反映する。
+
+文書変更だけを同じ主repositoryの結果保存branchへcommit/pushする。受入れ済みtreeを動かさないため、文書の追加分はdev/mainへ未統合のまま保存し、後続の改修→dev PRに含める。新しいrepository／worktreeは作成しない。文書変更の選択gate `./scripts/check-governance.ps1` と差分検査 `git diff --check` は個別実行で両方exit 0。配備版の包括7gateは上記連鎖で再利用し、文書結果追記を理由に業務試験・配備をもう一度実行しない。
+
+## 2026-10-14 両段階PR・包括検証連鎖・Dev自動配備（以下はDev実証・本人受入れ前の記録）
 
 本人の後続指示で改修→dev／dev→mainともPRを使う方針へ切替。分類は検証動作／build-release-deploy／文書。包括7gateとpolicy-focused回帰を選択。共通包括検証は改修→dev PRで実行し、同一treeならdev統合後・Dev→main PR・main統合後で再利用する。Dev成果物を元PRから引継ぎ、Dev実配備照合と本人受入れ、Prod固有確認は維持。mainも元PRからの証拠連鎖を再確認。業務仕様・schema・データ契約・納品日程は変更しない。バックアップ等は保留。
 
