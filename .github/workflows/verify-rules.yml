@@ -1,0 +1,30 @@
+name: Isolated Rules verification
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  shard:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [shard-property-warranty, shard-default-recovery, shard-historical-intake]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npx --yes npm@11.19.1 ci
+      - run: node scripts/test-rules.mjs --shard ${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rules-${{ github.sha }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: tmp/rules-receipts/${{ matrix.shard }}.json
+          if-no-files-found: error
+          retention-days: 1

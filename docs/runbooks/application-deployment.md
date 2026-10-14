@@ -30,7 +30,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 ```
 
 1. originが `https://github.com/shisyamo4131/termite-warranty.git`、作業差分が今回レビュー対象だけであることを確認する。未確認の変更をstageしない。
-2. GitHub Actionsで進行中／待機中の通常・保守公開・読取り照合を確認する。Prodは `production-bootstrap` 排他groupを共有し、自動取消ししない。待機を失敗と扱って再実行しない。公開無効の保守workflowでも検証が走るため、通常配備が順番待ちになることがある。
+2. GitHub Actionsで進行中／待機中の通常・保守公開・読取り照合を確認する。Prodは `production-bootstrap` 排他groupを共有し、自動取消ししない。待機を失敗と扱って再実行しない。保守workflowの検証は公開enableと承認SHAが一致する場合だけ実行する。
 3. 下表と実変数、[target.json](../../deliverables/production-bootstrap-2026-10-13/target.json)の9項目を照合する。権限・請求・API・対象が変わった場合は通常手順を止め、構築記録と実資源で確認する。secret本文を表示・保存しない。
 
 | GitHub変数 | 通常運用の期待値 |
@@ -52,7 +52,7 @@ gh variable list --repo shisyamo4131/termite-warranty
 2. 必須CI `Verify development deployment` の成功と最新mainとの同期を確認する。名前にdevelopmentが含まれていてもPRでは検証のみで、Dev配備成功の意味ではない。
 3. 保護条件を満たすPRを通常mergeする。このmergeによる**main push**が通常Prod workflowを起動する。承認されたPRのheadを固定してmergeし、merge後のmain SHAを取得する。
 4. Actionsの `Verify and deploy Firebase production application` で、event=`push`・branch=`main`・head SHA=merge後SHAを照合する。新規実行のattempt 1を追跡し、過去runの再実行を「今回のmain push成功」に代用しない。
-5. verify jobの7項目、bundle作成・local照合・artifact保存の成功を確認する。bundleのrevision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。秘密値や認証ファイルを証跡へ含めない。
+5. rulesの3 jobがそれぞれ独立VM上で成功し、verify jobの7項目、bundle作成・local照合・artifact保存が成功したことを確認する。CIの `npm run test:rules` は同一SHA・run・attemptの全3結果を集約し、全件成功とEmulator終了を検査する。欠落・別attempt・失敗があれば配備しない。再実行はconsumerだけでなくworkflow全体を対象とする。bundleのrevision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。秘密値や認証ファイルを証跡へ含めない。
 6. deploy jobで認証前guard、同じbundleのlocal照合・stage、WIF認証、predeploy読取り、Firebase配備、再認証、Cloud照合、認証後処理が成功するまで待つ。Firebase配備stepだけで完了にしない。
 
 | 必須検証command | 合格条件 |
@@ -110,3 +110,7 @@ Devの自動配備を開始するときは、受入済みSHA・既存業務デ�
 日次30日保持・PITR・私有Auth退避先・必要権限・hash設定の保全・失敗通知・復元互換性を、HS試行後の確定スキーマで環境ごとに再確認する。Devの古い証拠文字列をProdや新版スキーマの成功証拠へコピーしない。
 
 再開時は対象・費用・保全対象・初回取得と通知の検証方法・失敗時停止を具体化し、設定／読戻し、初回取得成功、通知到達、復元互換性の順に確認する。それまでautomation=falseを維持する。保留を保護完了として加点せず、正式提供前の必須確認は省略しない。日程判断は[ロードマップ](../roadmaps/production-readiness.md)を参照する。
+
+## 8. 本手順の実行実績
+
+2026-10-14、PR #13の通常mergeによるmain `7ec1e450d5db7d38d059497d6ca57dc9e967d3e8` のpushで、[run 38501319971](https://github.com/shisyamo4131/termite-warranty/actions/runs/38501319971) attempt 1が成功。包括7検証・配備・公開直後5項目照合・独立保護読戻しを完了。実績の件数・digest・公開版・残件は[運用記録](../operations.md#手順書に沿った再実証結果)を参照する。Devの自動配備を実証した記録ではない。将来の実行ではこの過去SHAを指定せず、第2節から対象を読み直す。

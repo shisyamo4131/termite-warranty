@@ -8,6 +8,12 @@ import {rulesWorkers,assertRulesInventory,validateRulesInventory,rulesEventResul
 import {runRulesWorkers,readRulesSummary} from '../scripts/test-rules.mjs'
 import {runNode} from '../scripts/lib/test-emulators.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from './helpers/isolated-import.mjs'
+import {rulesShards} from '../scripts/lib/rules-test-plan.mjs'
+import {validateRulesReceipts} from '../scripts/lib/rules-test-receipts.mjs'
+import {validateRulesProducer,validateRulesHandoff,developmentVerifyCondition} from '../scripts/lib/rules-test-workflow.mjs'
+import {readFile} from 'node:fs/promises'
+import {parse} from 'yaml'
+import {spawnSync} from 'node:child_process'
 
 const root=fileURLToPath(new URL('..',import.meta.url)),worker=rulesWorkers[1],nonce='unit-run'
 const passed=worker=>({byFile:Object.fromEntries(worker.files.map(file=>[file,{passed:1,failed:0,skipped:0}])),unexpected:0})
@@ -19,6 +25,44 @@ test('every rules/emulator file belongs to exactly one reviewed worker',async()=
   assert.doesNotThrow(()=>assertRulesInventory(files))
   for(const changed of [files.slice(1),[...files,'test/emulator/unregistered.test.mjs'],[...files.slice(1),files[1]]])assert.throws(()=>assertRulesInventory(changed))
   assert.throws(()=>assertRulesInventory(files,[...rulesWorkers,rulesWorkers[0]]))
+  assertRulesInventory(files,rulesShards)
+})
+
+test('shard receipts fail closed on wrong run, missing tests, failure and incomplete cleanup',()=>{
+  const env={GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1'}
+  const rows=rulesShards.map((worker,index)=>({id:worker.id,revision:env.GITHUB_SHA,runId:'123',attempt:'1',runner:'vm-'+index,
+    nonce:'00000000-0000-0000-0000-00000000000'+index,exitCode:0,emulatorsStopped:true,elapsedMs:100,passed:worker.files.length,
+    workers:[{worker:worker.id,exitCode:0,...passed(worker),cases:worker.files.map(file=>JSON.stringify([file,1,1,'leaf']))}]}))
+  assert.equal(validateRulesReceipts(rows,env).passed,rulesWorkers.flatMap(row=>row.files).length)
+  for(const mutate of [copy=>copy.pop(),copy=>copy.push(copy[0]),copy=>copy[0].runId='999',copy=>copy[0].attempt='2',
+    copy=>copy[0].revision='b'.repeat(40),copy=>copy[0].exitCode=1,copy=>copy[0].emulatorsStopped=false,
+    copy=>copy[1].nonce=copy[0].nonce,copy=>copy[0].workers[0].cases.pop(),copy=>copy[0].workers[0].exitCode=1,
+    copy=>copy[0].workers[0].byFile[rulesShards[0].files[0]].skipped=1,
+    copy=>copy[0].workers[0].byFile[rulesShards[0].files[0]].failed=1]){
+    const copy=structuredClone(rows);mutate(copy);assert.throws(()=>validateRulesReceipts(copy,env))
+  }
+})
+
+test('CI shards preserve isolation, fail-fast off and required artifact dependencies',async()=>{
+  const producer=await readFile(new URL('../.github/workflows/verify-rules.yml',import.meta.url),'utf8')
+  assert.equal(validateRulesProducer(producer),true)
+  for(const [from,to] of [['fail-fast: false','fail-fast: true'],['windows-latest','ubuntu-latest'],['shard-default-recovery, ',''],
+    ['if-no-files-found: error','if-no-files-found: warn'],['node scripts/test-rules.mjs --shard','echo ignored --shard']]){
+    assert.notEqual(producer.replace(from,to),producer);assert.throws(()=>validateRulesProducer(producer.replace(from,to)))
+  }
+  const workflow=parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8'))
+  validateRulesHandoff(workflow,developmentVerifyCondition)
+  for(const result of ['success','failure','cancelled','skipped']){
+    const command=workflow.jobs.verify.steps[0].run.replace('${{ needs.rules.result }}',result)
+    const processResult=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
+    assert.ifError(processResult.error)
+    assert.equal(processResult.status===0,result==='success','Required PR check: '+result)
+  }
+  for(const mutate of [copy=>delete copy.jobs.verify.needs,copy=>copy.jobs.verify.steps.shift(),copy=>copy.jobs.verify.if=developmentVerifyCondition,copy=>copy.jobs.rules.if='false',copy=>copy.jobs.rules.secrets='inherit',
+    copy=>copy.jobs.verify.steps.find(row=>row.run==='npm run test:rules').env={},
+    copy=>copy.jobs.verify.steps.find(row=>row.uses==='actions/download-artifact@v8').with.pattern='foreign-*']){
+    const copy=structuredClone(workflow);mutate(copy);assert.throws(()=>validateRulesHandoff(copy,developmentVerifyCondition))
+  }
 })
 
 test('isolated imports reject default/foreign DBs and every Auth access',()=>{

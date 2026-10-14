@@ -5,6 +5,7 @@ import {join} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {TEST_RUNTIME as LOCAL_RUNTIME,testRuntimeHost as localRuntimeHost,isIsolatedTestEnvironment} from '../../functions/test-emulator-profile.js'
 import {prepareTestStage,populateTestStage,cleanupTestStage} from './test-emulator-stage.mjs'
+import {rulesShards} from './rules-test-plan.mjs'
 
 export const DEMO_PROJECT=LOCAL_RUNTIME.projectId
 export const emulatorPorts=[LOCAL_RUNTIME.authPort,LOCAL_RUNTIME.firestorePort,LOCAL_RUNTIME.functionsPort,
@@ -51,7 +52,7 @@ export async function runNode(args,{root,env,echo=true}={}) {
 }
 
 export async function runEmulatorCommand(script,{root=fileURLToPath(new URL('../..',import.meta.url)),env=process.env,run=runNode,checkPorts=assertEmulatorPortsFree,prepare=populateTestStage}={}) {
-  if(!['node scripts/test-rules.mjs --child','node scripts/test-rules.mjs --child --serial','node scripts/test-rules-focused.mjs --child excel-dates'].includes(script))throw Error('Unreviewed emulator command.');assertFocusedEnvironment(env)
+  if(!['node scripts/test-rules.mjs --child','node scripts/test-rules.mjs --child --serial','node scripts/test-rules.mjs --child --failure-probe','node scripts/test-rules-focused.mjs --child excel-dates',...rulesShards.map(row=>'node scripts/test-rules.mjs --child --shard '+row.id)].includes(script))throw Error('Unreviewed emulator command.');assertFocusedEnvironment(env)
   await checkPorts()
   const nonce=randomUUID(),owned=await prepareTestStage(root,nonce)
   const childEnv={...env,GCLOUD_PROJECT:DEMO_PROJECT,GOOGLE_CLOUD_PROJECT:DEMO_PROJECT,FOCUSED_TEST_NONCE:nonce,

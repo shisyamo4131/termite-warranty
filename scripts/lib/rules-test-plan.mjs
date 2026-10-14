@@ -20,6 +20,14 @@ export const rulesWorkers = Object.freeze([
   Object.freeze({id:'isolated-import',files:Object.freeze(['test/emulator/isolated-property-import.test.mjs'])}),
 ])
 
+// Each shard requires its own VM and emulator. Never run these concurrently locally.
+const heavy = ['property-warranty','default-recovery','historical-intake']
+const allFiles = rulesWorkers.flatMap(worker=>worker.files)
+export const rulesShards = heavy.map((name,index)=>({id:'shard-'+name,files:allFiles.filter(file=>
+  file===`test/emulator/${name}.test.mjs` || (!heavy.some(value=>file===`test/emulator/${value}.test.mjs`) &&
+    allFiles.filter(value=>!heavy.some(item=>value===`test/emulator/${item}.test.mjs`)).indexOf(file)%3===index))}))
+assertRulesInventory(allFiles,rulesShards)
+
 export function assertRulesInventory(inventory, workers=rulesWorkers) {
   const files=workers.flatMap(worker=>worker.files)
   if(new Set(workers.map(worker=>worker.id)).size!==workers.length || new Set(files).size!==files.length || new Set(inventory).size!==inventory.length ||
@@ -31,7 +39,7 @@ export async function validateRulesInventory(root) {
   assertRulesInventory([...top,...files])
 }
 export function rulesWorker(id) {
-  const worker=rulesWorkers.find(worker=>worker.id===id)
+  const worker=[...rulesWorkers,...rulesShards].find(worker=>worker.id===id)
   if(!worker)throw Error('Unknown rules worker.')
   return worker
 }
@@ -39,6 +47,7 @@ export function rulesEventResult(events,worker,root) {
   const byFile=Object.fromEntries(worker.files.map(file=>[file,{passed:0,failed:0,skipped:0}]))
   const paths=new Map(worker.files.map(file=>[resolve(root,file).toLowerCase(),file]))
   let unexpected=0
+  const cases=[]
   for(const {type,data} of events) {
     if(!['test:pass','test:fail'].includes(type))continue
     const file=typeof data.file==='string'&&paths.get(resolve(data.file).toLowerCase())
@@ -46,9 +55,12 @@ export function rulesEventResult(events,worker,root) {
     if(type==='test:pass' && typeof data.name==='string' && resolve(root,data.name).toLowerCase()===resolve(root,file).toLowerCase()){unexpected++;continue}
     if(type==='test:fail')byFile[file].failed++
     else if(data.skip||data.todo)byFile[file].skipped++
-    else if(data.details?.type!=='suite')byFile[file].passed++
+    else if(data.details?.type!=='suite'){
+      byFile[file].passed++
+      cases.push(JSON.stringify([file,data.line??0,data.column??0,data.name]))
+    }
   }
-  return {byFile,unexpected}
+  return {byFile,unexpected,cases:cases.sort()}
 }
 export function assertRulesResult(result,worker) {
   if(!result || result.unexpected!==0 || !result.byFile || Object.keys(result.byFile).length!==worker.files.length)throw Error('Rules result inventory mismatch.')
