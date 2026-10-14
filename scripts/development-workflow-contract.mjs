@@ -3,9 +3,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
 import {validateRulesHandoff,developmentVerifyCondition} from './lib/rules-test-workflow.mjs'
-import {validateEvidencePublisher} from './lib/verification-reuse-workflow.mjs'
+import {validateEvidencePublisher,validateDevelopmentReuseWorkflow,devFallbackCondition,devRulesCondition} from './lib/verification-reuse-workflow.mjs'
 
-export const developmentDeployCondition = "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')"
+export const developmentDeployCondition = "${{ !cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}"
 
 const jobSections = (workflow) => {
   const lines = workflow.split(/\r?\n/)
@@ -51,14 +51,14 @@ const steps = (job) => {
 
 export function validateDevelopmentWorkflow(workflow, policy) {
   const parsed = parse(workflow)
-  if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null, pull_request: { branches: ['main'] } })
+  if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null, pull_request: { branches: ['dev','main'] } })
     || parsed.concurrency?.group !== 'development-deployment' || parsed.concurrency?.['cancel-in-progress'] !== false) {
     throw new Error('Development workflow must preserve branch routing and non-cancelling deployment concurrency.')
   }
   if (!Array.isArray(policy?.comprehensiveGateIds) || !Array.isArray(policy?.gates)) {
     throw new Error('Verification policy does not define comprehensive gates.')
   }
-  if (/continue-on-error\s*:\s*true/i.test(workflow) || /if\s*:\s*\$\{\{\s*always\(\)/i.test(workflow.replace("    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}",''))) {
+  if (/continue-on-error\s*:\s*true/i.test(workflow) || /if\s*:\s*\$\{\{\s*always\(\)/i.test(workflow.replace('    if: '+devRulesCondition,'').replace("    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}",''))) {
     throw new Error('Development deployment must not bypass a failed verification step.')
   }
   if (/(?:^|\s)--force(?:\s|$)/m.test(workflow)) {
@@ -86,7 +86,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
     throw new Error('Verification job must not perform a deployment.')
   }
   if (!/actions\/upload-artifact@v7/.test(verifyText)
-    || !/name:\s*firebase-hosting-\$\{\{ github\.sha \}\}/.test(verifyText)
+    || !verifyText.includes('name: ${{ steps.evidence.outputs.hostingName }}')
     || !/path:\s*\.output\/public/.test(verifyText)
     || !/if-no-files-found:\s*error/.test(verifyText)
     || !/include-hidden-files:\s*true/.test(verifyText)) {
@@ -109,7 +109,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
     const matchingSteps = verifySteps.flatMap((step, index) => step.run === gate.command ? [{ step, index }] : [])
     if (matchingSteps.length !== 1) throw new Error(`Verification job must run ${gateId} exactly once as its own step.`)
     const match = matchingSteps[0]
-    if (typeof match.step.if === 'string' || typeof match.step['continue-on-error'] === 'string') {
+    if (match.step.if !== devFallbackCondition || typeof match.step['continue-on-error'] === 'string') {
       throw new Error(`Verification gate ${gateId} must be unconditional and fail closed.`)
     }
     if (match.index <= previousIndex) throw new Error(`Verification gate order does not match the policy at ${gateId}.`)
@@ -123,7 +123,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   if (!/actions\/checkout@v7/.test(deployText)
     || !/actions\/setup-node@v7/.test(deployText)
     || !/actions\/download-artifact@v8/.test(deployText)
-    || !/name:\s*firebase-hosting-\$\{\{ github\.sha \}\}/.test(deployText)
+    || !deployText.includes('name: ${{ needs.verify.outputs.hostingName }}')
     || !/path:\s*\.output\/public/.test(deployText)) {
     throw new Error('Deploy job must download the verified Hosting artifact for this revision.')
   }
@@ -138,12 +138,15 @@ export function validateDevelopmentWorkflow(workflow, policy) {
     throw new Error('Deploy job must not rebuild the verified Hosting artifact.')
   }
   const deployments = deployCommands.filter(command => /(?:^|\s)(?:npx\s+)?firebase\s+deploy(?:\s|$)/.test(command))
-  const allowedDeployment = 'npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
+  const allowedDeployment = 'npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
   if (deployments.length !== 1 || deployments[0] !== allowedDeployment) {
     throw new Error('Deploy job must use the explicit development project and target set.')
   }
+  const deploySteps=parsed.jobs.deploy.steps,prepare=deploySteps.findIndex(s=>s.run==='node scripts/development-deployment.mjs prepare'),publish=deploySteps.findIndex(s=>s.run===allowedDeployment),check=deploySteps.findIndex(s=>s.run==='node scripts/development-deployment.mjs check')
+  if(prepare<0||prepare>=publish||check<=publish||deploySteps.some(s=>s.if||s['continue-on-error']))throw Error('Dev preparation and deployed release proof are mandatory.')
   validateRulesHandoff(parsed,developmentVerifyCondition)
   validateEvidencePublisher(parsed)
+  validateDevelopmentReuseWorkflow(parsed,policy)
   return true
 }
 

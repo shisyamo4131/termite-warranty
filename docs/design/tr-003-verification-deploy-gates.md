@@ -1,5 +1,15 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-14 feature PR → Dev → promotion PR → main evidence chain
+
+The final owner instruction uses PRs for both integrations. Feature-to-dev PR runs all seven gates and three isolated Rules shards. Dev push resolves a unique merged feature PR and its latest successful run/attempt, exact tree, 24-hour freshness, gate/shard steps and unexpired verification/Hosting artifact metadata. It downloads the immutable Hosting artifact ID from that run with digest mismatch treated as an error, then republishes the same files under the Dev run. Missing CI evidence falls back to all seven Dev gates; unknown integration identity blocks.
+
+Dev deployment uses only the existing Dev credential and explicit two-DB configuration. Current disabled recovery parameters must be coherent before preparation; post-deploy checks retain both Rules, indexes, Functions source/configuration, Hosting files/configuration and protection hold. No test business data or Auth writes are needed.
+
+Owner acceptance runs on the accepted dev revision, with exact run input/current head/record checkout and owner identities. Consumption revalidates the original feature PR when Dev reused it, the Dev run and deployed release proof, unchanged producer blobs and a 30-day record limit. Hosting/evidence artifacts remain available for 30 days; old original tests cannot gain a fresh lifetime through a new acceptance record. Dev-to-main PR runs admission only. Main repeats the chain validation and checks the latest promotion PR proof, retaining fresh Prod generation and all deployment checks. Direct feature-to-main admission fails.
+
+The required check always runs for relevant events and fails unless complete Rules or a successful source resolver exists. Explicit !cancelled() and verify success prevent skipped ancestors suppressing valid deployment while retaining failure refusal. Local truth tables, actual PowerShell refusal checks, forged/stale/failed metadata fixtures and full chain tests protect the contract. Complete measurements and unfinished owner acceptance are recorded in operations. The sections below describe superseded stages.
+
 ## 2026-10-14 adopted PR evidence reuse and Dev acceptance linkage
 
 The owner's next-stage instruction supersedes the deferral below. [ADR 0046](../decisions/0046-verification-reuse-and-dev-acceptance.md) records the decision. PR still executes all seven gates and three isolated shards. Only main's duplicate execution is replaced by a current, same-tree successful PR proof. No change to the Rules runner, test identities, repetitions, shutdown checks or production release proof is included.
