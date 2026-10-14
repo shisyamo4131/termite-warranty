@@ -6,7 +6,7 @@ Feature PRs and Dev full fallback run `application` alongside the existing three
 
 The aggregate needs no dependency installation or Java: receipt aggregation and evidence checks import repository and Node built-in modules only. There is no second build or Hosting transfer on full fallback. Reused Dev verification keeps its immutable source artifact download/digest check and republication. Documentation/reuse routes require intentionally skipped application and Rules producers; failure/cancellation/unexpected-skip outcomes block completion. Downstream source/acceptance consumers check six gates in `application` and Rules/comprehensive evidence in `verify`. Exact reversible topology validation precedes the existing documentation and deployment contract checks, rejecting unrecognised conditions, steps and permissions in the new topology.
 
-Required gates/test identities, freshness, artifact lifetime, owner acceptance, deployment guards and protection hold remain. See [ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md). Local and PR validation are required; live deployment remains separately authorized. Revert this change set to restore serial execution.
+Required gates/test identities, freshness, artifact lifetime, owner acceptance, deployment guards and protection hold remain. See [ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md). Local and PR validation are required. The owner additionally authorized PR23/24 Dev integration and deployment; both succeeded with all release checks. Prod remains unapproved for these changes. See the current operations evidence. Revert this change set to restore serial execution.
 
 ## 2026-10-14 bounded documentation-only routing
 

@@ -1,5 +1,58 @@
 # Operations
 
+## 2026-10-14 並行化2件のDev配備・実測完了
+
+PR23／24を承認範囲どおりdevへ通常mergeし、各自動Dev配備・全5照合・認証後処理が成功。保護解除・管理者バイパス・main統合・Prod配備・IAM／秘密変更なし。以下の未統合／未承認／統合準備は当時の記録であり、本節を現在地とする。
+
+- PR23：Dev `369025704a17180d7a15ebe4c3601c0989576175`、[run38544338346 attempt1](https://github.com/shisyamo4131/termite-warranty/actions/runs/38544338346) success。
+- PR24：最新dev同期・文書競合解消・独立レビュー後のhead `9bd8e1f16fd2ba2994b47f60e96b537a9acb8896`。[包括CI run38546020807 attempt1](https://github.com/shisyamo4131/termite-warranty/actions/runs/38546020807) success。試験checkout `8698e47abb4194453106b571c76ce144f316c9b0`、tree `7544b34be24294dc0baba9283385f4169e356606`。
+- PR24配備：Dev `22d5bac7c47f101fdf8b0522f8108edf16d06330`、[run38546924382 attempt1](https://github.com/shisyamo4131/termite-warranty/actions/runs/38546924382) success。PRと同じtree。元PRのHosting artifact11884039395と包括artifact11884029798（期限内）を検証して再利用。アプリ／Rules producerは意図したskip、Hosting再buildなし。validateVerification／validateDevelopmentDeploymentによる独立読取り連鎖検証もexit 0。
+
+両Dev runでdefault Rules・control Rules・索引READY・Functions source／config／revision・Hosting全ファイル／設定の5照合がpass、ready=true。Functions21・sourceArchives21、Hosting1005件（2回目観測）一致。関数ソースは変更なしのためFirebaseによる21関数の再配備はskipだが、配備後の全関数照合は実行した。protectionHeld=true、PITR=false、dailySchedules=0、backupAutomation=false。業務データ・Auth・採番を試験用に変更しない経路を維持。
+
+### 工程別実測
+
+GitHub APIのjob/step started_at→completed_at、全体はrun created_at→updated_at。秒単位、待機・後処理を含む全体とjob時間は一致しない。
+
+| PR CI | PR23直列基準38535518949 | PR24最終38546020807 |
+| --- | --- | --- |
+| 分類 | 42秒 | 34秒 |
+| 最長Rules | 4分49秒 | 4分56秒 |
+| アプリ6gate等 | 後続verify内 | Rulesと並行2分44秒 |
+| 後続verify | 2分52秒 | 集約46秒 |
+| 全体 | 8分31秒 | 6分27秒 |
+
+最終PR全体は2分04秒短縮（24.3%）。初回PR24 run38540479528は6分40秒（1分51秒短縮）。異なる変更のPR間比較で単体件数も571→584、Rules201は不変。VM準備・API・待機差を含み、同一版A/Bや将来の速度保証ではない。
+
+| Dev | 変更前38527195023 | PR23 38544338346 | PR24 38546924382 |
+| --- | --- | --- | --- |
+| 分類 | 40秒 | 42秒 | 32秒 |
+| 元証跡照合 | 29秒 | 55秒 | 36秒 |
+| verify／成果物再利用 | 35秒 | 43秒 | 43秒 |
+| 配備job | 2分21秒 | 1分59秒 | 2分07秒 |
+| 依存導入／準備／Firebase配備 | 16／4／17秒 | 17／4／18秒 | 21／2／19秒 |
+| 公開後照合・保護確認 | 95秒 | 73秒 | 70秒 |
+| 全体 | 4分16秒 | 4分34秒 | 4分11秒 |
+
+PR24 Devは10:03:57Z→10:08:08Z。公開後照合は変更前比25秒短縮だが、Functions単独の時間ではなくHosting等を含む。PR23は全体18秒増、PR24は変更前比5秒減。PR並行化の短縮を、既に証跡再利用するDevへ加算しない。
+
+### 最終検証・残件
+
+| 必須command | 最終PR CI結果 | 終了コード |
+| --- | --- | --- |
+| ./scripts/check-governance.ps1 | 成功 | 0 |
+| npm test | 584成功・fail/skip0 | 0 |
+| npm run typecheck | 成功 | 0 |
+| npm run build | 成功 | 0 |
+| npm run test:rules（3shard＋集約） | 201成功・skip0・Emulator停止 | 0 |
+| node scripts/check-functions-syntax.mjs | 成功 | 0 |
+| node --check scripts/seed-emulator.mjs | 成功 | 0 |
+
+GitHubの各独立step成功をAPIとログで確認。CI／各Devのgh run watch --exit-statusはexit 0。統合時Local focusedはdefault-recovery-release-proof／verification-evidence／development-workflow-contract／documentation-changes／rules-runnerの5ファイル135成功・skip0、exit 0。Local governanceとgit diff --checkも各exit 0。包括gate省略なし。最終文書追補は既存許可文書のみでdocumentation-only、governance／差分検証を再実施し、通常PRの文書経路で統合する。コード・CI入力不変のため既存包括証拠は失効しない。
+
+業務仕様・data contract・schema・依存・governance policy・納品進捗は不変。ADR0046は承認境界と方式を同期済み、設計・手順・環境記録・roadmap・changelog・文書入口を更新。新版の本人業務受入れ、main／Prod反映は未実施で別判断。バックアップ等の保留は解除しない。文書統合後はdev先頭と上記最終配備SHAを区別する。
+
+
 ## 2026-10-14 PR23のDev実証・PR24の統合準備
 
 オーナーがPR23／24のDev統合・自動配備・実測を追加承認。main統合／Prod配備、権限／認証情報変更、バックアップ／PITR／Auth退避の新設は対象外。以下のdraft・未承認表記は導入前の記録であり、この節を現在地とする。Dev保護はstrict・管理者適用・必須checkあり、development環境はdevのみ、進行中／待機中Actionsなしを確認して通常mergeした。バイパス・保護変更なし。
