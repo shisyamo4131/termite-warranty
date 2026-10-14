@@ -48,6 +48,10 @@ gh variable list --repo shisyamo4131/termite-warranty
 
 ## 3. main更新によるProd配備
 
+目標の工程は「Local実装→Local受入れ→dev push／Dev配備→Dev受入れ→main統合／Prod配備」。ただしDev自動配備の切替と、Dev受入れ済み版をmainの配備版へ結び付ける記録は未導入。PRのCI成功はDev受入れ完了ではない。現在はPRとmainで包括検証を独立実行し、今回の短縮は重複workflow停止と試験の分離まで。
+
+将来の結果再利用では、受入れたソース内容・依存固定値・試験設定／実行環境・成功結果を記録し、main統合で内容が変わっていないことを確認する。同一内容なら同じ業務試験を機械的に繰り返す必要はない。Prod固有の接続設定・対象／権限・最終成果物と、公開後のRules／索引／Functions／Hosting一致確認は残す。別変更の混入、依存／設定変更、証跡欠落の場合は影響する試験を再実行する。PR結果再利用と人によるDev受入れ記録は別の確認事項として次段階で扱う。
+
 1. 受入済みの変更を作業branchへcommit／pushし、main宛てPRを作る。mainへ直接pushして保護を迂回しない。PRの変更ファイル・head SHA・対象・バックアップ無効維持をレビューする。
 2. 必須CI `Verify development deployment` の成功と最新mainとの同期を確認する。名前にdevelopmentが含まれていてもPRでは検証のみで、Dev配備成功の意味ではない。
 3. 保護条件を満たすPRを通常mergeする。このmergeによる**main push**が通常Prod workflowを起動する。承認されたPRのheadを固定してmergeし、merge後のmain SHAを取得する。

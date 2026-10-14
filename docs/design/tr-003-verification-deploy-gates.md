@@ -15,6 +15,8 @@ Owner approval: task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`, adopt priority 1 an
 
 Implementation and verification status is recorded in [operations](../operations.md). Required completion: seven comprehensive gates, focused runner/workflow mutation tests, same-revision comparison, then successful main-push deployment. Scope excludes IAM, cloud protection settings and PR-result reuse.
 
+Platform evidence: GitHub documents [fresh VM isolation for hosted Windows jobs](https://docs.github.com/en/actions/concepts/runners/github-hosted-runners) and [the required-check skipped-job caveat](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks). Local contract/mutation tests additionally enforce this project's exact dependency and failure propagation.
+
 - Status: Implemented and accepted
 - Date: 2026-09-12
 - Roadmap: [TR-003](../roadmaps/technical-remediation.md#tr-003-close-verification-and-development-deploy-gaps)
