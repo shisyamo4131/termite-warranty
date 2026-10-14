@@ -13,6 +13,7 @@ import {validateRulesReceipts} from '../scripts/lib/rules-test-receipts.mjs'
 import {validateRulesProducer,validateRulesHandoff,developmentVerifyCondition} from '../scripts/lib/rules-test-workflow.mjs'
 import {readFile} from 'node:fs/promises'
 import {parse} from 'yaml'
+import {spawnSync} from 'node:child_process'
 
 const root=fileURLToPath(new URL('..',import.meta.url)),worker=rulesWorkers[1],nonce='unit-run'
 const passed=worker=>({byFile:Object.fromEntries(worker.files.map(file=>[file,{passed:1,failed:0,skipped:0}])),unexpected:0})
@@ -51,7 +52,13 @@ test('CI shards preserve isolation, fail-fast off and required artifact dependen
   }
   const workflow=parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8'))
   validateRulesHandoff(workflow,developmentVerifyCondition)
-  for(const mutate of [copy=>delete copy.jobs.verify.needs,copy=>copy.jobs.rules.if='false',copy=>copy.jobs.rules.secrets='inherit',
+  for(const result of ['success','failure','cancelled','skipped']){
+    const command=workflow.jobs.verify.steps[0].run.replace('${{ needs.rules.result }}',result)
+    const processResult=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
+    assert.ifError(processResult.error)
+    assert.equal(processResult.status===0,result==='success','Required PR check: '+result)
+  }
+  for(const mutate of [copy=>delete copy.jobs.verify.needs,copy=>copy.jobs.verify.steps.shift(),copy=>copy.jobs.verify.if=developmentVerifyCondition,copy=>copy.jobs.rules.if='false',copy=>copy.jobs.rules.secrets='inherit',
     copy=>copy.jobs.verify.steps.find(row=>row.run==='npm run test:rules').env={},
     copy=>copy.jobs.verify.steps.find(row=>row.uses==='actions/download-artifact@v8').with.pattern='foreign-*']){
     const copy=structuredClone(workflow);mutate(copy);assert.throws(()=>validateRulesHandoff(copy,developmentVerifyCondition))

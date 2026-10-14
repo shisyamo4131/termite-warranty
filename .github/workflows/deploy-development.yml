@@ -23,9 +23,11 @@ jobs:
   verify:
     name: Verify development deployment
     needs: rules
-    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
     runs-on: windows-latest
     steps:
+      - name: Require every Rules shard to succeed
+        run: if ('${{ needs.rules.result }}' -ne 'success') { throw 'Rules shards did not all succeed.' }
       - name: Check out the repository
         uses: actions/checkout@v7
 

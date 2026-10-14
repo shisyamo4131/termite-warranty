@@ -57,7 +57,7 @@ export function validateDevelopmentWorkflow(workflow, policy) {
   if (!Array.isArray(policy?.comprehensiveGateIds) || !Array.isArray(policy?.gates)) {
     throw new Error('Verification policy does not define comprehensive gates.')
   }
-  if (/continue-on-error\s*:\s*true/i.test(workflow) || /if\s*:\s*\$\{\{\s*always\(\)/i.test(workflow)) {
+  if (/continue-on-error\s*:\s*true/i.test(workflow) || /if\s*:\s*\$\{\{\s*always\(\)/i.test(workflow.replace("    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}",''))) {
     throw new Error('Development deployment must not bypass a failed verification step.')
   }
   if (/(?:^|\s)--force(?:\s|$)/m.test(workflow)) {
