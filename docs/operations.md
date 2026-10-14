@@ -1,5 +1,48 @@
 # Operations
 
+## 2026-10-14 Functions配備照合の限定並列化（未統合）
+
+接続確認後の追加依頼により、配備／検証時間と残作業を再調査。開始HEADは `7f7e54b24e4fb328a9fa0ab0bedce37090947276`、treeは `e74d3489ca62c1d397a7bda565f0e2a272433a4a`、主checkoutの未コミット変更なし。元タスクの非公開セッションは調査せず、本記録・配備手順・実Actionsを使用。作業branchは `codex/deployment-proof-read-concurrency`。新規PRはdraft、dev／main統合・auto-merge・実配備は親への影響報告と承認後とする。
+
+### 実測と改善範囲
+
+`gh run list` と `gh run view <ID> --json jobs` で読戻した成功run。全体時間はcreatedAt→updatedAt（待機・後処理を含む）で、従前記録とは起終点が異なる。
+
+| 対象 | 全体 | 工程別の実測 |
+| --- | --- | --- |
+| [包括PR19 run38526269102](https://github.com/shisyamo4131/termite-warranty/actions/runs/38526269102) | 8分13秒 | 分類32秒、最長Rules群4分56秒、その終了後にアプリ検証2分36秒。verifyのinstall48秒／domain25秒／typecheck16秒／build26秒 |
+| [Prod run38529464496](https://github.com/shisyamo4131/termite-warranty/actions/runs/38529464496) | 6分20秒 | 分類37秒、再利用45秒、verify1分49秒、deploy2分56秒。verify install50秒、deploy install32秒、実配備19秒、公開後照合91秒 |
+| [文書のみmain run38531002206](https://github.com/shisyamo4131/termite-warranty/actions/runs/38531002206) | 1分33秒 | run成功を確認。公開版不変の独立読戻しは今回未実施 |
+
+既存のPR証拠再利用・Rules3群・文書専用経路を重複実装しない。今回の局所差分は共通 `functionsReleaseProof` の関数単位の読取りを直列から最大4件のbatchへ変更するもの。Dev／Prod通常照合と復旧preflightの共通呼出しに影響する。各関数のsource→service→revisionの依存順、全条件、最後のFunctions一覧再取得、Hostingの限定待機は維持。同じarchiveの進行中Promiseを共有し、重複取得を防ぐ。失敗時も開始済みbatchの終了を待ち、次batchは開始しない。APIエラーの自動再試行、Cloud権限・保護・データ・配備対象は変更しない。
+
+21関数・読取りごと15msの架空fixtureで、変更前は共有archive1件774ms／別archive21件1,102ms、変更後は275ms／349ms（64.5%／68.3%短縮）。両者ともJSON要求44件、archive取得1件／21件、最大同時数1→4、検査結果一致。変更前の `node --test --test-name-pattern='Functions proof latency sample' test/default-recovery-release-proof.test.mjs` はexit 0。変更後の `node --test test/default-recovery-release-proof.test.mjs` は27成功・skip0・exit 0。これはローカル模擬遅延の比較であり、Cloudの91秒が同率で短縮する証拠ではない。quota・メモリ最大値・Hosting集計遅延を含む実所要時間は、承認後の同等配備で測定する。
+
+分類はapplication-logic＋build-release-deploy＋documentation-only。包括7gateを選択。独立read-only review PROOF-READ-02はsource／testの64追加・6削除を確認し、修正必須指摘なし。権限／秘密情報出力の拡大なし、実Cloud性能は未検証。最初の `npm test` は560成功・8失敗・3skip／exit 1。失敗8件はsandbox一時領域のrename拒否（EPERM）で、診断実行もexit 1。通常ローカル権限の再実行で解消。最初のRules試験はsandbox内のhubポート34400起動timeoutでexit 1、試験未実行。専用lock／stageの後始末後、同じ固定loopback profileを通常権限で再実行し成功した。製品・試験コードや失敗条件をこの対処で変更していない。
+
+最終Local検証は上記baseline＋source／test差分に対して実行し、その後は今回の結果文書だけを更新した。各コマンドの終了コードは実行ツールで独立確認。実行ログはignored `tmp/deployment-proof-*.log`、永続する結果は本段落とPRへ残す。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 生成整合・7gate検証成功 | 0 |
+| `npm test` | 571件中569成功・既存symlink制約2skip・失敗0（通常ローカル権限） | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 静的9route生成成功 | 0 |
+| `npm run test:rules` | 201成功・skip0、366,064ms、Emulator停止確認（通常ローカル権限） | 0 |
+| `node scripts/check-functions-syntax.mjs` | 全55module構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+所定7gateの省略なし。workflow／policy／governance toolは未変更なので追加のpolicy-focused triggerなし。結果記録後もgovernanceと `git diff --check` を最終確認する。新規依存導入・設定／権限変更なし。PRのCI・実環境比較は別で、Local成功をCloud短縮や実配備成功の証拠にしない。
+
+### 次候補と残作業
+
+- PRのRulesとアプリ検証の並行開始は大きな候補。ただし必須check、7gateの証拠producer／consumer、失敗伝播、Hosting成果物の結合を同時変更するため今回の局所差分とは分ける。待ち時間2分36秒すべてを短縮可能と断定しない。
+- 全サービス配備は直近19秒なので今回優先しない。対象別配備には最後の実配備版と成果物／設定差分の確定が必要で、単純なGit差分だけでは環境driftを排除できない。
+- Local成功をCIで無条件に信頼する経路はない。同一tree・run／attempt・期限・本人受入れの連鎖を維持。独立runnerのinstallは隔離に必要で、依存cacheとnode_modulesの無条件共有を混同しない。
+- 現行ロードマップの運用認証／管理者、正式投入対象、HS試行日程・結果は具体入力または本人／HS判断が必要。認証情報作成や正式データ投入を代行しない。保護設定はリリース直前まで保留を維持。
+
+業務仕様・データ契約・schema・納品進捗・ADRの判断は不変。新規文書や索引は不要。巻戻しはこのコード／試験／説明の差分を通常PRで戻す。現段階は未統合・未配備で、改善全体のPDCA完了や「残りは微小」とは扱わない。
+
 ## 2026-10-14 文書専用経路の通常導入・本人受入れ・Prod反映
 
 [PR19](https://github.com/shisyamo4131/termite-warranty/pull/19)の包括run38526269102は全7gate成功（単体568成功・Rules/Callable201成功・失敗／skipなし）。混在変更を文書扱いせず、dev `d834f20b2e4a6716b45595a7902cf23464ce809d` のrun38527195023で元PRの検証・Hosting成果物を再利用し、Dev配備・全5照合・保護保留確認が成功した。
