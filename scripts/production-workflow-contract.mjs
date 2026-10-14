@@ -4,7 +4,7 @@ const fail=()=>{throw Error('Production workflow does not preserve deployment ga
 export function validateProductionWorkflow(text,policy){
   const w=parse(text),v=w.jobs?.verify,d=w.jobs?.deploy
   if(!v||!d||JSON.stringify(w.on)!==JSON.stringify({push:{branches:['main']}})||w.permissions?.['id-token']||w.permissions?.contents!=='read'||w.concurrency?.group!=='production-bootstrap'||w.concurrency?.['cancel-in-progress']!==false)fail()
-  if(v['runs-on']!=='windows-latest'||d['runs-on']!=='windows-latest'||v.if!==productionVerifyCondition||d.needs!=='verify'||d.environment!=='production'||d.permissions?.['id-token']!=='write'||d.if!=="${{ needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}")fail()
+  if(v['runs-on']!=='windows-latest'||d['runs-on']!=='windows-latest'||v.if!==productionVerifyCondition||d.needs!=='verify'||d.environment!=='production'||d.permissions?.['id-token']!=='write'||d.if!=="${{ !cancelled() && needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}")fail()
   if(v['continue-on-error']||d['continue-on-error']||v.permissions?.['id-token'])fail()
   for(const step of [...v.steps,...d.steps])if(step['continue-on-error'])fail()
   for(const step of d.steps)if(step.if)fail()

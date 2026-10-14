@@ -12,6 +12,10 @@ Trusted PR but missing/stale/failed/mismatched CI evidence selects the existing 
 
 Completion: local negative/mutation tests, policy-focused regression, all seven PR gates, actual main-push reuse and normal Prod proof; timings compared to PR14/main059bc7e7 in operations. Actual Dev acceptance workflow dispatch remains unverified until Dev branch deployment is enabled and the owner completes real business acceptance. Revert this reviewed set to restore full main execution; no data migration or protection changes.
 
+Fresh-runner prerequisite: `prepareProductionRelease` materializes the canonical ignored Functions domain before the build's input hash is captured. It must not rely on `npm test`/pretest side effects, because successful verification can be reused without running that command. Regression covers missing and stale generated files; preparation failure or later input mutation remains fatal. The first main reuse trial exposed this dependency before deployment; operations records the correction and subsequent proof.
+
+Deployment uses explicit `!cancelled()` together with successful `verify` and enabled publication. This avoids GitHub's implicit status condition propagating the intentionally skipped Rules ancestor, while failed/skipped verification or workflow cancellation still prevents publication. See [GitHub job dependencies](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-jobs) and the [runner reproduction](https://github.com/actions/runner/issues/2205). The local truth-table and mutation test protects both continuation and refusal cases.
+
 ## 2026-10-14 adopted CI duration improvement
 
 Owner approval: task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`, adopt priority 1 and compare isolated parallel tests with the previous runner. This section supersedes the original single-emulator/two-job topology below. Business coverage, seven gate IDs and deployment guards remain unchanged. PR-to-main result reuse is deferred.

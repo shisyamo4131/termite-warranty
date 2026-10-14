@@ -61,6 +61,8 @@ dev→mainを使う際は、実Dev受入れ後にownerがActionsの `Record expl
 5. reuse jobの判定を確認する。`reuse=true` なら参照PR run/attempt・tree・7項目の成功根拠がverifyの `Record verified reuse decision` に残り、mainの3群と7コマンドは意図的にskipする。`reuse=false` なら3群を独立VMで実行し、verifyで7項目を実行する。CIの `npm run test:rules` は同一SHA・run・attemptの全3結果を集約し全件成功と終了を検査する。どちらの経路もbundle作成・local照合・artifact保存を必須とし、revision・digestを控える。artifactは `production-release-<main SHA>`、保持1日。失敗時はconsumerだけでなくworkflow全体を再評価する。秘密値や認証ファイルを証跡へ含めない。
 6. deploy jobで認証前guard、同じbundleのlocal照合・stage、WIF認証、predeploy読取り、Firebase配備、再認証、Cloud照合、認証後処理が成功するまで待つ。Firebase配備stepだけで完了にしない。
 
+Prod成果物作成はFunctionsの追跡外生成物を自ら準備してから入力を固定する。結果再利用時に `npm test` のpretestを代用実行する必要はない。準備失敗・生成後の入力変更は停止条件とし、過去の生成物を無条件で持ち込まない。
+
 | 必須検証command | 合格条件 |
 | --- | --- |
 | `./scripts/check-governance.ps1` | exit 0 |

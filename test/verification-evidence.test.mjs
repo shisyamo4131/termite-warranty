@@ -146,6 +146,17 @@ test('workflow mutation guards prevent bypassing fallback, proof, or production 
     w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
   ]){const w=workflow('deploy-development.yml');mutate(w);assert.throws(()=>validateDevelopmentWorkflow(stringify(w),policy))}
 })
+test('deployment after intentional shard skip requires successful verification and refuses cancellation',()=>{
+  const w=workflow('deploy-production.yml'),condition=w.jobs.deploy.if
+  // An explicit status function prevents Actions applying implicit success() to
+  // skipped ancestors. The immediate verification result still must be success.
+  assert.ok(condition.includes('!cancelled()'))
+  for(const cancelled of [true,false])for(const result of ['success','failure','skipped','cancelled'])for(const enabled of ['true','false']){
+    assert.equal(vm.runInNewContext(condition.slice(3,-2),{cancelled:()=>cancelled,needs:{verify:{result}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}}),!cancelled&&result==='success'&&enabled==='true')
+  }
+  w.jobs.deploy.if=condition.replace('!cancelled() && ','')
+  assert.throws(()=>validateProductionWorkflow(stringify(w),policy))
+})
 test('acceptance workflow is explicit, read-only, main-only and does not deploy',()=>{
   const w=workflow('record-development-acceptance.yml')
   assert.deepEqual(Object.keys(w.on),['workflow_dispatch']);assert.equal(w.on.workflow_dispatch.inputs.confirm.default,false)
