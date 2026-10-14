@@ -48,7 +48,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
     /must not bypass/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - name: Run domain tests\n        if: false'), policy),
+    () => validateDevelopmentWorkflow(workflow.replace("      - name: Run domain tests\n        if: ${{ needs.source.outputs.reuse != 'true' }}", '      - name: Run domain tests\n        if: false'), policy),
     /domain-test must be unconditional and fail closed/,
   )
 })
@@ -64,10 +64,8 @@ test('actual deployment condition routes only approved events and branches befor
         for (const branch of ['main', 'dev', 'codex/production-readiness', 'refs/tags/dev']) {
           const ref = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`
           const enabled = flag.toLowerCase() === 'true'
-          const expected = enabled
-            ? branch === 'dev' && ['push', 'workflow_dispatch'].includes(event)
-            : branch === 'main' && event === 'workflow_dispatch' && production.toLowerCase() !== 'true'
-          assert.equal(vm.runInNewContext(condition, { github: { event_name: event, ref }, vars: { DEVELOPMENT_BRANCH_DEPLOY_ENABLED: flag.toLowerCase(), PRODUCTION_APP_DEPLOY_ENABLED: production.toLowerCase() } }), expected, `${flag}/${production}/${event}/${branch}`)
+          const expected = enabled && branch === 'dev' && ['push', 'workflow_dispatch'].includes(event)
+          assert.equal(vm.runInNewContext(condition.slice(3,-2), { cancelled:()=>false, needs:{verify:{result:'success'}}, github: { event_name: event, ref }, vars: { DEVELOPMENT_BRANCH_DEPLOY_ENABLED: flag.toLowerCase(), PRODUCTION_APP_DEPLOY_ENABLED: production.toLowerCase() } }), expected, `${flag}/${production}/${event}/${branch}`)
         }
       }
     }
@@ -113,7 +111,7 @@ test('both jobs use the fixed npm installer and verification cannot deploy', asy
 
 test('deployment must be one exact command with no retargeting or additional deployment', async () => {
   const { workflow, policy } = await load()
-  const deployCommand = 'npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
+  const deployCommand = 'npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace(deployCommand, `${deployCommand} --project unintended-production --only hosting`), policy),
     /explicit development project and target set/,

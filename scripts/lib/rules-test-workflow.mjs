@@ -1,16 +1,17 @@
 import {readFileSync} from 'node:fs'
 import {parse} from 'yaml'
 import {rulesShards} from './rules-test-plan.mjs'
+import {devAdmissionCommand,devRulesCondition} from './verification-reuse-workflow.mjs'
 
 export const developmentVerifyCondition="github.event_name != 'push' || github.ref != 'refs/heads/main'"
 export function validateRulesHandoff(workflow,condition){
   const {rules,verify}=workflow.jobs
   const gate=verify?.steps?.find(step=>step.run==='npm run test:rules')
-  const downloads=verify?.steps?.filter(step=>step.uses==='actions/download-artifact@v8')??[]
+  const downloads=verify?.steps?.filter(step=>step.uses==='actions/download-artifact@v8'&&step.with?.path==='tmp/rules-receipts')??[]
   const development=condition===developmentVerifyCondition
-  if(development && verify.steps[0]?.run!=="if ('${{ needs.rules.result }}' -ne 'success') { throw 'Rules shards did not all succeed.' }")throw Error('Required PR check must fail when a shard fails or is cancelled.')
-  if(rules?.uses!=='./.github/workflows/verify-rules.yml'||rules.if!==condition||rules.needs||rules.secrets||rules.with||rules['continue-on-error']||
-    verify.needs!=='rules'||verify.if!==(development?'${{ always() && ('+condition+') }}':condition)||gate?.env?.RULES_TEST_RECEIPTS!=='tmp/rules-receipts'||downloads.length!==1||
+  if(development && verify.steps[0]?.run!==devAdmissionCommand)throw Error('Required PR check must fail when a shard fails or is cancelled.')
+  if(rules?.uses!=='./.github/workflows/verify-rules.yml'||rules.if!==(development?devRulesCondition:condition)||(development?rules.needs!=='source':rules.needs)||rules.secrets||rules.with||rules['continue-on-error']||
+    (development?JSON.stringify(verify.needs)!==JSON.stringify(['rules','source']):verify.needs!=='rules')||verify.if!==(development?'${{ always() && ('+condition+') }}':condition)||gate?.env?.RULES_TEST_RECEIPTS!=='tmp/rules-receipts'||downloads.length!==1||
     downloads[0].with?.pattern!=='rules-${{ github.sha }}-${{ github.run_attempt }}-*'||downloads[0].with?.path!=='tmp/rules-receipts'||
     downloads[0].with?.['merge-multiple']!==true||verify.steps.indexOf(downloads[0])>verify.steps.indexOf(gate))throw Error('Rules handoff must preserve all successful shards and the current revision/run.')
 }

@@ -1,5 +1,8 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-14最新採用：改修→dev／Dev→mainともPR必須。包括検証は改修→dev PRに集約し、同一treeならdev統合後・Dev→main PR・main統合後で再利用。Dev自動配備とDev上での本人受入れ記録を連携する。2DB接続と保護falseを明示し、配備後5照合・PITR無効・日次予定0を確認する。実有効化・配備結果は[運用記録](../operations.md)を正本とする。以下のDev未切替は前段階の観測であり、有効化の成功を推定しない。
+
+
 2026-10-14現行方針：[通常配備手順](../runbooks/application-deployment.md)を後続作業の入口とする。Dev／Prodとも日次バックアップ・PITR・Auth退避等の設定／有効化はリリース直前まで保留し、HS試行後の確定スキーマで再検証する。Devの実読取りは日次予定0・PITR無効・21 Functions・automation=false。既存Auth退避先／検証情報の設定値は残存するが有効化しない。Prodは解除状態を維持。main→Prodは有効、devブランチ・Dev切替変数は未設定で、Dev自動配備は未切替。以下の古い再開時期・切替予定を現行設定と混同しない。
 
 2026-10-14現行：main `fe910d7` の実pushで通常Prod配備・公開後の全5項目照合が成功。通常enable=true、公開版 `sites/termite-warranty-prod/versions/8a11a472a633bca4`、21 Functions ACTIVE。配備後も日次予定0・backup実体0・PITR無効・Auth退避先不存在・automation=false／保護入力空を独立読戻し。保護はHS試行後のスキーマ確認まで再開しない。[証拠](../operations.md#2026-10-14-main-push正常自動配備を実証現行)。

@@ -42,14 +42,17 @@ export function assertJobs(jobs,run,{deployment=false}={}){
   }
   if(deployment){
     const rows=jobs.filter(job=>job.name==='Deploy to termite-warranty-dev')
-    if(rows.length!==1||!successful(rows[0])||!rows[0].steps.some(step=>step.name==='Deploy Firestore, Functions, and Hosting'&&step.conclusion==='success'))throw Error('Dev deployment did not succeed.')
+    if(rows.length!==1||!successful(rows[0])||!['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'].every(name=>{
+      const steps=rows[0].steps.filter(step=>step.name===name)
+      return steps.length===1&&steps[0].status==='completed'&&steps[0].conclusion==='success'
+    }))throw Error('Dev deployment did not succeed.')
   }
 }
-export function assertArtifact(artifacts,run,name,now=Date.now()){
+export function assertArtifact(artifacts,run,name,now=Date.now(),maxSize=65536){
   const rows=artifacts.filter(artifact=>artifact.name===name)
   if(rows.length!==1)throw Error('Evidence artifact missing or duplicated.')
   const artifact=rows[0],binding=artifact.workflow_run
-  if(artifact.expired!==false||!Number.isSafeInteger(artifact.id)||artifact.size_in_bytes<=0||artifact.size_in_bytes>65536||
+  if(artifact.expired!==false||!Number.isSafeInteger(artifact.id)||artifact.size_in_bytes<=0||artifact.size_in_bytes>maxSize||
     Date.parse(artifact.expires_at)<=now||!Number.isFinite(Date.parse(artifact.expires_at))||
     binding?.id!==run.id||binding.repository_id!==repositoryId||binding.head_repository_id!==repositoryId||binding.head_sha!==run.head_sha)throw Error('Evidence artifact is unavailable or foreign.')
   return artifact
@@ -59,7 +62,7 @@ export async function completeList(read,path,key){
   if(!Array.isArray(result[key])||result.total_count!==result[key].length)throw Error('Metadata pagination is incomplete.')
   return result[key]
 }
-export async function validateVerification(read,run,targetTree,{event,branch,revision,deployment=false,maxAge=86400000}={}){
+export async function validateVerification(read,run,targetTree,{event,branch,revision,deployment=false,hosting=false,maxAge=86400000}={}){
   assertRun(run,{event,branch,revision,maxAge})
   const commit=await read('/git/commits/'+revision)
   if(commit.tree?.sha!==targetTree)throw Error('Verified source tree differs from deployment tree.')
@@ -67,5 +70,7 @@ export async function validateVerification(read,run,targetTree,{event,branch,rev
   assertJobs(jobs,run,{deployment})
   const artifacts=await completeList(read,`/actions/runs/${run.id}/artifacts`,'artifacts')
   const artifact=assertArtifact(artifacts,run,evidenceName(targetTree,run.run_attempt))
-  return {runId:run.id,attempt:run.run_attempt,artifactId:artifact.id,revision,tree:targetTree,gates:gateSteps}
+  const hostingArtifact=hosting?assertArtifact(artifacts,run,`firebase-hosting-${targetTree}-${run.run_attempt}`,Date.now(),128*1024*1024):null
+  if(hosting){const verify=jobs.find(j=>j.name==='Verify development deployment');if(!['Check Hosting artifact','Upload verified Hosting artifact'].every(name=>verify.steps.filter(s=>s.name===name&&s.status==='completed'&&s.conclusion==='success').length===1))throw Error('Verified Hosting artifact unavailable.')}
+  return {runId:run.id,attempt:run.run_attempt,artifactId:artifact.id,revision,tree:targetTree,gates:gateSteps,...(hostingArtifact?{hostingArtifactId:hostingArtifact.id}:{})}
 }

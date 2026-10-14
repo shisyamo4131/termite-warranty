@@ -7,7 +7,7 @@ on:
       - dev
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
 
 permissions:
   contents: read
@@ -18,17 +18,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source:
+    name: Resolve verified source
+    if: (github.event_name == 'pull_request' && github.base_ref == 'main') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev')
+    runs-on: windows-latest
+    outputs:
+      reuse: ${{ steps.evidence.outputs.reuse }}
+      proof: ${{ steps.evidence.outputs.proof }}
+      hostingArtifactId: ${{ steps.evidence.outputs.hostingArtifactId }}
+      sourceRunId: ${{ steps.evidence.outputs.sourceRunId }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Resolve source verification
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verification-evidence.mjs resolve-development
   rules:
-    if: github.event_name != 'push' || github.ref != 'refs/heads/main'
+    needs: source
+    if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main') }}
     uses: ./.github/workflows/verify-rules.yml
   verify:
     name: Verify development deployment
-    needs: rules
+    outputs:
+      hostingName: ${{ steps.evidence.outputs.hostingName }}
+    needs: [rules, source]
     if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
     runs-on: windows-latest
     steps:
-      - name: Require every Rules shard to succeed
-        run: if ('${{ needs.rules.result }}' -ne 'success') { throw 'Rules shards did not all succeed.' }
+      - name: Require verification or source evidence
+        run: if ('${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.source.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.source.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' }
       - name: Check out the repository
         uses: actions/checkout@v7
 
@@ -39,62 +61,91 @@ jobs:
           cache: npm
 
       - name: Set up Java
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
-      - name: Check explicit Dev promotion acceptance
+      - name: Check feature PR admission
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/verification-evidence.mjs check-pr
 
       - name: Install dependencies
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npx --yes npm@11.19.1 ci
 
       - name: Check project governance
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: ./scripts/check-governance.ps1
 
       - name: Run domain tests
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm test
 
       - name: Type-check the application
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm run typecheck
 
       - name: Build the application
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: npm run build
 
       - uses: actions/download-artifact@v8
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         with:
           pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
           path: tmp/rules-receipts
           merge-multiple: true
       - name: Run Firestore and Callable Emulator tests
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         env:
           RULES_TEST_RECEIPTS: tmp/rules-receipts
         run: npm run test:rules
 
       - name: Check Functions syntax
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: node scripts/check-functions-syntax.mjs
 
       - name: Check Emulator seed syntax
+        if: ${{ needs.source.outputs.reuse != 'true' }}
         run: node --check scripts/seed-emulator.mjs
 
-      - name: Check Hosting artifact
-        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
+      - name: Record verified source evidence
+        if: ${{ needs.source.outputs.reuse == 'true' }}
+        env:
+          VERIFICATION_REUSE_PROOF: ${{ needs.source.outputs.proof }}
+        run: node scripts/verification-evidence.mjs report
 
-      - name: Upload verified Hosting artifact
-        uses: actions/upload-artifact@v7
+      - name: Download source PR Hosting artifact
+        if: ${{ needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request' }}
+        uses: actions/download-artifact@v8
         with:
-          name: firebase-hosting-${{ github.sha }}
+          artifact-ids: ${{ needs.source.outputs.hostingArtifactId }}
+          run-id: ${{ needs.source.outputs.sourceRunId }}
+          github-token: ${{ github.token }}
           path: .output/public
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 1
+          digest-mismatch: error
 
       - name: Publish comprehensive verification evidence
         id: evidence
         run: node scripts/verification-evidence.mjs publish
+      - name: Check Hosting artifact
+        if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
+        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
+
+      - name: Upload verified Hosting artifact
+        if: ${{ github.event_name != 'pull_request' || github.base_ref != 'main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.evidence.outputs.hostingName }}
+          path: .output/public
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 30
+
       - name: Upload comprehensive verification evidence
         uses: actions/upload-artifact@v7
         with:
@@ -106,8 +157,8 @@ jobs:
   deploy:
     name: Deploy to termite-warranty-dev
     needs: verify
-    # Transition remains off until separately approved repository configuration.
-    if: (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED != 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED != 'true') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')
+    # Only a successful verified dev revision may deploy; skipped source ancestors are expected.
+    if: ${{ !cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -126,7 +177,7 @@ jobs:
       - name: Download verified Hosting artifact
         uses: actions/download-artifact@v8
         with:
-          name: firebase-hosting-${{ github.sha }}
+          name: ${{ needs.verify.outputs.hostingName }}
           path: .output/public
 
       - name: Authenticate to Google Cloud
@@ -134,5 +185,11 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
 
+      - name: Prepare explicit Dev deployment and preserve protection hold
+        run: node scripts/development-deployment.mjs prepare
+
       - name: Deploy Firestore, Functions, and Hosting
-        run: npx firebase deploy --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
+        run: npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
+
+      - name: Verify deployed Dev release and protection hold
+        run: node scripts/development-deployment.mjs check

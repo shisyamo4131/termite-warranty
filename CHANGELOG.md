@@ -1,11 +1,18 @@
 # Changelog
 
+## 2026-10-14 Feature-to-Dev-to-main PR evidence chain
+
+- Both integrations use PRs. Complete feature-to-Dev PR evidence and Hosting artifacts can be reused after Dev integration; accepted Dev proof is independently revalidated by the promotion PR and main. Owner acceptance runs on the exact Dev revision.
+- Dev CI prepares explicit two-DB deployment, preserves disabled backup parameters and checks the deployed release plus protection hold. External activation/results are tracked in operations.
+
+
 ## 2026-10-14 PR検証再利用・Dev受入れ記録
 
 - mainでPRの成功結果と全ファイルtreeを照合し、同じ内容の包括7検証を再利用。条件不成立時は全検証し、Prod固有build・配備前後照合は毎回維持。
 - ownerの明示的Dev受入れを成功した配備版へ結び付ける手動workflowと、dev→mainでの記録照合を追加。Dev自動配備は有効化せず、実受入れは代行しない。
 - 版違い・試験失敗／skip・証跡期限切れ・未受入れの拒否とworkflow迂回防止を試験。実証結果・工程別比較は運用記録に集約する。
 - 試験再利用でpretestが動かない空のCI環境でも、Prod build自身がFunctions生成物を準備するよう修正。生成物欠落・旧内容の回帰試験を追加。
+- PR15／16をmainへ統合し、実pushの結果再利用・Prod配備・全5照合を実証。単体538・連携201成功。main11分40秒→5分36秒、PR＋main18分50秒→13分49秒。実Dev受入れ記録・Dev切替は後発、保護設定は引き続き保留。
 
 ## 2026-10-14 CIの重複削減・連携試験の分離
 
