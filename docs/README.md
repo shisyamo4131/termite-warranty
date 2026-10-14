@@ -1,5 +1,6 @@
 # Documentation Map
 
+成果物・実行設定に影響しないと確認した既存文書だけの修正は、両段階PRで文書検証して統合し、Dev／Prod配備を省略する。[限定条件・判定不能時・導入手順](runbooks/application-deployment.md#文書だけの変更2026-10-14採用)。CIやアプリの混在変更は通常経路を維持する。
 現行の反復配備は[Dev／Prod通常アプリの配備手順](runbooks/application-deployment.md)を入口とする。main→Prod、dev→Devとも有効。両統合にPRを使い、同一内容の包括検証を再利用する。本人のDev受入れ記録と環境別の配備照合は維持し、実証結果は[運用記録](operations.md)を正本とする。2026-10-14の本人指示により、両環境のバックアップ・PITR・Auth退避等はリリース直前まで保留する。以下の「HS試行後」は以前の判断時点の記録であり、この時期指定を優先する。
 
 2026-10-14現行：[main push正常Prod配備と全5項目照合を実証](operations.md#2026-10-14-main-push正常自動配備を実証現行)。バックアップ設定は解除済みで、HS試行後のスキーマ確認まで延期。残6〜9時間、23日構築・30日納品判定の条件付き目標と[PDF](../output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-13.pdf)を更新。[ロードマップ](roadmaps/production-readiness.md)。以下は先行記録。

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-14 文書だけの変更の配備省略
+
+- 成果物・実行設定に影響しないと確認した既存文書8件の修正は、両段階PRの文書検証後に統合し、Dev／Prod配備と新規業務受入れ記録を省略する方針を採用。
+- 混在・比較不能・未知のパス・新規／削除／改名・特殊ファイルは通常経路へ戻す。導入CI自体の変更は包括検証・通常配備対象。保護保留は維持。
 ## 2026-10-14 Feature-to-Dev-to-main PR evidence chain
 
 - Both integrations use PRs. Complete feature-to-Dev PR evidence and Hosting artifacts can be reused after Dev integration; accepted Dev proof is independently revalidated by the promotion PR and main. Owner acceptance runs on the exact Dev revision.

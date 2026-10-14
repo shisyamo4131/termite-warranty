@@ -36,6 +36,19 @@ Devの既存配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gs
 
 ## 3. 改修branch→dev PR
 
+### 文書だけの変更（2026-10-14採用）
+
+配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。
+
+判定の許可対象は `scripts/documentation-changes.mjs` の8ファイル：CHANGELOG.md、docs/README.md、docs/operations.md、docs/design/tr-003-verification-deploy-gates.md、docs/requirements/environment-configuration.md、docs/roadmaps/production-readiness.md、docs/roadmaps/technical-remediation.md、当手順書。既存の通常ファイルの内容修正だけを許可する。新規・削除・名前変更・symlink・実行属性変更・他ファイルとの混在は通常経路へ戻す。新たな対象を追加する際は成果物／実行入力への影響を確認し、判定実装・試験・当手順を通常PRで更新する。
+
+1. PRでは同一repositoryの実base／headと仮統合commitの両親を照合し、baseから仮統合結果までの全差分を判定する。dev→mainでは累積差分を見て、以前の未投入アプリ変更を文書扱いしない。
+2. 文書専用PRでも必須check `Verify development deployment` を実行する。`./scripts/check-governance.ps1` と `node scripts/documentation-changes.mjs verify`（判定の再確認・`git diff --check`）が両方成功してから通常mergeする。CIの包括検証証跡／Hosting成果物を捏造して発行しない。
+3. dev／mainへのmerge pushでもbefore→afterの全差分を独立判定する。正常な2親merge・対象branch・完全な履歴が確認できる場合だけ省略する。文書検証を再実行し、ビルド・Cloud認証・配備・配備後照合は実行しない。公開版が更新されていないことは「配備済み」と区別して報告する。
+4. 混在・比較不能・未認識ファイル・手動実行は省略せず通常経路へ戻す。判定job自体や文書検証の失敗は統合／配備を停止する。省略経路を導入／変更するPR自身はCI変更を含むため文書専用扱いにしない。
+
+文書の統合後はbranch先頭と最後に配備したSHAが異なることがある。次のアプリ変更は通常経路でDevへ配備し、その実配備版の本人受入れを記録する。未投入のアプリ変更がdevにある場合は文書だけのPRで業務受入れを迂回できない。問題時は同じPR経路で文書専用判定を撤回し、通常検証・配備へ戻す。バックアップ・PITR・Auth退避等の保留を解除しない。
+
 1. Local実装／Local受入れ後、改修branchをpushし、dev宛てPRを作る。
 2. CIで以下の7gateを独立stepとして実行する。Rulesは独立VM3群で試験し、全件成功・同一SHA/run/attempt・Emulator終了を集約する。失敗／欠落／skipを合格にしない。
 3. 検証対象Git tree（全追跡ファイル）とrun/attemptを証跡artifactへ結び付ける。Hostingも同じtree/attemptのartifactとして保持する。保持30日。試験成功を本人の業務受入れとして扱わない。

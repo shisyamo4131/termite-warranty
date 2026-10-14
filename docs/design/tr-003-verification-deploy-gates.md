@@ -1,5 +1,9 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-14 bounded documentation-only routing
+
+A credential-free scope job inspects exact Git comparisons using full history. Only modifications of the eight existing regular Markdown files in `scripts/documentation-changes.mjs` qualify. Mixed/unknown paths, additions/deletions/renames/mode changes, foreign PRs, mismatched merge parents and unavailable comparisons never enable omission. The required development check remains present and runs governance plus repeated scope/whitespace checks for qualifying PRs and Dev pushes. Production pushes repeat classification and document validation, without build/auth/deployment. No comprehensive or Hosting artifact is published for this route. Ordinary routing and acceptance requirements remain intact; workflow contract validators check the complete added routing before validating the original deployment contract. Introducing this behavior is a mixed CI change and uses the full path.
+
 ## 2026-10-14 feature PR → Dev → promotion PR → main evidence chain
 
 The final owner instruction uses PRs for both integrations. Feature-to-dev PR runs all seven gates and three isolated Rules shards. Dev push resolves a unique merged feature PR and its latest successful run/attempt, exact tree, 24-hour freshness, gate/shard steps and unexpired verification/Hosting artifact metadata. It downloads the immutable Hosting artifact ID from that run with digest mismatch treated as an error, then republishes the same files under the Dev run. Missing CI evidence falls back to all seven Dev gates; unknown integration identity blocks.
