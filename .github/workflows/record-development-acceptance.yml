@@ -1,0 +1,46 @@
+name: Record explicit development acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      deployment_run_id:
+        description: Successful dev push deployment run ID
+        required: true
+        type: string
+      accepted_revision:
+        description: Exact 40-character SHA tested in Dev
+        required: true
+        type: string
+      acceptance_reference:
+        description: Acceptance record reference (no customer data or secrets)
+        required: true
+        type: string
+      confirm:
+        description: I confirm that Dev business acceptance for this deployment is complete
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+jobs:
+  record:
+    name: Record development acceptance
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Validate and record explicit acceptance
+        id: acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/development-acceptance.mjs
+      - name: Upload acceptance record
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.acceptance.outputs.name }}
+          path: tmp/development-acceptance.json
+          if-no-files-found: error
+          retention-days: 30

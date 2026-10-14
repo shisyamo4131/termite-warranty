@@ -4,17 +4,34 @@ on:
     branches: [main]
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: production-bootstrap
   cancel-in-progress: false
 jobs:
-  rules:
+  reuse:
     if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    runs-on: windows-latest
+    outputs:
+      reuse: ${{ steps.evidence.outputs.reuse }}
+      proof: ${{ steps.evidence.outputs.proof }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verification-evidence.mjs resolve
+  rules:
+    needs: reuse
+    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true' }}
     uses: ./.github/workflows/verify-rules.yml
   verify:
-    needs: rules
+    needs: [reuse, rules]
     # No unconfigured production build or accidental deployment on adoption.
-    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    if: ${{ always() && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.result == 'success' && (needs.reuse.outputs.reuse == 'true' || needs.rules.result == 'success') }}
     runs-on: windows-latest
     outputs:
       digest: ${{ steps.bundle.outputs.digest }}
@@ -32,20 +49,33 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npx --yes npm@11.19.1 ci
+      - name: Record verified reuse decision
+        if: ${{ needs.reuse.outputs.reuse == 'true' }}
+        env:
+          VERIFICATION_REUSE_PROOF: ${{ needs.reuse.outputs.proof }}
+        run: node scripts/verification-evidence.mjs report
       - run: ./scripts/check-governance.ps1
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - run: npm test
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - run: npm run typecheck
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - run: npm run build
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - uses: actions/download-artifact@v8
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
         with:
           pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
           path: tmp/rules-receipts
           merge-multiple: true
       - run: npm run test:rules
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
         env:
           RULES_TEST_RECEIPTS: tmp/rules-receipts
       - run: node scripts/check-functions-syntax.mjs
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - run: node --check scripts/seed-emulator.mjs
+        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - id: bundle
         run: node scripts/prepare-production-release.mjs .production-release
       - name: Verify final production bundle

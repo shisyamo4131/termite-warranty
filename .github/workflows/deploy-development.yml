@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: development-deployment
@@ -42,6 +43,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+
+      - name: Check explicit Dev promotion acceptance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verification-evidence.mjs check-pr
 
       - name: Install dependencies
         run: npx --yes npm@11.19.1 ci
@@ -85,6 +91,17 @@ jobs:
           if-no-files-found: error
           include-hidden-files: true
           retention-days: 1
+
+      - name: Publish comprehensive verification evidence
+        id: evidence
+        run: node scripts/verification-evidence.mjs publish
+      - name: Upload comprehensive verification evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.evidence.outputs.name }}
+          path: tmp/verification-evidence.json
+          if-no-files-found: error
+          retention-days: 30
 
   deploy:
     name: Deploy to termite-warranty-dev

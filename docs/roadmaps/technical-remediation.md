@@ -1,5 +1,9 @@
 # Technical Remediation Backlog
 
+## 2026-10-14 次段階：PR結果再利用とDev受入れ連携（実証中）
+
+本人指示により着手。同一tree・信頼できる最新成功PR結果をmainで再利用し、証跡不備なら包括7検証へ戻す。dev→mainには明示受入れ記録を要求する。[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[設計](../design/tr-003-verification-deploy-gates.md)、[実測](../operations.md)。完了条件は拒否系・分岐試験、包括PR成功、実main pushでの再利用とProd全5照合、従前との工程別比較。Dev自動配備有効化と実業務受入れ記録は別工程。保護保留と納品条件は維持し、試験途中の部分加点なし。
+
 ## 2026-10-14 CI重複削減と連携試験の分離（完了）
 
 優先1：main pushのDev重複検証と、無効な保守公開の検証を停止。優先2：連携試験を独立VMの3群に分割し、同一版の従来方式と全試験ID一致・意図的失敗・干渉なし・正常終了を比較する。件数・反復回数・442件試験を減らさない。PR結果再利用は別段階。Dev自動配備と両環境の保護は有効化しない。[設計](../design/tr-003-verification-deploy-gates.md)、[実測結果](../operations.md)。包括検証・比較・通常main配備が成功するまで完了としない。

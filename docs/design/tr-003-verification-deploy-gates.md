@@ -1,5 +1,17 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-14 adopted PR evidence reuse and Dev acceptance linkage
+
+The owner's next-stage instruction supersedes the deferral below. [ADR 0046](../decisions/0046-verification-reuse-and-dev-acceptance.md) records the decision. PR still executes all seven gates and three isolated shards. Only main's duplicate execution is replaced by a current, same-tree successful PR proof. No change to the Rules runner, test identities, repetitions, shutdown checks or production release proof is included.
+
+`verification-evidence.mjs` publishes the actual tested checkout tree, run and attempt after the final successful gate; the corresponding artifact is retained 30 days. The main read-only resolver verifies a unique merged same-repository PR, latest PR workflow run/attempt within 24 hours, source tree, seven named successful steps, three successful shards and the exact unexpired artifact metadata. The source tree includes the publisher and workflow, so another implementation cannot supply a trusted receipt. The artifact name carries the tested synthetic-merge tree; a matching head tree alone is insufficient. No downloaded artifact body/code is executed. API inventory exceeding the bounded complete page is rejected rather than partially accepted.
+
+Trusted PR but missing/stale/failed/mismatched CI evidence selects the existing full main verification. Unknown promotion identity blocks before deployment. Reuse success skips three Rules VMs and the seven repeated commands, but retains fresh Prod build/bundle validation, upload, guard, WIF, predeploy and all five cloud checks. Failure in resolver/report/build/proof cannot flow to deployment. Node 22, fixed npm/lock dependencies and workflow configuration remain tracked inputs; the 24-hour validity does not claim hosted VM image immutability.
+
+`record-development-acceptance.yml` is main manual-only, read-only, owner-ID-only, and requires explicit confirmation plus deployed SHA, dev push run and a nonsensitive acceptance reference. It verifies the current dev head and successful full verification/deployment before publishing a 30-day record. dev→main PR/main checks match tree, deployed revision/run, owner and rerun actor, record job/attempt and unchanged producer files, then revalidate the deployment. A missing record stops promotion; full CI is not human acceptance. Re-record after expiry or acceptance implementation changes. Do not record a simulated acceptance against live Dev. This stage does not enable Dev automatic deployment or eliminate the separate comprehensive PR pass after Dev acceptance.
+
+Completion: local negative/mutation tests, policy-focused regression, all seven PR gates, actual main-push reuse and normal Prod proof; timings compared to PR14/main059bc7e7 in operations. Actual Dev acceptance workflow dispatch remains unverified until Dev branch deployment is enabled and the owner completes real business acceptance. Revert this reviewed set to restore full main execution; no data migration or protection changes.
+
 ## 2026-10-14 adopted CI duration improvement
 
 Owner approval: task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`, adopt priority 1 and compare isolated parallel tests with the previous runner. This section supersedes the original single-emulator/two-job topology below. Business coverage, seven gate IDs and deployment guards remain unchanged. PR-to-main result reuse is deferred.
