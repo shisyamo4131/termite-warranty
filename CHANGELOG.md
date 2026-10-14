@@ -1,9 +1,15 @@
 # Changelog
 
+## 2026-10-14 文書だけの変更の配備省略
+
+- 成果物・実行設定に影響しないと確認した既存文書8件の修正は、両段階PRの文書検証後に統合し、Dev／Prod配備と新規業務受入れ記録を省略する方針を採用。
+- 混在・比較不能・未知のパス・新規／削除／改名・特殊ファイルは通常経路へ戻す。導入CI自体の変更は包括検証・通常配備対象。保護保留は維持。
 ## 2026-10-14 Feature-to-Dev-to-main PR evidence chain
 
 - Both integrations use PRs. Complete feature-to-Dev PR evidence and Hosting artifacts can be reused after Dev integration; accepted Dev proof is independently revalidated by the promotion PR and main. Owner acceptance runs on the exact Dev revision.
 - Dev CI prepares explicit two-DB deployment, preserves disabled backup parameters and checks the deployed release plus protection hold. External activation/results are tracked in operations.
+- PR17 merged into dev; comprehensive verification passed (561 unit / 201 integration tests). Dev push reused the PR evidence and Hosting artifact, deployed successfully and passed all five release checks plus protection hold. Preparation fell from 7m17s to 1m17s in the measured runs. Three initial deployment-account permission gaps were corrected with scoped roles and read back.
+- After explicit owner acceptance of Dev cbec3c3, the acceptance workflow succeeded and PR18 passed using the original verification/deployment/acceptance chain in 1m17s. Merging to main c5ea070 triggered a successful Prod deployment and all five release checks in 5m41s. Backup/PITR/Auth protection remains held. Main alone was 5s slower than the immediately preceding reuse design; the measurable reduction is duplicated verification, not every individual job.
 
 
 ## 2026-10-14 PR検証再利用・Dev受入れ記録

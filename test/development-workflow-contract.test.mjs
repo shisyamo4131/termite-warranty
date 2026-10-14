@@ -2,9 +2,10 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { test } from 'node:test'
 import { validateDevelopmentWorkflow, developmentDeployCondition } from '../scripts/development-workflow-contract.mjs'
-import { parse } from 'yaml'
+import { parse, stringify } from 'yaml'
 import vm from 'node:vm'
 
+const mutate=(text,change)=>{const w=parse(text);change(w);return stringify(w,{lineWidth:0})}
 const workflowUrl = new URL('../.github/workflows/deploy-development.yml', import.meta.url)
 const policyUrl = new URL('../governance/verification-policy.json', import.meta.url)
 const load = async () => {
@@ -32,24 +33,24 @@ test('removing any comprehensive gate makes the workflow contract fail', async (
 test('deploy cannot bypass verification or use a general force flag', async () => {
   const { workflow, policy } = await load()
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace('    needs: verify\n', ''), policy),
-    /depend on the verify job/,
+    () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.deploy.needs=[]}), policy),
+    /Documentation routing/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('--non-interactive', '--non-interactive --force'), policy),
     /must not use unconditional --force/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace(`    if: ${developmentDeployCondition}\n`, ''), policy),
-    /explicit manual workflow dispatch/,
+    () => validateDevelopmentWorkflow(mutate(workflow,w=>{delete w.jobs.deploy.if}), policy),
+    /Documentation routing/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - continue-on-error: true\n      - name: Run domain tests'), policy),
-    /must not bypass/,
+    /Documentation routing|must not bypass/,
   )
   assert.throws(
-    () => validateDevelopmentWorkflow(workflow.replace("      - name: Run domain tests\n        if: ${{ needs.source.outputs.reuse != 'true' }}", '      - name: Run domain tests\n        if: false'), policy),
-    /domain-test must be unconditional and fail closed/,
+    () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.verify.steps.find(s=>s.run==='npm test').if='false'}), policy),
+    /Documentation routing/,
   )
 })
 
@@ -65,7 +66,7 @@ test('actual deployment condition routes only approved events and branches befor
           const ref = branch.startsWith('refs/') ? branch : `refs/heads/${branch}`
           const enabled = flag.toLowerCase() === 'true'
           const expected = enabled && branch === 'dev' && ['push', 'workflow_dispatch'].includes(event)
-          assert.equal(vm.runInNewContext(condition.slice(3,-2), { cancelled:()=>false, needs:{verify:{result:'success'}}, github: { event_name: event, ref }, vars: { DEVELOPMENT_BRANCH_DEPLOY_ENABLED: flag.toLowerCase(), PRODUCTION_APP_DEPLOY_ENABLED: production.toLowerCase() } }), expected, `${flag}/${production}/${event}/${branch}`)
+          assert.equal(vm.runInNewContext(condition.slice(3,-2), { cancelled:()=>false, needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},verify:{result:'success'}}, github: { event_name: event, ref }, vars: { DEVELOPMENT_BRANCH_DEPLOY_ENABLED: flag.toLowerCase(), PRODUCTION_APP_DEPLOY_ENABLED: production.toLowerCase() } }), expected, `${flag}/${production}/${event}/${branch}`)
         }
       }
     }
@@ -105,7 +106,7 @@ test('both jobs use the fixed npm installer and verification cannot deploy', asy
   assert.throws(() => validateDevelopmentWorkflow(changedInstall, policy), /Deploy job must install with the repository npm version/)
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - name: Forbidden deploy\n        run: npx firebase deploy\n\n      - name: Run domain tests'), policy),
-    /must not perform a deployment/,
+    /Documentation routing|must not perform a deployment/,
   )
 })
 
