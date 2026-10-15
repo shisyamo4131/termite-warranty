@@ -1,10 +1,22 @@
 # Operations
 
-## 2026-10-15 PDF統合向けCI改修（実施中）
+## 2026-10-15 PDF統合向けCI改修・文書統合
 
 本人承認により、初回CI改修を包括検証・配備なしで導入し、その後PDF／生成元を文書専用PRでdev・mainへ統合する。作業開始03:50:04 UTC。対象5ファイルはpackage scripts・Nuxt／Firebase構成・Dev source・Prod bundleの入力に含まれず、参照検索でも実行側からの接続なしを確認。文書対象は正確な13パスに限定し、未知／混在・追加／削除／改名・symlink／実行属性変更は省略しない。
 
 初回CIは固定比較元・限定差分で包括7gateを要求し、同treeの後続統合は元PRの最新成功run／attempt・7stepを独立再照合する。通常配備と本人受入れの条件は維持。バックアップ・PITR・Auth退避は保留。今回の仕様・DB契約・業務動作・IAMは不変のため版更新しない。実行結果・工程時刻は当該PR／Actionsと完了報告に残す。
+CI導入は[PR31](https://github.com/shisyamo4131/termite-warranty/pull/31)・[PR32](https://github.com/shisyamo4131/termite-warranty/pull/32)でdev／mainへ通常merge済み。main b71233e3399e0aac976cc1992545e5b5ca6ed6c7。下表はActions created_at→updated_atの実測（準備・待機・後処理込み）。初期調査・実装・Local検証・PR作成は03:50:04〜03:58:19 UTCの8分15秒。CI導入完了は04:14:11 UTC。配備jobはすべてskip、Cloud認証／業務受入れ記録の発行なし。
+
+| 工程 | run | 実測 | 結果 |
+| --- | --- | --- | --- |
+| 改修→dev PR31 | [38679008727](https://github.com/shisyamo4131/termite-warranty/actions/runs/38679008727) | 8分41秒 | 包括7gate成功、単体626成功・skip0、Rules201成功・Emulator終了成功 |
+| dev統合後 | [38679853969](https://github.com/shisyamo4131/termite-warranty/actions/runs/38679853969) | 1分28秒 | 同treeの元PR成功を再照合、配備skip |
+| dev→main PR32 | [38680032455](https://github.com/shisyamo4131/termite-warranty/actions/runs/38680032455) | 1分21秒 | 同treeの元PR成功を再照合、配備skip |
+| main統合後 | [38680230216](https://github.com/shisyamo4131/termite-warranty/actions/runs/38680230216) | 1分58秒 | 同treeの元PR成功を再照合、配備skip |
+
+包括commandは `./scripts/check-governance.ps1`、`npm test`、`npm run typecheck`、`npm run build`、`npm run test:rules`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`。すべて独立stepで終了0。focused `node --test test/documentation-changes.test.mjs` は23成功・終了0。Local単体初回はfixture差異4件とsandboxのrename拒否8件で終了1、fixture修正後に通常実行環境で624成功・既存Windows symlink2skip・終了0。最終PRでは626全件成功。失敗を省略理由にしていない。
+
+後続のPDF・生成元・補助ロードマップは文書専用の両段階PRで統合する。PDF／生成元は保存済み成果物と同一で、2ページ・10/16／19・2営業日・保護保留・Dev URL、生成元の構文を再確認し終了0。配備入力への参照なしのため、文書検証（governance・差分再分類・git diff --check）を選択し、包括試験・build・Cloud認証・Dev／Prod配備は対象外。PR／pushの最終結果と工程実測は各PR／Actionsおよび完了報告に記録する。業務仕様・DB契約・IAM・保護保留条件は不変。公開版は今回のbranch先頭とは別にmain4d7422fのまま維持する。
 
 ## 2026-10-15 Dev受入れ記録・Prod反映完了
 
