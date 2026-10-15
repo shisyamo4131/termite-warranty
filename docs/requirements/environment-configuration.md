@@ -1,6 +1,6 @@
 # Dev／Prod 環境設定・権限仕様
 
-2026-10-15検証フロー改修候補：[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)。非製品変更はmain向け1PR、製品はdev→mainを維持する。branch保護・必須check名・environment許可branch・IAM・secret・Cloud設定は変更しない。候補は未統合・未配備であり、以下の実設定/実証結果を更新したものではない。
+2026-10-15検証フロー：[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)をPR35でmainへ統合済み。非製品変更はmain向け1PR、製品はdev→mainを維持する。branch保護・必須check名・environment許可branch・IAM・secret・Cloud設定は変更していない。dev未同期・実配備未実証であり、以下の実設定/実証結果を更新したものではない。
 
 2026-10-15現在：Dev0dc6aca／run38674603493、本人が受入れた元Dev22d5bacの記録run38675079811、main4d7422f／Prod run38675498552が成功。Prod公開版c837957f050b2703、21 Functions ACTIVE。全5照合と後処理成功、独立読取りでPITR無効・日次予定0・automation=false・他3保護入力空を確認。Devも配備時に保護保留を確認。日次バックアップ・PITR・Auth退避はリリース直前まで保留し、IAM／環境設定は変更していない。[証拠](../operations.md#2026-10-15-dev受入れ記録prod反映完了)。
 

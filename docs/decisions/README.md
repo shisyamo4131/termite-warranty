@@ -12,7 +12,7 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
-| [0047](0047-single-verification-and-nonproduct-pr.md) | 統合前の一度の検証・非製品1PR・受入れ記録分離（候補、未配備） | Accepted | 2026-10-15 |
+| [0047](0047-single-verification-and-nonproduct-pr.md) | 統合前の一度の検証・非製品1PR・受入れ記録分離（main統合済み、実配備未実証） | Accepted | 2026-10-15 |
 | [0046](0046-verification-reuse-and-dev-acceptance.md) | 同一内容のPR検証再利用とDev受入れ記録 | Accepted | 2026-10-14 |
 | [0045](0045-legacy-property-list-retirement.md) | 旧一覧条件の拒否と所属付き保証案内 | Accepted | 2026-10-13 |
 | [0044](0044-branch-code-targeted-reads.md) | 本支店の既存コード管理記録による対象読取り | Accepted | 2026-10-13 |

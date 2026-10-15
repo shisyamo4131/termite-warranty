@@ -1,9 +1,10 @@
 # 0047 統合前の一度の検証と非製品変更の1PR化
 
-- Status: Accepted; candidate implementation, not merged or deployed
+- Status: Accepted; merged to main, not synchronized to dev or deployment-proven
 - Date: 2026-10-15
 - Approval: 親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` が04:56 UTCの本人承認を確認。専用branchで実装・試験・独立review・push・draft PRまで。merge、Dev/Prod配備、権限・設定・データ変更は未承認。
 - Additional approval: 同日の本人「見積もり報告後、PR #35の反映を許可する」に基づき、Prod昇格前の機能試験工程を除く追加修正を承認。再検証はDev側または試験・CI変更の技術確認へ戻す。統合・配備の承認は含まない。
+- Integration approval: 同じ親タスクで本人がPR35のmain統合と非配備の文書・Local再利用測定を承認。PR35は07:26:38 UTCにmain `36249552c41ea31077575eb93535df5625f77311`へ通常merge。Dev/Prod配備、実データ、IAM・保護・OS設定変更は対象外。以前の候補段階の承認境界・governance索引の未統合記述は当時の状態として読み、現在値はこの承認と運用記録を優先する。
 - Supersedes: [0046](0046-verification-reuse-and-dev-acceptance.md)の現行経路。既存の実行記録と本人受入れの事実は保持する。
 
 ## 判断
@@ -40,6 +41,6 @@ PR31〜34の全工程33分42秒にはCI改修とLocal作業を含む。PDF4回�
 
 ## 移行・切戻し・承認境界
 
-まずこのCI候補を配備なしのdraft PRで包括検証し、独立reviewする。main統合、dev同期、実Dev/Prodの実証は別承認。非製品main変更は次の製品PRの検証前にdevへ取り込み、同期だけの再配備/受入れを増やさない。本人のHS試行10/16・19（2営業日）と保護のリリース直前までの保留は変更しない。
+包括検証・独立review済みのPR35をmainへ統合し、非配備経路を測定する段階。dev同期と実Dev/Prodの実証は別承認。非製品main変更は次の製品PRの検証前にdevへ取り込み、同期だけの再配備/受入れを増やさない。本人のHS試行10/16・19（2営業日）と保護のリリース直前までの保留は変更しない。
 
 切戻しは当変更一式を通常PRでrevertする。旧記録・artifact・公開環境を消さない。Git revertをデータ復元と混同しない。新方式の成果物を旧方式の名前へ付け替えず、必要な候補検証を旧経路で取り直す。変更後は包括7gate、routing/governance focused回帰、owner/版/部分成功/最新失敗/artifactの拒否系、独立reviewを選択する。新方式の実配備成功は承認後の実測まで未実証とする。

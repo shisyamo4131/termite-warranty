@@ -1,6 +1,6 @@
 # Dev／Prod 通常アプリの配備手順
 
-2026-10-15の[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)に従う候補手順。未統合・実配備未実証。既存の配備・本人受入れの実績は[運用記録](../operations.md)、旧方式の経緯は[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)を参照。実装・試験・draft PRまで承認済み。merge・配備・権限/設定/データ変更は別承認。
+2026-10-15の[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)に従う手順。PR35でmain統合済み、dev未同期・実配備未実証。既存の配備・本人受入れの実績は[運用記録](../operations.md)、旧方式の経緯は[ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md)を参照。main統合と非配備測定まで承認済み。Dev/Prod配備・権限/設定/データ変更は別承認。
 
 ## 1. 対象と保留
 
