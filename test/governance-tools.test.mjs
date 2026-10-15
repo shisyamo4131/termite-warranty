@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync} from 'node:fs'
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,copyFileSync,rmSync,realpathSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join,resolve,dirname} from 'node:path'
 import {fileURLToPath} from 'node:url'
@@ -10,9 +10,11 @@ const repo=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const outputs=['AGENTS.md','docs/operations.md','governance/governance.lock.toml']
 function fixture() {
   // Synthetic governance fixture only: no Git checkout, application, data or installed skill.
-  const root=mkdtempSync(join(tmpdir(),'termite-governance-fixture-'))
+  // Windows runners expose TEMP through an 8.3 alias; PowerShell resolves its
+  // long form. Use one canonical fixture root without weakening containment.
+  const root=realpathSync.native(mkdtempSync(join(tmpdir(),'termite-governance-fixture-')))
   const put=(p,s)=>{mkdirSync(dirname(join(root,p)),{recursive:true});writeFileSync(join(root,p),s)}
-  for(const p of ['scripts/check-governance.ps1','scripts/render-governance.ps1','scripts/lib/governance-policy.ps1','test/governance-tools.test.mjs','test/documentation-changes.test.mjs','scripts/documentation-changes.mjs','scripts/lib/documentation-workflow.mjs','.github/workflows/deploy-development.yml','.github/workflows/deploy-production.yml']) {
+  for(const p of ['scripts/check-governance.ps1','scripts/render-governance.ps1','scripts/lib/governance-policy.ps1','test/governance-tools.test.mjs','test/documentation-changes.test.mjs',...JSON.parse(readFileSync(join(repo,'governance/verification-policy.json'))).focusedRegressions[0].triggerPaths]) {
     mkdirSync(dirname(join(root,p)),{recursive:true});copyFileSync(join(repo,p),join(root,p))
   }
   put('governance/common-governance.md','<!-- project-governance-version: 1.0.0 -->\n# Local fixture\n')

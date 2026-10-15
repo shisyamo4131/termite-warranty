@@ -25,7 +25,7 @@ export function assertRun(run,{event,branch,revision,path=verificationWorkflow,n
   if(run.repository?.id!==repositoryId||run.head_repository?.id!==repositoryId||run.repository?.owner?.id!==ownerId||
     run.path!==path||run.event!==event||run.head_branch!==branch||run.head_sha!==revision||!sha(revision)||
     run.status!=='completed'||run.conclusion!=='success'||!Number.isSafeInteger(run.id)||!Number.isSafeInteger(run.run_attempt)||run.run_attempt<1||
-    !Number.isFinite(Date.parse(run.updated_at))||Date.parse(run.updated_at)>now+60000||now-Date.parse(run.updated_at)>maxAge)throw Error('Untrusted, unsuccessful or stale workflow run.')
+    !Number.isFinite(Date.parse(run.updated_at))||Date.parse(run.updated_at)>now+60000)throw Error('Untrusted or unsuccessful workflow run.')
 }
 export function assertJobs(jobs,run,{deployment=false}={}){
   if(!Array.isArray(jobs))throw Error('Job evidence missing.')

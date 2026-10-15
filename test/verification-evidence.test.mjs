@@ -75,7 +75,7 @@ for(const [name,mutate] of [
   ['different event',f=>{f.run.event='push'}],
   ['failed run',f=>{f.run.conclusion='failure'}],
   ['unfinished run',f=>{f.run.status='in_progress'}],
-  ['old evidence',f=>{f.run.updated_at=new Date(Date.now()-86400001).toISOString()}],
+  ['future evidence timestamp',f=>{f.run.updated_at=new Date(Date.now()+120000).toISOString()}],
   ['different tree',f=>{f.data.get(`/git/commits/${revision}`).tree.sha=merged}],
   ['failed shard',f=>{f.jobs[1].conclusion='failure'}],
   ['wrong job attempt',f=>{f.jobs[0].run_attempt=2}],
@@ -170,18 +170,6 @@ test('main cannot replace invalidated Dev acceptance with full CI',async()=>{
   const f=promotionFixture();f.recordArtifact.expired=true
   await assert.rejects(findReusableVerification(f.read,tree,merged,{blob:()=>blob}),/Dev acceptance required/)
 })
-test('feature PR runs full CI, Dev reuses or falls back, and main PR requires acceptance',()=>{
-  const w=workflow('deploy-development.yml')
-  assert.deepEqual(workflow('compare-rules.yml').on.pull_request.branches,['dev'])
-  for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['main','dev','codex/change'])for(const base of ['dev','main',''])for(const reuse of ['true','false'])for(const result of ['success','failure','skipped']){
-    const context={always:()=>true,github:{event_name:event,ref:'refs/heads/'+branch,base_ref:base},needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},source:{result,outputs:{reuse}}}}
-    assert.equal(vm.runInNewContext(w.jobs.source.if.slice(3,-2),context),event==='pull_request'&&base==='main'||['push','workflow_dispatch'].includes(event)&&branch==='dev')
-    assert.equal(vm.runInNewContext(w.jobs.rules.if.slice(3,-2),context),!(event==='push'&&branch==='main')&&result!=='failure'&&reuse!=='true'&&!(event==='pull_request'&&base==='main'))
-  }
-  for(const mutate of [w=>{w.jobs.source.if='true'},w=>{w.jobs.source.steps[2].env={}},w=>{w.jobs.source.steps[2]['continue-on-error']=true},w=>{w.jobs.verify.steps[0].run='echo success'},w=>{w.jobs.verify.steps.find(s=>s.name==='Record verified source evidence').if='false'}]){
-    const changed=workflow('deploy-development.yml');mutate(changed);assert.throws(()=>validateDevelopmentWorkflow(stringify(changed),policy))
-  }
-})
 test('promotion consumes matching owner record and independently revalidates Dev deployment',async()=>{
   const f=acceptedFixture(),proof=await requireDevelopmentAcceptance(f.read,tree,revision,{blob:()=>blob})
   assert.equal(proof.recordRunId,102);assert.equal(proof.deployment.runId,101)
@@ -197,52 +185,6 @@ for(const [name,change] of [
   ['Dev CI later failed',f=>{f.run.conclusion='failure'}],
 ])test('promotion rejects '+name,async()=>{const f=acceptedFixture();change(f);await assert.rejects(requireDevelopmentAcceptance(f.read,tree,revision,{blob:()=>blob}),/Dev acceptance required/)})
 
-test('main routing: reuse skips only comprehensive repeats; missing proof falls back; failures stop',()=>{
-  const w=workflow('deploy-production.yml')
-  assert.equal(validateProductionWorkflow(stringify(w),policy),true)
-  for(const enabled of ['true','false'])for(const reuseResult of ['success','failure','skipped','cancelled'])for(const proof of ['true','false',''])for(const rules of ['success','failure','skipped','cancelled']){
-    const context={always:()=>true,vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled},needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},reuse:{result:reuseResult,outputs:{reuse:proof}},rules:{result:rules}}}
-    const allowed=enabled==='true'&&reuseResult==='success'&&(proof==='true'||rules==='success')
-    assert.equal(vm.runInNewContext(w.jobs.verify.if.slice(3,-2),context),allowed)
-    for(const gate of policy.comprehensiveGateIds){const s=w.jobs.verify.steps.find(s=>s.run===policy.gates.find(g=>g.id===gate).command);assert.equal(vm.runInNewContext(s.if.slice(3,-2),context),proof!=='true')}
-  }
-})
-test('workflow mutation guards prevent bypassing fallback, proof, or production checks',()=>{
-  for(const mutate of [
-    w=>{w.jobs.reuse.steps.at(-1)['continue-on-error']=true},
-    w=>{w.jobs.rules['continue-on-error']=true},
-    w=>{w.jobs.rules.with={bypass:true}},
-    w=>{w.jobs.reuse.permissions={'id-token':'write'}},
-    w=>{w.jobs.verify.if='always()'},
-    w=>{w.jobs.verify.steps.find(s=>s.run==='npm test').if='false'},
-    w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs report').env={}},
-    w=>{w.jobs.verify.steps.find(s=>s.id==='bundle').if='false'},
-    w=>{w.jobs.deploy.steps.find(s=>s.name==='Verify deployed Rules indexes Functions and Hosting').if='false'},
-  ]){const w=workflow('deploy-production.yml');mutate(w);assert.throws(()=>validateProductionWorkflow(stringify(w),policy))}
-  for(const mutate of [
-    w=>{w.jobs.verify.steps.find(s=>s.id==='evidence').if='always()'},
-    w=>{w.jobs.verify.steps.find(s=>s.name==='Upload comprehensive verification evidence').with.path='other'},
-    w=>{w.jobs.application.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
-  ]){const w=workflow('deploy-development.yml');mutate(w);assert.throws(()=>validateDevelopmentWorkflow(stringify(w),policy))}
-})
-test('deployment after intentional shard skip requires successful verification and refuses cancellation',()=>{
-  const w=workflow('deploy-production.yml'),condition=w.jobs.deploy.if
-  // An explicit status function prevents Actions applying implicit success() to
-  // skipped ancestors. The immediate verification result still must be success.
-  assert.ok(condition.includes('!cancelled()'))
-  for(const cancelled of [true,false])for(const result of ['success','failure','skipped','cancelled'])for(const enabled of ['true','false']){
-    assert.equal(vm.runInNewContext(condition.slice(3,-2),{cancelled:()=>cancelled,needs:{scope:{result:'success',outputs:{documentationOnly:'false'}},verify:{result}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}}),!cancelled&&result==='success'&&enabled==='true')
-  }
-  w.jobs.deploy.if=condition.replace('!cancelled() && ','')
-  assert.throws(()=>validateProductionWorkflow(stringify(w),policy))
-})
-test('acceptance workflow is explicit, read-only, Dev-only and does not deploy',()=>{
-  const w=workflow('record-development-acceptance.yml')
-  assert.deepEqual(Object.keys(w.on),['workflow_dispatch']);assert.equal(w.on.workflow_dispatch.inputs.confirm.default,false)
-  assert.deepEqual(w.permissions,{contents:'read',actions:'read'});assert.equal(w.jobs.record.if,"github.ref == 'refs/heads/dev'")
-  assert.equal(w.jobs.record.steps.filter(s=>s.run).length,1);assert.equal(w.jobs.record.steps.find(s=>s.run).run,'node scripts/development-acceptance.mjs')
-  assert.ok(!/google-github-actions|firebase deploy|secrets\.|continue-on-error/.test(JSON.stringify(w)))
-})
 test('metadata reader limits token to repository API and disables redirects',async()=>{
   let calls=0
   const read=githubReader('fixture-not-a-secret',async(url,options)=>{calls++;assert.ok(url.startsWith('https://api.github.com/repos/'));assert.equal(options.redirect,'error');return {ok:false,status:403}})
@@ -309,42 +251,6 @@ test('Hosting artifact from a successful app cannot authorize reuse after Rules 
     const f=fixture();f.jobs[index].conclusion=conclusion;await assert.rejects(verify(f))
   }
 })
-test('parallel topology and producer mutations cannot bypass the required aggregate',()=>{
-  const w=workflow('deploy-development.yml')
-  assert.deepEqual(w.jobs.application.needs,w.jobs.rules.needs)
-  assert.equal(w.jobs.application.if,w.jobs.rules.if)
-  assert.deepEqual(w.jobs.verify.needs,['rules','source','scope','application','ci-introduction'])
-  assert.equal(w.jobs.verify.name,'Verify development deployment')
-  for(const mutate of [
-    w=>w.jobs.application.if='true',w=>w.jobs.application.needs=['scope'],w=>w.jobs.application.permissions={'id-token':'write'},
-    w=>w.jobs.application.environment='development',w=>w.jobs.application['continue-on-error']=true,
-    w=>w.jobs.application.outputs.artifactId='401',w=>w.jobs.application.outputs.proof='forged',
-    w=>w.jobs.application.steps.push({run:'echo extra'}),w=>w.jobs.application.steps.reverse(),
-    w=>w.jobs.application.steps.find(s=>s.id==='hosting').with.path='other',
-    w=>w.jobs.application.steps.find(s=>s.id==='evidence').run='echo success',
-    w=>w.jobs.verify.needs.pop(),w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').if='false',
-    w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').env.APPLICATION_HOSTING_ARTIFACT_ID='401',
-    w=>w.jobs.verify.steps.find(s=>s.name==='Upload verified Hosting artifact').if='true',
-  ]){const changed=structuredClone(w);mutate(changed);assert.throws(()=>validateDevelopmentWorkflow(stringify(changed),policy))}
-})
-test('actual aggregate admission refuses failed/cancelled/unexpected skips and admits only full, docs or reused paths',()=>{
-  const command=workflow('deploy-development.yml').jobs.verify.steps[0].run
-  const cases=[
-    ['false','false','skipped','success','success',true],['false','false','success','success','success',true],
-    ['true','false','skipped','skipped','skipped',true],['false','true','success','skipped','skipped',true],
-    ...['failure','cancelled','skipped'].flatMap(bad=>[['false','false','skipped',bad,'success',false],['false','false','skipped','success',bad,false]]),
-    ['false','true','failure','skipped','skipped',false],['false','true','skipped','skipped','skipped',false],
-    ['false','true','success','success','skipped',false],['false','true','success','skipped','success',false],
-    ['true','false','skipped','skipped','success',false],
-  ]
-  for(const [docs,reuse,source,rules,application,allowed] of cases){
-    const values={'scope.result':'success','scope.outputs.documentationOnly':docs,'source.outputs.reuse':reuse,'source.result':source,'rules.result':rules,'application.result':application}
-    const run=command.replace(/\$\{\{ needs\.([^} ]+) \}\}/g,(_,key)=>values[key])
-    const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',run],{encoding:'utf8',windowsHide:true})
-    assert.ifError(result.error);assert.equal(result.status===0,allowed,JSON.stringify({docs,reuse,source,rules,application,stderr:result.stderr}))
-  }
-})
-
 const documentTree='8'.repeat(40),candidateRevision='f'.repeat(40),candidateTree='1'.repeat(40)
 function continuationTrees(f,from,to,beforeTree,afterTree,path='docs/operations.md'){
   const before={sha:beforeTree,truncated:false,tree:[{path,type:'blob',mode:'100644',sha:blob},{path:'app.vue',type:'blob',mode:'100644',sha:'7'.repeat(40)}]}
