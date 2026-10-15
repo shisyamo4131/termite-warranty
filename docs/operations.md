@@ -2521,7 +2521,7 @@ Localでの機能成功とDev固有の確認を混同しない。配備された
 - **正式照合の範囲選択は未実装**：[preflight](../scripts/lib/default-recovery-preflight.mjs)はDB／marker／ロック／2種Rules／索引を照合し、[releaseProof](../scripts/lib/default-recovery-release-proof.mjs)はFunctionsとHostingの両方を実行する。Hostingだけの正式経路や、子結果を次の呼出しへ安全に引き継ぐ機能はない。HostingのfileCount反映待ちだけでも再呼出しは広く走る。改修までは必須内部検査を削らず、その再実行をツール制約として記録する。正式preflightと、別コマンドの全業務像走査は区別する。
 - **ビルド証拠の受渡しは未実装**：[build helper](../scripts/lib/default-recovery-build.mjs)は入力・環境と出力hashを照合するが、証拠はプロセス内WeakMapのみ。[CLI](../scripts/default-recovery.mjs)の正式照合は再度generateする。通常build、公開用build、preflightのbuildを安全に一本化するには、改ざん・古い入力・異なる環境／revisionを拒否する成果物受渡しとゲート包含の検証が必要。現行JSONのincludesは空であり、見かけ上同じgenerateを呼ぶだけでapp-buildを充足したと扱わない。
 - **自動試験と常用Localの分離**：用途別ポート・別demoプロジェクト・実行用Functions／設定を分離した。[利用調整と実装の境界](#localと自動試験の利用調整)を参照。同じ自動試験プロファイル同士や第三者との競合拒否は維持する。
-- GitHubの[配備workflow](../.github/workflows/deploy-development.yml)も7検査を固定実行し、手動起動時はFirestore／Functions／Hostingを一括配備する。[TR-003](design/tr-003-verification-deploy-gates.md)が固定ゲートと成果物引渡しを契約化しているため、ローカルの再利用説明でCIを迂回しない。今回の直近手動配備の遅さをCI実行のせいにはしない。CIの範囲選択は契約・検査器を含む別件。
+- 2026-10-12時点のGitHub配備workflowは7検査を固定実行していた。この旧制約を、新方式でも毎回全試験を繰り返す要件として扱わない。2026-10-15の承認済み候補は[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)・[配備手順](runbooks/application-deployment.md)・更新した[TR-003](design/tr-003-verification-deploy-gates.md)を正とし、非製品1PR、統合前の共通検証、最新PR文書へのgovernance一度、後続の版・成果物・環境照合を定める。候補は未統合・実配備未実証であり、既存の公開版は変わらない。下記の2026-10-12実例は当時の手動CLIとその制約の記録として保持する。
 
 #### 2026-10-12の実例への適用
 
