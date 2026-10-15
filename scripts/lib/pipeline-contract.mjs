@@ -54,7 +54,7 @@ export function validatePipeline(text,policy,kind){
       need(evaluate(application.if,c)===full&&evaluate(rules.if,c)===(full&&local!=='true'),'Producer condition permits missing or duplicate tests.')
     }
     required(application,'npx --yes npm@11.19.1 ci')
-    for(const id of policy.comprehensiveGateIds.filter(x=>x!=='firestore-rules-test')){const a=matches(application,policy.gates.find(g=>g.id===id)?.command);need(a.length===1,'Missing comprehensive gate: '+id);gateCondition(a[0],id==='app-build')}
+    for(const id of policy.comprehensiveGateIds.filter(x=>!['firestore-rules-test','governance-check'].includes(x))){const a=matches(application,policy.gates.find(g=>g.id===id)?.command);need(a.length===1,'Missing comprehensive gate: '+id);gateCondition(a[0],id==='app-build')}
     for(const r of policy.focusedRegressions.filter(r=>r.completionRequired)){const a=matches(application,r.command);need(a.length===1,'Missing focused regression: '+r.id);gateCondition(a[0])}
     need(rules.uses==='./.github/workflows/verify-rules.yml'&&!rules.secrets,'Rules must use the isolated suite.')
     need(Array.isArray(verify.needs)&&['scope','rules','application'].every(x=>verify.needs.includes(x))&&verify.if==='${{ always() }}','Required check must aggregate all producer states.')
@@ -65,7 +65,8 @@ export function validatePipeline(text,policy,kind){
     for(const result of ['success','failure','skipped','cancelled'])for(const s of [download,gate])need(evaluate(s.if,{needs:{rules:{result}}})===(result==='success'),'Rules aggregation must match producer result.')
     need(verify.steps.indexOf(download)<verify.steps.indexOf(gate)&&verify.steps.indexOf(gate)<aggregate,'Rules evidence must precede admission.')
     const docs=matches(verify,'./scripts/check-governance.ps1');need(docs.length===1,'Missing document governance gate.')
-    for(const k of ['documentation','test','ci','product'])need(evaluate(docs[0].if,{needs:{scope:{outputs:{kind:k}}}})===(k==='documentation'),'Document gate condition is invalid.')
+    need(matches(application,'./scripts/check-governance.ps1').length===0,'Governance must run once at PR aggregation.')
+    for(const event of ['pull_request','push'])for(const k of ['documentation','test','ci','product'])for(const local of ['true','false'])for(const reuse of ['true','false'])need(evaluate(docs[0].if,{github:{event_name:event},needs:{scope:{outputs:{kind:k,local,reuse}}}})===(event==='pull_request'),'Current PR documentation must be checked even when technical results are reused.')
     const host=application.steps.find(s=>s.uses?.startsWith('actions/upload-artifact@'))
     need(host?.with?.name==='${{ needs.scope.outputs.hostingName }}'&&host.with.path==='.output/public'&&host.with['include-hidden-files']===true&&host.with['if-no-files-found']==='error','Missing verified Hosting handoff.')
     const hd=deploy.steps.find(s=>s.uses?.startsWith('actions/download-artifact@'))

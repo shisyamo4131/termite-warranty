@@ -52,6 +52,8 @@ Local再利用は、cleanなcommit済み候補で `node scripts/local-verificati
 
 固定npmによる `ci` 成功後に試験し、lockfileと異なる旧node_modulesの結果を再利用しない。Rulesはworker・ファイル別の件数と失敗/skipなし、重複のないtest identityを照合する。
 
+governance確認はPRの集約jobへ一本化し、Local／Dev結果の再利用時も最新文書に対して一度実行する。文書を検証入力digestから除外するため、この軽い整合確認は省略しない。統合後pushでは元PRの結果を使い、同じ確認を繰り返さない。
+
 不完全・古い入力のLocal commentは無視して成功扱いせず停止する。修正済みの結果を新しいowner commentで明示する。comment未投稿ならCIで実行する。再利用元artifactは本人commentのIDと内容digestを保持し、後続で編集・削除・新しい撤回があれば元PRの再確認へ停止する。JSONをshell展開せず、結果指定の任意commandを実行しない。製品PRではLocal結果を使っても環境用Hostingの生成・保存はCIで行う。
 
 ## 4. Dev配備と業務受入れ

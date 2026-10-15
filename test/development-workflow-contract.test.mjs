@@ -20,7 +20,7 @@ test('current workflows satisfy safety contracts; display names and independent 
 })
 test('every common gate and focused regression is required in PR verification',()=>{
   for(const command of [...policy.comprehensiveGateIds.filter(id=>id!=='firestore-rules-test').map(id=>policy.gates.find(g=>g.id===id).command),...policy.focusedRegressions.map(r=>r.command)]){
-    const w=load('development');w.jobs.application.steps=w.jobs.application.steps.filter(s=>s.run!==command);assert.throws(()=>validate('development',w))
+    const w=load('development');for(const job of [w.jobs.application,w.jobs.verify])job.steps=job.steps.filter(s=>s.run!==command);assert.throws(()=>validate('development',w))
   }
 })
 test('both environments refuse target, permission, cancellation, status and rebuild bypasses',()=>{
@@ -41,4 +41,8 @@ test('cancelled deployments are refused even when every producer succeeded',()=>
 })
 test('the external required-check identity stays stable without freezing other display names',()=>{
   const w=load('development');w.jobs.verify.name='Different check';assert.throws(()=>validate('development',w))
+  for(const condition of ["${{ needs.scope.outputs.kind == 'documentation' }}","${{ needs.scope.outputs.local != 'true' }}","${{ needs.scope.outputs.reuse != 'true' }}"]){
+    const w=load('development');w.jobs.verify.steps.find(s=>s.run==='./scripts/check-governance.ps1').if=condition
+    assert.throws(()=>validate('development',w))
+  }
 })

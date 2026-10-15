@@ -54,9 +54,6 @@ jobs:
           java-version: "21"
         if: ${{ needs.scope.outputs.local != 'true' }}
       - run: npx --yes npm@11.19.1 ci
-      - name: gate:governance-check
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: ./scripts/check-governance.ps1
       - name: gate:domain-test
         if: ${{ needs.scope.outputs.local != 'true' }}
         run: npm test
@@ -100,8 +97,8 @@ jobs:
     steps:
       - *a1
       - *a2
-      - name: Check documentation governance
-        if: ${{ needs.scope.outputs.kind == 'documentation' }}
+      - name: Check current governance and documentation
+        if: ${{ github.event_name == 'pull_request' }}
         run: ./scripts/check-governance.ps1
       - name: Check whitespace
         run: git diff --check HEAD^1 HEAD
