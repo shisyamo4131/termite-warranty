@@ -6,7 +6,7 @@ import vm from 'node:vm'
 import {spawnSync} from 'node:child_process'
 import {repository,repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
 import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification,applicationIdentity,verifyApplication} from '../scripts/verification-evidence.mjs'
-import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow} from '../scripts/development-acceptance.mjs'
+import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow,verifyContinuation,continuationProof,repairBaseline,repairParent} from '../scripts/development-acceptance.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {validateDevelopmentWorkflow} from '../scripts/development-workflow-contract.mjs'
 import {findDevelopmentVerification,validateDevelopmentDeployment} from '../scripts/lib/development-verification.mjs'
@@ -246,8 +246,9 @@ test('acceptance workflow is explicit, read-only, Dev-only and does not deploy',
 test('metadata reader limits token to repository API and disables redirects',async()=>{
   let calls=0
   const read=githubReader('fixture-not-a-secret',async(url,options)=>{calls++;assert.ok(url.startsWith('https://api.github.com/repos/'));assert.equal(options.redirect,'error');return {ok:false,status:403}})
-  for(const path of ['https://other.invalid','/../other'])await assert.rejects(read(path),/Unscoped/)
+  for(const path of ['https://other.invalid','/../other',`/compare/${revision}...main`,`/compare/${revision}...${merged}/../other`])await assert.rejects(read(path),/Unscoped/)
   assert.equal(calls,0);await assert.rejects(read('/actions/runs/1'),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,1)
+  await assert.rejects(read(`/compare/${revision}...${merged}`),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,2)
 })
 
 function reusedDevFixture(){
@@ -342,4 +343,120 @@ test('actual aggregate admission refuses failed/cancelled/unexpected skips and a
     const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',run],{encoding:'utf8',windowsHide:true})
     assert.ifError(result.error);assert.equal(result.status===0,allowed,JSON.stringify({docs,reuse,source,rules,application,stderr:result.stderr}))
   }
+})
+
+const documentTree='8'.repeat(40),candidateRevision='f'.repeat(40),candidateTree='1'.repeat(40)
+function continuationTrees(f,from,to,beforeTree,afterTree,path='docs/operations.md'){
+  const before={sha:beforeTree,truncated:false,tree:[{path,type:'blob',mode:'100644',sha:blob},{path:'app.vue',type:'blob',mode:'100644',sha:'7'.repeat(40)}]}
+  const after=structuredClone(before);after.sha=afterTree;after.tree[0].sha='6'.repeat(40)
+  f.data.set('/git/commits/'+to,{tree:{sha:afterTree},parents:[{sha:repairParent},{sha:'5'.repeat(40)}]})
+  f.data.set(`/compare/${from}...${to}`,{status:'ahead',merge_base_commit:{sha:from}})
+  f.data.set(`/git/trees/${beforeTree}?recursive=1`,before);f.data.set(`/git/trees/${afterTree}?recursive=1`,after)
+  return {before,after}
+}
+function documentAcceptanceFixture(){
+  const f=acceptedFixture(),trees=continuationTrees(f,revision,merged,tree,documentTree)
+  f.data.get('/branches/dev').commit.sha=merged
+  const run={...f.run,id:104,head_sha:merged},jobs=[{name:'Verify development deployment',run_id:104,run_attempt:1,status:'completed',conclusion:'success',steps:['Check documentation governance','Verify documentation scope and whitespace'].map(step)},{name:'Deploy to termite-warranty-dev',conclusion:'skipped'}]
+  f.data.set(`/actions/workflows/deploy-development.yml/runs?event=push&head_sha=${merged}&per_page=100`,{total_count:1,workflow_runs:[run]})
+  f.data.set('/actions/runs/104/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  f.record.head_sha=merged;f.recordArtifact.workflow_run.head_sha=merged
+  f.recordArtifact.name=`dev-acceptance-v2-${documentTree}-101-101-1`
+  return Object.assign(f,trees,{documentRun:run,documentJobs:jobs})
+}
+test('v2 records the original accepted deployment after validated document-only continuation',async()=>{
+  const f=documentAcceptanceFixture(),r=await recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:merged})
+  assert.equal(r.schema,2);assert.equal(r.revision,revision);assert.equal(r.accepted.revision,revision)
+  assert.equal(r.promotion.revision,merged);assert.equal(r.tree,documentTree);assert.equal(r.deployment.tree,tree)
+  const proof=await requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob})
+  assert.equal(proof.accepted.runId,101);assert.equal(proof.promotion.tree,documentTree)
+  const event=promotionEvent();event.pull_request.head.sha=merged
+  const promoted=await resolveDevelopmentPromotion(f.read,documentTree,event,{blob:()=>blob})
+  assert.equal(promoted.tree,documentTree);assert.equal(promoted.verificationTree,tree)
+})
+for(const [name,change] of [
+  ['runtime change',f=>{f.after.tree[1].sha=revision}],
+  ['document deletion',f=>{f.after.tree.shift()}],
+  ['new document',f=>{f.after.tree.push({path:'docs/new.md',type:'blob',mode:'100644',sha:blob})}],
+  ['executable document',f=>{f.after.tree[0].mode='100755'}],
+  ['symlink document',f=>{f.after.tree[0].mode='120000'}],
+  ['truncated tree',f=>{f.after.truncated=true}],
+  ['duplicate entry',f=>{f.after.tree.push(f.after.tree[0])}],
+  ['diverged history',f=>{f.data.get(`/compare/${revision}...${merged}`).status='diverged'}],
+  ['wrong ancestor',f=>{f.data.get(`/compare/${revision}...${merged}`).merge_base_commit.sha=blob}],
+  ['failed document run',f=>{f.documentRun.conclusion='failure'}],
+  ['skipped document check',f=>{f.documentJobs[0].steps[1].conclusion='skipped'}],
+  ['unexpected deployment',f=>{f.documentJobs[1].conclusion='success'}],
+  ['failed original deployment',f=>{f.run.conclusion='failure'}],
+])test('v2 document continuation rejects '+name,async()=>{
+  const f=documentAcceptanceFixture();change(f)
+  await assert.rejects(recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:merged}))
+  await assert.rejects(requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob}))
+})
+test('recording rejects an advanced checkout and an incorrect accepted run revision',async()=>{
+  const f=documentAcceptanceFixture()
+  await assert.rejects(recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:revision}))
+  await assert.rejects(recordDevelopmentAcceptance(f.read,{...inputs(),accepted_revision:blob},{...identity,checkout:merged}))
+})
+function repairFixture(){
+  const initial=fixture({dev:true})
+  function clone(value,candidate){
+    if(typeof value==='number')return candidate&&[100,101].includes(value)?value+200:value
+    if(typeof value==='string')return value.replaceAll(revision,candidate?candidateRevision:repairBaseline).replaceAll(tree,candidate?candidateTree:tree).replaceAll('e'.repeat(40),candidate?'2'.repeat(40):'e'.repeat(40)).replace(/(\/actions\/runs\/)(100|101)(?=\/|$)/g,(_,p,n)=>p+(candidate?Number(n)+200:n))
+    if(Array.isArray(value))return value.map(x=>clone(x,candidate))
+    if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,clone(v,candidate)]))
+    return value
+  }
+  const data=new Map()
+  for(const candidate of [false,true])for(const [k,v] of initial.data)data.set(clone(k,candidate),clone(v,candidate))
+  const f={data,read:async p=>{assert.ok(data.has(p),'Missing fixture '+p);return data.get(p)}}
+  const trees=continuationTrees(f,repairBaseline,candidateRevision,tree,candidateTree,'scripts/development-acceptance.mjs')
+  return {...f,...trees}
+}
+test('approved bootstrap keeps original acceptance and requires fresh candidate full CI and deployment',async()=>{
+  const f=repairFixture(),proof=await continuationProof(f.read,101,301,candidateRevision,candidateRevision)
+  assert.equal(proof.accepted.revision,repairBaseline);assert.equal(proof.deployment.revision,candidateRevision)
+  assert.equal(proof.promotion.tree,candidateTree)
+  const receipt=await recordDevelopmentAcceptance(f.read,{...inputs(),accepted_revision:repairBaseline,candidate_deployment_run_id:'301'},{...identity,checkout:candidateRevision})
+  assert.equal(receipt.revision,repairBaseline);assert.equal(receipt.schema,2)
+})
+for(const [name,change] of [
+  ['later merge',f=>{f.data.get('/git/commits/'+candidateRevision).parents[0].sha=revision}],
+  ['candidate full CI failed',f=>{f.data.get('/actions/runs/301/attempts/1/jobs?per_page=100').jobs[1].conclusion='failure'}],
+  ['candidate deployment failed',f=>{f.data.get('/actions/runs/301/attempts/1/jobs?per_page=100').jobs.at(-1).conclusion='failure'}],
+  ['original deployment failed',f=>{f.data.get('/actions/runs/101').conclusion='failure'}],
+  ['build setting changed',f=>{f.after.tree[1]={path:'firebase.json',type:'blob',mode:'100644',sha:blob}}],
+  ['runtime changed',f=>{f.after.tree[1].sha=revision}],
+])test('approved bootstrap rejects '+name,async()=>{const f=repairFixture();change(f);await assert.rejects(continuationProof(f.read,101,301,candidateRevision,candidateRevision))})
+test('repair allowance is never used for ordinary document continuation',async()=>{
+  const f=repairFixture();await assert.rejects(verifyContinuation(f.read,repairBaseline,candidateRevision))
+})
+
+test('main revalidates v2 document promotion without claiming the document tree was deployed',async()=>{
+  const f=documentAcceptanceFixture(),run={...f.run,id:103,event:'pull_request',head_sha:merged}
+  const job=(name,names)=>({name,run_id:103,run_attempt:1,status:'completed',conclusion:'success',steps:names.map(step)})
+  const jobs=[job('Resolve verified source',['Resolve source verification']),job('Verify development deployment',['Require verification or source evidence','Record verified source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence'])]
+  f.data.set('/actions/runs/103/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  f.data.set('/actions/runs/103/artifacts?per_page=100',{total_count:1,artifacts:[f.artifact(evidenceName(documentTree,1),run)]})
+  const acceptance=await requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob})
+  assert.equal((await validatePromotionVerification(f.read,run,documentTree,merged,acceptance)).source,'accepted-dev')
+  assert.equal(acceptance.deployment.revision,revision)
+  acceptance.promotion.tree=tree
+  await assert.rejects(validatePromotionVerification(f.read,run,documentTree,merged,acceptance))
+})
+test('v2 cannot conceal a different original run, forged record tree or changed producer',async()=>{
+  for(const change of [f=>{f.recordArtifact.name=`dev-acceptance-v2-${tree}-101-101-1`},f=>{f.recordArtifact.name=`dev-acceptance-v2-${documentTree}-999-101-1`},f=>{f.sourceBlob=revision}]){
+    const f=documentAcceptanceFixture();change(f);await assert.rejects(requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob}))
+  }
+})
+test('a second document continuation requires its own successful document verification',async()=>{
+  const f=documentAcceptanceFixture(),next='9'.repeat(40),nextTree='4'.repeat(40)
+  continuationTrees(f,merged,next,documentTree,nextTree)
+  await assert.rejects(requireDevelopmentAcceptance(f.read,nextTree,next,{blob:()=>blob}))
+  const run={...f.documentRun,id:105,head_sha:next}
+  f.data.set(`/actions/workflows/deploy-development.yml/runs?event=push&head_sha=${next}&per_page=100`,{total_count:1,workflow_runs:[run]})
+  const jobs=structuredClone(f.documentJobs);jobs[0].run_id=105
+  f.data.set('/actions/runs/105/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  const r=await requireDevelopmentAcceptance(f.read,nextTree,next,{blob:()=>blob})
+  assert.equal(r.accepted.revision,revision);assert.equal(r.promotion.revision,next)
 })

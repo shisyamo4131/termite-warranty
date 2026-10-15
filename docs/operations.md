@@ -1,5 +1,11 @@
 # Operations
 
+## 2026-10-15 Dev22d5bac受入れ・文書継続修正（実施中）
+
+本人はtask01a133e7-092f-71f0-b5e7-43a8b7833ab9でDev22d5bacの受入れを明示し、後続文書による記録不能の修正・検証・PR統合・Prod配備を追加承認した。実devはbb9e2f9、実配備run38546924382はsuccess、差分7件は許可文書のみ。従来の完全SHA一致で拒否されるため、失敗が確実なworkflowを実行したり、受入れSHAを置換したりせず実装を修正する。範囲・限定導入・巻戻しはADR0046。バックアップ・PITR・Auth退避は保留。業務・schema・IAMは不変。
+
+分類は受入れ承認条件／CI／文書。包括7gateを最終PRで選択。局所 `node --test test/verification-evidence.test.mjs` は112成功・skip0・exit 0。途中、偽装producer拒否試験のfixtureが元オブジェクトを参照していないため1失敗・exit 1となり、fixture参照を修正して112全件を再実行した。実PR・Dev・本人記録・Prodの結果は未了で、成功後のPR／Actionsへ記録する。HS試行10/16・19（2営業日）へのPDF更新はProd照合後に行う。
+
 ## 2026-10-14 並行化2件のDev配備・実測完了
 
 PR23／24を承認範囲どおりdevへ通常mergeし、各自動Dev配備・全5照合・認証後処理が成功。保護解除・管理者バイパス・main統合・Prod配備・IAM／秘密変更なし。以下の未統合／未承認／統合準備は当時の記録であり、本節を現在地とする。
