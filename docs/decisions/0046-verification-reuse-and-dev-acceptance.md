@@ -1,6 +1,6 @@
 # 0046 同一内容のPR検証再利用とDev受入れ記録
 
-現行候補の設計は[ADR0047](0047-single-verification-and-nonproduct-pr.md)。以下は導入済み旧方式の判断・実行履歴で、新候補は未統合・未配備。旧本人受入れの事実を取り消さない。
+mainの現行設計は[ADR0047](0047-single-verification-and-nonproduct-pr.md)。以下は導入済み旧方式の判断・実行履歴。新方式はmain統合済み、dev未同期・実配備未実証で、旧本人受入れの事実を取り消さない。
 
 ## 2026-10-15 PDF文書対象の拡張と配備なしの初回CI導入
 

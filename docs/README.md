@@ -1,6 +1,6 @@
 # Documentation Map
 
-検証・統合フローの改修候補（未統合・未配備）は[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。以下の2段階PR・期限付き再利用は配備済み旧方式の説明。実行結果の現在値は[運用記録](operations.md)を参照。
+検証・統合フローは[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。PR35でmainへ統合済み、dev未同期・実配備未実証。以下の2段階PR・期限付き再利用は旧方式の説明。現在値と非配備測定の範囲は[運用記録](operations.md)を参照。
 
 2026-10-15現在：本人のDev22d5bac受入れを記録し、承認された記録処理修正・dev→main PR27・main4d7422fのProd配備と全5照合が完了。[証拠と残作業](operations.md#2026-10-15-dev受入れ記録prod反映完了)、[日程・工数](roadmaps/production-readiness.md#2026-10-15-現在地とhs試行日程)。HS試行は10/16・19の2営業日。保護はリリース直前まで保留。以下の未受入れ・Prod未反映は先行時点の記録。
 

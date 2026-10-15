@@ -1,6 +1,6 @@
 # TR-003 Verification and Development-deploy Gates
 
-2026-10-15の承認済み候補は[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)で検証場所・結果再利用・構造検査を改訂する。必須gateの内容、資格情報分離、固定配備先、成果物一致、失敗時停止は維持。以下の独立step固定順・全構造照合・全変更2段階PRの規定は旧設計として扱う。候補は未統合・実配備未実証。
+2026-10-15の[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)で検証場所・結果再利用・構造検査を改訂し、PR35でmainへ統合済み。必須gateの内容、資格情報分離、固定配備先、成果物一致、失敗時停止は維持。以下の独立step固定順・全構造照合・全変更2段階PRの規定は旧設計として扱う。dev未同期・実配備未実証。
 
 2026-10-15: the approved schedule PDF/generator and three companion documents extend the exact documentation allowlist to 13 paths. A separate one-time ciIntroduction route, bound to the approved dev/main comparison bases, validates seven gates on the initial feature PR and revalidates its latest successful same-tree run on later integration events. It cannot authenticate, deploy, emit application-release evidence, or create business acceptance. The wrapper must round-trip exactly before the original workflow contracts are checked. Unknown/mixed inputs fail closed to the ordinary route; the current integration additionally requires the explicit CI-introduction result. See [ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md).
 

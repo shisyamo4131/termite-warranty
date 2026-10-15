@@ -1,5 +1,17 @@
 # Operations
 
+## 2026-10-15 検証フローのmain統合と非配備測定
+
+本人が親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` でPR35のmain統合と非配備の効果測定を承認。開始07:25:06 UTC、[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)は07:26:38 UTCに `36249552c41ea31077575eb93535df5625f77311` へ通常merge。最終head `5a47b17`、base不変、必須check成功、製品digest不変、CI分類、main保護維持、保守公開enable=falseを確認した。以下の候補・未統合記録は各工程当時の状態で、現在の承認境界は[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)を優先する。
+
+[main push run38698783625](https://github.com/shisyamo4131/termite-warranty/actions/runs/38698783625)は07:26:41〜07:27:34 UTCの53秒で成功。分類jobだけを実行し、build/認証/配備jobはskip。[保守公開run38698783132](https://github.com/shisyamo4131/termite-warranty/actions/runs/38698783132)も全skip。Dev branch・公開版・データ・設定・保護保留は変更していない。新方式の実Dev/Prod配備は未実証で、dev同期も今回の範囲外。
+
+統合済み状態・承認境界・残件を更新する文書だけの1PRを非配備測定に使う。変更開始07:29:02 UTC。選択gateはdocumentation-onlyの `./scripts/check-governance.ps1` と差分検査で、製品/試験/CI入力不変を確認する。最終PR/main pushの結果、終了時刻、手動操作数、CI実行数と比較は当該PR/Actionsへ一度保存し、測定結果の転記だけで追加PR/試験を起動しない。governance索引は初期候補の説明として保持し、今回の状態はリンク先ADRを正本とする。
+
+Local再利用は前提確認で未充足。読取り確認はNode v22.23.2、npm 10.9.8（必要11.19.1）、PowerShell7.6.5、Java21.0.12。直近の同一検証入力の単体結果は612件中610成功・symlink2skipで、全件成功・skip0の条件を満たさない。権限/OS設定変更は行わず、既知の未充足を再現するだけのクリーンinstall・全試験や無意味な試験変更PRを追加しない。Local receipt作成・本人投稿・CI再利用の成功経路は未実証。将来条件を満たした場合も、生成された `owner-comment.txt` を実owner本人が候補PRへ投稿する操作が必要で、AIは証言を代行しない。
+
+業務仕様・データ契約・検証方針・実環境設定は不変。HS試行10/16・19、既存公開版での並行試行とバックアップ/PITR/Auth退避の保留を維持する。
+
 ## 2026-10-15 Prod昇格前の機能試験工程を除く追加候補
 
 本人の見積もり報告後の追加承認に基づき、[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)の候補へ責任分離を反映する。[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)を正本とし、昇格PRはDev受入れ済み製品と上流で完了した技術確認の照合だけを行う。未検証の入力はDev側または試験・CI変更の技術確認へ戻し、昇格内の実試験やLocal記録で補わない。製品不変のmain→dev同期は技術確認のみで、同期配備・業務再受入れを行わない。
