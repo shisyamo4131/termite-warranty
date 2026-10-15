@@ -126,6 +126,9 @@ export function assertAggregate(scope,needs,event){
   if(needs.rules?.result!==(produces&&!scope.local?'success':'skipped'))throw Error('Rules verification incomplete.')
   if(event==='push'&&scope.kind==='product'&&!scope.reuse)throw Error('Source PR verification required.')
 }
+export function assertCurrentBranch(actual,env,branch){
+  if(!['dev','main'].includes(branch)||env.GITHUB_EVENT_NAME!=='push'||env.GITHUB_REF!=='refs/heads/'+branch||!sha(env.GITHUB_SHA)||actual.commit?.sha!==env.GITHUB_SHA)throw Error('Obsolete or foreign deployment candidate.')
+}
 const output=async values=>{if(process.env.GITHUB_OUTPUT)await appendFile(process.env.GITHUB_OUTPUT,Object.entries(values).map(([k,v])=>`${k}=${typeof v==='object'?JSON.stringify(v):v}\n`).join(''))}
 async function main(mode){
   if(process.env.GITHUB_REPOSITORY!==repository||git('rev-parse','HEAD')!==process.env.GITHUB_SHA)throw Error('Repository/event checkout mismatch.')
@@ -149,7 +152,7 @@ async function main(mode){
   }
   if(mode==='current-dev'||mode==='current-main'){
     const branch=mode.slice(8),actual=await githubReader(process.env.GH_TOKEN)('/branches/'+branch)
-    if(process.env.GITHUB_EVENT_NAME!=='push'||process.env.GITHUB_REF!=='refs/heads/'+branch||actual.commit?.sha!==process.env.GITHUB_SHA)throw Error('Obsolete or foreign deployment candidate.')
+    assertCurrentBranch(actual,process.env,branch)
     console.log('Current protected branch candidate confirmed.');return
   }
   if(mode==='publish-deployment'){

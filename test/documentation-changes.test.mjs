@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {classifyDiff,pathKind,inputDigests} from '../scripts/lib/change-scope.mjs'
-import {compareEvent,prEvidence,assertAggregate,assertCurrentRun,evidenceName,hostingName,resolveScope,deploymentEvidence,acceptanceFor} from '../scripts/pipeline.mjs'
+import {compareEvent,prEvidence,assertAggregate,assertCurrentRun,assertCurrentBranch,evidenceName,hostingName,resolveScope,deploymentEvidence,acceptanceFor} from '../scripts/pipeline.mjs'
 import {requiredCommands,validateLocalReceipt,readOwnerRecord,receiptDigest} from '../scripts/lib/local-verification.mjs'
 import {rulesWorkers} from '../scripts/lib/rules-test-plan.mjs'
 import {tapSummary} from '../scripts/local-verification.mjs'
@@ -35,6 +35,8 @@ test('PR comparison binds the actual base/head and synthetic merge; direct/force
   assert.equal(compareEvent(push,n,[a,b]),a)
   for(const patch of [{forced:true},{deleted:true},{before:b},{after:a}])assert.throws(()=>compareEvent({...push,...patch},n,[a,b]))
   assert.throws(()=>compareEvent(push,n,[a]))
+  assert.doesNotThrow(()=>assertCurrentBranch({commit:{sha:c}},n,'main'))
+  for(const [actual,env,branch] of [[{commit:{sha:b}},n,'main'],[{},n,'main'],[{commit:{sha:c}},{...n,GITHUB_EVENT_NAME:'pull_request'},'main'],[{commit:{sha:c}},n,'dev'],[{commit:{sha:c}},{...n,GITHUB_REF:'refs/heads/other'},'other']])assert.throws(()=>assertCurrentBranch(actual,env,branch))
 })
 function local(){return {schema:1,kind:'termite-local-verification',...inputs,install:{command:'npx --yes npm@11.19.1 ci',exitCode:0},runtime:{platform:'win32',node:'v22.23.2',npm:'11.19.1',javaMajor:21,powershellMajor:7},gates:requiredCommands.map(g=>({...g,exitCode:0,elapsedMs:1,tests:{total:2,passed:g.id==='firestore-rules-test'?rulesWorkers.flatMap(w=>w.files).length:2,failed:0,skipped:0,cancelled:0},suite:'baseline',emulatorsStopped:true,workers:rulesWorkers.map(w=>({worker:w.id,exitCode:0,unexpected:0,byFile:Object.fromEntries(w.files.map(f=>[f,{passed:1,failed:0,skipped:0}])),cases:w.files.map(f=>JSON.stringify([f,1,1,'test']))}))}))}}
 test('Local evidence requires all commands, complete tests, runtime compatibility and merge inputs',()=>{
@@ -58,6 +60,9 @@ function fixture(){
 }
 test('native successful PR evidence is reusable without arbitrary age; latest failure and wrong artifacts stop',async()=>{
   const f=fixture();assert.equal((await prEvidence(f.read,f.pr,inputs,{hosting:true})).hostingArtifactId,21)
+  const identity={event:'pull_request',branch:'feature',revision:a}
+  assert.doesNotThrow(()=>assertCurrentRun(f.run,identity))
+  for(const mutate of [r=>r.repository.id=0,r=>r.repository.owner.id=0,r=>r.head_repository.id=0,r=>r.path='other.yml',r=>r.event='push',r=>r.head_branch='other',r=>r.head_sha=b,r=>r.status='in_progress',r=>r.conclusion='failure',r=>r.id='10',r=>r.run_attempt=0,r=>r.run_attempt='1']){const run=structuredClone(f.run);mutate(run);assert.throws(()=>assertCurrentRun(run,identity))}
   for(const mutate of [f=>f.runs.push({...f.run,id:11,conclusion:'failure'}),f=>f.run.run_attempt=2,f=>f.run.head_repository={id:0},f=>f.artifacts[0].name='forged',f=>f.artifacts[0].expired=true,f=>f.artifacts[0].workflow_run.head_sha=b,f=>f.artifacts.pop(),f=>f.runs=[]]){const f=fixture();mutate(f);await assert.rejects(prEvidence(f.read,f.pr,inputs,{hosting:true}))}
 })
 test('downstream Local reuse rejects edited, deleted or superseded owner attestations',async()=>{
@@ -75,7 +80,10 @@ test('aggregate accepts only complete producers, intentional Local reuse, or adm
     const needs={scope:{result:'success'},application:{result:full?'success':'skipped'},rules:{result:full&&!local?'success':'skipped'}}
     if(event==='push'&&kind==='product'&&!reuse){assert.throws(()=>assertAggregate(scope,needs,event));continue}
     assert.doesNotThrow(()=>assertAggregate(scope,needs,event))
-    for(const key of ['scope','application','rules'])for(const result of ['failure','cancelled']){const n=structuredClone(needs);n[key].result=result;assert.throws(()=>assertAggregate(scope,n,event))}
+    for(const key of ['scope','application','rules'])for(const result of ['success','failure','cancelled','skipped']){
+      if(result===needs[key].result)continue
+      const n=structuredClone(needs);n[key].result=result;assert.throws(()=>assertAggregate(scope,n,event))
+    }
   }
 })
 function routeFixture(path='app/a.vue',branch='dev',eventName='pull_request'){
