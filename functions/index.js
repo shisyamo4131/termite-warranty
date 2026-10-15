@@ -15,16 +15,6 @@ import { propertyBulkImportOperation } from './property-bulk-import.js'
 import { registerCaseTransaction } from './register-case.js'
 import { AppliedWarrantyOperationError, addAppliedWarrantyTransaction, updateAppliedWarrantyTransaction } from './applied-warranty-management.js'
 import {
-  CompanyPortalError,
-  createConstructionCompanyAccountOperation,
-  createNewCaseWorkItemOperation,
-  createRenewalWorkItemOperation,
-  reviewCompanyCaseWorkItemOperation,
-  setConstructionCompanyAccountEnabledOperation,
-  updateCompanyCaseWorkItemOperation,
-  withdrawNewCaseWorkItemOperation,
-} from './company-portal.js'
-import {
   StaffAccountError,
   createStaffAccountOperation,
   listManageableStaffAccountsOperation,
@@ -88,31 +78,19 @@ const warrantyCallable = (name, operation) => onCall(name, async (request) => {
 export const addAppliedWarranty = warrantyCallable('addAppliedWarranty', addAppliedWarrantyTransaction)
 export const updateAppliedWarranty = warrantyCallable('updateAppliedWarranty', updateAppliedWarrantyTransaction)
 
-const companyPortalCallable = (name, operation, accountMutation = false) => onCall(name, async request => {
+// PORTAL-SEC-01 containment: retain deployed names as explicit denial endpoints.
+// Reopening requires the documented company/branch authorization gate.
+const companyPortalCallable = name => onCall(name, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
-  try {
-    return await withRecovery(request, true, db => operation(request, db), { accountMutation })
-  } catch (error) {
-    const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'aborted', 'failed-precondition'])
-    const code = error instanceof CompanyPortalError && allowed.has(error.code) ? error.code : 'internal'
-    throw new HttpsError(code, error instanceof CompanyPortalError ? error.message : '工務店ポータルの操作に失敗しました。')
-  }
+  throw new HttpsError('permission-denied', '旧工務店申請経路は閉鎖されています。HSへお問い合わせください。')
 })
-
-export const createConstructionCompanyAccount = companyPortalCallable('createConstructionCompanyAccount', (request, db) =>
-  createConstructionCompanyAccountOperation(getAuth(), db, request.data, request.auth.uid), true)
-export const setConstructionCompanyAccountEnabled = companyPortalCallable('setConstructionCompanyAccountEnabled', (request, db) =>
-  setConstructionCompanyAccountEnabledOperation(getAuth(), db, request.data, request.auth.uid), true)
-export const createRenewalWorkItem = companyPortalCallable('createRenewalWorkItem', (request, db) =>
-  createRenewalWorkItemOperation(db, request.data, request.auth.uid))
-export const createNewCaseWorkItem = companyPortalCallable('createNewCaseWorkItem', (request, db) =>
-  createNewCaseWorkItemOperation(db, request.data, request.auth.uid))
-export const updateCompanyCaseWorkItem = companyPortalCallable('updateCompanyCaseWorkItem', (request, db) =>
-  updateCompanyCaseWorkItemOperation(db, request.data, request.auth.uid))
-export const withdrawNewCaseWorkItem = companyPortalCallable('withdrawNewCaseWorkItem', (request, db) =>
-  withdrawNewCaseWorkItemOperation(db, request.data, request.auth.uid))
-export const reviewCompanyCaseWorkItem = companyPortalCallable('reviewCompanyCaseWorkItem', (request, db) =>
-  reviewCompanyCaseWorkItemOperation(db, request.data, request.auth.uid))
+export const createConstructionCompanyAccount = companyPortalCallable('createConstructionCompanyAccount')
+export const setConstructionCompanyAccountEnabled = companyPortalCallable('setConstructionCompanyAccountEnabled')
+export const createRenewalWorkItem = companyPortalCallable('createRenewalWorkItem')
+export const createNewCaseWorkItem = companyPortalCallable('createNewCaseWorkItem')
+export const updateCompanyCaseWorkItem = companyPortalCallable('updateCompanyCaseWorkItem')
+export const withdrawNewCaseWorkItem = companyPortalCallable('withdrawNewCaseWorkItem')
+export const reviewCompanyCaseWorkItem = companyPortalCallable('reviewCompanyCaseWorkItem')
 
 const staffAccountCallable = (name, operation, mutation = true) => onCall(name, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign-in is required.')
@@ -121,7 +99,7 @@ const staffAccountCallable = (name, operation, mutation = true) => onCall(name, 
   } catch (error) {
     const allowed = new Set(['invalid-argument', 'permission-denied', 'not-found', 'already-exists', 'aborted', 'failed-precondition'])
     const code = error instanceof StaffAccountError && allowed.has(error.code) ? error.code : 'internal'
-    throw new HttpsError(code, error instanceof StaffAccountError ? error.message : '担当者アカウントを管理できませんでした。')
+    throw new HttpsError(code, error instanceof StaffAccountError ? error.message : '担当者アカウントを管理できませんでした。', error instanceof StaffAccountError ? error.details : undefined)
   }
 })
 

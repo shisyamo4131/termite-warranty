@@ -1,5 +1,17 @@
 # 2026-10-03 業務実演用プロトタイプ
 
+## 2026-10-15 保存結果と作成操作の契約（Local候補）
+
+採用根拠は親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` の同日実装承認。検証状態は[運用記録](../operations.md#2026-10-15-納品前改修local検証)。実データ移行・補正は行わない。
+
+- 物件mutationはoperationProtocol=2を必須とする（CSV取込みは1のまま）。`propertyOperationReceipts/{propertyId}_{requestId}`に従来のuid/action/propertyId/createdAtに加えてrequestHashVersion=1/requestHashを保存。SHA-256入力はaction別に使う入力・対象・revisionを選択し、キー順・型・欠落を正規化する。runtime世代・時計・現在のマスタ値は含めず、他操作のform入力を除外する。意味が等しくても異なる生入力を拒否し得る保守的照合で、送信snapshotは固定する。
+- 同ID・同入力は`operationStatus: completed`、異入力は拒否。旧hashなしreceipt／historyだけの記録は`legacy-unverified`として現在値を再取得し、今回入力の保存成功とは表示しない。旧履歴へのhash推定補完なし。旧protocol writerは再読込みを要求する。
+- `masterOperationReceipts/{sha256(actorUid,requestId)}`はサーバー専用。IDなしsaveCompany/saveBranch/saveGroupはrequestId必須。uid/action/requestHashVersion/requestHash/resultId/createdAtをマスタ作成と同じtransactionで保存する。同作成の再送はIDだけ返し、後続の編集・無効化を書き戻さない。IDあり通常編集は従来の後勝ちを維持する。
+- 画面は送信前、結果不明、保存完了後の読取待ちを分ける。不明中は入力・確認内容を固定し同じ要求だけ再送。成功後detail/catalog失敗は読取りだけ再試行し、作成IDを先に保持。transactionで既存receiptなしを確認した明示拒否だけ編集再開する。セッション/runtime変更時は旧応答を反映しない。ブラウザ終了後の未保存入力復元は対象外。
+- 引渡日実変更は保証期間再計算と同一transactionで該当期間IDのcertificateItems.issued=falseとする。旧発行情報を訂正history.before.certificateItemsへ保持し、invalidatedCertificatePeriodIdsを記録。旧発行日時/担当者を訂正情報で上書きしない。日付不変なら状態保持、A→B→Aでも自動復活なし。既存往復訂正はないとの本人確認により棚卸し・一括失効をしない。
+
+masterOperationReceiptsはマスタと同じ業務復旧時点へ戻す。正式な全マスタ再投入では旧マスタと一緒に除去する計画対象となる。旧reset-dev-business/reset-meeting-prototypeは新rootを未分類として停止するため、追加記録がある環境へ流用しない。アカウント作成記録は下記の現在権限保全に従う。一般スタッフ業務Rulesのスキーマ非強制は変更しない。
+
 2026-10-13現在：本件はDev反映・開発側受入れ済み。以降の未反映・禁止は当時の状態。実データの延長履歴は0件で申込日補完は不要。HS業務受入れは別途。[導入結果・確認範囲](../operations.md)。
 
 ## 2026-10-13 catalogの旧要求終了

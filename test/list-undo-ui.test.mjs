@@ -4,14 +4,18 @@ import { readFileSync } from 'node:fs'
 import ts from 'typescript'
 
 const source = readFileSync(new URL('../app/components/MeetingPrototype.vue', import.meta.url), 'utf8')
-const save = source.split('\n').find(line => line.startsWith('async function saveProperty('))
+const script = source.split('<script setup lang="ts">')[1].split('</script>')[0]
+const parsed = ts.createSourceFile('MeetingPrototype.ts', script, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+const save = parsed.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'saveProperty')?.getText(parsed)
+assert.ok(save, 'production saveProperty function must be present')
 const code = ts.transpileModule(save, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
 
 test('each list admits only its own existing operations', async () => {
   for (const [mode, allowed] of Object.entries({report:['undoReport'],certificate:['undoCertificate'],billing:['bill','undoBill','confirmUnbilled'],insurance:[],warranty:['notify']})) {
     for (const action of ['undoReport','undoCertificate','bill','undoBill','confirmUnbilled','notify','extend','cancel','save']) {
       let entered = false
-      const invoke = new Function('noticeMode','run',`${code}; return saveProperty;`)({value:mode}, async () => { entered=true })
+      const env={noticeMode:{value:mode},pendingProperty:{value:null},busy:{value:false},retryProperty:async()=>{entered=true},frozenPayload:value=>structuredClone(value),form:{value:{}},current:{value:null},propertyId:{value:'fixture'},requestId:{value:'request'},confirmDates:{value:false},confirmRegistration:{value:false},confirmWarnings:{value:false},undoExtension:{value:null},billingTarget:{value:null},insuranceTarget:{value:null},confirmCancellation:{value:false},reason:{value:''},extensionApplicationDate:{value:''},validateProperty:async()=>true}
+      const invoke = new Function(...Object.keys(env),`${code}; return saveProperty;`)(...Object.values(env))
       await invoke(action)
       assert.equal(entered, allowed.includes(action), `${mode}/${action}`)
     }

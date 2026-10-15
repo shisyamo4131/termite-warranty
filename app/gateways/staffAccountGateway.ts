@@ -10,6 +10,8 @@ export interface StaffAccountRow {
   displayName: string
   role: StaffRole
   enabled: boolean
+  creationPending?: boolean
+  replayed?: boolean
 }
 
 export interface StaffAccountInvoker {
@@ -18,7 +20,7 @@ export interface StaffAccountInvoker {
 
 export const createStaffAccountGateway = (invoker: StaffAccountInvoker, sendSetupEmail: (email: string) => Promise<void>) => ({
   list: () => invoker.invoke<Record<string, never>, { targetRole: StaffRole; accounts: StaffAccountRow[] }>('listManageableStaffAccounts', {}),
-  create: (input: { email: string; displayName: string }) =>
+  create: (input: { email: string; displayName: string; requestId: string }) =>
     invoker.invoke<typeof input, StaffAccountRow>('createStaffAccount', input),
   update: (input: { uid: string; email: string; displayName: string }) =>
     invoker.invoke<typeof input, Pick<StaffAccountRow, 'uid' | 'email' | 'displayName'>>('updateStaffAccount', input),

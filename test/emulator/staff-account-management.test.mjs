@@ -1,5 +1,6 @@
 import { httpsCallable, seedFixedRuntime } from '../helpers/fixed-runtime.mjs'
 import assert from 'node:assert/strict'
+import { createHash, randomUUID } from 'node:crypto'
 import { after, before, beforeEach, test } from 'node:test'
 import { deleteApp as deleteAdminApp, initializeApp as initializeAdminApp } from 'firebase-admin/app'
 import { getAuth as getAdminAuth } from 'firebase-admin/auth'
@@ -21,9 +22,16 @@ let auth
 let functions
 const identities = {}
 const createdUids = []
+const creationPaths = []
 
 const call = (name, data = {}) => httpsCallable(functions, name)(data).then(result => result.data)
 const signIn = email => signInWithEmailAndPassword(auth, email, password)
+const creationInput = fields => {
+  const input = { ...fields, requestId: randomUUID() }
+  const key = createHash('sha256').update(JSON.stringify([auth.currentUser.uid, input.requestId])).digest('hex')
+  creationPaths.push(`accountCreationOperations/${key}`)
+  return input
+}
 
 before(async () => {
   webApp = initializeApp({ projectId, apiKey: 'demo-only-api-key', authDomain: `${projectId}.firebaseapp.com` }, 'staff-account-management-test')
@@ -54,16 +62,24 @@ beforeEach(async () => {
 after(async () => {
   if (auth.currentUser) await signOut(auth)
   await Promise.all(createdUids.map(uid => adminAuth.deleteUser(uid).catch(() => {})))
+  await Promise.all(creationPaths.map(path => adminDb.doc(path).delete()))
   await deleteApp(webApp)
   await deleteAdminApp(adminApp)
 })
 
 test('House Solution administrator manages only general-staff account lifecycle', async () => {
   await signIn('staff-administrator@example.invalid')
-  const created = await call('createStaffAccount', { email: 'created-general@example.invalid', displayName: '作成担当者' })
+  const input = creationInput({ email: 'created-general@example.invalid', displayName: '作成担当者' })
+  const created = await call('createStaffAccount', input)
   createdUids.push(created.uid)
   assert.equal(created.role, 'general_staff')
   assert.equal((await adminAuth.getUser(created.uid)).email, 'created-general@example.invalid')
+  assert.equal((await adminAuth.getUser(created.uid)).disabled, false)
+  assert.equal((await adminDb.doc(`staffAccounts/${created.uid}`).get()).data().creationPending, false)
+  assert.equal((await adminDb.doc(`accountMutationLocks/${created.uid}`).get()).exists, false)
+  const replay = await call('createStaffAccount', input)
+  assert.equal(replay.uid, created.uid)
+  assert.equal(replay.replayed, true)
 
   const listed = await call('listManageableStaffAccounts')
   assert.equal(listed.targetRole, 'general_staff')
@@ -88,7 +104,7 @@ test('House Solution administrator manages only general-staff account lifecycle'
 
 test('developer manages administrators while administrator and general staff cannot cross the boundary', async () => {
   await signIn('staff-developer@example.invalid')
-  const created = await call('createStaffAccount', { email: 'created-administrator@example.invalid', displayName: '作成管理者' })
+  const created = await call('createStaffAccount', creationInput({ email: 'created-administrator@example.invalid', displayName: '作成管理者' }))
   createdUids.push(created.uid)
   assert.equal(created.role, 'house_solution_administrator')
   assert.ok((await call('listManageableStaffAccounts')).accounts.some(account => account.uid === created.uid))

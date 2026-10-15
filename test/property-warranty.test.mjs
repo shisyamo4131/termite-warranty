@@ -353,10 +353,24 @@ async function propertyAddressViewForTest(provider) {
   const props=vue.reactive({postalLookupProvider:provider,validateRequired:true})
   let unmount
   const view=new Function('defineProps','defineModel','ref','watch','onBeforeUnmount','defineExpose','createPostalLookupCoordinator','propertyAddress','requiredRule','lengthRule','postalRule',
-    compiled+'\nreturn {handlePostalBlur,applyCandidate,candidateOptions,lookupMessage};')(
+    compiled+'\nreturn {handlePostalBlur,cancelPostalLookup,applyCandidate,candidateOptions,lookupMessage};')(
     ()=>props,()=>form,vue.ref,vue.watch,fn=>unmount=fn,()=>{},postal.createPostalLookupCoordinator,propertyAddress,rules.requiredRule,rules.lengthRule,rules.postalRule)
   return {...view,form,props,unmount}
 }
+
+test('property submission cancellation prevents delayed lookup from changing the frozen address', async () => {
+  let resolve
+  const view=await propertyAddressViewForTest({lookup:()=>new Promise(done=>resolve=done)})
+  const lookup=view.handlePostalBlur()
+  view.cancelPostalLookup()
+  const sent=JSON.parse(JSON.stringify(view.form.value))
+  resolve({status:'resolved',address:{prefecture:'遅延結果',municipality:'更新されない住所'}})
+  await lookup
+  assert.deepEqual(JSON.parse(JSON.stringify(view.form.value)),sent)
+  assert.deepEqual(view.candidateOptions.value,[])
+  assert.equal(view.lookupMessage.value,null)
+  view.unmount()
+})
 
 test('single address postal lookup preserves manual edits and invalidates stale candidates', async () => {
   let resolve
@@ -435,7 +449,15 @@ test('prefix separator is automatic and preserves distinct trailing hyphens',()=
 })
 
 
-async function prototypeViewForTest(invoke,sendMail=async()=>{}){
+async function prototypeViewForTest(invoke,sendMail=async()=>{},options={}){
+  const suppliedInvoke=invoke
+  // Legacy fixtures model successful writes without transport envelopes. Explicit
+  // malformed-response tests opt out; supplied statuses/IDs are never overwritten.
+  invoke=async data=>{
+    const value=await suppliedInvoke(data)
+    const mutation=['save','register','extend','undoExtend','cancel','restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','undoCertificate','billPeriods','waiveInsurance','undoInsuranceWaiver','saveCompany','saveBranch','saveGroup'].includes(data.action)
+    return mutation && options.completeMutationResults!==false ? {id:data.id || 'fixture-created-master',operationStatus:'completed',...value} : value
+  }
   const {readFile}=await import('node:fs/promises')
   const ts=(await import('typescript')).default
   const vue=await import('vue')
@@ -455,7 +477,7 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   const notifications=[];const env={useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   Object.assign(env,companyProfileDependencies,{selectedMonthToBasisMonth})
-  return new Function(...Object.keys(env),code+';return {rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {propertyId,pendingProperty,pendingSetting,retryProperty,retrySetting,setting,settingAction,openSetting,requestId,frozenPayload,rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
 
 test('property editor discards the former name field before saving legacy documents',async()=>{
@@ -617,7 +639,7 @@ test('insurance report sends only basis month and completion filter; renewal lab
 
 test('saving a draft closes the dialog and delivers completion via snackbar',async()=>{
  const v=await prototypeViewForTest(async data=>data.action==='detail' ? {id:'test',name:'架空',status:'draft'} : {rows:[],limited:false})
- v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})}
+ v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})}
  await v.saveProperty('save')
  assert.deepEqual(v.notifications,[['保存しました。','success']])
  assert.equal(v.propertyDialog.value,false);assert.equal(v.errors.page,'');assert.equal(v.errors.property,'')
@@ -697,10 +719,10 @@ test('insurance alerts ignore hidden filters and warranty notification state',as
 })
 
 test('failed draft save keeps the dialog and entered values',async()=>{
- const v=await prototypeViewForTest(async()=>{throw new Error('save failed')});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.form.value.name='架空入力';await v.saveProperty('save');assert.equal(v.propertyDialog.value,true);assert.equal(v.form.value.name,'架空入力');assert.equal(v.notifications.length,0)
+ const v=await prototypeViewForTest(async()=>{throw new Error('save failed')});v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.form.value.name='架空入力';await v.saveProperty('save');assert.equal(v.propertyDialog.value,true);assert.equal(v.form.value.name,'架空入力');assert.equal(v.notifications.length,0)
 })
 test('successful registration closes both dialogs; active edit remains open',async()=>{
- for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
+ for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
 })
 
 test('property search submits only the exact number, clears the applied number, and blocks invalid input',async()=>{
@@ -945,4 +967,129 @@ test('extension billing follows its application date through projections, CSV, u
   const legacy={...row,history:[{kind:'extend',requestId:'e1',before:{years:10},date:'2036-08-31'}]}
   assert.equal(warrantyTransactions(legacy)[1].extensionApplicationDateMissing,true)
   assert.equal(warrantyTransactions(legacy)[1].billingDate,'2036-10-01')
+})
+
+test('property unknown-result retry freezes payload and completed refresh failure never resends the write',async()=>{
+  const calls=[],row={id:'retry-property',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+  let failWrite=true,failDetail=false
+  const view=await prototypeViewForTest(async data=>{
+    calls.push(structuredClone(data))
+    if(data.action==='save'){if(failWrite){failWrite=false;throw Error('response lost')}failDetail=true;return {id:row.id,operationStatus:'completed'}}
+    if(data.action==='detail'){if(failDetail){failDetail=false;throw Error('detail unavailable')}return row}
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+  await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value.phase,'unknown')
+  const original=calls.find(call=>call.action==='save')
+  assert.equal(original.operationProtocol,2)
+  view.form.value.name='Changed after response lost'
+  await view.saveProperty('save')
+  const writes=calls.filter(call=>call.action==='save')
+  assert.deepEqual(writes[1],original)
+  assert.equal(view.pendingProperty.value.phase,'completed')
+  await view.retryProperty()
+  assert.equal(calls.filter(call=>call.action==='save').length,2)
+  assert.equal(view.pendingProperty.value,null)
+  assert.equal(view.notifications.at(-1)[1],'success')
+})
+
+test('legacy property receipt is a warning and explicit rejection releases the frozen operation',async()=>{
+  const row={id:'legacy-operation',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+  let reject=true
+  const view=await prototypeViewForTest(async data=>{
+    if(data.action==='detail')return row
+    if(data.action==='save'){
+      if(reject)throw Object.assign(Error('validation rejected'),{details:{operationOutcome:'rejected'}})
+      return {id:row.id,operationStatus:'legacy-unverified'}
+    }
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+  const firstId=view.requestId.value
+  await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value,null);assert.notEqual(view.requestId.value,firstId)
+  reject=false;await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value,null)
+  assert.equal(view.notifications.at(-1)[1],'warning')
+  assert.equal(view.propertyDialog.value,true)
+})
+
+test('new master retry preserves request and returned ID across a catalog-only failure',async()=>{
+  const calls=[];let writeFailure=true,catalogFailure=true
+  const view=await prototypeViewForTest(async data=>{
+    calls.push(structuredClone(data))
+    if(data.action==='saveCompany'){
+      if(writeFailure){writeFailure=false;throw Error('response lost')}
+      return {id:'created-company',operationStatus:'completed'}
+    }
+    if(data.action==='alertSettings' && catalogFailure){catalogFailure=false;throw Error('catalog unavailable')}
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  view.openSetting('saveCompany');view.setting.value.name='Original company'
+  view.settingForm.value={validate:async()=>({valid:true})}
+  await view.saveSetting()
+  const first=calls.find(call=>call.action==='saveCompany')
+  assert.ok(first.requestId);assert.equal(view.pendingSetting.value.phase,'unknown')
+  view.setting.value.name='Changed company'
+  await view.saveSetting()
+  assert.deepEqual(calls.filter(call=>call.action==='saveCompany')[1],first)
+  assert.equal(view.setting.value.id,'created-company')
+  assert.equal(view.pendingSetting.value.phase,'completed')
+  await view.retrySetting()
+  assert.equal(calls.filter(call=>call.action==='saveCompany').length,2)
+  assert.equal(view.pendingSetting.value,null);assert.equal(view.settingDialog.value,false)
+})
+
+test('operation fingerprints bind business input while ignoring runtime envelopes and key order',async()=>{
+  const {inputHash,propertyInputHash,masterInputHash}=await import('../functions/operation-input.js')
+  assert.equal(inputHash({b:2,a:1}),inputHash({a:1,b:2}))
+  assert.notEqual(inputHash({a:undefined}),inputHash({a:null}))
+  assert.notEqual(inputHash({a:'1'}),inputHash({a:1}))
+  const base={action:'save',id:'property',revision:1,reason:'',fields:{name:'Original',address:'Address',handoverDate:'2026-10-01'}}
+  const hash=propertyInputHash(base)
+  assert.equal(hash,propertyInputHash({...base,requestId:'transport-id',runtimeGeneration:8,runtimeProtocol:2,operationProtocol:2,unused:'ignored',fields:{...base.fields,serverProjection:'ignored'}}))
+  for(const patch of [{action:'register'},{revision:2},{reason:'changed'},{fields:{...base.fields,name:'Original '}},{fields:{...base.fields,handoverDate:'2026-10-02'}},{confirmDates:true}])assert.notEqual(hash,propertyInputHash({...base,...patch}))
+  for(const [action,fields] of Object.entries({extend:{extensionApplicationDate:'2036-09-01'},undoExtend:{targetRequestId:'old'},cancel:{confirmCancellation:true},notify:{notified:true},report:{month:'2026-10',reportTarget:{warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2031-09-30'}},undoReport:{targetReportId:'report'},waiveInsurance:{insurancePeriodId:'period'},undoInsuranceWaiver:{insurancePeriodId:'period'},bill:{warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'},issueCertificate:{month:'2026-10',periods:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'}]},billPeriods:{groupId:'group',month:'2026-10',periods:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'}]}})){
+    const command={action,id:'property',revision:1,...fields},fingerprint=propertyInputHash(command)
+    for(const key of Object.keys(fields))assert.notEqual(fingerprint,propertyInputHash({...command,[key]:undefined}),`${action}/${key}`)
+  }
+  for(const [action,field] of [['saveCompany','defaultGroupId'],['saveBranch','branchCode'],['saveGroup','prefix']]){
+    const command={action,name:'Master',[field]:'original'}
+    assert.equal(masterInputHash(command),masterInputHash({...command,requestId:'request',runtimeGeneration:8,operationProtocol:2}))
+    assert.notEqual(masterInputHash(command),masterInputHash({...command,[field]:'changed'}))
+    assert.notEqual(masterInputHash(command),masterInputHash({...command,name:'Master '}))
+  }
+})
+
+test('malformed mutation responses keep the original submission unknown without follow-up reads',async()=>{
+  for(const response of [undefined,{}, {id:'response-property'}, {id:'response-property',operationStatus:'unexpected'}, {id:'bad/path',operationStatus:'completed'}, {id:'different-property',operationStatus:'completed'}]){
+    const calls=[],row={id:'response-property',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+    const view=await prototypeViewForTest(async data=>{calls.push(data);if(data.action==='detail')return row;if(data.action==='save')return response;return {companies:[],branches:[],groups:[],rows:[]}},undefined,{completeMutationResults:false})
+    await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+    calls.length=0
+    await view.saveProperty('save')
+    assert.equal(view.pendingProperty.value.phase,'unknown')
+    assert.deepEqual(calls.map(call=>call.action),['save'])
+    assert.equal(view.notifications.length,0)
+    const original=calls[0];await view.retryProperty()
+    assert.deepEqual(calls[1],original)
+  }
+  for(const response of [undefined,{}, {id:'new-master'}, {id:'new-master',operationStatus:'unexpected'}, {id:'bad/path',operationStatus:'completed'}]){
+    const calls=[]
+    const view=await prototypeViewForTest(async data=>{calls.push(data);return response},undefined,{completeMutationResults:false})
+    view.openSetting('saveCompany');view.setting.value.name='Original company';view.settingForm.value={validate:async()=>({valid:true})}
+    await view.saveSetting()
+    assert.equal(view.pendingSetting.value.phase,'unknown')
+    assert.equal(view.setting.value.id,undefined)
+    assert.deepEqual(calls.map(call=>call.action),['saveCompany'])
+    assert.equal(view.notifications.length,0)
+  }
+  const calls=[]
+  const existing=await prototypeViewForTest(async data=>{calls.push(data);return {id:'other-master',operationStatus:'completed'}},undefined,{completeMutationResults:false})
+  existing.openSetting('saveCompany',{id:'expected-master',name:'Existing'});existing.settingForm.value={validate:async()=>({valid:true})}
+  await existing.saveSetting()
+  assert.equal(existing.pendingSetting.value.phase,'unknown')
+  assert.equal(existing.setting.value.id,'expected-master')
+  assert.deepEqual(calls.map(call=>call.action),['saveCompany'])
 })

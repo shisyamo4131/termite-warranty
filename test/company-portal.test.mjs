@@ -24,13 +24,21 @@ test('existing and future alerts inherit shared design and inputs never use auto
   await inspect('app')
 })
 
-test('company portal gateway uses the seven trusted callable commands', async () => {
+test('retained company portal gateway names all seven closed callable commands', async () => {
   const source = await readProjectFile('app/gateways/companyPortalGateway.ts')
+  const entrypoints = await readProjectFile('functions/index.js')
   for (const callable of [
     'createConstructionCompanyAccount', 'setConstructionCompanyAccountEnabled',
     'createRenewalWorkItem', 'createNewCaseWorkItem',
     'updateCompanyCaseWorkItem', 'withdrawNewCaseWorkItem', 'reviewCompanyCaseWorkItem',
-  ]) assert.match(source, new RegExp(`'${callable}'`))
+  ]) {
+    assert.match(source, new RegExp(`'${callable}'`))
+    assert.ok(entrypoints.includes(`export const ${callable} = companyPortalCallable('${callable}')`))
+  }
+  const closure = entrypoints.slice(entrypoints.indexOf('const companyPortalCallable ='), entrypoints.indexOf('export const createConstructionCompanyAccount'))
+  assert.match(closure, /throw new HttpsError\('permission-denied'/)
+  assert.doesNotMatch(closure, /withRecovery|getAuth|getFirestore|operation\(/)
+  assert.doesNotMatch(entrypoints, /from ['"]\.\/company-portal\.js['"]/)
 })
 
 test('session preserves company identity and root renders the property-centred prototype', async () => {
@@ -46,13 +54,13 @@ test('session preserves company identity and root renders the property-centred p
   assert.doesNotMatch(portal, /collection\(\$firebase\.firestore, 'cases'/)
 })
 
-test('all company work-item writes stay behind callable functions and one-to-one case ids are explicit', async () => {
+test('legacy work-item client access is closed while historical implementation is retained', async () => {
   const [rules, functions, indexes] = await Promise.all([
     readProjectFile('firestore.rules'),
     readProjectFile('functions/company-portal.js'),
     readProjectFile('firestore.indexes.json'),
   ])
-  assert.match(rules, /match \/constructionCompanyCaseWorkItems\/\{workItemId\}[\s\S]*allow write: if false;/)
+  assert.match(rules.replace(/\/\/[^\n]*/g, ''), /match \/constructionCompanyCaseWorkItems\/\{workItemId\}\s*\{\s*allow read, write: if false;\s*\}/)
   assert.match(functions, /doc\(`constructionCompanyCaseWorkItems\/\$\{caseId\}`\)/)
   assert.match(functions, /caseId: ref\.id/)
   assert.match(functions, /constructionCompanyAccountBindings/)

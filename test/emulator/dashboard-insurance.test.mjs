@@ -32,7 +32,7 @@ async function fixture(t) {
   batch.set(db.doc('prototypeSettings/alerts'),{warrantyMonths:2,insuranceMonths:2})
   batch.set(db.doc('_recovery/access'),{protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:'test-fixed-control'})
   await batch.commit()
-  const invoke=(action,input={},uid='hs')=>propertyPrototypeOperation(auth,db,{operationProtocol:1,runtimeGeneration:1,action,...input},uid)
+  const invoke=(action,input={},uid='hs')=>propertyPrototypeOperation(auth,db,{operationProtocol:2,runtimeGeneration:1,action,...input},uid)
   const get=async id=>(await db.doc('propertyWarranties/'+id).get()).data()
   const mutate=async(action,id,extra={},uid='hs')=>{const result=await invoke(action,{id,revision:(await get(id)).revision,requestId:randomUUID(),...extra},uid);assert.equal(insuranceNoticeProjectionMatches(await get(id)),true);return result}
   return {db,invoke,get,mutate}
@@ -236,7 +236,10 @@ test('waiver changes only the chosen period, requires reason, preserves history 
   assert.equal(saved.revision,2)
   assert.deepEqual(validateInsuranceState(saved),[])
   assert.equal((await invoke('dashboard')).counts.insurancePending,1)
-  await invoke('waiveInsurance',{...request,operationProtocol:undefined})
+  await assert.rejects(invoke('waiveInsurance',{...request,operationProtocol:undefined}),{code:'failed-precondition'})
+  await assert.rejects(invoke('waiveInsurance',{...request,operationProtocol:1}),{code:'failed-precondition'})
+  assert.deepEqual(await get('future'),saved)
+  await invoke('waiveInsurance',{...request,operationProtocol:2})
   assert.deepEqual(await get('future'),saved)
   await mutate('undoInsuranceWaiver','future',{insurancePeriodId:future.id})
   const undone=await get('future')

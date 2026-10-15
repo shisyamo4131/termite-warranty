@@ -1,5 +1,15 @@
 # アカウント更新の競合修正・取得効率改善
 
+## 2026-10-15 HS担当者の新規発行（Local候補）
+
+新規発行に[ADR0036](../decisions/0036-account-mutation-serialization.md)の所有・結果不明保留を拡張する。既存アカウントの一括変更なし、旧工務店作成経路は閉鎖し現行工務店アカウント新規の方式変更は今回対象外。[検証状態](../operations.md#2026-10-15-納品前改修local検証)。
+
+`accountCreationOperations/{sha256(JSON.stringify([actorUid,requestId]))}`はサーバー専用。kind=staff_creation、operationId、actorUid、requestId、事前uid、targetPath、desired(email/displayName/role)、status、createdAt、任意completedAt/result/authConflict/rejectionCodeを保持。statusはrunning/completed/recovery_required/rejected/recovered_disabled。結果にはuidと確定した属性を保持する。UID別accountMutationLocksにはkind=create、creationPath、desiredを保存し、staffAccountsにはcreationOperationId/creationPendingを追加する。新規要求IDは発行画面内で固定し、入力変更による流用を拒否する。
+
+現在の管理権限と操作所有を確認してから無効Authを事前UIDで作成し、enabled=falseの文書を準備。Auth整合確認・有効化後、現在の管理権限・文書・所有を再照合して文書有効化/完了記録/lock解放を同時確定する。途中状態では業務権限を与えない。最終commit応答喪失はreceiptを照合し、完了したAuthを削除しない。メールは完了確認後のみ。再送で既に完了した作成を返しても後のprofile編集を上書きしない。
+
+復旧は既存account-mutation-recoveryの入口からkind=createを分岐。期待operation ID・旧worker停止・復旧ownerを検証し、所有UIDのAuth/文書を照合した無効アカウントへ収束する。欠落Authを自動作成せず、別UIDの同メールを採用せず、結果不明・不整合ではlockを保持する。現在権限とAuthを過去へ巻き戻さないため、作成記録も現在権限のbaseline・照合・復元時差替え・再投入保全へ含める。旧baselineは再採取する。旧resetスクリプトは未分類rootで停止させ、作成記録を無断削除しない。実復旧・Auth作成変更には別段階の実行承認が必要。
+
 - 状態：実装・独立レビュー・最終Localゲート・Dev反映・開発側Dev受入完了。利用者自身の業務受入とは区別する。
 - 根拠：2026-10-05のオーナー指示。ACCOUNT-01、Read候補1/2/3/5の改修、Local検証後のDev配備と開発側受入を承認。候補4は後続回答「今回採用する」で下記の5分参照キャッシュを採用。候補6と郵便番号自動更新は説明・検討段階。
 - 基底：primary repository、main、d77ed3254676d0a609fe9231fe20f00c21bc1583、開始時clean。

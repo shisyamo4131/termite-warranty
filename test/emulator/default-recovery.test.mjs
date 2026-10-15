@@ -36,6 +36,8 @@ test('incident chain uses real fixed entry and B controller receipts through com
  await target.doc('constructionCompanyAccounts/incident-company-current').set(companyProfile)
  await target.doc('constructionCompanyAccountBindings/incident-company').set({uid:'incident-company-current'})
  await target.doc('staffAccounts/incident-admin').set(profile)
+ const currentCreation={kind:'staff_creation',uid:'incident-admin',status:'completed',operationId:'fictional-current-creation'}
+ await target.doc('accountCreationOperations/incident-current').set(currentCreation)
  await target.doc('warrantyCounters/year').set({lastValue:9})
  await target.doc('properties/after-point').set({label:'fictional lost update'})
  await api.initialize()
@@ -56,12 +58,17 @@ test('incident chain uses real fixed entry and B controller receipts through com
  await source.doc('constructionCompanyAccountBindings/incident-company').set({uid:'incident-company-old'})
  await source.doc('warrantyCounters/year').set({lastValue:3})
  await source.doc('properties/restored').set({label:'fictional historical property'})
+ await source.doc('accountCreationOperations/incident-current').set({...currentCreation,status:'running'})
+ await source.doc('accountCreationOperations/obsolete').set({status:'running',uid:'fictional-obsolete'})
+ await source.doc('masterOperationReceipts/restored').set({uid:'incident-admin',resultId:'incident-company',requestHash:'fictional-hash',requestHashVersion:1})
  const restoreOperation='fictional-restore-operation',recoveryPoint='2026-10-06T00:00:00Z',approval='external/incident-point'
  await control.doc(`recoveryTargets/${source.databaseId}`).set({restoreDone:true,restoreOperation,recoveryPoint,approval,generation:2,revision})
  await b.quarantine(2,'incident-quarantine',source.databaseId)
  const snapshotHash=(await scanDatabase(source)).hash
  await b.reconcile(2,'incident-reconcile',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash})
  assert.equal((await source.doc('constructionCompanyAccountBindings/incident-company').get()).data().uid,'incident-company-current')
+ assert.deepEqual((await source.doc('accountCreationOperations/incident-current').get()).data(),currentCreation)
+ assert.equal((await source.doc('accountCreationOperations/obsolete').get()).exists,false)
  // Do not recreate a missing company from current authority or widen permissions.
  await assert.rejects(b.verify(2,'incident-verify',{target:source.databaseId,baselineId:'incident-baseline',snapshotHash,restoreOperation,recoveryPoint,approval}))
  assert.equal((await control.doc('recovery/runtime').get()).data().phase,'recovering')
@@ -81,6 +88,9 @@ test('incident chain uses real fixed entry and B controller receipts through com
  assert.equal((await target.doc('properties/after-point').get()).exists,false)
  assert.equal((await target.doc('properties/restored').get()).exists,true)
  assert.deepEqual((await target.doc('staffAccounts/incident-admin').get()).data(),profile)
+ assert.deepEqual((await target.doc('accountCreationOperations/incident-current').get()).data(),currentCreation)
+ assert.equal((await target.doc('accountCreationOperations/obsolete').get()).exists,false)
+ assert.equal((await target.doc('masterOperationReceipts/restored').get()).data().resultId,'incident-company')
  assert.equal((await target.doc('warrantyCounters/year').get()).data().lastValue,9)
  assert.equal((await api.publish('incident-plan',approval)).phase,'verification')
  await assert.rejects(api.publish('incident-plan',approval,{reopen:true}))

@@ -29,7 +29,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | グループ抽出・期間別発行/取消はDev検証済み。10/12に年月日分割を含む共通21列・選択期間の再出力を実装。検証・配備は運用記録参照。Wordとの実差込み確認、保証書生成・印刷・グループ訂正は残る | Project / House Solution |
 | HSC-038 | [Construction-company Branches and Document Recipients](house-solution-confirmations/HSC-038-company-branches-recipients.md) | Initial dispatch/recipient management excluded; address-label CSV not adopted; hierarchy confirmed, remaining portal effects deferred | House Solution |
 | HSC-015 | [初期データ登録・受入れ](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | Devへ442物件を既存番号で投入・全件照合し、別了承で通常再開済み。代表画面・各CSV・架空1件の採番／編集／請求／取消・実442件不変・ログを確認しHI-06完了。HS試験運用・受入れは継続 | House Solution, supported by Project |
-| HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS confirmed; company functionality retained, rollout deferred | House Solution, then project |
+| HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS; legacy portal closure adopted, company/branch authorization and verification mandatory before deferred reopening | House Solution, then project |
 
 ## Resolved Matters
 

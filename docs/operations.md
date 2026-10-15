@@ -1,5 +1,91 @@
 # Operations
 
+## 2026-10-15 納品前改修Local検証
+
+同日の追加承認により問題1・2・4・5と旧ポータル封鎖を実装。問題3の請求一覧説明修正も保持した。対象はprimary repositoryの`codex/billing-help-alignment`、基準HEAD `0e9cd63ec1a551bddd506829e87d072bf5175c9f`上の未commit差分。commit/push/PR/merge/配備、実データ棚卸し・補正、Auth/IAM/Billing/保護設定変更は未実施。現公開版には未反映。
+
+| 対象 | Local変更と確認する性質 |
+| --- | --- |
+| 問題1 | 物件要求の内容hash、protocol=2、旧receiptの未確認扱い、入力固定と同一要求再送、保存完了後は読取りだけ再試行 |
+| 問題2 | マスタ作成のtransaction receiptと返却ID保持、再送で重複作成・後続編集の巻戻しをしない |
+| 問題3 | 請求一覧の延長分説明を申込月基準へ修正。抽出処理・保証書基準は不変 |
+| 問題4 | HS新規アカウントの事前UID・作成journal・UID lock、無効状態からの段階的有効化、結果不明時に無条件削除せず保留・所有確認復旧 |
+| 問題5 | 引渡日実変更で当該期間の旧保証書発行記録を失効、訂正前の発行事実を履歴保存。A→B→Aで復活しない |
+| PORTAL-SEC-01 | 旧7 CallableをDB/Auth処理前に拒否し、旧work-itemのRules読書きを拒否。現行propertyPrototypeの会社/本支店経路は維持。恒久認可修正・再開判断は未完了 |
+| 復旧互換性 | 作成journalを現在権限baselineで保全し、マスタreceiptは業務復元点に従う。新baseline必須。旧resetは未知rootで停止する |
+
+独立調査・実装後の読取りレビューを実施。独立レビューで見つかった保存中の郵便番号検索遅延応答は、検証終了後・snapshot作成直前の検索キャンセルで対応。親が物件/工務店/本支店の参照接続と呼出し順を確認し、遅延resolved/ambiguous応答を含む対象89件は成功・exit 0。全バグの不存在を証明するものではない。ブラウザ実機操作、Cloud障害注入、実復元・実配備・HS受入れは未実施。
+
+影響分類はUI、application logic、data contract、effective permissionの和集合で包括7gateを選択。選択gate省略なし。Local実装・以下の検証は完了、統合・配備・実環境確認は未実施。実行ログはignoredのtmp/delivery-final-*.log、完了証拠の要約は本節に保持する。
+
+| command | 最終状態の結果 | exit |
+| --- | --- | --- |
+| `npm test` | 631件中628成功、fail/cancel 0、Windows symlink fixture 3skip | 0 |
+| `npm run typecheck` | 成功（住所検索修正後） | 0 |
+| `npm run build` | 成功（住所検索修正後） | 0 |
+| `npm run test:rules` | 203件成功、fail/skip 0、377478ms、隔離Emulator停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | PowerShell7で成功、7分類・生成物/検証表整合 | 0 |
+
+途中失敗は隠さない。最初の単体/Emulator同時実行は共有stage lockとsandbox一時領域rename制約で失敗。以後直列化し、単体のTEMP/TMPだけworkspace内の専用一時領域へ指定した。Emulatorのsandbox内loopback起動はtimeoutとなり、承認されたLocal実行へ切り替えた。CI=trueでFirebase CLIのMOTD取得を抑制。旧fixtureが再送時に対象を再計算していた4件と、住所component ref不足の単体1件は、実装制約を弱めずfixtureを修正した。3skipを成功件数に含めず、OS権限変更もしない。npm実行版10.9.8とpackageManager指定11.19.1の差異もあるため、本人Local receipt／CI再利用の適格性は主張しない。
+
+詳細契約は[保存操作](design/meeting-prototype-2026-10-03.md)、[アカウント作成](design/account-concurrency-read-efficiency-2026-10-05.md)、[保証書](design/warranty-certificates.md)、[封鎖・再開条件](requirements/security-and-access.md)、[復旧手順](runbooks/backup-recovery.md)へ反映。採用仕様・納品順序・技術台帳・ADR0036・HSC-013・変更履歴を整合させる。新規文書なし、既存文書へのリンクで辿れる。governance生成物・検証policy・CI・依存関係は変更しない。
+
+最終検証入力の識別：変更/新規の非Markdown 30ファイルをpath昇順に並べ、各`path + NUL + raw bytes + NUL`を連結したSHA-256は`3677f68f6cd9f3c1ab057951d5ef01a824bad4cf84e8058cb33de17247916d57`。製品・テストのこれ以降の変更は該当gateを無効化する。正確な変更ファイルは以下（すべて未stage、追加2ファイルも未commit）。
+
+```text
+app/components/MeetingPrototype.vue
+app/components/StaffAccountManagement.vue
+app/components/WarrantyCertificateManagement.vue
+app/gateways/staffAccountGateway.ts
+firestore.rules
+functions/account-mutation-recovery.js
+functions/firestore-metrics.js
+functions/index.js
+functions/operation-input.js (new)
+functions/property-warranty.js
+functions/staff-account-creation.js (new)
+functions/staff-account-management.js
+scripts/lib/default-recovery.mjs
+scripts/lib/historical-intake-execution.mjs
+scripts/lib/recovery-controller.mjs
+test/account-mutation.test.mjs
+test/catalog-efficiency.test.mjs
+test/company-portal.test.mjs
+test/emulator/company-portal.test.mjs
+test/emulator/dashboard-insurance.test.mjs
+test/emulator/dashboard-migration.test.mjs
+test/emulator/default-recovery.test.mjs
+test/emulator/isolated-property-import.test.mjs
+test/emulator/property-warranty.test.mjs
+test/emulator/staff-account-management.test.mjs
+test/firestore-rules.test.mjs
+test/list-undo-ui.test.mjs
+test/postal-lookup.test.mjs
+test/property-warranty.test.mjs
+test/warranty-organization-ui.test.mjs
+CHANGELOG.md
+docs/decisions/0036-account-mutation-serialization.md
+docs/design/account-concurrency-read-efficiency-2026-10-05.md
+docs/design/meeting-prototype-2026-10-03.md
+docs/design/warranty-certificates.md
+docs/operations.md
+docs/requirements/delivery-and-technology.md
+docs/requirements/house-solution-confirmations.md
+docs/requirements/house-solution-confirmations/HSC-013-construction-company-submission.md
+docs/requirements/security-and-access.md
+docs/roadmaps/2026-initial-delivery.md
+docs/roadmaps/technical-remediation.md
+docs/runbooks/backup-recovery.md
+docs/runbooks/production-bootstrap-review.md
+docs/specification.md
+```
+
+配備前にFunctions/Rules/フロントの組合せと旧protocol拒否を確認する。旧アプリは再読込みが必要。差戻し時も新rootの保全を外した旧復旧ツールを使用しない。旧ポータル封鎖を解除するロールバックは禁止し、必要なら封鎖を維持した修正版を用意する。実配備と外部操作には別承認が必要。
+
+納品準備は、今は修正候補・復旧対象/責任/受入れ条件・連絡経路の整理、HS試行結果後は請求CSVの保証グループ単位と通常業務の実務確認、指摘修正後のDev受入れ、リリース直前はHS Google/Billing/既存Prod引継ぎ・原資料投入・保護設定・照合・引渡しとする。Dev試行データは保持しProdへ複製しない。日程は条件付き目標、実施済み・確約とはしない。
+
 ## 2026-10-15 検証フローのmain統合と非配備測定
 
 本人が親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` でPR35のmain統合と非配備の効果測定を承認。開始07:25:06 UTC、[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)は07:26:38 UTCに `36249552c41ea31077575eb93535df5625f77311` へ通常merge。最終head `5a47b17`、base不変、必須check成功、製品digest不変、CI分類、main保護維持、保守公開enable=falseを確認した。以下の候補・未統合記録は各工程当時の状態で、現在の承認境界は[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)を優先する。
