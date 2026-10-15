@@ -15,7 +15,7 @@ const trustedFiles=[acceptanceWorkflow,'scripts/development-acceptance.mjs','scr
 export const repairBaseline='22d5bac7c47f101fdf8b0522f8108edf16d06330'
 export const repairParent='bb9e2f97fcaf09242349b9f6a6f256acbf003047'
 const repairPaths=new Set([...documentationPaths,acceptanceWorkflow,
-  'scripts/development-acceptance.mjs','scripts/verification-evidence.mjs',
+  'scripts/development-acceptance.mjs','scripts/verification-evidence.mjs','scripts/lib/verification-evidence.mjs',
   'test/verification-evidence.test.mjs','docs/decisions/0046-verification-reuse-and-dev-acceptance.md'])
 const validSha=x=>/^[a-f0-9]{40}$/.test(x??'')
 

@@ -14,7 +14,8 @@ const sha=value=>/^[a-f0-9]{40}$/.test(value??'')
 export function githubReader(token,fetcher=fetch){
   if(!token)throw Error('GitHub read token unavailable.')
   return async path=>{
-    if(!path.startsWith('/')||path.includes('..')||path.includes('://'))throw Error('Unscoped GitHub API request.')
+    const comparison=/^\/compare\/[a-f0-9]{40}\.\.\.[a-f0-9]{40}$/.test(path)
+    if(!path.startsWith('/')||(path.includes('..')&&!comparison)||path.includes('://'))throw Error('Unscoped GitHub API request.')
     const response=await fetcher(`https://api.github.com/repos/${repository}${path}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},redirect:'error',signal:AbortSignal.timeout(20000)})
     if(!response.ok)throw Error('GitHub metadata unavailable: '+response.status)
     return response.json()

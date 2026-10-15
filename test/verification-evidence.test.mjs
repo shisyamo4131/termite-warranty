@@ -246,8 +246,9 @@ test('acceptance workflow is explicit, read-only, Dev-only and does not deploy',
 test('metadata reader limits token to repository API and disables redirects',async()=>{
   let calls=0
   const read=githubReader('fixture-not-a-secret',async(url,options)=>{calls++;assert.ok(url.startsWith('https://api.github.com/repos/'));assert.equal(options.redirect,'error');return {ok:false,status:403}})
-  for(const path of ['https://other.invalid','/../other'])await assert.rejects(read(path),/Unscoped/)
+  for(const path of ['https://other.invalid','/../other',`/compare/${revision}...main`,`/compare/${revision}...${merged}/../other`])await assert.rejects(read(path),/Unscoped/)
   assert.equal(calls,0);await assert.rejects(read('/actions/runs/1'),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,1)
+  await assert.rejects(read(`/compare/${revision}...${merged}`),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,2)
 })
 
 function reusedDevFixture(){
