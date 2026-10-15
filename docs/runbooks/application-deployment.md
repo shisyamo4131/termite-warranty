@@ -48,7 +48,7 @@ PR23／24の並行化はDev統合・実配備検証済み（Prod未反映）。[
 
 配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。
 
-判定の許可対象は `scripts/documentation-changes.mjs` の8ファイル：CHANGELOG.md、docs/README.md、docs/operations.md、docs/design/tr-003-verification-deploy-gates.md、docs/requirements/environment-configuration.md、docs/roadmaps/production-readiness.md、docs/roadmaps/technical-remediation.md、当手順書。既存の通常ファイルの内容修正だけを許可する。新規・削除・名前変更・symlink・実行属性変更・他ファイルとの混在は通常経路へ戻す。新たな対象を追加する際は成果物／実行入力への影響を確認し、判定実装・試験・当手順を通常PRで更新する。
+判定の許可対象は `scripts/documentation-changes.mjs` の13ファイル（上記追加5件と従来8件）：CHANGELOG.md、docs/README.md、docs/operations.md、docs/design/tr-003-verification-deploy-gates.md、docs/requirements/environment-configuration.md、docs/roadmaps/production-readiness.md、docs/roadmaps/technical-remediation.md、当手順書。既存の通常ファイルの内容修正だけを許可する。新規・削除・名前変更・symlink・実行属性変更・他ファイルとの混在は通常経路へ戻す。新たな対象を追加する際は成果物／実行入力への影響を確認し、判定実装・試験・当手順を通常PRで更新する。
 
 1. PRでは同一repositoryの実base／headと仮統合commitの両親を照合し、baseから仮統合結果までの全差分を判定する。dev→mainでは累積差分を見て、以前の未投入アプリ変更を文書扱いしない。
 2. 文書専用PRでも必須check `Verify development deployment` を実行する。`./scripts/check-governance.ps1` と `node scripts/documentation-changes.mjs verify`（判定の再確認・`git diff --check`）が両方成功してから通常mergeする。CIの包括検証証跡／Hosting成果物を捏造して発行しない。
@@ -82,7 +82,7 @@ PR23／24の並行化はDev統合・実配備検証済み（Prod未反映）。[
 
 ## 5. 本人受入れ→dev→main PR
 
-2026-10-15修正：`accepted_revision` と `deployment_run_id` は本人が受入れた実配備版を指定する。記録workflowは現在のdev上で実行し、後続の差分が許可8文書の修正だけなら全tree・祖先関係・文書push検証を確認して記録する。文書先頭のSHAを受入れた配備SHAへ代入しない。記録後の文書変更もPR／mainで同様に検証する。通常のアプリ・設定変更には新しい実配備と本人受入れが必要。
+2026-10-15修正：`accepted_revision` と `deployment_run_id` は本人が受入れた実配備版を指定する。記録workflowは現在のdev上で実行し、後続の差分が許可13文書の修正だけなら全tree・祖先関係・文書push検証を確認して記録する。文書先頭のSHAを受入れた配備SHAへ代入しない。記録後の文書変更もPR／mainで同様に検証する。通常のアプリ・設定変更には新しい実配備と本人受入れが必要。
 
 今回の記録処理修正の導入だけは、[ADR0046の固定版・差分限定](../decisions/0046-verification-reuse-and-dev-acceptance.md)に従い、旧Dev22d5bacの本人受入れを保持し、修正版の包括検証／Dev配備成功runを追加input `candidate_deployment_run_id` に指定できる。一般運用ではこの追加inputは空欄。受入れ版、記録版、技術検証配備版、昇格版を証拠上で区別する。下の旧「完全SHA一致」はこの限定的な継続条件を除く通常経路の説明。
 
