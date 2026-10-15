@@ -1,24 +1,43 @@
 import {mkdir,writeFile,appendFile,readFile} from 'node:fs/promises'
 import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {repository,repositoryId,tree,git,evidenceName,githubReader,completeList,validateVerification,assertRun,assertArtifact,gateSteps} from './lib/verification-evidence.mjs'
+import {repository,repositoryId,ownerId,tree,git,evidenceName,githubReader,completeList,validateVerification,assertRun,assertArtifact,assertApplicationJob,gateSteps} from './lib/verification-evidence.mjs'
 import {requireDevelopmentAcceptance} from './development-acceptance.mjs'
 import {findDevelopmentVerification} from './lib/development-verification.mjs'
 
 const output=async values=>{
   if(process.env.GITHUB_OUTPUT)await appendFile(process.env.GITHUB_OUTPUT,Object.entries(values).map(([key,value])=>key+'='+String(value)+'\n').join(''))
 }
+export function applicationIdentity(env,current,checkout){
+  if(env.GITHUB_REPOSITORY!==repository||!['pull_request','push','workflow_dispatch'].includes(env.GITHUB_EVENT_NAME)||
+    !/^[a-f0-9]{40}$/.test(current)||!/^[a-f0-9]{40}$/.test(checkout)||checkout!==env.GITHUB_SHA||
+    !/^[1-9]\d*$/.test(env.GITHUB_RUN_ID??'')||!/^[1-9]\d*$/.test(env.GITHUB_RUN_ATTEMPT??''))throw Error('Application checkout/run identity mismatch.')
+  return {repository,tree:current,revision:checkout,runId:env.GITHUB_RUN_ID,attempt:env.GITHUB_RUN_ATTEMPT,hostingName:`firebase-hosting-${current}-${env.GITHUB_RUN_ATTEMPT}`}
+}
+export async function verifyApplication(read,proof,expected,artifactId){
+  if(!proof||Object.keys(proof).length!==Object.keys(expected).length||Object.entries(expected).some(([k,v])=>proof[k]!==v)||!/^[1-9]\d*$/.test(artifactId??''))throw Error('Application producer identity mismatch.')
+  const run=await read('/actions/runs/'+expected.runId)
+  if(String(run.id)!==expected.runId||String(run.run_attempt)!==expected.attempt||run.repository?.id!==repositoryId||run.head_repository?.id!==repositoryId||run.repository?.owner?.id!==ownerId||run.path!=='.github/workflows/deploy-development.yml')throw Error('Application run identity mismatch.')
+  const jobs=await completeList(read,`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`,'jobs')
+  assertApplicationJob(jobs,run)
+  const artifacts=await completeList(read,`/actions/runs/${run.id}/artifacts`,'artifacts')
+  const artifact=assertArtifact(artifacts,run,expected.hostingName,Date.now(),128*1024*1024)
+  if(String(artifact.id)!==artifactId)throw Error('Application Hosting artifact identity mismatch.')
+  return expected
+}
 export async function resolveDevelopmentPromotion(read,current,event,options){
   const pr=event.pull_request
   if(pr?.head?.ref!=='dev'||pr?.base?.ref!=='main')throw Error('Main promotion requires a Dev PR.')
   if(pr.head.repo?.id!==repositoryId||pr.base.repo?.id!==repositoryId)throw Error('Foreign Dev promotion.')
   const acceptance=await requireDevelopmentAcceptance(read,current,pr.head.sha,options)
-  return {reuse:true,reason:'accepted-dev-comprehensive-success',...acceptance.deployment,acceptance}
+  return {reuse:true,reason:'accepted-dev-comprehensive-success',...acceptance.deployment,verificationTree:acceptance.deployment.tree,
+    tree:current,revision:pr.head.sha,acceptance}
 }
 export async function validatePromotionVerification(read,run,current,revision,acceptance){
   assertRun(run,{event:'pull_request',branch:'dev',revision})
   const commit=await read('/git/commits/'+revision)
-  if(commit.tree?.sha!==current||acceptance?.deployment?.tree!==current||acceptance.deployment.revision!==revision)throw Error('Promotion tree differs from accepted Dev.')
+  const admitted=acceptance?.promotion??acceptance?.deployment
+  if(commit.tree?.sha!==current||admitted?.tree!==current||admitted.revision!==revision)throw Error('Promotion tree differs from accepted Dev.')
   const jobs=await completeList(read,`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`,'jobs')
   for(const [name,steps] of [['Resolve verified source',['Resolve source verification']],['Verify development deployment',['Require verification or source evidence','Record verified source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence']]]){
     const rows=jobs.filter(j=>j.name===name),job=rows[0]
@@ -53,6 +72,12 @@ export async function findReusableVerification(read,current,revision,options){
 async function main(mode){
   if(process.env.GITHUB_REPOSITORY!==repository)throw Error('Unexpected repository.')
   const current=tree()
+  if(mode==='publish-application'||mode==='check-application'){
+    const expected=applicationIdentity(process.env,current,git('rev-parse','HEAD'))
+    if(mode==='publish-application')await output({proof:JSON.stringify(expected),hostingName:expected.hostingName})
+    else await verifyApplication(githubReader(process.env.GH_TOKEN),JSON.parse(process.env.APPLICATION_VERIFICATION_PROOF??'null'),expected,process.env.APPLICATION_HOSTING_ARTIFACT_ID)
+    console.log(JSON.stringify({application:mode,...expected}));return
+  }
   if(mode==='resolve-development'){
     if(git('rev-parse','HEAD')!==process.env.GITHUB_SHA)throw Error('Exact verification checkout required.')
     const event=JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH,'utf8'))

@@ -1,5 +1,17 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-15 受入れ証拠の文書継続
+
+本人受入れは実Dev配備SHAに固定し、文書更新のbranch先頭とは分離する。完全なGit tree比較と祖先関係、許可8文書・通常ファイル修正・文書CI成功をPR／mainで再確認し、包括検証／配備の証拠は元treeを保持する。記録処理自身の導入修正は固定旧版・固定第1親・限定ファイルと修正版の包括CI／実Dev配備を要求する一度の移行経路。一般のアプリ／配備設定変更は許可しない。[採用理由と範囲](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[手順](../runbooks/application-deployment.md)。
+
+## 2026-10-14 parallel application and Rules verification
+
+Feature PRs and Dev full fallback run `application` alongside the existing three isolated Rules VMs after scope/source resolution. Application owns governance, domain, typecheck, build, Functions syntax and seed syntax, then publishes its checkout SHA/tree/run/attempt identity and uploads the existing final Hosting artifact. The unchanged required check name `Verify development deployment` joins both producers. It aggregates Rules receipts and checks the application's actual successful named steps and immutable Hosting ID/metadata against the same run/attempt and current checkout before publishing comprehensive evidence. The application identity is a job output, not a replacement for successful GitHub job/step evidence. A leftover Hosting artifact after any failed producer is unusable.
+
+The aggregate needs no dependency installation or Java: receipt aggregation and evidence checks import repository and Node built-in modules only. There is no second build or Hosting transfer on full fallback. Reused Dev verification keeps its immutable source artifact download/digest check and republication. Documentation/reuse routes require intentionally skipped application and Rules producers; failure/cancellation/unexpected-skip outcomes block completion. Downstream source/acceptance consumers check six gates in `application` and Rules/comprehensive evidence in `verify`. Exact reversible topology validation precedes the existing documentation and deployment contract checks, rejecting unrecognised conditions, steps and permissions in the new topology.
+
+Required gates/test identities, freshness, artifact lifetime, owner acceptance, deployment guards and protection hold remain. See [ADR0046](../decisions/0046-verification-reuse-and-dev-acceptance.md). Local and PR validation are required. The owner additionally authorized PR23/24 Dev integration and deployment; both succeeded with all release checks. Prod remains unapproved for these changes. See the current operations evidence. Revert this change set to restore serial execution.
+
 ## 2026-10-14 bounded documentation-only routing
 
 A credential-free scope job inspects exact Git comparisons using full history. Only modifications of the eight existing regular Markdown files in `scripts/documentation-changes.mjs` qualify. Mixed/unknown paths, additions/deletions/renames/mode changes, foreign PRs, mismatched merge parents and unavailable comparisons never enable omission. The required development check remains present and runs governance plus repeated scope/whitespace checks for qualifying PRs and Dev pushes. Production pushes repeat classification and document validation, without build/auth/deployment. No comprehensive or Hosting artifact is published for this route. Ordinary routing and acceptance requirements remain intact; workflow contract validators check the complete added routing before validating the original deployment contract. Introducing this behavior is a mixed CI change and uses the full path.

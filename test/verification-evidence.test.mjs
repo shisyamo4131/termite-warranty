@@ -3,9 +3,10 @@ import {test} from 'node:test'
 import {readFileSync} from 'node:fs'
 import {parse,stringify} from 'yaml'
 import vm from 'node:vm'
-import {repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
-import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification} from '../scripts/verification-evidence.mjs'
-import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow} from '../scripts/development-acceptance.mjs'
+import {spawnSync} from 'node:child_process'
+import {repository,repositoryId,ownerId,verificationWorkflow,gateSteps,evidenceName,githubReader,validateVerification} from '../scripts/lib/verification-evidence.mjs'
+import {findReusableVerification,resolveDevelopmentPromotion,validatePromotionVerification,applicationIdentity,verifyApplication} from '../scripts/verification-evidence.mjs'
+import {recordDevelopmentAcceptance,requireDevelopmentAcceptance,acceptanceWorkflow,verifyContinuation,continuationProof,repairBaseline,repairParent} from '../scripts/development-acceptance.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {validateDevelopmentWorkflow} from '../scripts/development-workflow-contract.mjs'
 import {findDevelopmentVerification,validateDevelopmentDeployment} from '../scripts/lib/development-verification.mjs'
@@ -18,7 +19,7 @@ const step=name=>({name,status:'completed',conclusion:'success'})
 function fixture({dev=false}={}){
   const run={id:101,run_attempt:1,repository:{id:repositoryId,owner:{id:ownerId}},head_repository:{id:repositoryId},path:verificationWorkflow,event:dev?'push':'pull_request',head_branch:dev?'dev':'codex/change',head_sha:revision,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}
   const job=name=>({name,run_id:run.id,run_attempt:1,status:'completed',conclusion:'success',steps:[]})
-  const jobs=[{...job('Verify development deployment'),steps:[...gateSteps,'Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence','Check Hosting artifact','Upload verified Hosting artifact'].map(step)},...['shard-property-warranty','shard-default-recovery','shard-historical-intake'].map(id=>job(`rules / shard (${id})`))]
+  const jobs=[{...job('Verify development deployment'),steps:['Run Firestore and Callable Emulator tests','Verify application results and Hosting artifact','Require verification or source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence','Check Hosting artifact','Upload verified Hosting artifact'].map(step)},...['shard-property-warranty','shard-default-recovery','shard-historical-intake'].map(id=>job(`rules / shard (${id})`)),{...job('Verify application gates'),steps:[...gateSteps.filter(n=>n!=='Run Firestore and Callable Emulator tests'),'Publish application identity','Check Hosting artifact','Upload verified Hosting artifact'].map(step)}]
   if(dev)jobs.push({...job('Resolve verified source'),steps:[step('Resolve source verification')]})
   if(dev)jobs.push({...job('Deploy to termite-warranty-dev'),steps:['Prepare explicit Dev deployment and preserve protection hold','Deploy Firestore, Functions, and Hosting','Verify deployed Dev release and protection hold'].map(step)})
   const artifact=(name,r=run)=>({id:200+r.id,name,expired:false,size_in_bytes:500,expires_at:new Date(Date.now()+86400000).toISOString(),workflow_run:{id:r.id,repository_id:repositoryId,head_repository_id:repositoryId,head_sha:r.head_sha}})
@@ -35,12 +36,12 @@ function fixture({dev=false}={}){
   ])
   if(dev){
     const sourceRevision='e'.repeat(40),sourceRun={...run,id:100,event:'pull_request',head_branch:'codex/change',head_sha:sourceRevision}
-    const sourceJobs=structuredClone(jobs.slice(0,4)).map(j=>({...j,run_id:100}))
+    const sourceJobs=structuredClone(jobs.slice(0,5)).map(j=>({...j,run_id:100}))
     const sourceArtifacts=[artifact(evidenceName(tree,1),sourceRun),{...artifact(`firebase-hosting-${tree}-1`,sourceRun),id:402}]
     data.set(`/commits/${revision}/pulls?per_page=100`,[{number:14,merged_at:new Date().toISOString(),merge_commit_sha:revision,base:{ref:'dev',repo:{id:repositoryId}},head:{ref:'codex/change',sha:sourceRevision,repo:{id:repositoryId}}}])
     data.set(`/git/commits/${sourceRevision}`,{tree:{sha:tree}})
     data.set(`/actions/workflows/deploy-development.yml/runs?event=pull_request&head_sha=${sourceRevision}&per_page=100`,{total_count:1,workflow_runs:[sourceRun]})
-    data.set('/actions/runs/100/attempts/1/jobs?per_page=100',{total_count:4,jobs:sourceJobs})
+    data.set('/actions/runs/100/attempts/1/jobs?per_page=100',{total_count:5,jobs:sourceJobs})
     data.set('/actions/runs/100/artifacts?per_page=100',{total_count:2,artifacts:sourceArtifacts})
   }
   const read=async path=>{assert.ok(data.has(path),'Unexpected API path: '+path);return data.get(path)}
@@ -86,7 +87,7 @@ for(const [name,mutate] of [
   ['incomplete inventory',f=>{f.data.get(`/actions/runs/101/artifacts?per_page=100`).total_count=101}],
 ])test('rejects '+name,async()=>{const f=fixture();mutate(f);await assert.rejects(verify(f))})
 for(const name of gateSteps)test('rejects skipped comprehensive gate '+name,async()=>{
-  const f=fixture();f.jobs[0].steps.find(s=>s.name===name).conclusion='skipped';await assert.rejects(verify(f))
+  const f=fixture();f.jobs.flatMap(j=>j.steps).find(s=>s.name===name).conclusion='skipped';await assert.rejects(verify(f))
 })
 test('latest failed PR run does not reuse an older passing run',async()=>{
   const f=fixture(),list=f.data.get(`/actions/workflows/deploy-development.yml/runs?event=pull_request&head_sha=${revision}&per_page=100`)
@@ -221,7 +222,7 @@ test('workflow mutation guards prevent bypassing fallback, proof, or production 
   for(const mutate of [
     w=>{w.jobs.verify.steps.find(s=>s.id==='evidence').if='always()'},
     w=>{w.jobs.verify.steps.find(s=>s.name==='Upload comprehensive verification evidence').with.path='other'},
-    w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
+    w=>{w.jobs.application.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-pr')['continue-on-error']=true},
   ]){const w=workflow('deploy-development.yml');mutate(w);assert.throws(()=>validateDevelopmentWorkflow(stringify(w),policy))}
 })
 test('deployment after intentional shard skip requires successful verification and refuses cancellation',()=>{
@@ -245,13 +246,15 @@ test('acceptance workflow is explicit, read-only, Dev-only and does not deploy',
 test('metadata reader limits token to repository API and disables redirects',async()=>{
   let calls=0
   const read=githubReader('fixture-not-a-secret',async(url,options)=>{calls++;assert.ok(url.startsWith('https://api.github.com/repos/'));assert.equal(options.redirect,'error');return {ok:false,status:403}})
-  for(const path of ['https://other.invalid','/../other'])await assert.rejects(read(path),/Unscoped/)
+  for(const path of ['https://other.invalid','/../other',`/compare/${revision}...main`,`/compare/${revision}...${merged}/../other`])await assert.rejects(read(path),/Unscoped/)
   assert.equal(calls,0);await assert.rejects(read('/actions/runs/1'),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,1)
+  await assert.rejects(read(`/compare/${revision}...${merged}`),/^Error: GitHub metadata unavailable: 403$/);assert.equal(calls,2)
 })
 
 function reusedDevFixture(){
   const f=promotionFixture(),verify=f.jobs.find(j=>j.name==='Verify development deployment')
-  for(const s of verify.steps)if(gateSteps.includes(s.name))s.conclusion='skipped'
+  for(const s of verify.steps)if(gateSteps.includes(s.name)||s.name==='Verify application results and Hosting artifact')s.conclusion='skipped'
+  const app=f.jobs.find(j=>j.name==='Verify application gates');app.conclusion='skipped';app.steps=[]
   verify.steps.push(step('Record verified source evidence'),step('Download source PR Hosting artifact'))
   return f
 }
@@ -273,4 +276,187 @@ test('Dev fallback executes its complete suite when source proof is unavailable'
 test('direct Dev push without a merged feature PR cannot be admitted',async()=>{
   const f=acceptedFixture();f.data.set('/commits/'+revision+'/pulls?per_page=100',[])
   await assert.rejects(validateDevelopmentDeployment(f.read,f.run,tree,revision),/Promotion admission/)
+})
+
+const appEnv=()=>({GITHUB_REPOSITORY:repository,GITHUB_EVENT_NAME:'pull_request',GITHUB_SHA:revision,GITHUB_RUN_ID:'101',GITHUB_RUN_ATTEMPT:'1'})
+test('aggregate binds application checkout, six successful gates and immutable Hosting artifact to this execution',async()=>{
+  const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision)
+  assert.deepEqual(await verifyApplication(f.read,{...expected},expected,'401'),expected)
+  for(const key of Object.keys(expected))await assert.rejects(verifyApplication(f.read,{...expected,[key]:'foreign'},expected,'401'))
+  await assert.rejects(verifyApplication(f.read,{...expected},expected,'402'))
+  for(const key of Object.keys(appEnv()))assert.throws(()=>applicationIdentity({...appEnv(),[key]:'foreign'},tree,revision))
+  assert.throws(()=>applicationIdentity(appEnv(),merged,merged))
+})
+for(const [name,change] of [
+  ['failed',j=>j.conclusion='failure'],['cancelled',j=>j.conclusion='cancelled'],['skipped',j=>j.conclusion='skipped'],
+  ['unfinished',j=>j.status='in_progress'],['foreign run',j=>j.run_id++],['old attempt',j=>j.run_attempt++],
+  ['missing',j=>j.name='other'],['Hosting upload skipped',j=>j.steps.at(-1).conclusion='skipped'],
+])test('aggregate and downstream reuse refuse application producer '+name,async()=>{
+  const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision)
+  change(f.jobs[4]);await assert.rejects(verifyApplication(f.read,expected,expected,'401'));await assert.rejects(verify(f))
+})
+test('aggregate refuses duplicate app job and stale, duplicate or foreign Hosting metadata',async()=>{
+  for(const mutate of [
+    f=>{f.jobs.push(structuredClone(f.jobs[4]));f.data.get('/actions/runs/101/attempts/1/jobs?per_page=100').total_count++},
+    f=>f.artifacts[1].expired=true,f=>f.artifacts[1].name=`firebase-hosting-${merged}-1`,
+    f=>f.artifacts[1].workflow_run.head_sha=merged,f=>f.artifacts[1].workflow_run.id++,
+    f=>{f.artifacts.push(structuredClone(f.artifacts[1]));f.data.get('/actions/runs/101/artifacts?per_page=100').total_count++},
+    f=>f.run.run_attempt++,f=>f.run.repository.id++,
+  ]){const f=fixture(),expected=applicationIdentity(appEnv(),tree,revision);mutate(f);await assert.rejects(verifyApplication(f.read,expected,expected,'401'))}
+})
+test('Hosting artifact from a successful app cannot authorize reuse after Rules or aggregate failure',async()=>{
+  for(const index of [0,1,2,3])for(const conclusion of ['failure','cancelled','skipped']){
+    const f=fixture();f.jobs[index].conclusion=conclusion;await assert.rejects(verify(f))
+  }
+})
+test('parallel topology and producer mutations cannot bypass the required aggregate',()=>{
+  const w=workflow('deploy-development.yml')
+  assert.deepEqual(w.jobs.application.needs,w.jobs.rules.needs)
+  assert.equal(w.jobs.application.if,w.jobs.rules.if)
+  assert.deepEqual(w.jobs.verify.needs,['rules','source','scope','application'])
+  assert.equal(w.jobs.verify.name,'Verify development deployment')
+  for(const mutate of [
+    w=>w.jobs.application.if='true',w=>w.jobs.application.needs=['scope'],w=>w.jobs.application.permissions={'id-token':'write'},
+    w=>w.jobs.application.environment='development',w=>w.jobs.application['continue-on-error']=true,
+    w=>w.jobs.application.outputs.artifactId='401',w=>w.jobs.application.outputs.proof='forged',
+    w=>w.jobs.application.steps.push({run:'echo extra'}),w=>w.jobs.application.steps.reverse(),
+    w=>w.jobs.application.steps.find(s=>s.id==='hosting').with.path='other',
+    w=>w.jobs.application.steps.find(s=>s.id==='evidence').run='echo success',
+    w=>w.jobs.verify.needs.pop(),w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').if='false',
+    w=>w.jobs.verify.steps.find(s=>s.run==='node scripts/verification-evidence.mjs check-application').env.APPLICATION_HOSTING_ARTIFACT_ID='401',
+    w=>w.jobs.verify.steps.find(s=>s.name==='Upload verified Hosting artifact').if='true',
+  ]){const changed=structuredClone(w);mutate(changed);assert.throws(()=>validateDevelopmentWorkflow(stringify(changed),policy))}
+})
+test('actual aggregate admission refuses failed/cancelled/unexpected skips and admits only full, docs or reused paths',()=>{
+  const command=workflow('deploy-development.yml').jobs.verify.steps[0].run
+  const cases=[
+    ['false','false','skipped','success','success',true],['false','false','success','success','success',true],
+    ['true','false','skipped','skipped','skipped',true],['false','true','success','skipped','skipped',true],
+    ...['failure','cancelled','skipped'].flatMap(bad=>[['false','false','skipped',bad,'success',false],['false','false','skipped','success',bad,false]]),
+    ['false','true','failure','skipped','skipped',false],['false','true','skipped','skipped','skipped',false],
+    ['false','true','success','success','skipped',false],['false','true','success','skipped','success',false],
+    ['true','false','skipped','skipped','success',false],
+  ]
+  for(const [docs,reuse,source,rules,application,allowed] of cases){
+    const values={'scope.result':'success','scope.outputs.documentationOnly':docs,'source.outputs.reuse':reuse,'source.result':source,'rules.result':rules,'application.result':application}
+    const run=command.replace(/\$\{\{ needs\.([^} ]+) \}\}/g,(_,key)=>values[key])
+    const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',run],{encoding:'utf8',windowsHide:true})
+    assert.ifError(result.error);assert.equal(result.status===0,allowed,JSON.stringify({docs,reuse,source,rules,application,stderr:result.stderr}))
+  }
+})
+
+const documentTree='8'.repeat(40),candidateRevision='f'.repeat(40),candidateTree='1'.repeat(40)
+function continuationTrees(f,from,to,beforeTree,afterTree,path='docs/operations.md'){
+  const before={sha:beforeTree,truncated:false,tree:[{path,type:'blob',mode:'100644',sha:blob},{path:'app.vue',type:'blob',mode:'100644',sha:'7'.repeat(40)}]}
+  const after=structuredClone(before);after.sha=afterTree;after.tree[0].sha='6'.repeat(40)
+  f.data.set('/git/commits/'+to,{tree:{sha:afterTree},parents:[{sha:repairParent},{sha:'5'.repeat(40)}]})
+  f.data.set(`/compare/${from}...${to}`,{status:'ahead',merge_base_commit:{sha:from}})
+  f.data.set(`/git/trees/${beforeTree}?recursive=1`,before);f.data.set(`/git/trees/${afterTree}?recursive=1`,after)
+  return {before,after}
+}
+function documentAcceptanceFixture(){
+  const f=acceptedFixture(),trees=continuationTrees(f,revision,merged,tree,documentTree)
+  f.data.get('/branches/dev').commit.sha=merged
+  const run={...f.run,id:104,head_sha:merged},jobs=[{name:'Verify development deployment',run_id:104,run_attempt:1,status:'completed',conclusion:'success',steps:['Check documentation governance','Verify documentation scope and whitespace'].map(step)},{name:'Deploy to termite-warranty-dev',conclusion:'skipped'}]
+  f.data.set(`/actions/workflows/deploy-development.yml/runs?event=push&head_sha=${merged}&per_page=100`,{total_count:1,workflow_runs:[run]})
+  f.data.set('/actions/runs/104/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  f.record.head_sha=merged;f.recordArtifact.workflow_run.head_sha=merged
+  f.recordArtifact.name=`dev-acceptance-v2-${documentTree}-101-101-1`
+  return Object.assign(f,trees,{documentRun:run,documentJobs:jobs})
+}
+test('v2 records the original accepted deployment after validated document-only continuation',async()=>{
+  const f=documentAcceptanceFixture(),r=await recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:merged})
+  assert.equal(r.schema,2);assert.equal(r.revision,revision);assert.equal(r.accepted.revision,revision)
+  assert.equal(r.promotion.revision,merged);assert.equal(r.tree,documentTree);assert.equal(r.deployment.tree,tree)
+  const proof=await requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob})
+  assert.equal(proof.accepted.runId,101);assert.equal(proof.promotion.tree,documentTree)
+  const event=promotionEvent();event.pull_request.head.sha=merged
+  const promoted=await resolveDevelopmentPromotion(f.read,documentTree,event,{blob:()=>blob})
+  assert.equal(promoted.tree,documentTree);assert.equal(promoted.verificationTree,tree)
+})
+for(const [name,change] of [
+  ['runtime change',f=>{f.after.tree[1].sha=revision}],
+  ['document deletion',f=>{f.after.tree.shift()}],
+  ['new document',f=>{f.after.tree.push({path:'docs/new.md',type:'blob',mode:'100644',sha:blob})}],
+  ['executable document',f=>{f.after.tree[0].mode='100755'}],
+  ['symlink document',f=>{f.after.tree[0].mode='120000'}],
+  ['truncated tree',f=>{f.after.truncated=true}],
+  ['duplicate entry',f=>{f.after.tree.push(f.after.tree[0])}],
+  ['diverged history',f=>{f.data.get(`/compare/${revision}...${merged}`).status='diverged'}],
+  ['wrong ancestor',f=>{f.data.get(`/compare/${revision}...${merged}`).merge_base_commit.sha=blob}],
+  ['failed document run',f=>{f.documentRun.conclusion='failure'}],
+  ['skipped document check',f=>{f.documentJobs[0].steps[1].conclusion='skipped'}],
+  ['unexpected deployment',f=>{f.documentJobs[1].conclusion='success'}],
+  ['failed original deployment',f=>{f.run.conclusion='failure'}],
+])test('v2 document continuation rejects '+name,async()=>{
+  const f=documentAcceptanceFixture();change(f)
+  await assert.rejects(recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:merged}))
+  await assert.rejects(requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob}))
+})
+test('recording rejects an advanced checkout and an incorrect accepted run revision',async()=>{
+  const f=documentAcceptanceFixture()
+  await assert.rejects(recordDevelopmentAcceptance(f.read,inputs(),{...identity,checkout:revision}))
+  await assert.rejects(recordDevelopmentAcceptance(f.read,{...inputs(),accepted_revision:blob},{...identity,checkout:merged}))
+})
+function repairFixture(){
+  const initial=fixture({dev:true})
+  function clone(value,candidate){
+    if(typeof value==='number')return candidate&&[100,101].includes(value)?value+200:value
+    if(typeof value==='string')return value.replaceAll(revision,candidate?candidateRevision:repairBaseline).replaceAll(tree,candidate?candidateTree:tree).replaceAll('e'.repeat(40),candidate?'2'.repeat(40):'e'.repeat(40)).replace(/(\/actions\/runs\/)(100|101)(?=\/|$)/g,(_,p,n)=>p+(candidate?Number(n)+200:n))
+    if(Array.isArray(value))return value.map(x=>clone(x,candidate))
+    if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,clone(v,candidate)]))
+    return value
+  }
+  const data=new Map()
+  for(const candidate of [false,true])for(const [k,v] of initial.data)data.set(clone(k,candidate),clone(v,candidate))
+  const f={data,read:async p=>{assert.ok(data.has(p),'Missing fixture '+p);return data.get(p)}}
+  const trees=continuationTrees(f,repairBaseline,candidateRevision,tree,candidateTree,'scripts/development-acceptance.mjs')
+  return {...f,...trees}
+}
+test('approved bootstrap keeps original acceptance and requires fresh candidate full CI and deployment',async()=>{
+  const f=repairFixture(),proof=await continuationProof(f.read,101,301,candidateRevision,candidateRevision)
+  assert.equal(proof.accepted.revision,repairBaseline);assert.equal(proof.deployment.revision,candidateRevision)
+  assert.equal(proof.promotion.tree,candidateTree)
+  const receipt=await recordDevelopmentAcceptance(f.read,{...inputs(),accepted_revision:repairBaseline,candidate_deployment_run_id:'301'},{...identity,checkout:candidateRevision})
+  assert.equal(receipt.revision,repairBaseline);assert.equal(receipt.schema,2)
+})
+for(const [name,change] of [
+  ['later merge',f=>{f.data.get('/git/commits/'+candidateRevision).parents[0].sha=revision}],
+  ['candidate full CI failed',f=>{f.data.get('/actions/runs/301/attempts/1/jobs?per_page=100').jobs[1].conclusion='failure'}],
+  ['candidate deployment failed',f=>{f.data.get('/actions/runs/301/attempts/1/jobs?per_page=100').jobs.at(-1).conclusion='failure'}],
+  ['original deployment failed',f=>{f.data.get('/actions/runs/101').conclusion='failure'}],
+  ['build setting changed',f=>{f.after.tree[1]={path:'firebase.json',type:'blob',mode:'100644',sha:blob}}],
+  ['runtime changed',f=>{f.after.tree[1].sha=revision}],
+])test('approved bootstrap rejects '+name,async()=>{const f=repairFixture();change(f);await assert.rejects(continuationProof(f.read,101,301,candidateRevision,candidateRevision))})
+test('repair allowance is never used for ordinary document continuation',async()=>{
+  const f=repairFixture();await assert.rejects(verifyContinuation(f.read,repairBaseline,candidateRevision))
+})
+
+test('main revalidates v2 document promotion without claiming the document tree was deployed',async()=>{
+  const f=documentAcceptanceFixture(),run={...f.run,id:103,event:'pull_request',head_sha:merged}
+  const job=(name,names)=>({name,run_id:103,run_attempt:1,status:'completed',conclusion:'success',steps:names.map(step)})
+  const jobs=[job('Resolve verified source',['Resolve source verification']),job('Verify development deployment',['Require verification or source evidence','Record verified source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence'])]
+  f.data.set('/actions/runs/103/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  f.data.set('/actions/runs/103/artifacts?per_page=100',{total_count:1,artifacts:[f.artifact(evidenceName(documentTree,1),run)]})
+  const acceptance=await requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob})
+  assert.equal((await validatePromotionVerification(f.read,run,documentTree,merged,acceptance)).source,'accepted-dev')
+  assert.equal(acceptance.deployment.revision,revision)
+  acceptance.promotion.tree=tree
+  await assert.rejects(validatePromotionVerification(f.read,run,documentTree,merged,acceptance))
+})
+test('v2 cannot conceal a different original run, forged record tree or changed producer',async()=>{
+  for(const change of [f=>{f.recordArtifact.name=`dev-acceptance-v2-${tree}-101-101-1`},f=>{f.recordArtifact.name=`dev-acceptance-v2-${documentTree}-999-101-1`},f=>{f.sourceBlob=revision}]){
+    const f=documentAcceptanceFixture();change(f);await assert.rejects(requireDevelopmentAcceptance(f.read,documentTree,merged,{blob:()=>blob}))
+  }
+})
+test('a second document continuation requires its own successful document verification',async()=>{
+  const f=documentAcceptanceFixture(),next='9'.repeat(40),nextTree='4'.repeat(40)
+  continuationTrees(f,merged,next,documentTree,nextTree)
+  await assert.rejects(requireDevelopmentAcceptance(f.read,nextTree,next,{blob:()=>blob}))
+  const run={...f.documentRun,id:105,head_sha:next}
+  f.data.set(`/actions/workflows/deploy-development.yml/runs?event=push&head_sha=${next}&per_page=100`,{total_count:1,workflow_runs:[run]})
+  const jobs=structuredClone(f.documentJobs);jobs[0].run_id=105
+  f.data.set('/actions/runs/105/attempts/1/jobs?per_page=100',{total_count:2,jobs})
+  const r=await requireDevelopmentAcceptance(f.read,nextTree,next,{blob:()=>blob})
+  assert.equal(r.accepted.revision,revision);assert.equal(r.promotion.revision,next)
 })

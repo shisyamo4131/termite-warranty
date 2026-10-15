@@ -1,5 +1,17 @@
 # Technical Remediation Backlog
 
+## 2026-10-14 並行化2件のDev導入現在地
+
+Dev統合・配備・実測の追加承認を受け、PR23はDev3690257へ統合しrun38544338346で全5照合・保護保留まで成功。照合step95→73秒、全体は前段待機増により4分16秒→4分34秒。PR24も最新dev同期後の包括7gate（単体584・Rules201）成功、Dev22d5bac／run38546924382で配備・全5照合・保護保留まで成功。PR CI8分31秒→6分27秒、Dev4分11秒。[実行記録](../operations.md)。下記draft・未統合は導入前の記録。main／Prod・新版の本人業務受入れは別判断、納品進捗への加点なし。
+
+## 2026-10-14 PRのアプリ検証とRulesの並行化（draft・未統合）
+
+別draft PRとして実装・検証する承認範囲。PR #23のFunctions配備後読取り並行化とは独立し、dev/main統合・配備は未承認。包括7gateと必須check名を維持し、アプリ6gate／Hosting producerと既存Rules3群を並行化する。成功集約と下流の証跡再利用は同一SHA/tree/run/attemptと全成功結果に限定する。[設計](../design/tr-003-verification-deploy-gates.md)、[判断](../decisions/0046-verification-reuse-and-dev-acceptance.md)。完了条件はローカル包括検証・拒否系回帰・独立レビュー・draft PR CIと工程別比較。実配備と本人受入れは別承認後。進捗加点なし。
+
+## 2026-10-14 Functions配備照合の限定並列化（Local検証済み・未統合）
+
+直近Prodの公開後照合91秒に対し、共通Functions照合の独立読取りを最大4件へ制限付き並列化。全検査・archive共有・失敗時の終了待ち・最後の一覧再取得を維持。模擬21関数で共有archive774→275ms／別archive1,102→349ms、Cloud短縮は未測定。包括7gate成功（単体569成功・既存2skip／連携201成功）、独立レビュー修正必須指摘なし。draft PRまで準備し、dev／main統合と実配備は親の承認後。PR検証の直列待ちには別の改善余地が残るため、改善全体の完了や納品進捗の加点はしない。[実測・残候補・検証状態](../operations.md#2026-10-14-functions配備照合の限定並列化未統合)。
+
 ## 2026-10-14 文書専用変更の配備省略
 
 PR19／20で限定8文書の変更判定・文書検証・両環境配備省略をdev／mainへ統合。導入自身はCI変更を含むため通常経路を通し、包括568単体／201連携成功、Dev d834f20配備・本人受入れ記録38528801514、main145245cのProd run38529464496・全5照合成功。[手順](../runbooks/application-deployment.md#文書だけの変更2026-10-14採用)と[実行記録](../operations.md)に記載。結果追記の文書専用PR／pushで文書検証・配備skip・公開版不変を確認し、その最終証拠と工程別比較は該当PR／Actionsへ保存する。混在／不明は通常経路を維持。保護保留・業務仕様・納品条件は不変。

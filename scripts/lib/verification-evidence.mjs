@@ -14,7 +14,8 @@ const sha=value=>/^[a-f0-9]{40}$/.test(value??'')
 export function githubReader(token,fetcher=fetch){
   if(!token)throw Error('GitHub read token unavailable.')
   return async path=>{
-    if(!path.startsWith('/')||path.includes('..')||path.includes('://'))throw Error('Unscoped GitHub API request.')
+    const comparison=/^\/compare\/[a-f0-9]{40}\.\.\.[a-f0-9]{40}$/.test(path)
+    if(!path.startsWith('/')||(path.includes('..')&&!comparison)||path.includes('://'))throw Error('Unscoped GitHub API request.')
     const response=await fetcher(`https://api.github.com/repos/${repository}${path}`,{headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},redirect:'error',signal:AbortSignal.timeout(20000)})
     if(!response.ok)throw Error('GitHub metadata unavailable: '+response.status)
     return response.json()
@@ -32,7 +33,8 @@ export function assertJobs(jobs,run,{deployment=false}={}){
   if(verify.length!==1)throw Error('Verification job missing or duplicated.')
   const successful=job=>job.run_id===run.id&&job.run_attempt===run.run_attempt&&job.conclusion==='success'&&job.status==='completed'
   if(!successful(verify[0]))throw Error('Verification job did not succeed.')
-  for(const name of [...gateSteps,'Publish comprehensive verification evidence','Upload comprehensive verification evidence']){
+  assertApplicationJob(jobs,run)
+  for(const name of ['Run Firestore and Callable Emulator tests','Verify application results and Hosting artifact','Publish comprehensive verification evidence','Upload comprehensive verification evidence']){
     const steps=verify[0].steps.filter(step=>step.name===name)
     if(steps.length!==1||steps[0].conclusion!=='success'||steps[0].status!=='completed')throw Error('A comprehensive gate is missing, skipped or failed: '+name)
   }
@@ -46,6 +48,14 @@ export function assertJobs(jobs,run,{deployment=false}={}){
       const steps=rows[0].steps.filter(step=>step.name===name)
       return steps.length===1&&steps[0].status==='completed'&&steps[0].conclusion==='success'
     }))throw Error('Dev deployment did not succeed.')
+  }
+}
+export function assertApplicationJob(jobs,run){
+  const rows=jobs.filter(j=>j.name==='Verify application gates'),job=rows[0]
+  if(rows.length!==1||job.run_id!==run.id||job.run_attempt!==run.run_attempt||job.conclusion!=='success'||job.status!=='completed')throw Error('Application verification job is missing, failed or from another attempt.')
+  for(const name of [...gateSteps.filter(n=>n!=='Run Firestore and Callable Emulator tests'),'Publish application identity','Check Hosting artifact','Upload verified Hosting artifact']){
+    const rows=job.steps.filter(s=>s.name===name)
+    if(rows.length!==1||rows[0].status!=='completed'||rows[0].conclusion!=='success')throw Error('Application gate is missing, skipped or failed: '+name)
   }
 }
 export function assertArtifact(artifacts,run,name,now=Date.now(),maxSize=65536){
@@ -71,6 +81,6 @@ export async function validateVerification(read,run,targetTree,{event,branch,rev
   const artifacts=await completeList(read,`/actions/runs/${run.id}/artifacts`,'artifacts')
   const artifact=assertArtifact(artifacts,run,evidenceName(targetTree,run.run_attempt))
   const hostingArtifact=hosting?assertArtifact(artifacts,run,`firebase-hosting-${targetTree}-${run.run_attempt}`,Date.now(),128*1024*1024):null
-  if(hosting){const verify=jobs.find(j=>j.name==='Verify development deployment');if(!['Check Hosting artifact','Upload verified Hosting artifact'].every(name=>verify.steps.filter(s=>s.name===name&&s.status==='completed'&&s.conclusion==='success').length===1))throw Error('Verified Hosting artifact unavailable.')}
+  // assertApplicationJob already checks the sole full-verification Hosting producer.
   return {runId:run.id,attempt:run.run_attempt,artifactId:artifact.id,revision,tree:targetTree,gates:gateSteps,...(hostingArtifact?{hostingArtifactId:hostingArtifact.id}:{})}
 }

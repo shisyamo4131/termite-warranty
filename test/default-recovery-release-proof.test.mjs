@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {deflateRawSync} from 'node:zlib'
-import {crc32,readSourceZip,hostingHash,hostingConfig,releaseProof,hostingReleaseProof} from '../scripts/lib/default-recovery-release-proof.mjs'
+import {crc32,readSourceZip,hostingHash,hostingConfig,releaseProof,hostingReleaseProof,functionsReleaseProof} from '../scripts/lib/default-recovery-release-proof.mjs'
 import {proofFailure,proofDiagnostic,proofFetch} from '../scripts/lib/default-recovery-diagnostics.mjs'
 
 function zip(files) {
@@ -14,10 +14,10 @@ function zip(files) {
   const directory=Buffer.concat(central),end=Buffer.alloc(22);end.writeUInt32LE(0x06054b50);end.writeUInt16LE(files.size??files.length,8);end.writeUInt16LE(files.size??files.length,10);end.writeUInt32LE(directory.length,12);end.writeUInt32LE(offset,16)
   return Buffer.concat([...locals,directory,end])
 }
-function fixture() {
+function fixture(functionNames=['one','two']) {
   const project='fictional-dev',projectNumber='123',control='recovery-control',site='fictional-site',region='asia-northeast1'
   const sourceFiles=new Map(['package.json','index.js','recovery-runtime.js','domain/fixed-recovery.mjs'].map(p=>[p,Buffer.from(p)]))
-  const archive=zip(sourceFiles),inputs={functionNames:['one','two'],sourceFiles,region,hostingFiles:new Map([['/index.html',hostingHash(Buffer.from('page'))]]),servingConfig:{}}
+  const archive=zip(sourceFiles),inputs={functionNames,sourceFiles,region,hostingFiles:new Map([['/index.html',hostingHash(Buffer.from('page'))]]),servingConfig:{}}
   const functions=inputs.functionNames.map(name=>({name:`projects/${project}/locations/${region}/functions/${name}`,state:'ACTIVE',environment:'GEN_2',buildConfig:{entryPoint:name,runtime:'nodejs22',sourceProvenance:{resolvedStorageSource:{bucket:`gcf-v2-sources-${projectNumber}-${region}`,object:'source.zip',generation:'1'}}},serviceConfig:{environmentVariables:{RECOVERY_CONTROL_DATABASE:control},allTrafficOnLatestRevision:true,service:`projects/${project}/locations/${region}/services/${name}`,revision:`${name}-0001`}}))
   const channel={name:`sites/${site}/channels/live`,release:{name:'release-1',type:'DEPLOY',version:{name:`sites/${site}/versions/version1`}}}
   const env=[{name:'RECOVERY_CONTROL_DATABASE',value:control}],values=new Map([
@@ -29,8 +29,58 @@ function fixture() {
     [`https://firebasehosting.googleapis.com/v1beta1/sites/${site}/versions/version1/files`,{files:[{path:'/index.html',status:'ACTIVE',hash:inputs.hostingFiles.get('/index.html')}]}],
   ])
   for(const f of functions){const name=f.serviceConfig.service,revision=`${name}/revisions/${f.serviceConfig.revision}`;values.set(`https://run.googleapis.com/v2/${name}`,{name,generation:'2',observedGeneration:'2',terminalCondition:{state:'CONDITION_SUCCEEDED'},latestReadyRevision:revision,latestCreatedRevision:revision,traffic:[{revision,percent:100}],trafficStatuses:[{revision,percent:100}],template:{containers:[{env}]}});values.set(`https://run.googleapis.com/v2/${revision}`,{name:revision,conditions:[{type:'Ready',state:'CONDITION_SUCCEEDED'}],containers:[{env}]})}
-  return {project,control,site,inputs,functions,values,archive,request:async url=>{if(!values.has(url))throw Error('private canary');return structuredClone(values.get(url))},readArchive:async()=>archive}
+  return {project,projectNumber,control,site,inputs,functions,values,archive,request:async url=>{if(!values.has(url))throw Error('private canary');return structuredClone(values.get(url))},readArchive:async()=>archive}
 }
+
+test('Functions proof latency sample retains complete requests and one shared archive',async t=>{
+ for(const shared of [true,false]) {
+  const f=fixture(Array.from({length:21},(_,i)=>`fn${String(i).padStart(2,'0')}`)),read=f.request
+  if(!shared)for(const [i,fn] of f.functions.entries())fn.buildConfig.sourceProvenance.resolvedStorageSource.object=`source-${i}.zip`
+  let active=0,maximum=0,requests=0,archives=0
+  const delay=async()=>{active++;maximum=Math.max(maximum,active);await new Promise(resolve=>setTimeout(resolve,15));active--}
+  f.request=async url=>{requests++;await delay();return read(url)}
+  f.readArchive=async()=>{archives++;await delay();return f.archive}
+  const start=performance.now(),result=await functionsReleaseProof(f),elapsed=performance.now()-start
+  assert.deepEqual(result,{functions:21,sourceArchives:shared?1:21})
+  assert.equal(requests,44);assert.equal(archives,shared?1:21);assert.equal(active,0)
+  assert.equal(maximum,4)
+  t.diagnostic(JSON.stringify({functions:21,latencyMs:15,elapsedMs:Math.round(elapsed),requests,archives,maximum}))
+ }
+})
+
+test('Functions proof drains failed batches and never launches the next batch',async()=>{
+ for(const failure of ['archive','service','revision']) {
+  const f=fixture(['a','b','c','d','e']),read=f.request,seen=[]
+  let active=0,finished=0
+  f.readArchive=async()=>{if(failure==='archive')throw Error('private canary');return f.archive}
+  f.request=async url=>{
+   if(!url.startsWith('https://run.googleapis.com/'))return read(url)
+   seen.push(url);active++
+   try {
+    if(url.endsWith(failure==='service'?'/services/a':'/revisions/a-0001'))throw Error('private canary')
+    await new Promise(resolve=>setTimeout(resolve,10));finished++;return read(url)
+   }finally{active--}
+  }
+  await assert.rejects(()=>functionsReleaseProof(f))
+  assert.equal(active,0);assert.ok(!seen.some(url=>url.includes('/services/e')))
+  assert.equal(finished,failure==='archive'?0:6+(failure==='revision'?1:0))
+ }
+})
+
+test('Functions proof rejects a final inventory change after all parallel reads finish',async()=>{
+ const f=fixture(['a','b','c','d','e']),read=f.request
+ let inventories=0,revisions=0
+ f.request=async url=>{
+  const value=await read(url)
+  if(url.includes('/revisions/'))revisions++
+  if(url.startsWith('https://cloudfunctions.googleapis.com/')&&++inventories===2){
+   assert.equal(revisions,5);value.functions[4].serviceConfig.revision='e-0002'
+  }
+  return value
+ }
+ await assert.rejects(()=>functionsReleaseProof(f))
+ assert.equal(inventories,2)
+})
 test('native ZIP verifies compressed bytes and rejects malformed/private paths',()=>{
   const bytes=zip(new Map([['index.js',Buffer.from('hello')]]));assert.equal(readSourceZip(bytes).get('index.js').toString(),'hello')
   for(const names of [[['../secret','x']],[['/secret','x']],[['a','x'],['A','y']],[['a\\b','x']]])assert.throws(()=>readSourceZip(zip(names)))
