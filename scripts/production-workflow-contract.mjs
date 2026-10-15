@@ -1,9 +1,10 @@
 import {parse} from 'yaml'
 import {withoutDocumentationRouting} from './lib/documentation-workflow.mjs'
+import {withoutCIIntroduction} from './lib/ci-introduction-workflow.mjs'
 import {validateProductionReuseWorkflow,productionVerifyCondition,fallbackCondition} from './lib/verification-reuse-workflow.mjs'
 const fail=()=>{throw Error('Production workflow does not preserve deployment gates.')}
 export function validateProductionWorkflow(text,policy){
-  const w=withoutDocumentationRouting(parse(text),'production'),v=w.jobs?.verify,d=w.jobs?.deploy
+  const w=withoutDocumentationRouting(withoutCIIntroduction(parse(text),'production'),'production'),v=w.jobs?.verify,d=w.jobs?.deploy
   if(!v||!d||JSON.stringify(w.on)!==JSON.stringify({push:{branches:['main']}})||w.permissions?.['id-token']||w.permissions?.contents!=='read'||w.concurrency?.group!=='production-bootstrap'||w.concurrency?.['cancel-in-progress']!==false)fail()
   if(v['runs-on']!=='windows-latest'||d['runs-on']!=='windows-latest'||v.if!==productionVerifyCondition||d.needs!=='verify'||d.environment!=='production'||d.permissions?.['id-token']!=='write'||d.if!=="${{ !cancelled() && needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}")fail()
   if(v['continue-on-error']||d['continue-on-error']||v.permissions?.['id-token'])fail()

@@ -3,6 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parse, stringify } from 'yaml'
 import {withoutDocumentationRouting} from './lib/documentation-workflow.mjs'
+import {withoutCIIntroduction} from './lib/ci-introduction-workflow.mjs'
 import {withoutParallelVerification} from './lib/verification-parallel-workflow.mjs'
 import {validateRulesHandoff,developmentVerifyCondition} from './lib/rules-test-workflow.mjs'
 import {validateEvidencePublisher,validateDevelopmentReuseWorkflow,devFallbackCondition,devRulesCondition} from './lib/verification-reuse-workflow.mjs'
@@ -52,7 +53,7 @@ const steps = (job) => {
 }
 
 export function validateDevelopmentWorkflow(workflow, policy) {
-  const parsed = withoutDocumentationRouting(withoutParallelVerification(parse(workflow)),'development')
+  const parsed = withoutDocumentationRouting(withoutParallelVerification(withoutCIIntroduction(parse(workflow),'development')),'development')
   workflow = stringify(parsed,{lineWidth:0})
   if (JSON.stringify(parsed.on) !== JSON.stringify({ push: { branches: ['main', 'dev'] }, workflow_dispatch: null, pull_request: { branches: ['dev','main'] } })
     || parsed.concurrency?.group !== 'development-deployment' || parsed.concurrency?.['cancel-in-progress'] !== false) {

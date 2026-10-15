@@ -42,6 +42,10 @@ PR23／24の並行化はDev統合・実配備検証済み（Prod未反映）。[
 
 ### 文書だけの変更（2026-10-14採用）
 
+2026-10-15拡張：許可対象は下記8件に、`deliverables/production-schedule-2026-10-05/README.md`、同`build_pdf.py`、`output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-13.pdf`、`docs/roadmaps/2026-initial-delivery.md`、`docs/roadmaps/historical-property-intake.md`を加えた13件。PDF生成元はCIで実行せず、生成・全ページ描画・内容照合は作成時に行う。PRではgovernanceと正確な差分／属性／空白を検証する。配備入力へ参照を追加する変更では許可対象も同時に見直す。
+
+初回の判定拡張だけは、オーナー承認の[固定基準版によるciIntroduction](../decisions/0046-verification-reuse-and-dev-acceptance.md#2026-10-15-pdf文書対象の拡張と配備なしの初回ci導入)で、包括7gateを最初の改修PRに実施し、同treeの後続統合は元PR成功を読取り検証する。Cloud認証・配備・業務受入れの作成はしない。以下の「導入PRは通常経路」はこの一度の承認済み導入を除く。PDF本体はCI改修と分離した次のPRで統合する。
+
 配備成果物・実行設定に影響しないと確認できる文書修正は、両段階のPRで文書検証を通して統合し、Dev／Prod配備を省略する。業務アプリが変わらないため、新しい業務受入れ記録も作らない。PR必須・必須check成功・base同期等の保護は維持する。以下の包括検証・配備・本人受入れの通常手順は混在／非対象／判定不能な変更に適用する。
 
 判定の許可対象は `scripts/documentation-changes.mjs` の8ファイル：CHANGELOG.md、docs/README.md、docs/operations.md、docs/design/tr-003-verification-deploy-gates.md、docs/requirements/environment-configuration.md、docs/roadmaps/production-readiness.md、docs/roadmaps/technical-remediation.md、当手順書。既存の通常ファイルの内容修正だけを許可する。新規・削除・名前変更・symlink・実行属性変更・他ファイルとの混在は通常経路へ戻す。新たな対象を追加する際は成果物／実行入力への影響を確認し、判定実装・試験・当手順を通常PRで更新する。

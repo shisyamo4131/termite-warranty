@@ -21,6 +21,7 @@ jobs:
     runs-on: windows-latest
     outputs:
       documentationOnly: ${{ steps.scope.outputs.documentationOnly }}
+      ciIntroduction: ${{ steps.scope.outputs.ciIntroduction }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -32,7 +33,7 @@ jobs:
         run: node scripts/documentation-changes.mjs classify
   source:
     name: Resolve verified source
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && ((github.event_name == 'pull_request' && github.base_ref == 'main') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev')) }}
+    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && ((github.event_name == 'pull_request' && github.base_ref == 'main') || ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev'))) }}
     runs-on: windows-latest
     outputs:
       reuse: ${{ steps.evidence.outputs.reuse }}
@@ -55,14 +56,14 @@ jobs:
     needs:
       - source
       - scope
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main')) }}
+    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main'))) }}
     uses: ./.github/workflows/verify-rules.yml
   application:
     name: Verify application gates
     needs:
       - source
       - scope
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main')) }}
+    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') && (needs.source.result == 'success' || needs.source.result == 'skipped') && needs.source.outputs.reuse != 'true' && !(github.event_name == 'pull_request' && github.base_ref == 'main'))) }}
     runs-on: windows-latest
     outputs:
       proof: ${{ steps.evidence.outputs.proof }}
@@ -135,45 +136,49 @@ jobs:
       - source
       - scope
       - application
+      - ci-introduction
     if: ${{ always() && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
     runs-on: windows-latest
     steps:
       - name: Require verification or source evidence
         run: if ('${{ needs.scope.result }}' -ne 'success') { throw 'Change scope failed.' } elseif ('${{ needs.scope.outputs.documentationOnly }}' -ne 'true') { if ('${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.source.result }}' -ne 'success') { throw 'Dev evidence failed.' } } elseif ('${{ needs.rules.result }}' -ne 'success' -or '${{ needs.source.result }}' -notin @('skipped', 'success')) { throw 'Rules shards or Dev evidence failed.' } } if ('${{ needs.scope.outputs.documentationOnly }}' -eq 'true' -or '${{ needs.source.outputs.reuse }}' -eq 'true') { if ('${{ needs.application.result }}' -ne 'skipped' -or '${{ needs.rules.result }}' -ne 'skipped') { throw 'Unexpected verification producer execution.' } } elseif ('${{ needs.application.result }}' -ne 'success') { throw 'Application verification failed.' }
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (true) }}
       - name: Check out the repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (true) }}
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (true) }}
       - uses: actions/download-artifact@v8
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true')) }}
         with:
           pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
           path: tmp/rules-receipts
           merge-multiple: true
       - name: Run Firestore and Callable Emulator tests
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true')) }}
         env:
           RULES_TEST_RECEIPTS: tmp/rules-receipts
         run: npm run test:rules
       - name: Verify application results and Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse != 'true')) }}
         env:
           GH_TOKEN: ${{ github.token }}
           APPLICATION_VERIFICATION_PROOF: ${{ needs.application.outputs.proof }}
           APPLICATION_HOSTING_ARTIFACT_ID: ${{ needs.application.outputs.artifactId }}
         run: node scripts/verification-evidence.mjs check-application
       - name: Record verified source evidence
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true')) }}
         env:
           VERIFICATION_REUSE_PROOF: ${{ needs.source.outputs.proof }}
         run: node scripts/verification-evidence.mjs report
       - name: Download source PR Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request')) }}
         uses: actions/download-artifact@v8
         with:
           artifact-ids: ${{ needs.source.outputs.hostingArtifactId }}
@@ -184,12 +189,12 @@ jobs:
       - name: Publish comprehensive verification evidence
         id: evidence
         run: node scripts/verification-evidence.mjs publish
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (true) }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (true)) }}
       - name: Check Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request')) }}
         run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
       - name: Upload verified Hosting artifact
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request') }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (needs.source.outputs.reuse == 'true' && github.event_name != 'pull_request')) }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.evidence.outputs.hostingName }}
@@ -204,19 +209,22 @@ jobs:
           path: tmp/verification-evidence.json
           if-no-files-found: error
           retention-days: 30
-        if: ${{ needs.scope.outputs.documentationOnly != 'true' && (true) }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.outputs.documentationOnly != 'true' && (true)) }}
       - name: Check documentation governance
-        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true') }}
         run: ./scripts/check-governance.ps1
       - name: Verify documentation scope and whitespace
-        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
+        if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true') }}
         run: node scripts/documentation-changes.mjs verify
+      - name: Require CI introduction verification
+        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.ciIntroduction == 'true' }}
+        run: if ('${{ needs.ci-introduction.result }}' -ne 'success') { throw 'CI introduction verification failed.' }
   deploy:
     name: Deploy to termite-warranty-dev
     needs:
       - verify
       - scope
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (!cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true') }}
+    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (!cancelled() && needs.verify.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true')) }}
     runs-on: ubuntu-latest
     environment: development
     steps:
@@ -244,3 +252,54 @@ jobs:
         run: npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
       - name: Verify deployed Dev release and protection hold
         run: node scripts/development-deployment.mjs check
+  ci-introduction:
+    name: Verify CI introduction
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.ciIntroduction == 'true' && (github.event_name != 'push' || github.ref != 'refs/heads/main') }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify CI introduction scope
+        run: node scripts/documentation-changes.mjs verify-ci
+      - name: Resolve CI introduction verification
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ci-introduction.mjs
+      - uses: actions/setup-java@v6
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Install CI dependencies
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: npx --yes npm@11.19.1 ci
+      - name: Check project governance
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: ./scripts/check-governance.ps1
+      - name: Run domain tests
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: npm test
+      - name: Type-check the application
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: npm run typecheck
+      - name: Build the application
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: npm run build
+      - name: Run Firestore and Callable Emulator tests
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: npm run test:rules
+      - name: Check Functions syntax
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: node scripts/check-functions-syntax.mjs
+      - name: Check Emulator seed syntax
+        if: ${{ steps.source.outputs.reuse != 'true' }}
+        run: node --check scripts/seed-emulator.mjs

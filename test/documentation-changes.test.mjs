@@ -6,7 +6,9 @@ import {join} from 'node:path'
 import {spawnSync} from 'node:child_process'
 import {parse,stringify} from 'yaml'
 import vm from 'node:vm'
-import {documentationDiff,documentationPaths,comparisonBase,classifyDocumentation} from '../scripts/documentation-changes.mjs'
+import {documentationDiff,documentationPaths,comparisonBase,classifyDocumentation,introductionDiff,introductionBases,introductionNewPaths} from '../scripts/documentation-changes.mjs'
+import {resolveCIIntroduction} from '../scripts/ci-introduction.mjs'
+import {introductionGateSteps} from '../scripts/lib/ci-introduction-workflow.mjs'
 import {validateDevelopmentWorkflow} from '../scripts/development-workflow-contract.mjs'
 import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40)
@@ -71,3 +73,81 @@ test('workflow guards reject forged classification, missing doc checks, credenti
     const w=workflow(kind);mutate(w);assert.throws(()=>(kind==='development'?validateDevelopmentWorkflow:validateProductionWorkflow)(stringify(w),policy))
   }
 })
+
+test('PDF and generator exceptions are exact paths; mixed inputs and special files still fail closed',()=>{
+  assert.equal(documentationPaths.size,13)
+  for(const path of ['deliverables/production-schedule-2026-10-05/build_pdf.py','output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-13.pdf']){
+    assert.equal(documentationDiff(raw(path)),true)
+    for(const mode of ['100755','120000'])assert.equal(documentationDiff(raw(path,mode)),false)
+    assert.equal(documentationDiff(raw(path)+raw('nuxt.config.ts')),false)
+  }
+  for(const path of ['output/pdf/other.pdf','deliverables/production-schedule-2026-10-05/run.py','public/HS.pdf','scripts/documentation-changes.mjs','scripts/ci-introduction.mjs'])assert.equal(documentationDiff(raw(path)),false)
+})
+test('CI introduction is limited to approved initial bases and paths, never ordinary documentation',()=>{
+  for(const base of introductionBases){
+    assert.equal(introductionDiff(raw('scripts/documentation-changes.mjs'),base),true)
+    assert.equal(introductionDiff(raw('docs/operations.md'),base),false)
+    for(const path of introductionNewPaths)assert.equal(introductionDiff(`:000000 100644 ${'0'.repeat(40)} ${b} A\0${path}\0`,base),true)
+    for(const path of ['app/pages/index.vue','functions/index.js','firebase.json','package-lock.json','governance/verification-policy.json','.github/workflows/verify-rules.yml'])assert.equal(introductionDiff(raw('scripts/documentation-changes.mjs')+raw(path),base),false)
+    for(const value of ['',raw('scripts/documentation-changes.mjs','100755'),raw('scripts/documentation-changes.mjs','120000'),raw('scripts/documentation-changes.mjs','100644','D'),raw('scripts/documentation-changes.mjs','100644','R100')])assert.equal(introductionDiff(value,base),false)
+  }
+  assert.equal(introductionDiff(raw('scripts/documentation-changes.mjs'),a),false)
+})
+test('CI introduction cannot authenticate, deploy, or publish application evidence',()=>{
+  for(const kind of ['development','production']){
+    const w=workflow(kind),ctx={always:()=>true,cancelled:()=>false,github:{event_name:'push',ref:'refs/heads/'+(kind==='development'?'dev':'main')},needs:{scope:{result:'success',outputs:{documentationOnly:'false',ciIntroduction:'true'}}}}
+    for(const [name,j] of Object.entries(w.jobs)){
+      if(['scope','ci-introduction'].includes(name)||kind==='development'&&name==='verify')continue
+      assert.equal(vm.runInNewContext(j.if.slice(3,-2),ctx),false,name)
+    }
+    assert.equal(vm.runInNewContext(w.jobs['ci-introduction'].if.slice(3,-2),ctx),true)
+    assert.equal(w.jobs['ci-introduction'].environment,undefined)
+    assert.deepEqual(w.jobs['ci-introduction'].permissions,{contents:'read',actions:'read'})
+    for(const mutate of [j=>j.steps.pop(),j=>j.steps.at(-1)['continue-on-error']=true,j=>j.environment='production',j=>j.permissions['id-token']='write',j=>j.steps[0].with['fetch-depth']=1,j=>j.steps[3].run='echo reuse=true']){
+      const bad=structuredClone(w);mutate(bad.jobs['ci-introduction']);assert.throws(()=>(kind==='development'?validateDevelopmentWorkflow:validateProductionWorkflow)(stringify(bad),policy))
+    }
+    if(kind==='development'){
+      for(const s of w.jobs.verify.steps.slice(0,-1))assert.equal(vm.runInNewContext(s.if.slice(3,-2),ctx),false)
+      for(const state of ['success','failure','cancelled','skipped','']){
+        const command=w.jobs.verify.steps.at(-1).run.replaceAll('${{ needs.ci-introduction.result }}',state)
+        const result=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
+        assert.ifError(result.error);assert.equal(result.status===0,state==='success')
+      }
+    }
+  }
+})
+function ciFixture(){
+  const repo={id:1363463339,owner:{id:72244713}},branch='codex/document-artifact-routing'
+  const run={id:910,run_attempt:1,repository:repo,head_repository:repo,path:'.github/workflows/deploy-development.yml',event:'pull_request',head_branch:branch,head_sha:a,status:'completed',conclusion:'success',updated_at:new Date().toISOString()}
+  const source={number:31,merged_at:'2026-10-15',merge_commit_sha:b,base:{ref:'dev',repo},head:{ref:branch,sha:a,repo}}
+  const promotion={number:32,merged_at:'2026-10-15',merge_commit_sha:c,base:{ref:'main',repo},head:{ref:'dev',sha:b,repo}}
+  const job=(name,steps)=>({name,run_id:910,run_attempt:1,status:'completed',conclusion:'success',steps:steps.map(name=>({name,status:'completed',conclusion:'success'}))})
+  const jobs=[job('Verify CI introduction',['Verify CI introduction scope','Resolve CI introduction verification',...introductionGateSteps]),job('Verify development deployment',['Require CI introduction verification'])]
+  const data={run,source,promotion,jobs,runs:[run],tree:b}
+  data.read=async path=>{
+    if(path.startsWith('/git/commits/'))return {tree:{sha:data.tree}}
+    if(path.startsWith('/commits/'+c+'/pulls'))return [data.promotion]
+    if(path.startsWith('/commits/'+b+'/pulls'))return [data.source]
+    if(path.startsWith('/actions/workflows/'))return {total_count:data.runs.length,workflow_runs:data.runs}
+    if(path.startsWith('/actions/runs/'))return {total_count:data.jobs.length,jobs:data.jobs}
+    throw Error('Unexpected fixture route '+path)
+  }
+  data.input={eventName:'push',event:{repository:repo},revision:b,current:b,ref:'refs/heads/dev'}
+  return data
+}
+test('only initial feature PR runs full CI; Dev/main promotion revalidates same-tree seven gates',async()=>{
+  const f=ciFixture()
+  assert.equal((await resolveCIIntroduction(f.read,f.input)).reuse,true)
+  assert.equal((await resolveCIIntroduction(f.read,{...f.input,revision:c,ref:'refs/heads/main'})).reuse,true)
+  assert.equal((await resolveCIIntroduction(f.read,{...f.input,eventName:'pull_request',event:{repository:f.run.repository,pull_request:f.promotion}})).reuse,true)
+  assert.equal((await resolveCIIntroduction(f.read,{...f.input,eventName:'pull_request',event:{repository:f.run.repository,pull_request:f.source}})).reuse,false)
+})
+for(const [name,mutate] of [
+  ['different tree',f=>f.tree=c],['wrong owner',f=>f.run.repository.owner.id=0],
+  ['latest failed run',f=>f.runs.push({...f.run,id:911,conclusion:'failure'})],
+  ['stale run',f=>f.run.updated_at='2000-01-01T00:00:00Z'],
+  ['wrong attempt',f=>f.jobs[0].run_attempt=2],['skipped gate',f=>f.jobs[0].steps.at(-1).conclusion='skipped'],
+  ['missing gate',f=>f.jobs[0].steps.pop()],['duplicate gate',f=>f.jobs[0].steps.push(f.jobs[0].steps[0])],
+  ['aggregate failure',f=>f.jobs[1].conclusion='failure'],['different feature branch',f=>f.source.head.ref='other'],
+  ['wrong workflow',f=>f.run.path='other.yml'],['missing run',f=>f.runs=[]],
+])test('CI introduction reuse rejects '+name,async()=>{const f=ciFixture();mutate(f);await assert.rejects(resolveCIIntroduction(f.read,f.input))})

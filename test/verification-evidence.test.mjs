@@ -313,7 +313,7 @@ test('parallel topology and producer mutations cannot bypass the required aggreg
   const w=workflow('deploy-development.yml')
   assert.deepEqual(w.jobs.application.needs,w.jobs.rules.needs)
   assert.equal(w.jobs.application.if,w.jobs.rules.if)
-  assert.deepEqual(w.jobs.verify.needs,['rules','source','scope','application'])
+  assert.deepEqual(w.jobs.verify.needs,['rules','source','scope','application','ci-introduction'])
   assert.equal(w.jobs.verify.name,'Verify development deployment')
   for(const mutate of [
     w=>w.jobs.application.if='true',w=>w.jobs.application.needs=['scope'],w=>w.jobs.application.permissions={'id-token':'write'},
