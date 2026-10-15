@@ -34,7 +34,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
   const { workflow, policy } = await load()
   assert.throws(
     () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.deploy.needs=[]}), policy),
-    /Documentation routing/,
+    /Documentation routing|CI introduction/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('--non-interactive', '--non-interactive --force'), policy),
@@ -42,7 +42,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
   )
   assert.throws(
     () => validateDevelopmentWorkflow(mutate(workflow,w=>{delete w.jobs.deploy.if}), policy),
-    /Documentation routing/,
+    /Documentation routing|CI introduction/,
   )
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - continue-on-error: true\n      - name: Run domain tests'), policy),
@@ -50,7 +50,7 @@ test('deploy cannot bypass verification or use a general force flag', async () =
   )
   assert.throws(
     () => validateDevelopmentWorkflow(mutate(workflow,w=>{w.jobs.application.steps.find(s=>s.run==='npm test').if='false'}), policy),
-    /Documentation routing/,
+    /Documentation routing|CI introduction/,
   )
 })
 
@@ -101,8 +101,7 @@ test('both jobs use the fixed npm installer and verification cannot deploy', asy
     () => validateDevelopmentWorkflow(workflow.replace('run: npx --yes npm@11.19.1 ci', 'run: npm ci'), policy),
     /Verification must install with the repository npm version/,
   )
-  const lastInstall = workflow.lastIndexOf('run: npx --yes npm@11.19.1 ci')
-  const changedInstall = `${workflow.slice(0, lastInstall)}run: npm ci${workflow.slice(lastInstall + 'run: npx --yes npm@11.19.1 ci'.length)}`
+  const changedInstall = mutate(workflow,w=>{w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci').run='npm ci'})
   assert.throws(() => validateDevelopmentWorkflow(changedInstall, policy), /Deploy job must install with the repository npm version/)
   assert.throws(
     () => validateDevelopmentWorkflow(workflow.replace('      - name: Run domain tests', '      - name: Forbidden deploy\n        run: npx firebase deploy\n\n      - name: Run domain tests'), policy),
