@@ -1,5 +1,7 @@
 # Dev／Prod 通常アプリの配備手順
 
+2026-10-15実証：Dev22d5bacの本人受入れを保持し、固定範囲の記録処理修正PR26・包括CI・Dev配備後、受入れrun38675079811を保存。PR27をmain4d7422fへ通常統合し、Prod run38675498552の全5照合・後処理まで成功。[実績・現在地](../operations.md#2026-10-15-dev受入れ記録prod反映完了)。以下のPR23／24「Prod未反映」は先行時点の記録。
+
 2026-10-14現行。改修→dev／dev→mainの両段階でPRを使う。PRは同一repositoryのbranch間で変更・検証結果を確認する申請であり、別repository／worktreeは不要。GitHub Actions自体はPR必須ではないが、本プロジェクトではbranch保護と検証証拠の確認に利用する。[現行設定・結果](../operations.md)、[環境仕様](../requirements/environment-configuration.md)、[設計判断](../decisions/0046-verification-reuse-and-dev-acceptance.md)。
 
 ## 1. 対象と保留
@@ -83,7 +85,7 @@ PR23／24の並行化はDev統合・実配備検証済み（Prod未反映）。[
 Dev業務受入れ後、ownerがActionsの `Record explicit development acceptance` を **dev** 上で手動実行する。
 
 - deployment_run_id：成功したdev push配備run。
-- accepted_revision：受入れたdevの40文字SHA。実行対象dev版とも一致させる。
+- accepted_revision：本人が受入れた実配備版の40文字SHA。後続文書の先頭SHAで置き換えない。実行対象devとの継続条件は本節冒頭を参照。
 - acceptance_reference：機密を含めない本人の受入れ記録参照。
 - confirm=true：本人が受入れ完了を確認した場合だけ指定する。
 

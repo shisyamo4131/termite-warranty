@@ -1,5 +1,29 @@
 # Operations
 
+## 2026-10-15 Dev受入れ記録・Prod反映完了
+
+本人のDev 22d5bac7c47f101fdf8b0522f8108edf16d06330受入れと、同日の記録処理修正・統合・Prod配備承認（task01a133e7-092f-71f0-b5e7-43a8b7833ab9）に基づき実行。旧版の業務受入れと修正版の技術検証を分離して保存した。以下の実施中／Prod未反映は過去時点の記録。
+
+| 工程 | 確認結果 |
+| --- | --- |
+| 修正PR26 | head82ccf105cbf5fd6593cb19af125794ba34928a8e、[包括run38673459294](https://github.com/shisyamo4131/termite-warranty/actions/runs/38673459294) attempt1成功。単体610／Rules201成功・skip0、3群ともEmulator終了成功 |
+| Dev配備 | 0dc6acaa99e27c90f2a18167d96d2f1cb737af23、[run38674603493](https://github.com/shisyamo4131/termite-warranty/actions/runs/38674603493)成功。PR26包括・Hosting成果物を再利用、全5照合・保護保留・後処理成功 |
+| 本人受入れ記録 | [run38675079811](https://github.com/shisyamo4131/termite-warranty/actions/runs/38675079811)成功。元配備38546924382／受入れ版22d5bacと修正版配備38674603493を別々に保持。v2 artifact11945497213、tree aa2b67f8367483f74e0c3e41cda6c6d18c3a9530 |
+| dev→main | [PR27](https://github.com/shisyamo4131/termite-warranty/pull/27)、[run38675199237](https://github.com/shisyamo4131/termite-warranty/actions/runs/38675199237)が受入れ・元包括・Dev配備を照合して成功。通常merge、main4d7422f79692eeda3a00e9f3c9a34912b095aed9 |
+| Prod | [main push run38675498552](https://github.com/shisyamo4131/termite-warranty/actions/runs/38675498552)成功。検証再利用・Prod固有成果物検査・配備・全5照合・認証後処理まで成功 |
+
+両環境の5照合はdefault Rules、control Rules、索引READY、Functions source/config/revision、Hosting全ファイル/config。21 Functions／21 sourceArchives、Hosting期待・一覧・集計各1005件（2回目観測）一致。Prod公開版はsites/termite-warranty-prod/versions/c837957f050b2703。独立した読取りnode tmp/check-final-production-state.mjsもexit 0で21 ACTIVE・公開版・automation=false・他3保護入力空・PITR無効・日次予定0を確認。これは運用者の一時照合で、再利用可能な配備照合の正本は上記CIと通常手順。業務データ・Auth・採番の試験書込み、保護有効化、IAM変更はなし。
+
+必要7gateはPR26で./scripts/check-governance.ps1、npm test、npm run typecheck、npm run build、npm run test:rules（3群集約201件）、node scripts/check-functions-syntax.mjs、node --check scripts/seed-emulator.mjsを各独立stepのsuccess／終了0で確認。Localの証拠／拒否系112件、全単体608成功・既存Windows symlink2skip、governance、差分検査も各exit 0。実GitHub比較APIのguard拒否を発見し、40文字SHA同士のcompareだけを許す修正・拒否試験後に最終包括検証を実行。先行head8439の成功run38673269909は最終版の証拠に流用していない。
+
+下流3工程で包括再実行を省略した根拠はADR0046の同tree／元PR・実配備・本人記録の独立再検証。Prod固有buildと配備照合は省略していない。業務仕様・データ契約・IAM・バックアップ方針は不変のため、それらの版更新は不要。
+
+### 今回の工程別実測
+
+GitHub run created_at→updated_atの秒差（待機込み）。PR26最終は12分10秒で、そのうち最初のjob開始まで5分59秒、job開始から終了まで6分11秒。先行CIを中断せず待ったため全体は長い。Dev配備4分37秒、受入れ記録50秒、昇格PR2分57秒、Prod7分48秒。Prod公開後照合stepは70秒。以前のProd照合91秒に対し21秒短いが、異なる版・VM／外部API条件での実測であり、短縮保証ではない。
+
+残るのはHS試行10月16日・19日の2営業日、結果分類・必要修正、管理者／正式投入入力確認、正式提供直前の保護実証・引継ぎ・HS最終了承。HS受入れを今回の開発側受入れで代替しない。日程PDFは上記Prod成功後に更新し、23日構築・30日納品は条件付き目標を維持する。
+
 ## 2026-10-15 Dev22d5bac受入れ・文書継続修正（実施中）
 
 本人はtask01a133e7-092f-71f0-b5e7-43a8b7833ab9でDev22d5bacの受入れを明示し、後続文書による記録不能の修正・検証・PR統合・Prod配備を追加承認した。実devはbb9e2f9、実配備run38546924382はsuccess、差分7件は許可文書のみ。従来の完全SHA一致で拒否されるため、失敗が確実なworkflowを実行したり、受入れSHAを置換したりせず実装を修正する。範囲・限定導入・巻戻しはADR0046。バックアップ・PITR・Auth退避は保留。業務・schema・IAMは不変。

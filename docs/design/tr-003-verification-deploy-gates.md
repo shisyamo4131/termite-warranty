@@ -1,5 +1,7 @@
 # TR-003 Verification and Development-deploy Gates
 
+2026-10-15 deployment evidence: the owner accepted Dev22d5bac and approved the bounded acceptance-protocol repair. PR26 passed all seven gates; its Dev deployment, the original acceptance record, promotion PR27 and main4d7422f production deployment passed. See [operations](../operations.md#2026-10-15-dev受入れ記録prod反映完了). Earlier statements of unapproved/unreleased Prod changes below describe the prior checkpoint.
+
 ## 2026-10-15 受入れ証拠の文書継続
 
 本人受入れは実Dev配備SHAに固定し、文書更新のbranch先頭とは分離する。完全なGit tree比較と祖先関係、許可8文書・通常ファイル修正・文書CI成功をPR／mainで再確認し、包括検証／配備の証拠は元treeを保持する。記録処理自身の導入修正は固定旧版・固定第1親・限定ファイルと修正版の包括CI／実Dev配備を要求する一度の移行経路。一般のアプリ／配備設定変更は許可しない。[採用理由と範囲](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[手順](../runbooks/application-deployment.md)。

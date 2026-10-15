@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-15現在：本人のDev22d5bac受入れを記録し、承認された記録処理修正・dev→main PR27・main4d7422fのProd配備と全5照合が完了。[証拠と残作業](operations.md#2026-10-15-dev受入れ記録prod反映完了)、[日程・工数](roadmaps/production-readiness.md#2026-10-15-現在地とhs試行日程)。HS試行は10/16・19の2営業日。保護はリリース直前まで保留。以下の未受入れ・Prod未反映は先行時点の記録。
+
 2026-10-14現在：PR23／24のFunctions照合・PR検証並行化はDev統合・配備・全照合成功。[最終実測と検証証拠](operations.md#2026-10-14-並行化2件のdev配備実測完了)。main／Prodへの今回の変更反映と新版の本人業務受入れは未実施。
 
 成果物・実行設定に影響しないと確認した既存文書だけの修正は、両段階PRで文書検証して統合し、Dev／Prod配備を省略する。[限定条件・判定不能時・導入手順](runbooks/application-deployment.md#文書だけの変更2026-10-14採用)。CIやアプリの混在変更は通常経路を維持する。
