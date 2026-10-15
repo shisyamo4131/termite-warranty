@@ -39,14 +39,14 @@ Devの既存配備SA `github-actions-firebase-deploy@termite-warranty-dev.iam.gs
 
 | 変更 | PR | 必要な確認 | 配備 |
 | --- | --- | --- | --- |
-| 製品 | 改修→dev、受入れ後dev→main | 統合候補の包括検証、環境成果物、Dev本人受入れ | 環境ごと |
+| 製品 | 改修→dev、受入れ後dev→main | Dev前の候補検証・環境成果物・Dev本人受入れ。昇格PRは確認済み候補の照合のみ | 環境ごと |
 | 試験だけ | 改修→mainの1本 | 全体の技術検証。Localの同等結果を再利用可 | なし |
 | CI/検証方針だけ | 改修→mainの1本 | 包括7gate＋focused回帰、認証/配備分岐の拒否系 | 導入自体ではなし |
 | 文書/PDFだけ | 改修→mainの1本 | governance・差分、PDF作成時の全ページ/生成元確認 | なし |
 
-分類は `scripts/lib/change-scope.mjs`。通常文書の追加/削除も扱う。未知差分、特殊mode、比較不能、異なるrepository、仮統合の親不一致は停止する。Functions配下の試験やbuild/配備helperを非製品と誤認しない。混在は最も広い影響を選ぶ。mainに入った非製品変更は次の製品PR前にdevへ同期し、その仮統合結果を確認する。
+分類は `scripts/lib/change-scope.mjs`。通常文書の追加/削除も扱う。未知差分、特殊mode、比較不能、異なるrepository、仮統合の親不一致は停止する。Functions配下の試験やbuild/配備helperを非製品と誤認しない。混在は最も広い影響を選ぶ。mainに入った非製品変更は必要時にmain→dev同期PRで取り込み、その仮統合結果を確認する。同期前devとの製品digest不変を必須とし、製品が変わる同期は拒否する。試験・CI差分の同期は技術確認、文書差分だけなら文書確認とし、同期pushで配備や新たな業務受入れを行わない。
 
-Localを再利用しない場合、PRで包括7gateとfocused回帰を実施する。アプリ側とRules3群は並行実行。必須checkは全producer成功/意図したskipを集約し、Rules全件・同run/attempt・終了を確認する。試験だけの変更も初期実装では保守的に包括検証を選ぶ。baseline対shardの性能比較workflowは自動PR起動から手動へ移す。runner方式を変える際に必要な比較として実行し、通常の製品・試験・CI改修へ重複実行を加えない。
+Localを再利用しない場合、上流の改修・試験・CI変更PRで包括7gateとfocused回帰を実施する。dev→main昇格PRにはこの機能試験工程を置かない。アプリ側とRules3群は並行実行。必須checkは全producer成功/意図したskipを集約し、Rules全件・同run/attempt・終了を確認する。試験だけの変更も初期実装では保守的に包括検証を選ぶ。baseline対shardの性能比較workflowは自動PR起動から手動へ移す。runner方式を変える際に必要な比較として実行し、通常の製品・試験・CI改修へ重複実行を加えない。
 
 Local再利用は、cleanなcommit済み候補で `node scripts/local-verification.mjs` を一度実行する。固定commandを順に実行し各exitを保持、最初の失敗で停止する。結果はignored `tmp/local-verification/`。成功時の `owner-comment.txt` をowner本人がPRコメントへそのまま投稿し、PR検証を再実行する。CIがcomment作者と仮統合後の入力digestを確認する。PR作者・run actorだけで承認しない。Windows/PowerShell7/Node22/npm11.19.1/Java21、固定lock、全件成功・skip/cancelなしが必要。既知のWindows symlink2skipも同等成功にしない。
 
@@ -73,9 +73,13 @@ TERMITE dev-acceptance
 
 ## 5. Prod配備
 
-昇格PRでは同じ製品の本人受入れを確認する。検証入力もDev証拠と同じなら共通試験を再利用し、CI/試験入力が変わった場合だけ技術検証を行う。通常文書追記だけで受入れや試験を無効化しない。main merge後は成功した昇格PRとowner記録を再確認し、共通試験は実行しない。
+昇格PRには機能試験工程を置かず、同じ製品の本人受入れと上流で完了した技術確認を照合する。検証入力もDev受入れ時の証拠と同じなら、その確認を使う。CI/試験入力が変わった場合は、昇格PRのdev headの実treeが仮統合候補と製品・検証入力とも一致し、上流の一意なdev統合PRの最新run/attemptが同じ入力で成功していることを要求する。後続が文書だけならfirst-parent上の両digest不変を確認して越え、入力が最後に変わった統合revisionの証拠を使う。入力変更地点やその元PRの最新失敗を越えて古い成功を探さない。履歴不完全・64commit以内に境界を特定できない場合は、昇格を停止して履歴・取得範囲を確認する。異なるmain側入力が残るならmain→dev同期PRで先に確認する。証拠不足・失敗・Local承認撤回では停止し、昇格PR内のLocal記録や実試験で補完しない。
+
+通常文書追記だけで受入れや技術確認を無効化しない。製品不変の試験/CI変更では技術確認のみを更新する。製品・動作依存・設定や競合解消が製品を変える場合はDev検証と必要な業務受入れへ戻す。次のDev作業の進行だけで、固定headで確認した昇格候補を無効化しない。main merge後は最新成功した昇格PR、同じ上流証拠とowner記録を再確認し、機能試験は実行しない。
 
 Prod固有build、成功buildから渡すbundle digest、対象/資格情報guard、直列枠内の最新main候補確認、WIF、predeploy、固定bundle配備、再認証、公開後5照合と後処理を維持する。配備jobで再buildしない。非製品main pushは分類だけで終了し、文書試験・Cloud認証・配備を起動しない。
+
+Prod受入れでは実公開先へのログイン、代表的な読取り、権限と接続先を最小限確認し、公開後の自動照合結果を参照する。全業務シナリオや済んだ自動照合をもう一度実施する工程にはしない。実業務データ・採番の更新を確認目的で増やさない。不一致・失敗時は公開後の停止/復旧手順へ戻り、機能変更が必要ならDev側で修正・確認する。通常文書だけの変更では配備もProd受入れも不要。
 
 ## 6. 証拠の有効性・記録・失敗
 

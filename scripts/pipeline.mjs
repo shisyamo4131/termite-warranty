@@ -79,6 +79,34 @@ export async function acceptanceFor(read,pr,inputs){
   const legacy=await requireDevelopmentAcceptance(legacyRead,legacyTree,legacyProducer,{blob:path=>git('rev-parse',legacyProducer+':'+path)})
   return {legacy:true,...legacy,product:legacyInputs.product,verification:legacyInputs.verification}
 }
+export function verificationRevision(revision,inputs,run=git){
+  const current=inputsAt(revision,run)
+  if(current.verification!==inputs.verification||current.product!==inputs.product)throw Error('Upstream checkout inputs differ from the promotion.')
+  for(let i=0;i<64;i++){
+    const parent=run('show','-s','--format=%P',revision).trim().split(' ')[0]
+    if(!sha(parent))throw Error('Upstream verification history is incomplete.')
+    const previous=inputsAt(parent,run)
+    if(previous.verification!==inputs.verification||previous.product!==inputs.product)return revision
+    revision=parent
+  }
+  throw Error('Unchanged-input history exceeds the bounded verification lookup. Verify the upstream candidate explicitly.')
+}
+export async function promotionEvidence(read,pr,inputs,run=git){
+  if(pr.base?.ref!=='main'||pr.head?.ref!=='dev')throw Error('Product promotion requires dev to main.')
+  const acceptance=await acceptanceFor(read,pr,inputs)
+  let sourceRunId=acceptance.deploymentRunId??acceptance.deployment?.runId
+  if(acceptance.verification!==inputs.verification){
+    // Changed technical inputs must already have passed upstream. Promotion
+    // never supplies missing tests or turns a Local comment into a test stage.
+    const upstream=await remoteInputs(read,pr.head.sha)
+    if(upstream.verification!==inputs.verification||upstream.product!==inputs.product)throw Error('Promotion inputs are not verified on dev. Synchronize and verify the candidate upstream first.')
+    const revision=verificationRevision(pr.head.sha,inputs,run)
+    const source=await mergedSourcePR(read,revision,'dev')
+    const proof=await prEvidence(read,source,inputs)
+    sourceRunId=proof.runId
+  }
+  return {acceptance,sourceRunId}
+}
 export function compareEvent(event,env,parents){
   if(env.GITHUB_REPOSITORY!==repository||event.repository?.id!==repositoryId||event.repository?.owner?.id!==ownerId||!sha(env.GITHUB_SHA))throw Error('Unexpected repository or revision.')
   if(env.GITHUB_EVENT_NAME==='pull_request'){
@@ -97,12 +125,14 @@ export async function resolveScope(read,event,env=process.env,run=git){
   const result={kind,...inputs,reuse:false,local:false,hostingArtifactId:'',sourceRunId:''}
   if(pr){
     if(kind==='product'&&pr.base.ref==='main'&&pr.head.ref!=='dev')throw Error('Products must be promoted from dev.')
-    if(kind!=='product'&&pr.base.ref!=='main')throw Error('Non-product changes use one PR to main.')
+    const sync=pr.base.ref==='dev'&&pr.head.ref==='main'
+    if(sync&&kind==='product')throw Error('Main synchronization must not change the Dev product. Use the development change and acceptance flow.')
+    if(sync&&inputsAt(base,run).product!==inputs.product)throw Error('Main synchronization changed product inputs.')
+    if(kind!=='product'&&pr.base.ref!=='main'&&!sync)throw Error('Non-product changes use one PR to main; only main synchronization may verify them on dev.')
+    if(pr.base.ref==='main'&&pr.head.ref==='dev'&&!['product','documentation'].includes(kind))throw Error('Technical changes require an upstream technical PR, not a promotion test stage.')
     if(kind==='product'&&pr.base.ref==='main'){
-      const acceptance=await acceptanceFor(read,pr,inputs)
-      // Technical evidence can change independently of a still-valid business acceptance.
-      result.acceptance=acceptance
-      if(acceptance.verification===inputs.verification){result.reuse=true;result.sourceRunId=acceptance.deploymentRunId??acceptance.deployment?.runId;return result}
+      Object.assign(result,await promotionEvidence(read,pr,inputs,run),{reuse:true})
+      return result
     }
     if(kind!=='documentation'){
       const local=readOwnerRecord(await commentsFor(read,pr.number),ownerId,'local-verification')
@@ -115,13 +145,14 @@ export async function resolveScope(read,event,env=process.env,run=git){
     const source=await mergedSourcePR(read,env.GITHUB_SHA,'main')
     if(source.head.ref!=='dev')throw Error('Product promotion requires dev.')
     await prEvidence(read,source,inputs)
-    result.acceptance=await acceptanceFor(read,source,inputs);result.reuse=true
+    Object.assign(result,await promotionEvidence(read,source,inputs,run),{reuse:true})
   }
   return result
 }
-export function assertAggregate(scope,needs,event){
+export function assertAggregate(scope,needs,event,promotion=false){
   if(needs.scope?.result!=='success'||!['documentation','test','ci','product'].includes(scope.kind))throw Error('Scope failed.')
-  const produces=event==='pull_request'&&scope.kind!=='documentation'&&!scope.reuse
+  if(promotion&&scope.kind!=='documentation'&&!scope.reuse)throw Error('Promotion requires completed upstream verification; it cannot run technical tests.')
+  const produces=event==='pull_request'&&!promotion&&scope.kind!=='documentation'&&!scope.reuse
   if(needs.application?.result!==(produces?'success':'skipped'))throw Error('Application verification incomplete.')
   if(needs.rules?.result!==(produces&&!scope.local?'success':'skipped'))throw Error('Rules verification incomplete.')
   if(event==='push'&&scope.kind==='product'&&!scope.reuse)throw Error('Source PR verification required.')
@@ -142,7 +173,7 @@ async function main(mode){
   if(mode==='aggregate'){
     const needs=JSON.parse(process.env.PIPELINE_NEEDS),scope=JSON.parse(needs.scope.outputs.proof)
     if(scope.verification!==inputs.verification||scope.product!==inputs.product)throw Error('Verification checkout changed.')
-    assertAggregate(scope,needs,process.env.GITHUB_EVENT_NAME)
+    assertAggregate(scope,needs,process.env.GITHUB_EVENT_NAME,process.env.GITHUB_BASE_REF==='main'&&process.env.GITHUB_HEAD_REF==='dev')
     if(scope.kind!=='documentation'){
       const receipt={schema:3,...inputs,revision:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,scope}
       await mkdir('tmp',{recursive:true});await writeFile('tmp/verification-evidence.json',JSON.stringify(receipt))

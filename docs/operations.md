@@ -1,5 +1,17 @@
 # Operations
 
+## 2026-10-15 Prod昇格前の機能試験工程を除く追加候補
+
+本人の見積もり報告後の追加承認に基づき、[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)の候補へ責任分離を反映する。[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)を正本とし、昇格PRはDev受入れ済み製品と上流で完了した技術確認の照合だけを行う。未検証の入力はDev側または試験・CI変更の技術確認へ戻し、昇格内の実試験やLocal記録で補わない。製品不変のmain→dev同期は技術確認のみで、同期配備・業務再受入れを行わない。
+
+記録だけの後続commitは製品・検証入力の不変をfirst-parentで確認して元の技術証拠へ結び付ける。技術入力変更地点・元PRの最新失敗・Local承認撤回を越えて古い成功を選ばない。現在のDev先頭が次の作業へ進むことと、固定した昇格候補の有効性を分ける。main側の最新候補・配備先・認証・環境成果物・公開後照合は維持する。
+
+Localの対象確認は `node --test test/documentation-changes.test.mjs test/development-workflow-contract.test.mjs` が23成功・skip0・exit0、`npm test` が612件中610成功・既存Windows symlink2skip・fail/cancel0・exit0、`./scripts/check-governance.ps1` が生成物/方針整合・exit0。途中の3失敗は旧route fixtureのbranch、API query、仮統合親の模擬値を新経路に合わせて修正し、対象全体を再実行した。条件を緩めて通していない。
+
+変更分類はCI/検証動作で包括7gateとfocused回帰を選ぶ。上のLocal対象確認だけを包括完了とは扱わず、最終commitの必須CI結果・独立review・各所要時間はPR35/Actionsへ集約する。既存policyのtrigger/失効条件は今回のpipeline/workflow/契約試験を既に含み、生成器のCheckは生成物一致・write_count=0。製品コード・業務仕様・データ契約・実環境設定を変えないため、それらの版や完成率は更新しない。
+
+候補は未統合・実配備未実証。本人方針によりHS試行は現行公開版で並行して開始し、機能指摘対応は本候補と分離する。日程文書・公開版・データ・速度設定を変更せず、merge・Dev/Prod配備・権限/保護設定変更は引き続き未承認。文書単独PR、本人Local結果再利用、実昇格/配備の効果測定は残る。
+
 ## 2026-10-15 検証フロー改修候補のLocal検証
 
 [ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)の専用branch `codex/verification-flow-simplification`、baseline fac8a30171b0b165487af4a7f840042a57a934e5で実装。非製品1PR、統合前検証、本人Local結果、製品に結び付く受入れ、重要条件に絞ったworkflow検査へ整理した。初回限定wrapper・全workflow逆変換検査・専用受入れworkflowを除き、性能比較を手動へ移した。未統合・未配備。GitHub実行結果は同候補のdraft PR／Actionsへ一度記録し、このLocal表と混同しない。

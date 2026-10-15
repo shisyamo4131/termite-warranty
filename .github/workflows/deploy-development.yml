@@ -38,12 +38,12 @@ jobs:
         run: node scripts/pipeline.mjs scope
   rules:
     needs: scope
-    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' && needs.scope.outputs.local != 'true' }}
+    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && !(github.base_ref == 'main' && github.head_ref == 'dev') && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' && needs.scope.outputs.local != 'true' }}
     uses: ./.github/workflows/verify-rules.yml
   application:
     name: Verify application gates
     needs: scope
-    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' }}
+    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && !(github.base_ref == 'main' && github.head_ref == 'dev') && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' }}
     runs-on: windows-latest
     steps:
       - *a1

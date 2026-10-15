@@ -46,3 +46,10 @@ test('the external required-check identity stays stable without freezing other d
     assert.throws(()=>validate('development',w))
   }
 })
+test('promotion cannot gain a functional test stage even when source reuse is unavailable',()=>{
+  for(const id of ['application','rules']){
+    const w=load('development')
+    w.jobs[id].if=w.jobs[id].if.replace(" && !(github.base_ref == 'main' && github.head_ref == 'dev')",'')
+    assert.throws(()=>validate('development',w),/Producer condition/)
+  }
+})

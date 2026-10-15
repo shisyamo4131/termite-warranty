@@ -49,8 +49,8 @@ export function validatePipeline(text,policy,kind){
     need(verify.name==='Verify development deployment','Protected branch required-check name must remain stable.')
     need(application&&rules,'Missing verification producers.')
     need(application.needs==='scope'&&rules.needs==='scope','Producers require admission.')
-    for(const event of ['push','pull_request'])for(const k of ['documentation','ci','test','product'])for(const reuse of ['true','false'])for(const local of ['true','false'])for(const result of ['success','failure']){
-      const c={github:{event_name:event},needs:{scope:{result,outputs:{kind:k,reuse,local}}}},full=result==='success'&&event==='pull_request'&&k!=='documentation'&&reuse!=='true'
+    for(const [base,head] of [['dev','feature'],['dev','main'],['main','feature'],['main','dev']])for(const event of ['push','pull_request'])for(const k of ['documentation','ci','test','product'])for(const reuse of ['true','false'])for(const local of ['true','false'])for(const result of ['success','failure']){
+      const c={github:{event_name:event,base_ref:base,head_ref:head},needs:{scope:{result,outputs:{kind:k,reuse,local}}}},full=result==='success'&&event==='pull_request'&&!(base==='main'&&head==='dev')&&k!=='documentation'&&reuse!=='true'
       need(evaluate(application.if,c)===full&&evaluate(rules.if,c)===(full&&local!=='true'),'Producer condition permits missing or duplicate tests.')
     }
     required(application,'npx --yes npm@11.19.1 ci')

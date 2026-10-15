@@ -1,6 +1,6 @@
 # Technical Remediation Backlog
 
-2026-10-15：改修→検証→配備→記録の往復削減を[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)に従い候補branchで実装中。完了条件は包括検証・独立review・非配備draft PRと実測報告。main/dev統合と実配備の実証は別承認で未了。製品の完成率・HS日程は変更しない。
+2026-10-15：改修→検証→配備→記録の往復削減を[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)と[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)で候補化。追加承認によりProd昇格前の機能試験工程を除き、必要な技術確認をDev側/試験・CI変更へ戻す。完了条件は最終候補の包括検証・独立review・非配備draft PRと実測報告で、結果の正本はPR/Actionsと[Local記録](../operations.md#2026-10-15-prod昇格前の機能試験工程を除く追加候補)。main/dev統合、文書単独・本人Local再利用経路、実配備を含む効果測定は別承認で未了。HS試行は現行公開版で並行し、製品の完成率・日程は変更しない。
 
 ## 2026-10-15 並行化・受入れ継続のProd反映完了
 

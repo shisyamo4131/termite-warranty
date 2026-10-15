@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
 import {classifyDiff,pathKind,inputDigests} from '../scripts/lib/change-scope.mjs'
-import {compareEvent,prEvidence,assertAggregate,assertCurrentRun,assertCurrentBranch,evidenceName,hostingName,resolveScope,deploymentEvidence,acceptanceFor} from '../scripts/pipeline.mjs'
+import {compareEvent,prEvidence,assertAggregate,assertCurrentRun,assertCurrentBranch,evidenceName,hostingName,resolveScope,deploymentEvidence,acceptanceFor,promotionEvidence,verificationRevision} from '../scripts/pipeline.mjs'
 import {requiredCommands,validateLocalReceipt,readOwnerRecord,receiptDigest} from '../scripts/lib/local-verification.mjs'
 import {rulesWorkers} from '../scripts/lib/rules-test-plan.mjs'
 import {tapSummary} from '../scripts/local-verification.mjs'
@@ -85,6 +85,14 @@ test('aggregate accepts only complete producers, intentional Local reuse, or adm
       const n=structuredClone(needs);n[key].result=result;assert.throws(()=>assertAggregate(scope,n,event))
     }
   }
+  for(const kind of ['documentation','test','ci','product'])for(const reuse of [true,false])for(const local of [true,false]){
+    const scope={kind,reuse,local},needs={scope:{result:'success'},application:{result:'skipped'},rules:{result:'skipped'}}
+    if(kind!=='documentation'&&!reuse)assert.throws(()=>assertAggregate(scope,needs,'pull_request',true),/upstream verification/)
+    else{
+      assert.doesNotThrow(()=>assertAggregate(scope,needs,'pull_request',true))
+      for(const key of ['application','rules']){const n=structuredClone(needs);n[key].result='success';assert.throws(()=>assertAggregate(scope,n,'pull_request',true))}
+    }
+  }
 })
 function routeFixture(path='app/a.vue',branch='dev',eventName='pull_request'){
   const f=fixture(),env={GITHUB_REPOSITORY:'shisyamo4131/termite-warranty',GITHUB_SHA:c,GITHUB_EVENT_NAME:eventName,GITHUB_REF:'refs/heads/'+branch}
@@ -109,7 +117,7 @@ function routeFixture(path='app/a.vue',branch='dev',eventName='pull_request'){
     if(args[0]==='rev-parse')return c
     if(args[0]==='show')return a+' '+b
     if(args[0]==='diff')return raw(path)
-    if(args[0]==='ls-tree')return state.entries.map(e=>e.mode+' blob '+e.sha+'\t'+e.path+'\0').join('')
+    if(args[0]==='ls-tree')return (args.includes(a)?entries:state.entries).map(e=>e.mode+' blob '+e.sha+'\t'+e.path+'\0').join('')
     throw Error('Unexpected Git '+args)
   }
   return {state,env,event,read,run}
@@ -117,7 +125,9 @@ function routeFixture(path='app/a.vue',branch='dev',eventName='pull_request'){
 const accept=product=>({id:40,user:{id:repo.owner.id},body:'TERMITE dev-acceptance\n'+JSON.stringify({schema:1,accepted:true,product,deploymentRunId:11,reference:'owner acceptance fixture'})})
 test('scope executes all four PR routes and non-product pushes without cloud work',async()=>{
   for(const [path,branch,kind] of [['app/a.vue','dev','product'],['test/a.mjs','main','test'],['scripts/pipeline.mjs','main','ci'],['docs/a.md','main','documentation']]){
-    const f=routeFixture(path,branch),s=await resolveScope(f.read,f.event,f.env,f.run)
+    const f=routeFixture(path,branch)
+    if(kind!=='product')f.event.pull_request.head.ref='feature'
+    const s=await resolveScope(f.read,f.event,f.env,f.run)
     assert.equal(s.kind,kind);assert.equal(s.reuse,false);assert.equal(s.local,false)
     if(kind!=='documentation'){
       f.state.comments=[{id:1,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify(local())}]
@@ -140,18 +150,108 @@ test('Dev push uses one exact source artifact; missing or failed source stops in
     const f=routeFixture('app/a.vue','dev','push');change(f);await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
   }
 })
-test('acceptance requires actual Dev post-check evidence and exact product; technical changes keep acceptance but rerun tests',async()=>{
+test('acceptance requires actual Dev post-check evidence and exact product; promotion never supplies missing tests',async()=>{
   const f=routeFixture('app/a.vue','main');f.state.comments=[accept(inputs.product)]
   assert.equal((await deploymentEvidence(f.read,11,inputs.product)).deploymentRunId,11)
   assert.equal((await acceptanceFor(f.read,f.event.pull_request,inputs)).commentId,40)
   assert.equal((await resolveScope(f.read,f.event,f.env,f.run)).reuse,true)
   f.state.entries[1].sha=b
-  const next=await resolveScope(f.read,f.event,f.env,f.run);assert.equal(next.reuse,false);assert.equal(next.acceptance.commentId,40)
+  assert.equal((await acceptanceFor(f.read,f.event.pull_request,inputDigests(f.state.entries))).commentId,40)
+  f.state.comments.push({id:41,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify({...local(),...inputDigests(f.state.entries)})})
+  await assert.rejects(resolveScope(f.read,f.event,f.env,f.run),/Synchronize and verify/)
   f.state.entries[0].sha=b;await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
   for(const change of [f=>f.state.deploy.conclusion='failure',f=>f.state.deployArtifacts.pop(),f=>f.state.comments=[accept('0'.repeat(64))],f=>f.state.comments=[{...accept(inputs.product),user:{id:0}}]]){
     const f=routeFixture('app/a.vue','main');f.state.comments=[accept(inputs.product)];change(f)
     await assert.rejects(acceptanceFor(f.read,f.event.pull_request,inputs))
   }
+})
+
+test('main synchronization verifies only non-product inputs on dev and never deploys them',async()=>{
+  for(const path of ['test/a.mjs','scripts/pipeline.mjs','docs/a.md']){
+    const f=routeFixture(path,'dev');f.event.pull_request.head.ref='main'
+    const scope=await resolveScope(f.read,f.event,f.env,f.run)
+    assert.equal(scope.reuse,false);assert.equal(scope.local,false)
+    const push=routeFixture(path,'dev','push')
+    const pushed=await resolveScope(async()=>{throw Error('Non-product push must not read deployment evidence')},push.event,push.env,push.run)
+    assert.notEqual(pushed.kind,'product')
+  }
+  const product=routeFixture('app/a.vue','dev');product.event.pull_request.head.ref='main'
+  await assert.rejects(resolveScope(product.read,product.event,product.env,product.run),/must not change/)
+  const hidden=routeFixture('test/a.mjs','dev');hidden.event.pull_request.head.ref='main';hidden.state.entries[0].sha=b
+  await assert.rejects(resolveScope(hidden.read,hidden.event,hidden.env,hidden.run),/changed product inputs/)
+  for(const path of ['test/a.mjs','scripts/pipeline.mjs']){
+    const f=routeFixture(path,'main');await assert.rejects(resolveScope(f.read,f.event,f.env,f.run),/upstream technical PR/)
+  }
+})
+
+function refreshedPromotion(){
+  const f=routeFixture('app/a.vue','main'),d='d'.repeat(40),e='e'.repeat(40)
+  f.state.comments=[accept(inputs.product)];f.state.entries[1].sha=b
+  const next=inputDigests(f.state.entries)
+  const source={...f.state.source,number:2,merge_commit_sha:b,base:{...f.state.source.base,ref:'dev'},head:{repo,sha:e,ref:'main'}}
+  const run={...f.state.run,id:12,head_sha:e,head_branch:'main'}
+  const evidence={...f.state.prArtifacts[0],id:50,name:evidenceName(next,1),workflow_run:{...f.state.prArtifacts[0].workflow_run,id:12,head_sha:e}}
+  const state={source,run,evidence,remote:structuredClone(f.state.entries),upstreamComments:[]}
+  const read=async p=>{
+    if(p===`/git/commits/${b}`)return {tree:{sha:d}}
+    if(p===`/git/trees/${d}?recursive=1`)return {sha:d,truncated:false,tree:state.remote.map(x=>({...x,type:'blob'}))}
+    if(p===`/commits/${b}/pulls?per_page=100`)return [state.source]
+    if(p.includes('/actions/workflows/')&&p.includes('head_sha='+e))return {total_count:1,workflow_runs:[state.run]}
+    if(p==='/actions/runs/12/artifacts?per_page=100')return {total_count:1,artifacts:[state.evidence]}
+    if(p==='/issues/2/comments?per_page=100')return state.upstreamComments
+    return f.read(p)
+  }
+  return {...f,read,technical:state,next}
+}
+test('changed technical inputs require the exact upstream candidate proof while keeping business acceptance',async()=>{
+  const f=refreshedPromotion(),scope=await resolveScope(f.read,f.event,f.env,f.run)
+  assert.equal(scope.reuse,true);assert.equal(scope.local,false);assert.equal(scope.acceptance.commentId,40);assert.equal(scope.sourceRunId,12)
+  f.state.comments.push({id:41,user:{id:repo.owner.id},body:'TERMITE local-verification\ninvalid'})
+  assert.equal((await promotionEvidence(f.read,f.event.pull_request,f.next,f.run)).sourceRunId,12)
+  for(const mutate of [f=>f.technical.remote[1].sha=a,f=>f.technical.remote[0].sha=b,f=>f.technical.source.merge_commit_sha=c,f=>f.technical.source.base.ref='main',f=>f.technical.run.conclusion='failure',f=>f.technical.run.run_attempt=2,f=>f.technical.evidence.name=evidenceName(inputs,1),f=>f.technical.evidence.expired=true]){
+    const f=refreshedPromotion();mutate(f);await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
+  }
+  const attested=refreshedPromotion(),record={...local(),...attested.next},comment={id:50,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify(record)}
+  attested.technical.upstreamComments=[comment]
+  attested.technical.evidence.name=evidenceName(attested.next,1,{commentId:50,digest:receiptDigest(record)})
+  assert.equal((await resolveScope(attested.read,attested.event,attested.env,attested.run)).reuse,true)
+  for(const comments of [[],[{...comment,body:'TERMITE local-verification\ninvalid'}],[comment,{...comment,id:51,body:'TERMITE local-verification\n{"revoked":true}'}]]){
+    attested.technical.upstreamComments=comments;await assert.rejects(resolveScope(attested.read,attested.event,attested.env,attested.run))
+  }
+})
+test('documentation commits preserve the last changed-input proof without crossing a technical change or latest failure',async()=>{
+  const f=refreshedPromotion(),d='d'.repeat(40),e='e'.repeat(40)
+  f.event.pull_request=structuredClone(f.event.pull_request)
+  f.event.pull_request.head.sha=d
+  const read=p=>p===`/git/commits/${d}`?f.read(`/git/commits/${b}`):f.read(p)
+  const run=(...args)=>args[0]==='show'&&args.at(-1)==='HEAD'?a+' '+d:args[0]==='show'&&args.at(-1)===d?b+' '+e:f.run(...args)
+  assert.equal(verificationRevision(d,f.next,run),b)
+  assert.equal((await resolveScope(read,f.event,f.env,run)).sourceRunId,12)
+  f.technical.run.conclusion='failure'
+  await assert.rejects(resolveScope(read,f.event,f.env,run))
+  f.technical.run.conclusion='success'
+  const changed=(...args)=>args[0]==='ls-tree'&&args.includes(b)?entries.map(e=>e.mode+' blob '+e.sha+'\t'+e.path+'\0').join(''):run(...args)
+  await assert.rejects(resolveScope(read,f.event,f.env,changed),/no unique merged PR/)
+  const unbounded=(...args)=>args[0]==='show'?b:args[0]==='ls-tree'?f.run('ls-tree','HEAD'):f.run(...args)
+  assert.throws(()=>verificationRevision(d,f.next,unbounded),/bounded verification lookup/)
+})
+
+test('main push revalidates changed-input upstream proof and never compensates for a failed technical run',async()=>{
+  const f=refreshedPromotion()
+  const env={...f.env,GITHUB_EVENT_NAME:'push'},event={repository:repo,before:a,after:c,forced:false,deleted:false}
+  const promoted={...f.state.run,id:13},evidence={...f.state.prArtifacts[0],id:60,name:evidenceName(f.next,1),workflow_run:{...f.state.prArtifacts[0].workflow_run,id:13}}
+  function reader(){
+    let associations=0,queries=0
+    return async p=>{
+      if(p===`/commits/${c}/pulls?per_page=100`&&++associations===1)return [f.state.source]
+      if(p.includes('/actions/workflows/')&&p.includes('head_sha='+b)&&++queries===1)return {total_count:1,workflow_runs:[promoted]}
+      if(p==='/actions/runs/13/artifacts?per_page=100')return {total_count:1,artifacts:[evidence]}
+      return f.read(p)
+    }
+  }
+  assert.equal((await resolveScope(reader(),event,env,f.run)).sourceRunId,12)
+  f.technical.run.conclusion='failure'
+  await assert.rejects(resolveScope(reader(),event,env,f.run),/successful trusted run/)
 })
 test('main product push rechecks both promotion PR proof and owner acceptance',async()=>{
   const f=routeFixture('app/a.vue','main','push');f.state.comments=[accept(inputs.product)]
