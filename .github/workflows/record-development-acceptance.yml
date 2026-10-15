@@ -10,6 +10,10 @@ on:
         description: Exact 40-character SHA tested in Dev
         required: true
         type: string
+      candidate_deployment_run_id:
+        description: Optional separately verified Dev deployment for the approved acceptance-protocol repair
+        required: false
+        type: string
       acceptance_reference:
         description: Acceptance record reference (no customer data or secrets)
         required: true

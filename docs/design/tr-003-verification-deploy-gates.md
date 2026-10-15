@@ -1,5 +1,9 @@
 # TR-003 Verification and Development-deploy Gates
 
+## 2026-10-15 受入れ証拠の文書継続
+
+本人受入れは実Dev配備SHAに固定し、文書更新のbranch先頭とは分離する。完全なGit tree比較と祖先関係、許可8文書・通常ファイル修正・文書CI成功をPR／mainで再確認し、包括検証／配備の証拠は元treeを保持する。記録処理自身の導入修正は固定旧版・固定第1親・限定ファイルと修正版の包括CI／実Dev配備を要求する一度の移行経路。一般のアプリ／配備設定変更は許可しない。[採用理由と範囲](../decisions/0046-verification-reuse-and-dev-acceptance.md)、[手順](../runbooks/application-deployment.md)。
+
 ## 2026-10-14 parallel application and Rules verification
 
 Feature PRs and Dev full fallback run `application` alongside the existing three isolated Rules VMs after scope/source resolution. Application owns governance, domain, typecheck, build, Functions syntax and seed syntax, then publishes its checkout SHA/tree/run/attempt identity and uploads the existing final Hosting artifact. The unchanged required check name `Verify development deployment` joins both producers. It aggregates Rules receipts and checks the application's actual successful named steps and immutable Hosting ID/metadata against the same run/attempt and current checkout before publishing comprehensive evidence. The application identity is a job output, not a replacement for successful GitHub job/step evidence. A leftover Hosting artifact after any failed producer is unusable.

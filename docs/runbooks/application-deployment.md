@@ -76,6 +76,10 @@ PR23／24の並行化はDev統合・実配備検証済み（Prod未反映）。[
 
 ## 5. 本人受入れ→dev→main PR
 
+2026-10-15修正：`accepted_revision` と `deployment_run_id` は本人が受入れた実配備版を指定する。記録workflowは現在のdev上で実行し、後続の差分が許可8文書の修正だけなら全tree・祖先関係・文書push検証を確認して記録する。文書先頭のSHAを受入れた配備SHAへ代入しない。記録後の文書変更もPR／mainで同様に検証する。通常のアプリ・設定変更には新しい実配備と本人受入れが必要。
+
+今回の記録処理修正の導入だけは、[ADR0046の固定版・差分限定](../decisions/0046-verification-reuse-and-dev-acceptance.md)に従い、旧Dev22d5bacの本人受入れを保持し、修正版の包括検証／Dev配備成功runを追加input `candidate_deployment_run_id` に指定できる。一般運用ではこの追加inputは空欄。受入れ版、記録版、技術検証配備版、昇格版を証拠上で区別する。下の旧「完全SHA一致」はこの限定的な継続条件を除く通常経路の説明。
+
 Dev業務受入れ後、ownerがActionsの `Record explicit development acceptance` を **dev** 上で手動実行する。
 
 - deployment_run_id：成功したdev push配備run。

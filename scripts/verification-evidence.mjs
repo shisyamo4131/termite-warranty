@@ -30,12 +30,14 @@ export async function resolveDevelopmentPromotion(read,current,event,options){
   if(pr?.head?.ref!=='dev'||pr?.base?.ref!=='main')throw Error('Main promotion requires a Dev PR.')
   if(pr.head.repo?.id!==repositoryId||pr.base.repo?.id!==repositoryId)throw Error('Foreign Dev promotion.')
   const acceptance=await requireDevelopmentAcceptance(read,current,pr.head.sha,options)
-  return {reuse:true,reason:'accepted-dev-comprehensive-success',...acceptance.deployment,acceptance}
+  return {reuse:true,reason:'accepted-dev-comprehensive-success',...acceptance.deployment,verificationTree:acceptance.deployment.tree,
+    tree:current,revision:pr.head.sha,acceptance}
 }
 export async function validatePromotionVerification(read,run,current,revision,acceptance){
   assertRun(run,{event:'pull_request',branch:'dev',revision})
   const commit=await read('/git/commits/'+revision)
-  if(commit.tree?.sha!==current||acceptance?.deployment?.tree!==current||acceptance.deployment.revision!==revision)throw Error('Promotion tree differs from accepted Dev.')
+  const admitted=acceptance?.promotion??acceptance?.deployment
+  if(commit.tree?.sha!==current||admitted?.tree!==current||admitted.revision!==revision)throw Error('Promotion tree differs from accepted Dev.')
   const jobs=await completeList(read,`/actions/runs/${run.id}/attempts/${run.run_attempt}/jobs`,'jobs')
   for(const [name,steps] of [['Resolve verified source',['Resolve source verification']],['Verify development deployment',['Require verification or source evidence','Record verified source evidence','Publish comprehensive verification evidence','Upload comprehensive verification evidence']]]){
     const rows=jobs.filter(j=>j.name===name),job=rows[0]

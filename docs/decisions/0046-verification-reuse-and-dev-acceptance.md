@@ -1,5 +1,13 @@
 # 0046 同一内容のPR検証再利用とDev受入れ記録
 
+## 2026-10-15 文書更新後の受入れ記録と限定的な導入修正（承認済み）
+
+本人はDev22d5bacの受入れを明示し、文書更新後の記録不能を解消する修正・検証・dev→main統合・Prod配備を承認した。旧実装の「実配備SHA＝現dev先頭」は文書専用配備省略と両立しないため、受入れた実配備・包括検証の証拠を保持したまま、後続が許可8文書の既存通常ファイル変更だけと独立確認できる場合は記録／昇格を許可する。全Git treeの欠落なし・祖先関係・文書push検証成功を要求し、アプリ・設定・新規／削除／改名・特殊ファイル・失敗は拒否する。文書先頭のtreeを実配備済みtreeと偽って記録しない。
+
+導入時だけ、受入れ版22d5bac7c47f101fdf8b0522f8108edf16d06330から、dev文書先頭bb9e2f97fcaf09242349b9f6a6f256acbf003047を第1親とする次の2親mergeへの修正を許容する。許可差分は既存8文書、当ADR、受入れworkflow、development-acceptance.mjs、verification-evidence.mjs、既存verification-evidence試験のみ。新規／削除・配備workflow・ビルド・権限・アプリは含まない。修正版は独立した包括PR成功とDev実配備・全照合成功を必須とし、旧版の本人受入れと新版の技術検証を別々に保持する。この例外を一般のCI変更や後続mergeに拡張しない。
+
+v2 artifactは記録tree・本人受入れ配備run・技術検証配備run・attemptを結び付ける。記録は現dev checkoutで行い、実行中にdevが進んだら拒否。PR／mainで元配備と修正版の証拠、文書連続性、所有者・有効期限・producer blob・全検証結果を再照合する。旧v1は同一版だけの厳格な条件を維持する。新たな業務受入れを捏造しない。問題時は配備enableを停止し、通常PRで修正を戻す。データ巻戻し・保護有効化・権限変更は含まない。
+
 ## 2026-10-14 追補：包括PRのアプリ検証とRulesを並行実行
 
 本人の追加指示により、包括検証のアプリ側6gateとRules3群を別VMで同時実行する。必須check名 `Verify development deployment` は成功集約として維持する。アプリjobが作ったHostingを一度だけ保存し、集約jobが同一checkout SHA/tree/run/attempt、6gateの実step成功、一意なHosting artifact IDとGitHub metadataを照合する。Rulesは既存の同SHA/run/attemptの全試験・終了証跡を集約する。両方成功した場合だけ包括証跡を発行する。片側の成功や残存Hosting単独を配備／再利用の許可にしない。
