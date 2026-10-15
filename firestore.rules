@@ -85,6 +85,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /masterOperationReceipts/{requestId} {
+      allow read, write: if false;
+    }
+
+    match /accountCreationOperations/{requestId} {
+      allow read, write: if false;
+    }
+
     match /accountMutationLocks/{uid} {
       allow read, write: if false;
     }
@@ -94,9 +102,8 @@ service cloud.firestore {
     }
 
     match /constructionCompanyCaseWorkItems/{workItemId} {
-      allow read: if businessReadable() && (signedInAndEnabled()
-        || (signedInCompanyEnabled() && resource.data.constructionCompanyId == currentCompanyId()));
-      allow write: if false;
+      // PORTAL-SEC-01: historical work items are closed, including staff review.
+      allow read, write: if false;
     }
 
     match /notificationOutbox/{notificationId} {

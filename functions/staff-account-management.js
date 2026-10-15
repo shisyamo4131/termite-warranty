@@ -1,15 +1,16 @@
 import { AccountMutationError, mutateAccount } from './account-mutation.js'
-import { Timestamp } from 'firebase-admin/firestore'
+import { createStaffAccountSafely } from './staff-account-creation.js'
 
 export class StaffAccountError extends Error {
-  constructor(code, message) {
+  constructor(code, message, details) {
     super(message)
     this.name = 'StaffAccountError'
     this.code = code
+    if (details) this.details = details
   }
 }
 
-const fail = (code, message) => { throw new StaffAccountError(code, message) }
+const fail = (code, message, details) => { throw new StaffAccountError(code, message, details) }
 const nonBlank = value => typeof value === 'string' && /\S/.test(value)
 const requiredText = (value, message) => nonBlank(value) ? value.trim() : fail('invalid-argument', message)
 const email = (value) => {
@@ -50,6 +51,7 @@ export async function listManageableStaffAccountsOperation(firestore, actorUid) 
         displayName: String(item.data().displayName ?? ''),
         role: targetRole,
         enabled: item.data().enabled === true,
+        creationPending: item.data().creationPending === true,
       }))
       .sort((left, right) => left.displayName.localeCompare(right.displayName, 'ja') || left.email.localeCompare(right.email)),
   }
@@ -59,21 +61,10 @@ export async function createStaffAccountOperation(auth, firestore, input, actorU
   const { targetRole } = await assertManager(firestore, actorUid)
   const accountEmail = email(input?.email)
   const displayName = requiredText(input?.displayName, '表示名を入力してください。')
-  let user
   try {
-    user = await auth.createUser({ email: accountEmail, displayName, disabled: false })
-    const now = Timestamp.now()
-    await firestore.doc(`staffAccounts/${user.uid}`).create({
-      email: accountEmail,
-      displayName,
-      role: targetRole,
-      enabled: true,
-      createdAt: now,
-      updatedAt: now,
-    })
-    return { uid: user.uid, email: accountEmail, displayName, role: targetRole, enabled: true }
+    return await createStaffAccountSafely(auth, firestore, { email: accountEmail, displayName, role: targetRole }, actorUid, input?.requestId)
   } catch (error) {
-    if (user?.uid) await auth.deleteUser(user.uid).catch(() => {})
+    if (error instanceof AccountMutationError) fail(error.code, error.message, error.details)
     if (error instanceof StaffAccountError) throw error
     authFailure(error)
   }

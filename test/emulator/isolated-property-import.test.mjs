@@ -11,7 +11,7 @@ import {LOCAL_RUNTIME,localRuntimeHost} from '../helpers/emulator-runtime.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from '../helpers/isolated-import.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw Error('Dedicated emulator required')
 // Legacy import scenarios represent the current supported client request format.
-const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,input.action==='reenableMaster'?input:{operationProtocol:1,...input},uid)
+const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,input.action==='reenableMaster'?input:{operationProtocol:2,...input},uid)
 const propertyBulkImportOperation=(db,input,uid)=>bulkOperation(db,{operationProtocol:1,...input},uid)
 const app=initializeApp({projectId:'demo-termite-warranty-test'},'isolated-import-test')
 const getFirestore=(app,id)=>isolatedImportDatabase(adminFirestore,app,id),auth=isolatedImportAuth

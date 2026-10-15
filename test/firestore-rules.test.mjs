@@ -8,6 +8,7 @@ import {
 } from '@firebase/rules-unit-testing'
 import {
   Timestamp,
+  collection,
   collectionGroup,
   deleteDoc,
   doc,
@@ -210,7 +211,36 @@ describe('staff authentication and enabled-account boundary', () => {
 })
 
 describe('construction-company and server-owned boundaries', () => {
-  test('a company account can read only its own profile and work items', async () => {
+  test('legacy work items and server-only receipts deny every client identity', async () => {
+    await seedStaff('closure-staff')
+    await seedStaff('closure-disabled-staff', false)
+    for (const [uid, scope, branchId, enabled] of [
+      ['closure-company', 'company', null, true],
+      ['closure-branch-a', 'branch', 'branch-a', true],
+      ['closure-branch-b', 'branch', 'branch-b', true],
+      ['closure-disabled', 'branch', 'branch-a', false],
+      ['closure-unscoped', undefined, undefined, true],
+    ]) {
+      await seedCompanyAccount(uid, 'company-1', enabled)
+      if (scope) await testEnvironment.withSecurityRulesDisabled(context => updateDoc(doc(context.firestore(), 'constructionCompanyAccounts', uid), { scope, branchId }))
+    }
+    await seedCompanyAccount('closure-other-company', 'company-2')
+    const ids = ['closure-staff', 'closure-disabled-staff', 'closure-company', 'closure-branch-a', 'closure-branch-b', 'closure-disabled', 'closure-unscoped', 'closure-other-company', 'closure-missing']
+    const databases = [...ids.map(contextFor), testEnvironment.unauthenticatedContext().firestore()]
+    for (const name of ['constructionCompanyCaseWorkItems', 'accountCreationOperations', 'masterOperationReceipts']) {
+      await seedDocument(`${name}/closed-row`, { constructionCompanyId: 'company-1', branchId: 'branch-a', status: 'submitted' })
+      for (const db of databases) {
+        const ref = doc(db, name, 'closed-row')
+        await assertFails(getDoc(ref))
+        await assertFails(getDocs(query(collection(db, name), where('constructionCompanyId', '==', 'company-1'), where('branchId', '==', 'branch-a'))))
+        await assertFails(setDoc(doc(db, name, 'new-row'), { constructionCompanyId: 'company-1', branchId: 'branch-a', runtimeProtocol: 2, runtimeGeneration: 1, runtimeNonce: crypto.randomUUID() }))
+        await assertFails(updateDoc(ref, { status: 'withdrawn', runtimeProtocol: 2, runtimeGeneration: 1, runtimeNonce: crypto.randomUUID() }))
+        await assertFails(deleteDoc(ref))
+      }
+    }
+  })
+
+  test('a company account can read its own profile but no legacy work items', async () => {
     await seedCompanyAccount('company-user', 'company-1')
     await seedCompanyAccount('other-company-user', 'company-2')
     await seedDocument('constructionCompanyCaseWorkItems/case-1', { constructionCompanyId: 'company-1' })
@@ -219,7 +249,7 @@ describe('construction-company and server-owned boundaries', () => {
 
     await assertSucceeds(getDoc(doc(db, 'constructionCompanyAccounts', 'company-user')))
     await assertFails(getDoc(doc(db, 'constructionCompanyAccounts', 'other-company-user')))
-    await assertSucceeds(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
     await assertFails(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-2')))
     await assertFails(getDoc(doc(db, 'cases', 'case-1')))
     await assertFails(getDoc(doc(db, 'constructionCompanies', 'company-1')))
@@ -235,7 +265,7 @@ describe('construction-company and server-owned boundaries', () => {
     await assertFails(updateDoc(doc(db, 'constructionCompanyAccounts', 'company-user'), { enabled: true }))
   })
 
-  test('enabled staff can read review data but server-owned writes remain denied', async () => {
+  test('enabled staff retain account reads but legacy review access and server-owned writes remain denied', async () => {
     await seedStaff('enabled-user')
     await seedCompanyAccount('company-user', 'company-1')
     await seedDocument('constructionCompanyAccountBindings/company-1', { uid: 'company-user' })
@@ -245,7 +275,7 @@ describe('construction-company and server-owned boundaries', () => {
     const db = contextFor('enabled-user')
 
     await assertSucceeds(getDoc(doc(db, 'constructionCompanyAccounts', 'company-user')))
-    await assertSucceeds(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
+    await assertFails(getDoc(doc(db, 'constructionCompanyCaseWorkItems', 'case-1')))
     await assertSucceeds(getDoc(doc(db, 'systemCounters', 'caseNumber')))
     await assertSucceeds(getDoc(doc(db, 'caseNumberReservations', '000001')))
     await assertFails(getDoc(doc(db, 'constructionCompanyAccountBindings', 'company-1')))

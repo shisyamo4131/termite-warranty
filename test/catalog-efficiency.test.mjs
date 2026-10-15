@@ -19,7 +19,7 @@ function database() {
     })
     return query()
   }
-  const db = { doc, collection, records, reads, queries, getAll: async (...refs) => refs.map(ref => ({ ...snap(ref.path), ref })), runTransaction: async fn => fn({ get: async ref => ref.get(), set: (ref, value) => records.set(ref.path, { ...records.get(ref.path), ...value }) }) }
+  const db = { doc, collection, records, reads, queries, getAll: async (...refs) => refs.map(ref => ({ ...snap(ref.path), ref })), runTransaction: async fn => fn({ get: async ref => ref.get(), set: (ref, value) => records.set(ref.path, { ...records.get(ref.path), ...value }), create: (ref, value) => { assert.equal(records.has(ref.path),false,`create requires an absent document: ${ref.path}`);records.set(ref.path,value) } }) }
   for (let i = 0; i < 25; i++) {
     records.set(`constructionCompanies/match-${i}`, { name: `Found ${i}`, defaultGroupId: 'g', updatedAt: i, enabled: i !== 0 })
     records.set(`constructionCompanies/other-${i}`, { name: `Other ${i}`, defaultGroupId: 'other', updatedAt: 100 + i })
@@ -82,9 +82,9 @@ test('portal catalog rejects malformed account scope before master queries', asy
 test('company/branch saves read the reference only once in the transaction and retain missing/disabled validation', async () => {
   const db = database()
   const address = { prefecture: '東京都', municipality: '千代田区', streetTownAndNumber: '架空1' }
-  await propertyPrototypeOperation({}, db, { action: 'saveCompany', name: 'New', defaultGroupId: 'g', address }, 'admin')
+  await propertyPrototypeOperation({}, db, { action: 'saveCompany', requestId:'new-company', name: 'New', defaultGroupId: 'g', address }, 'admin')
   assert.equal(db.reads.filter(path => path === 'warrantyGroups/g').length, 1)
-  await propertyPrototypeOperation({}, db, { action: 'saveBranch', name: 'New', constructionCompanyId: 'match-0', address }, 'admin')
+  await propertyPrototypeOperation({}, db, { action: 'saveBranch', requestId:'new-branch', name: 'New', constructionCompanyId: 'match-0', address }, 'admin')
   assert.equal(db.reads.filter(path => path === 'constructionCompanies/match-0').length, 1)
   await assert.rejects(propertyPrototypeOperation({}, db, { action: 'saveCompany', id: 'new-missing', name: 'Missing', defaultGroupId: 'missing', address }, 'admin'), { code: 'not-found' })
   db.records.set('warrantyGroups/disabled', { enabled: false })

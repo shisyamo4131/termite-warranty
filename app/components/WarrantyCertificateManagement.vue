@@ -2,7 +2,7 @@
   <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon :item="billing ? 'billing' : 'certificates'" /><span>{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</span></h1>
   <details class="business-help"><summary>抽出条件・操作の注意</summary>
   <v-alert v-if="!billing" type="info" class="mb-4">初回は引渡月、延長分はその保証開始月で抽出します。指定年月の前月以前の未発行分を表示し、「発行済みを含める」では前月分だけを表示します。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</v-alert>
-  <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、指定年月の前月以前の未請求分を表示します。「請求済みを含める」では前月分だけを表示します。初回は申込月、延長は保証開始月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>
+  <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、指定年月の前月以前の未請求分を表示します。「請求済みを含める」では前月分だけを表示します。初回は申込月、延長は延長申込月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>
   <v-alert v-else type="warning" class="mb-4">CSVは全保証グループ共通の21列です。日付は年月日を分けた列も出力します。Wordの会社情報や固定の保証年数は手動で確認・変更してください。保証書そのものの作成・印刷には対応していません。</v-alert>
   </details>
   <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>

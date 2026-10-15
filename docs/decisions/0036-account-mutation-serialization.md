@@ -1,5 +1,9 @@
 # 0036 — アカウント更新の直列化と結果不明時の復旧
 
+## 2026-10-15 新規発行への適用
+
+オーナーが同日の推奨修正を採用（親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e`）。HSアカウント新規発行も事前UID・永続作成記録・共通UID lockで所有する。Authと文書を無効状態で準備し、照合後だけ有効化する。無条件のAuth削除による補償をやめ、結果不明は記録を保持し、旧worker停止と所有確認を伴う復旧を行う。既存更新用lockへ完了receiptを混在させると未完了判定を壊すため、accountCreationOperationsへ完了記録を分離する。詳細は[改修契約](../design/account-concurrency-read-efficiency-2026-10-05.md#2026-10-15-hs担当者の新規発行local候補)。Local実装・検証までの承認で、実環境の変更ではない。
+
 - Status: Accepted
 - Date: 2026-10-05
 - Approval: オーナーのACCOUNT-01改修・Local検証・Dev反映／受入指示。業務権限・停止規則は変更しない。

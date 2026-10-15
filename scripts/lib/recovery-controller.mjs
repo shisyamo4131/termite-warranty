@@ -7,7 +7,7 @@ import { FieldPath } from 'firebase-admin/firestore'
 import { ACCESS_PATH, ACTIVATION_PATH, RUNTIME_PATH, RecoveryError, databaseId, runtimeState, assertTransition } from '../../src/domain/recovery.mjs'
 
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex')
-const knownCollections = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','externalKeyReservations','branchCodeReservations','propertyImportSources','propertyImportReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
+const knownCollections = new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks','constructionCompanies','companyBranches','branches','homeowners','properties','warrantyServices','propertyWarranties','warrantyGroups','warrantyCounters','propertyOperationReceipts','masterOperationReceipts','accountCreationOperations','externalKeyReservations','branchCodeReservations','propertyImportSources','propertyImportReceipts','prototypeSettings','cases','caseNumberReservations','systemCounters','constructionCompanyCaseWorkItems','notificationOutbox','_recovery'])
 const canonical = value => {
   if (value?.toDate) return { timestamp: value.toDate().toISOString() }
   if (Buffer.isBuffer(value)) return { bytes: value.toString('base64') }
@@ -53,8 +53,9 @@ export async function scanDatabase(db, { maximumDocuments = 100_000, project = (
 }
 // Exclude only fields this command is permitted to reconcile. All other
 // business paths/fields must remain identical across a partial retry.
-const reconciliationProjection = (highWater,bindings=false) => (path, fields) => {
+const reconciliationProjection = (highWater,bindings=false,creations=false) => (path, fields) => {
   if (/^(staffAccounts|constructionCompanyAccounts)\/[^/]+$/.test(path)) return undefined
+  if(creations&&/^accountCreationOperations\/[^/]+$/.test(path))return undefined
   if(bindings&&/^constructionCompanyAccountBindings\/[^/]+$/.test(path))return undefined
   if (/^warrantyCounters\/[^/]+$/.test(path) && Object.hasOwn(highWater, path.split('/')[1])) {
     const { lastValue, updatedAt, ...unchanged } = fields
@@ -87,8 +88,10 @@ export async function authorizationDigest(db, auth, { details = false } = {}) {
   do { const page = await auth.listUsers(1000, token); for (const user of page.users) users.push([user.uid, user.email?.toLowerCase() ?? '', user.disabled, user.providerData.map(p => [p.providerId, p.uid]).sort()]); token = page.pageToken } while (token)
   const profiled = new Set(records.map(row => row[1]))
   if (users.some(row => !profiled.has(row[0])) || records.length !== users.length) throw new RecoveryError('Unprofiled or duplicate accounts require reconciliation.')
-  const hash=digest({ records: records.sort(), users: users.sort() })
-  return details ? { hash, profiles } : hash
+  const creations = (await db.collection('accountCreationOperations').limit(1001).get()).docs.map(row => ({id:row.id,fields:row.data()})).sort((a,b)=>a.id.localeCompare(b.id))
+  if(creations.length>1000)throw new RecoveryError('Creation authority baseline exceeds the private budget.')
+  const hash=digest({ records: records.sort(), users: users.sort(), creations:canonical(creations) })
+  return details ? { hash, profiles, creations } : hash
 }
 export async function numberingHighWater(db) {
   const counters={}
@@ -257,9 +260,9 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       const highWater = await numberingHighWater(database(state.databaseId))
       const bindingRows=(await database(state.databaseId).collection('constructionCompanyAccountBindings').limit(1001).get()).docs
       const bindings=bindingRows.map(row=>({id:row.id,fields:row.data()}))
-      if(bindings.length>1000||Buffer.byteLength(JSON.stringify(canonical({bindings,profiles:authorization.profiles,highWater,snapshot})))>750_000)throw new RecoveryError('Combined authority baseline exceeds the private budget.')
+      if(bindings.length>1000||Buffer.byteLength(JSON.stringify(canonical({bindings,creations:authorization.creations,profiles:authorization.profiles,highWater,snapshot})))>750_000)throw new RecoveryError('Combined authority baseline exceeds the private budget.')
       await effect({kind:'baseline',databaseId:state.databaseId})
-      await control.doc(`recoveryBaselines/${id}`).create({ databaseId: state.databaseId, generation, authorizationHash: authorization.hash, profiles: authorization.profiles, bindings, snapshot, highWater, revision, ...(typedHash?{typedHash}:{}),createdAt: now() })
+      await control.doc(`recoveryBaselines/${id}`).create({ databaseId: state.databaseId, generation, authorizationHash: authorization.hash, profiles: authorization.profiles, creations: authorization.creations, bindings, snapshot, highWater, revision, ...(typedHash?{typedHash}:{}),createdAt: now() })
       return { baselineId: id, count: snapshot.count }
     }) },
     async quarantine(generation, id, target) { return exclusive(generation, id, async effect => {
@@ -281,6 +284,8 @@ export function recoveryController({ database, auth, controlId, revision, now = 
       const liveBindings=async()=> (await database(state.databaseId).collection('constructionCompanyAccountBindings').orderBy(FieldPath.documentId()).get()).docs.map(row=>({id:row.id,fields:row.data()}))
       const bindingHash=rows=>digest(canonical([...rows].sort((a,b)=>a.id.localeCompare(b.id))))
       const hasBindings=Array.isArray(baseline.bindings)
+      const hasCreations=Array.isArray(baseline.creations)
+      if(!hasCreations)throw new RecoveryError('A fresh baseline including account creation records is required.')
       if((await runtime.get()).data()?.protocol===2&&!hasBindings)throw new RecoveryError('Fixed recovery requires a current binding baseline.')
       if(hasBindings&&bindingHash(await liveBindings())!==bindingHash(baseline.bindings))throw new RecoveryError('Current account bindings changed after baseline.')
       const receipt=control.doc(`recoveryReconciliations/${id}`)
@@ -292,7 +297,7 @@ export function recoveryController({ database, auth, controlId, revision, now = 
         await control.doc(`recoveryTargets/${target}`).update({reconciliationId:id})
         return { reconciliationId:id, accountChanges:prior.accountChanges, counterChanges:prior.counterChanges, count:prior.snapshot.count }
       }
-      const invariant=(await scanDatabase(database(target),{project:reconciliationProjection(baseline.highWater,hasBindings)})).hash
+      const invariant=(await scanDatabase(database(target),{project:reconciliationProjection(baseline.highWater,hasBindings,hasCreations)})).hash
       if(prior && (prior.status!=='applying'||prior.invariant!==invariant))throw new RecoveryError('Non-reconciliation business data changed during the interrupted command.')
       await effect({kind:'reconcile',target,reconciliationId:id})
       if(!prior)await receipt.create({target,baselineId,generation,revision,restoreOperation:binding.restoreOperation,recoveryPoint:binding.recoveryPoint,original,invariant,status:'applying',startedAt:now()})
@@ -308,9 +313,12 @@ export function recoveryController({ database, auth, controlId, revision, now = 
         for(const row of (await database(target).collection('constructionCompanyAccountBindings').get()).docs)if(!expected.has(row.id)){await row.ref.delete();accountChanges++}
         for(const [key,fields] of expected){const ref=database(target).doc(`constructionCompanyAccountBindings/${key}`),current=await ref.get();if(!current.exists||digest(canonical(current.data()))!==digest(canonical(fields))){await ref.set(fields);accountChanges++}}
       }
+      const expectedCreations=new Map(baseline.creations.map(row=>[row.id,row.fields]))
+      for(const row of (await database(target).collection('accountCreationOperations').get()).docs)if(!expectedCreations.has(row.id)){await row.ref.delete();accountChanges++}
+      for(const [key,fields] of expectedCreations){const ref=database(target).doc(`accountCreationOperations/${key}`),current=await ref.get();if(!current.exists||digest(canonical(current.data()))!==digest(canonical(fields))){await ref.set(fields);accountChanges++}}
       for(const [key,highWater] of Object.entries(baseline.highWater)){const ref=database(target).doc(`warrantyCounters/${key}`), current=(await ref.get()).data();if((current?.lastValue??-1)<highWater){await ref.set({lastValue:highWater,updatedAt:now()},{merge:true});counterChanges++}}
       const snapshot=await scanDatabase(database(target))
-      if((await scanDatabase(database(target),{project:reconciliationProjection(baseline.highWater,hasBindings)})).hash!==invariant)throw new RecoveryError('Non-reconciliation business data changed while applying the command.')
+      if((await scanDatabase(database(target),{project:reconciliationProjection(baseline.highWater,hasBindings,hasCreations)})).hash!==invariant)throw new RecoveryError('Non-reconciliation business data changed while applying the command.')
       if(hasBindings&&bindingHash(await liveBindings())!==bindingHash(baseline.bindings))throw new RecoveryError('Current account bindings changed during reconciliation.')
       await receipt.update({status:'complete',snapshot,accountChanges,counterChanges,completedAt:now()})
       await control.doc(`recoveryTargets/${target}`).update({reconciliationId:id})

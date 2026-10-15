@@ -1,3 +1,4 @@
+import { propertyInputHash, masterInputHash, inputHash } from './operation-input.js'
 import { normalizeExtensionApplication } from './domain/property-warranty.mjs'
 import { pendingBillingRows } from './domain/billing-output.mjs'
 import { companyBankFields, companyProfileDefaults, normalizeCompanyProfile, normalizeBillingRecipient, portalWarrantyGroup } from './domain/company-settings.mjs'
@@ -224,31 +225,43 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   if (['saveCompany', 'saveBranch', 'saveGroup'].includes(action)) {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ設定できます。')
     const collection = { saveCompany: 'constructionCompanies', saveBranch: 'companyBranches', saveGroup: 'warrantyGroups' }[action]
-    const value = { name: text(input.name, '名称'), updatedAt: Timestamp.now() }
-    if (input.enabled !== undefined && typeof input.enabled !== 'boolean') fail('invalid-argument', '有効・無効の指定が不正です。')
-    if (action === 'saveCompany') {
-      value.defaultGroupId = id(input.defaultGroupId)
-      for (const k of ['prefecture', 'municipality', 'streetTownAndNumber']) text(input.address?.[k], '会社の住所')
-      for (const k of ['telephone', 'fax', 'contactPerson', 'notes']) value[k] = String(input[k] ?? '').trim()
-    } else if (action === 'saveBranch') {
-      value.constructionCompanyId = id(input.constructionCompanyId)
-      if (input.groupId) fail('invalid-argument', '本支店独自の保証グループは設定できません。所属工務店のグループを使用します。')
-      for (const k of ['telephone','fax']) value[k] = String(input[k] ?? '').trim()
-    } else {
-      value.prefix = normalizeWarrantyPrefix(input.prefix)
-      if (value.prefix.length > 1499) fail('invalid-argument', '接頭辞は1499文字以内で入力してください。')
-      value.fiscalStartMonth = Number(input.fiscalStartMonth)
-      if (!Number.isInteger(value.fiscalStartMonth) || value.fiscalStartMonth < 1 || value.fiscalStartMonth > 12 || !/^[A-Z0-9-]*$/.test(value.prefix)) fail('invalid-argument', '接頭辞または年度開始月が不正です。')
-      value.template = 'sample'
-    }
-    if (action === 'saveCompany' || action === 'saveBranch') {
-      value.address = Object.fromEntries(['postalCode','prefecture','municipality','streetTownAndNumber','buildingName'].map(k => [k, String(input.address?.[k] ?? '').trim()]))
-      value.address.postalCode = value.address.postalCode.replace(/[-\s]/g, '')
-      if (value.address.postalCode && !/^\d{7}$/.test(value.address.postalCode)) fail('invalid-argument', '郵便番号は7桁です。')
-    }
-    for (const k of ['telephone','fax']) if (value[k] && !/^[0-9-]+$/.test(value[k])) fail('invalid-argument','電話番号・FAXは半角数字とハイフンのみ入力できます。')
     const ref = input.id ? db.doc(`${collection}/${id(input.id)}`) : db.collection(collection).doc()
-    await db.runTransaction(async tx => {
+    const receiptRef = input.id ? null : db.doc(`masterOperationReceipts/${inputHash({uid,requestId:id(input.requestId)})}`)
+    const requestHash = masterInputHash(input)
+    let knownUncommitted = false
+    return db.runTransaction(async tx => {
+      knownUncommitted = false
+      const current = (await tx.get(db.doc(`staffAccounts/${uid}`))).data()
+      if (!current?.enabled || !['developer_superuser','house_solution_administrator','general_staff'].includes(current.role)) fail('permission-denied','アカウントが無効です。')
+      const receipt = receiptRef ? (await tx.get(receiptRef)).data() : null
+      if (receipt) {
+        if (receipt.uid !== uid || receipt.action !== action || receipt.requestHashVersion !== 1 || receipt.requestHash !== requestHash) fail('failed-precondition','同じ作成識別子で内容を変更できません。先の保存結果を確認してください。')
+        return { id: receipt.resultId, operationStatus: 'completed' }
+      }
+      knownUncommitted = true
+      const value = { name: text(input.name, '名称'), updatedAt: Timestamp.now() }
+      if (input.enabled !== undefined && typeof input.enabled !== 'boolean') fail('invalid-argument', '有効・無効の指定が不正です。')
+      if (action === 'saveCompany') {
+        value.defaultGroupId = id(input.defaultGroupId)
+        for (const k of ['prefecture', 'municipality', 'streetTownAndNumber']) text(input.address?.[k], '会社の住所')
+        for (const k of ['telephone', 'fax', 'contactPerson', 'notes']) value[k] = String(input[k] ?? '').trim()
+      } else if (action === 'saveBranch') {
+        value.constructionCompanyId = id(input.constructionCompanyId)
+        if (input.groupId) fail('invalid-argument', '本支店独自の保証グループは設定できません。所属工務店のグループを使用します。')
+        for (const k of ['telephone','fax']) value[k] = String(input[k] ?? '').trim()
+      } else {
+        value.prefix = normalizeWarrantyPrefix(input.prefix)
+        if (value.prefix.length > 1499) fail('invalid-argument', '接頭辞は1499文字以内で入力してください。')
+        value.fiscalStartMonth = Number(input.fiscalStartMonth)
+        if (!Number.isInteger(value.fiscalStartMonth) || value.fiscalStartMonth < 1 || value.fiscalStartMonth > 12 || !/^[A-Z0-9-]*$/.test(value.prefix)) fail('invalid-argument', '接頭辞または年度開始月が不正です。')
+        value.template = 'sample'
+      }
+      if (action === 'saveCompany' || action === 'saveBranch') {
+        value.address = Object.fromEntries(['postalCode','prefecture','municipality','streetTownAndNumber','buildingName'].map(k => [k, String(input.address?.[k] ?? '').trim()]))
+        value.address.postalCode = value.address.postalCode.replace(/[-\s]/g, '')
+        if (value.address.postalCode && !/^\d{7}$/.test(value.address.postalCode)) fail('invalid-argument', '郵便番号は7桁です。')
+      }
+      for (const k of ['telephone','fax']) if (value[k] && !/^[0-9-]+$/.test(value[k])) fail('invalid-argument','電話番号・FAXは半角数字とハイフンのみ入力できます。')
       const old = (await tx.get(ref)).data()
       if (old?.enabled === false) fail('failed-precondition', '無効なマスタは編集できません。先に有効化してください。')
       value.enabled = input.enabled ?? old?.enabled ?? true
@@ -296,8 +309,12 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (group.enabled === false && old?.defaultGroupId !== value.defaultGroupId) fail('failed-precondition', '無効な保証グループは新しく割り当てられません。')
       }
       tx.set(ref, value, { merge: true })
+      if (receiptRef) tx.create(receiptRef, {uid,action,requestHashVersion:1,requestHash,resultId:ref.id,createdAt:Timestamp.now()})
+      return { id: ref.id, operationStatus: 'completed' }
+    }).catch(error => {
+      if (knownUncommitted && error instanceof HttpsError) error.details = {...error.details, operationOutcome:'rejected'}
+      throw error
     })
-    return { id: ref.id }
   }
   if (action === 'accounts') {
     manager(a)
@@ -339,7 +356,11 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   if (['waiveInsurance','undoInsuranceWaiver','notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
   const ref = db.doc(`propertyWarranties/${id(input.id)}`)
   const requestId = id(input.requestId)
+  if (input.operationProtocol !== 2) fail('failed-precondition','保存形式が変更されました。画面を再読込してください。')
+  const requestHash = propertyInputHash(input)
+  let knownUncommitted = false
   return db.runTransaction(async tx => {
+    knownUncommitted = false
     const currentActor = await tx.get(db.doc(`${a.staff ? 'staffAccounts' : 'constructionCompanyAccounts'}/${uid}`))
     if (currentActor.data()?.enabled !== true) fail('permission-denied', 'アカウントが無効です。')
     if (!a.staff && ['constructionCompanyId','branchId','scope'].some(key => currentActor.data()[key] !== a[key])) fail('aborted', 'アカウントの所属が変更されました。ログインし直してください。')
@@ -349,10 +370,12 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const receipt = (await tx.get(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`))).data()
     if (receipt) {
       if (receipt.uid !== uid || receipt.action !== action) fail('failed-precondition','操作識別子を再利用できません。')
-      return {id:ref.id}
+      if (!receipt.requestHash) return {id:ref.id, operationStatus:'legacy-unverified'}
+      if (receipt.requestHashVersion !== 1 || receipt.requestHash !== requestHash) fail('failed-precondition','同じ操作識別子で内容を変更できません。先の保存結果を確認してください。')
+      return {id:ref.id, operationStatus:'completed'}
     }
-    if (old?.history?.some(event => event.requestId === requestId)) return { id: ref.id }
-    if (input.operationProtocol !== 1) fail('failed-precondition','保存形式が変更されました。画面を再読込してください。')
+    if (old?.history?.some(event => event.requestId === requestId)) return { id: ref.id, operationStatus:'legacy-unverified' }
+    knownUncommitted = true
     const insuranceReady = (await tx.get(db.doc('prototypeSettings/insuranceStates'))).data()?.version === 1
     if (['waiveInsurance','undoInsuranceWaiver','report','undoReport'].includes(action) && !insuranceReady) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
     if ((old?.revision ?? 0) !== Number(input.revision ?? 0)) fail('aborted', '他の操作で更新されました。一覧から開き直してください。')
@@ -461,7 +484,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       const supplied = { ...input.fields }
       if (!supplied.constructionCompanyId || !supplied.branchId) fail('invalid-argument', '工務店・本支店を選択してください。本店も本支店として登録し、選択してください。')
       if (old?.status === 'active' && supplied.applicationDate === undefined) supplied.applicationDate = old.applicationDate
-      const fields = normalizeProperty(supplied, false)
+      let fields
+      try { fields = normalizeProperty(supplied, false) } catch (error) { fail('invalid-argument', error.message) }
       if (old?.groupName?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
       if (old?.status === 'active' && fields.applicationDate !== old.applicationDate) fail('failed-precondition', '本登録後の申込日は変更できません。')
       if (old?.status === 'active' && (supplied.constructionCompanyId !== old.constructionCompanyId || (supplied.branchId || '') !== old.branchId)) fail('failed-precondition','本登録後の工務店・本支店は変更できません。誤登録は取消後に再登録してください。')
@@ -492,7 +516,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (old?.externalKey && !held) fail('failed-precondition', '外部キーの管理情報を開発側へ確認してください。')
         if (!held) newKeyReservation = {ref:keyRef,value:{externalKey,propertyId:ref.id,createdAt:now}}
       }
-      normalizeProperty(supplied, action === 'register' || old?.status === 'active', keyGroup ?? {})
+      try { normalizeProperty(supplied, action === 'register' || old?.status === 'active', keyGroup ?? {}) } catch (error) { fail('invalid-argument', error.message) }
       if (old?.status === 'active' && old.handoverDate && !fields.handoverDate) fail('failed-precondition', '確定済みの引渡日は空欄に戻せません。')
       next = { ...next, ...fields, constructionCompanyId, branchId, status: old?.status ?? 'draft', years: old?.years ?? 0 }
       if (externalKey) next.externalKey = externalKey
@@ -507,6 +531,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         Object.assign(next, initialInsurance(fields.handoverDate))
         next.warrantyNotified = false
         next.billingItems = (old.billingItems ?? []).map(p => p.id === 'initial' ? {...p,...next.periods[0]} : p)
+        const affected = new Set(certificatePeriods(old).map(period => period.id))
+        next.certificateItems = (old.certificateItems ?? []).map(item => affected.has(item.id) ? {...item, issued:false} : item)
       }
       if (action === 'register') {
         if (input.confirmRegistration !== true) fail('failed-precondition', '本登録の内容を確認し、確認チェックを入れてください。')
@@ -568,10 +594,13 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
     }
     const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
-    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'extend' ? normalizeExtensionApplication(input) : {}), ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
+    const changedCertificateDates = old?.status === 'active' && old.handoverDate !== next.handoverDate
+    if (changedCertificateDates) before.certificateItems = old.certificateItems ?? []
+    const invalidatedCertificatePeriodIds = changedCertificateDates ? [...new Set((old.certificateItems ?? []).filter(item => item.issued === true && certificatePeriods(old).some(period => period.id === item.id)).map(item => item.id))] : []
+    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, ...(changedCertificateDates ? {invalidatedCertificatePeriodIds} : {}), at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'extend' ? normalizeExtensionApplication(input) : {}), ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
     // Separate receipts provide replay safety without introducing a business report/notice history.
     if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
-    tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,createdAt:now})
+    tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,requestHashVersion:1,requestHash,createdAt:now})
     next.revision = (old?.revision ?? 0) + 1
     next.updatedAt = now
     next.createdAt = old?.createdAt ?? now
@@ -592,6 +621,9 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     Object.assign(next, monthlyQueryProjection(next), insuranceNoticeProjection(next))
     try { assertInsuranceCapacity(next,{documentPath:ref.path,today:date}) } catch (error) { fail('resource-exhausted',error.message) }
     tx.set(ref, next)
-    return { id: ref.id }
+    return { id: ref.id, operationStatus:'completed' }
+  }).catch(error => {
+    if (knownUncommitted && error instanceof HttpsError) error.details = {...error.details, operationOutcome:'rejected'}
+    throw error
   })
 }

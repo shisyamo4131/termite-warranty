@@ -8,7 +8,7 @@ import {fixedRuntimeState,sameFixedEpoch} from '../../src/domain/fixed-recovery.
 import {captureIntakeSettings,intakeSettingsHash,restoreIntakeSettings} from './historical-intake-settings.mjs'
 import {validateProductionTarget} from './production-deployment-plan.mjs'
 
-const protectedRoots=new Set(['staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'])
+const protectedRoots=new Set(['accountCreationOperations','staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'])
 const hash=value=>intakeHash(typed(value))
 const deny=()=>{throw Error('HISTORICAL_INTAKE_REFUSED: inspect private evidence; maintenance is retained')}
 const accounts=image=>new Map([...image].filter(([path])=>protectedRoots.has(path.split('/')[0])))
