@@ -1,6 +1,3 @@
-import {withoutDocumentationRouting} from '../scripts/lib/documentation-workflow.mjs'
-import {withoutCIIntroduction} from '../scripts/lib/ci-introduction-workflow.mjs'
-import {withoutParallelVerification} from '../scripts/lib/verification-parallel-workflow.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises'
@@ -13,7 +10,7 @@ import {runNode} from '../scripts/lib/test-emulators.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from './helpers/isolated-import.mjs'
 import {rulesShards} from '../scripts/lib/rules-test-plan.mjs'
 import {validateRulesReceipts} from '../scripts/lib/rules-test-receipts.mjs'
-import {validateRulesProducer,validateRulesHandoff,developmentVerifyCondition} from '../scripts/lib/rules-test-workflow.mjs'
+import {validateRulesProducer} from '../scripts/lib/rules-test-workflow.mjs'
 import {readFile} from 'node:fs/promises'
 import {parse} from 'yaml'
 import {spawnSync} from 'node:child_process'
@@ -52,24 +49,6 @@ test('CI shards preserve isolation, fail-fast off and required artifact dependen
   for(const [from,to] of [['fail-fast: false','fail-fast: true'],['windows-latest','ubuntu-latest'],['shard-default-recovery, ',''],
     ['if-no-files-found: error','if-no-files-found: warn'],['node scripts/test-rules.mjs --shard','echo ignored --shard']]){
     assert.notEqual(producer.replace(from,to),producer);assert.throws(()=>validateRulesProducer(producer.replace(from,to)))
-  }
-  const workflow=withoutDocumentationRouting(withoutParallelVerification(withoutCIIntroduction(parse(await readFile(new URL('../.github/workflows/deploy-development.yml',import.meta.url),'utf8')),'development')),'development')
-  validateRulesHandoff(workflow,developmentVerifyCondition)
-  for(const result of ['success','failure','cancelled','skipped']){
-    const command=workflow.jobs.verify.steps[0].run.replaceAll('${{ needs.rules.result }}',result).replaceAll('${{ needs.source.outputs.reuse }}','false').replaceAll('${{ needs.source.result }}','skipped')
-    const processResult=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
-    assert.ifError(processResult.error)
-    assert.equal(processResult.status===0,result==='success','Required PR check: '+result)
-  }
-  for(const result of ['success','failure','cancelled','skipped']){
-    const command=workflow.jobs.verify.steps[0].run.replaceAll('${{ needs.rules.result }}','skipped').replaceAll('${{ needs.source.outputs.reuse }}','true').replaceAll('${{ needs.source.result }}',result)
-    const execution=spawnSync('pwsh',['-NoProfile','-NonInteractive','-Command',command],{encoding:'utf8',windowsHide:true})
-    assert.ifError(execution.error);assert.equal(execution.status===0,result==='success','Accepted Dev admission: '+result)
-  }
-  for(const mutate of [copy=>delete copy.jobs.verify.needs,copy=>copy.jobs.verify.steps.shift(),copy=>copy.jobs.verify.if=developmentVerifyCondition,copy=>copy.jobs.rules.if='false',copy=>copy.jobs.rules.secrets='inherit',
-    copy=>copy.jobs.verify.steps.find(row=>row.run==='npm run test:rules').env={},
-    copy=>copy.jobs.verify.steps.find(row=>row.uses==='actions/download-artifact@v8').with.pattern='foreign-*']){
-    const copy=structuredClone(workflow);mutate(copy);assert.throws(()=>validateRulesHandoff(copy,developmentVerifyCondition))
   }
 })
 

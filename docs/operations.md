@@ -1,5 +1,32 @@
 # Operations
 
+## 2026-10-15 検証フロー改修候補のLocal検証
+
+[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)の専用branch `codex/verification-flow-simplification`、baseline fac8a30171b0b165487af4a7f840042a57a934e5で実装。非製品1PR、統合前検証、本人Local結果、製品に結び付く受入れ、重要条件に絞ったworkflow検査へ整理した。初回限定wrapper・全workflow逆変換検査・専用受入れworkflowを除き、性能比較を手動へ移した。未統合・未配備。GitHub実行結果は同候補のdraft PR／Actionsへ一度記録し、このLocal表と混同しない。
+
+| command | 最終Local結果 | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 生成整合・7gate・権限方針整合 | 0 |
+| `npm test` | 607件中605成功、既存Windows symlink2skip、fail/cancel0。新規経路と取消・必須check名の拒否系を含む | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 静的成果物生成成功 | 0 |
+| `npm run test:rules` | 隔離Emulator201成功・終了確認、360598 ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | Functions全対象の構文成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `node --test test/documentation-changes.test.mjs` | 12成功・skip0 | 0 |
+| `node --test test/governance-tools.test.mjs` | 10成功・skip0 | 0 |
+
+上表の単体件数は旧構造一致試験を退役し、入力分類・本人記録・主要分岐・重要条件の試験へ置換した現候補の件数であり、旧626件との単純比較ではない。包括7gateの省略はない。後続の純文書修正は該当policyに従ってgovernanceと差分検査を再確認し、ソース・依存・Emulator入力を変えない検証は再実行しない。
+
+途中失敗も保持する。sandboxのfixture rename拒否は通常Local実行で解消。governance fixtureの削除済みhelper参照は現行policy参照へ修正し10件を再実行。単体再実行と隔離Emulatorの同時実行は共通stage lockで2件が失敗したため、Emulator完了後に単体全体を単独再実行し上表の結果を得た。試験や排他条件を弱めていない。
+
+独立review FLOW-R2の依存install・Rules完全性・本人Local承認撤回・取消guard・分岐試験の指摘を修正し、FLOW-R3で阻害所見なし。手順書の製品／非製品経路の一文も修正した。本人Local commentの実投稿・再利用は未実証であり、このLocal単体2skipは再利用対象にならない。実PRではCIの全件成功を確認する。
+
+一時読取り `node tmp/check-flow-legacy.mjs` はexit0（GitHub metadata33query、Cloud処理なし）。既存run38675079811からacceptedRun38546924382とdeploymentRun38674603493を分離保持でき、現候補との製品入力一致・技術入力差異を確認。過去の受入れを新たに発行したものではない。Local Rules実ログの2worker／201caseも既存parserで再読取りしexit0。
+
+業務仕様・DB契約・製品コード・HS試行10/16／19・保護保留・IAM・branch保護・秘密・実環境設定は変更なし。仕様／データ契約の版と製品完成率は更新しない。影響文書はADR・配備runbook・TR-003・環境仕様のフロー案内・技術ロードマップ・索引・changelog・policy生成要約。実Dev／Prod配備、公開版の新方式実証、mergeは今回の承認外。全工程の削減効果は未測定であり、PDF4回5分50秒→1回1分30秒と仮定した4分20秒は推定である。
+
+
 ## 2026-10-15 PDF統合向けCI改修・文書統合
 
 本人承認により、初回CI改修を包括検証・配備なしで導入し、その後PDF／生成元を文書専用PRでdev・mainへ統合する。作業開始03:50:04 UTC。対象5ファイルはpackage scripts・Nuxt／Firebase構成・Dev source・Prod bundleの入力に含まれず、参照検索でも実行側からの接続なしを確認。文書対象は正確な13パスに限定し、未知／混在・追加／削除／改名・symlink／実行属性変更は省略しない。
@@ -2396,7 +2423,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
 - Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; unknownImpactGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]
-- FocusedRegression: id=documentation-routing; triggerPaths=[scripts/documentation-changes.mjs,scripts/lib/documentation-workflow.mjs,.github/workflows/deploy-development.yml,.github/workflows/deploy-production.yml]; command=node --test test/documentation-changes.test.mjs; completionRequired=True
+- FocusedRegression: id=documentation-routing; triggerPaths=[scripts/pipeline.mjs,scripts/local-verification.mjs,scripts/lib/change-scope.mjs,scripts/lib/local-verification.mjs,scripts/lib/pipeline-contract.mjs,.github/workflows/deploy-development.yml,.github/workflows/deploy-production.yml]; command=node --test test/documentation-changes.test.mjs; completionRequired=True
 - FocusedRegression: id=governance-tools; triggerPaths=[scripts/render-governance.ps1,scripts/check-governance.ps1,scripts/lib/governance-policy.ps1,test/governance-tools.test.mjs,governance/verification-policy.json]; command=node --test test/governance-tools.test.mjs; completionRequired=True
 - RuntimeProfile: id=powershell; platform=windows; edition=PowerShell; executable=pwsh; versionRule=minimum-major=7; required=True; supportStatus=supported
 - Class: id=documentation-only; triggers=[Markdown or documentation files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
@@ -2407,7 +2434,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 - Class: id=governance-permissions-agents; triggers=[governance contract/tool/migration changes\, effective permissions or agent authority\, executable configuration\, or verification behavior\; excludes only the bounded owner-approved reference-target clarification in project-guidance-metadata]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Class: id=build-release-deploy; triggers=[build\, dependency\, release\, or deploy configuration]; iterationGateIds=[governance-check,app-typecheck]; targetedRegressionGateIds=[governance-check,domain-test,app-typecheck,app-build]; completionGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report
 - Gate: id=governance-check; command=./scripts/check-governance.ps1; stages=[iteration,targeted,completion,release]; includes=[]; invalidatedBy=[any governance input\, policy\, configuration\, or managed artifact change]; evidenceDestination=task completion report
-- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/documentation-changes.mjs\, scripts/lib/documentation-workflow.mjs\, test/documentation-changes.test.mjs\, scripts/verification-evidence.mjs\, scripts/development-acceptance.mjs\, scripts/development-deployment.mjs\, scripts/lib/development-verification.mjs\, scripts/lib/verification-*.mjs\, test/verification-evidence.test.mjs\, .github/workflows/record-development-acceptance.yml\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
+- Gate: id=domain-test; command=npm test; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[src/domain/**\, functions/local-runtime.js\, Functions domain/syntax/workflow contract helpers or tests\, scripts/documentation-changes.mjs\, scripts/pipeline.mjs\, scripts/local-verification.mjs\, scripts/lib/change-scope.mjs\, scripts/lib/local-verification.mjs\, scripts/lib/pipeline-contract.mjs\, test/documentation-changes.test.mjs\, scripts/verification-evidence.mjs\, scripts/development-acceptance.mjs\, scripts/development-deployment.mjs\, scripts/lib/development-verification.mjs\, scripts/lib/verification-*.mjs\, test/verification-evidence.test.mjs\, .github/workflows/record-development-acceptance.yml\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/rules-runner.test.mjs\, test/focused-emulator-test.test.mjs\, test/fixture-tasks.test.mjs\, .github/workflows/deploy-development.yml\, governance/verification-policy.json\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, operator tests\, package.json\, package-lock.json\, or the Node.js runtime changes]; evidenceDestination=task completion report
 - Gate: id=app-typecheck; command=npm run typecheck; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[app/**\, nuxt.config.ts\, tsconfig.json\, package.json\, or package-lock.json changes]; evidenceDestination=task completion report
 - Gate: id=app-build; command=npm run build; stages=[targeted,completion]; includes=[]; invalidatedBy=[application\, Nuxt\, dependency\, TypeScript\, or build configuration changes]; evidenceDestination=task completion report
 - Gate: id=firestore-rules-test; command=npm run test:rules; stages=[iteration,targeted,completion]; includes=[]; invalidatedBy=[firestore.rules\, firebase.json\, functions/**\, src/domain/**\, Functions domain preparation helpers\, scripts/test-rules*.mjs\, scripts/lib/test-emulator*.mjs\, scripts/lib/test-functions-*.mjs\, functions/test-emulator-profile.js\, scripts/lib/rules-test-*.mjs\, scripts/lib/focused-test-reporter.mjs\, src/config/local-emulator.mjs\, test/helpers/fixture-tasks.mjs\, test/emulator/**\, test/firestore*.test.mjs\, test/helpers/**\, data-contract\, emulator tests\, scripts/default-recovery.mjs\, scripts/lib/default-recovery*.mjs\, scripts/lib/recovery-controller.mjs\, app persistence\, dependency\, Node.js/Java/Firebase CLI runtime\, or emulator configuration changes]; evidenceDestination=task completion report

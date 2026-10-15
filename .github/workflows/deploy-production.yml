@@ -6,16 +6,18 @@ on:
 permissions:
   contents: read
   actions: read
-concurrency:
-  group: production-bootstrap
-  cancel-in-progress: false
 jobs:
   scope:
-    name: Classify documentation scope
+    name: Classify and admit candidate
     runs-on: windows-latest
     outputs:
-      documentationOnly: ${{ steps.scope.outputs.documentationOnly }}
-      ciIntroduction: ${{ steps.scope.outputs.ciIntroduction }}
+      kind: ${{ steps.scope.outputs.kind }}
+      local: ${{ steps.scope.outputs.local }}
+      reuse: ${{ steps.scope.outputs.reuse }}
+      proof: ${{ steps.scope.outputs.proof }}
+      hostingName: ${{ steps.scope.outputs.hostingName }}
+      hostingArtifactId: ${{ steps.scope.outputs.hostingArtifactId }}
+      sourceRunId: ${{ steps.scope.outputs.sourceRunId }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -23,38 +25,14 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
+          cache: npm
       - id: scope
-        run: node scripts/documentation-changes.mjs classify
-    if: ${{ vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
-  reuse:
-    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true')) }}
-    runs-on: windows-latest
-    outputs:
-      reuse: ${{ steps.evidence.outputs.reuse }}
-      proof: ${{ steps.evidence.outputs.proof }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - id: evidence
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/verification-evidence.mjs resolve
-    needs:
-      - scope
-  rules:
-    needs:
-      - reuse
-      - scope
-    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.outputs.reuse != 'true')) }}
-    uses: ./.github/workflows/verify-rules.yml
+        run: node scripts/pipeline.mjs scope
   verify:
-    needs:
-      - reuse
-      - rules
-      - scope
-    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (always() && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' && needs.reuse.result == 'success' && (needs.reuse.outputs.reuse == 'true' || needs.rules.result == 'success'))) }}
+    needs: scope
+    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.kind == 'product' && needs.scope.outputs.reuse == 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
     runs-on: windows-latest
     outputs:
       digest: ${{ steps.bundle.outputs.digest }}
@@ -67,38 +45,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
       - run: npx --yes npm@11.19.1 ci
-      - name: Record verified reuse decision
-        if: ${{ needs.reuse.outputs.reuse == 'true' }}
-        env:
-          VERIFICATION_REUSE_PROOF: ${{ needs.reuse.outputs.proof }}
-        run: node scripts/verification-evidence.mjs report
-      - run: ./scripts/check-governance.ps1
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-      - run: npm test
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-      - run: npm run typecheck
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-      - run: npm run build
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-      - uses: actions/download-artifact@v8
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-        with:
-          pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
-          path: tmp/rules-receipts
-          merge-multiple: true
-      - run: npm run test:rules
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-        env:
-          RULES_TEST_RECEIPTS: tmp/rules-receipts
-      - run: node scripts/check-functions-syntax.mjs
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
-      - run: node --check scripts/seed-emulator.mjs
-        if: ${{ needs.reuse.outputs.reuse != 'true' }}
       - id: bundle
         run: node scripts/prepare-production-release.mjs .production-release
       - name: Verify final production bundle
@@ -114,9 +61,9 @@ jobs:
           retention-days: 1
   deploy:
     needs:
-      - verify
       - scope
-    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly != 'true' && (!cancelled() && needs.verify.result == 'success' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true')) }}
+      - verify
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.kind == 'product' && needs.verify.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
     runs-on: windows-latest
     environment: production
     permissions:
@@ -145,6 +92,10 @@ jobs:
           path: .production-release
       - run: node scripts/check-production-release.mjs local .production-release
       - run: node scripts/check-production-release.mjs stage .production-release
+      - name: Reject obsolete candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/pipeline.mjs current-main
       - uses: google-github-actions/auth@v3
         with:
           project_id: ${{ steps.target.outputs.project }}
@@ -163,72 +114,6 @@ jobs:
           service_account: ${{ steps.target.outputs.service_account }}
       - name: Verify deployed Rules indexes Functions and Hosting
         run: node scripts/check-production-release.mjs cloud .production-release
-  documentation:
-    name: Verify documentation without deployment
-    needs: scope
-    if: ${{ needs.scope.outputs.ciIntroduction != 'true' && (needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true') }}
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Check documentation governance
-        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
-        run: ./scripts/check-governance.ps1
-      - name: Verify documentation scope and whitespace
-        if: ${{ needs.scope.result == 'success' && needs.scope.outputs.documentationOnly == 'true' }}
-        run: node scripts/documentation-changes.mjs verify
-  ci-introduction:
-    name: Verify CI introduction
-    needs: scope
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.ciIntroduction == 'true' }}
-    runs-on: windows-latest
-    permissions:
-      contents: read
-      actions: read
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - name: Verify CI introduction scope
-        run: node scripts/documentation-changes.mjs verify-ci
-      - name: Resolve CI introduction verification
-        id: source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/ci-introduction.mjs
-      - uses: actions/setup-java@v6
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        with:
-          distribution: temurin
-          java-version: "21"
-      - name: Install CI dependencies
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: npx --yes npm@11.19.1 ci
-      - name: Check project governance
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: ./scripts/check-governance.ps1
-      - name: Run domain tests
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: npm test
-      - name: Type-check the application
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: npm run typecheck
-      - name: Build the application
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: npm run build
-      - name: Run Firestore and Callable Emulator tests
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: npm run test:rules
-      - name: Check Functions syntax
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: node scripts/check-functions-syntax.mjs
-      - name: Check Emulator seed syntax
-        if: ${{ steps.source.outputs.reuse != 'true' }}
-        run: node --check scripts/seed-emulator.mjs
+    concurrency:
+      group: production-bootstrap
+      cancel-in-progress: false
