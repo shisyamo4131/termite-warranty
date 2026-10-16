@@ -2,6 +2,12 @@
 
 ## 2026-10-16 軽量Dev配備の切替実証
 
+導入[PR39](https://github.com/shisyamo4131/termite-warranty/pull/39)は04:01:49 UTCにmainへ通常merge（`bb30f6a2`）。必須check [38848373964](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848373964)成功。mainのProd app run [38848478815](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848478815)はscope成功、verify/deploy skip、保守run38848478876もverify/publish skip。Prod実配備なし。
+
+同期[PR40](https://github.com/shisyamo4131/termite-warranty/pull/40)は04:05:08 UTCにdevへ通常merge（`14bced8`）。必須check [38848659176](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848659176)成功。main/devの文書競合を保持解消した同期branch経由で、製品は従来devと不変。独立reviewで確認し、検証済み `d51c193` との差が文書3件のみなのでコード試験を再利用した。governance・diff checkは同期後各exit0。同期後の旧push配備runなし・待機runなしを確認済み。
+
+この記録だけを追加した未統合候補で手動Dev実証を行う。業務機能・配備対象ソースは同期devと同一。必要Local証拠は上記dev基点包括7gateとfocused回帰を再利用し、文書のgovernance/diffを確認する。画面受入れ済みとは申告しない。保護・データの前後読取りとnative runの結果・工程時刻は実証後に本節へ追記する。
+
 オーナーは親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` で、非製品変更のPR統合・dev同期・新方式のDev配備実証を承認（「①は進めていいよ。」）。未統合commitをDevへ配備する能力の有効化を含む。Prod実配備、業務データ変更、新規資格情報・IAM・追加のセキュリティ設定変更は対象外。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持する。
 
 03:51:09 UTCに切替前確認を開始。元のLocal差分を `d51c193` に保存し、既存記録 `d79e0c1` / `d372311` とともに元branchへ保全した。main `0e9cd63` 基点の導入branchへ当該26ファイルだけを移植。4文書の競合はmain既存本文と今回追記だけで解消。製品コード・依存・Rules・Firebase設定・Prod workflowの差分なし、機械分類はci、独立静的reviewでも混入なしを確認した。Prod workflow自体の起動は発生するが、非製品scopeによりverify/deployはskipする構成である。
