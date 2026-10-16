@@ -25,3 +25,9 @@ test('production retains target, WIF, build transfer, serialization and post-dep
   const w=load('production');mutate(w);assert.throws(()=>validatePipeline(stringify(w),policy,'production'))
  }
 })
+
+test('candidate build cannot inherit the controller tsconfig from an ancestor checkout',()=>{
+ for(const mutate of [w=>delete w.jobs.build.steps[0].with.path,w=>w.jobs.build.steps[0].with.path='candidate/controller',w=>delete w.jobs.build.steps.find(s=>s.id==='candidate')['working-directory'],w=>delete w.jobs.build.steps.find(s=>s.uses?.startsWith('actions/setup-node@')).with['cache-dependency-path']]){
+  const w=load('development-manual');mutate(w);assert.throws(()=>validateManualDevelopment(stringify(w)))
+ }
+})
