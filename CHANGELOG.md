@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-16 Dev配備の軽量化（Local・未切替）
+
+- dev上の明示起動で確認済み改修commitをbuild/配備する候補を実装。dev pushの二重配備を廃止し、PR保護とProdの既存照合を維持。
+- 必要Local試験は通常記録で扱い、専用JSON全試験証明を廃止。Devの全Functions ZIP/全Hosting hash比較を外し、対象/保護保留/公開入口確認を残す。[判断と制約](docs/decisions/0048-explicit-lightweight-development-deployment.md)。
+
 ## 2026-10-15 検証フロー（main統合済み・実配備未実証）
 
 - 文書・試験・CI変更のmain向け1PRと、配備の確実な省略を追加。

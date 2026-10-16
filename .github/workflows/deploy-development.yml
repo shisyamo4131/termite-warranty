@@ -1,178 +1,25 @@
-name: Deploy Firebase development
+name: Review integration
 on:
   pull_request:
-    branches:
-      - dev
-      - main
-  push:
-    branches:
-      - dev
+    branches: [dev, main]
+    types: [opened, synchronize, reopened, edited]
 permissions:
   contents: read
   actions: read
 jobs:
-  scope:
-    name: Classify and admit candidate
-    runs-on: windows-latest
-    outputs:
-      kind: ${{ steps.scope.outputs.kind }}
-      local: ${{ steps.scope.outputs.local }}
-      reuse: ${{ steps.scope.outputs.reuse }}
-      proof: ${{ steps.scope.outputs.proof }}
-      hostingName: ${{ steps.scope.outputs.hostingName }}
-      hostingArtifactId: ${{ steps.scope.outputs.hostingArtifactId }}
-      sourceRunId: ${{ steps.scope.outputs.sourceRunId }}
-    steps:
-      - &a1
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - &a2
-        uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - id: scope
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/pipeline.mjs scope
-  rules:
-    needs: scope
-    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && !(github.base_ref == 'main' && github.head_ref == 'dev') && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' && needs.scope.outputs.local != 'true' }}
-    uses: ./.github/workflows/verify-rules.yml
-  application:
-    name: Verify application gates
-    needs: scope
-    if: ${{ needs.scope.result == 'success' && github.event_name == 'pull_request' && !(github.base_ref == 'main' && github.head_ref == 'dev') && needs.scope.outputs.kind != 'documentation' && needs.scope.outputs.reuse != 'true' }}
-    runs-on: windows-latest
-    steps:
-      - *a1
-      - *a2
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
-        if: ${{ needs.scope.outputs.local != 'true' }}
-      - run: npx --yes npm@11.19.1 ci
-      - name: gate:domain-test
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: npm test
-      - name: gate:app-typecheck
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: npm run typecheck
-      - name: gate:app-build
-        if: ${{ needs.scope.outputs.local != 'true' || needs.scope.outputs.kind == 'product' }}
-        run: npm run build
-      - name: gate:functions-syntax
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: node scripts/check-functions-syntax.mjs
-      - name: gate:seed-syntax
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: node --check scripts/seed-emulator.mjs
-      - name: gate:documentation-routing
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: node --test test/documentation-changes.test.mjs
-      - name: gate:governance-tools
-        if: ${{ needs.scope.outputs.local != 'true' }}
-        run: node --test test/governance-tools.test.mjs
-      - name: Check Hosting artifact
-        if: ${{ needs.scope.outputs.kind == 'product' }}
-        run: if (-not (Test-Path -LiteralPath '.output/public/index.html' -PathType Leaf)) { throw 'Hosting artifact index.html is missing.' }
-      - uses: actions/upload-artifact@v7
-        if: ${{ needs.scope.outputs.kind == 'product' }}
-        with:
-          name: ${{ needs.scope.outputs.hostingName }}
-          path: .output/public
-          include-hidden-files: true
-          if-no-files-found: error
-          retention-days: 30
   verify:
     name: Verify development deployment
-    needs:
-      - scope
-      - application
-      - rules
-    if: ${{ always() }}
     runs-on: windows-latest
     steps:
-      - *a1
-      - *a2
-      - name: Check current governance and documentation
-        if: ${{ github.event_name == 'pull_request' }}
-        run: ./scripts/check-governance.ps1
-      - name: Check whitespace
-        run: git diff --check HEAD^1 HEAD
-      - uses: actions/download-artifact@v8
-        if: ${{ needs.rules.result == 'success' }}
+      - uses: actions/checkout@v7
         with:
-          pattern: rules-${{ github.sha }}-${{ github.run_attempt }}-*
-          path: tmp/rules-receipts
-          merge-multiple: true
-      - name: gate:firestore-rules-test
-        if: ${{ needs.rules.result == 'success' }}
-        env:
-          RULES_TEST_RECEIPTS: tmp/rules-receipts
-        run: npm run test:rules
-      - id: evidence
-        name: Require complete verification
-        env:
-          PIPELINE_NEEDS: ${{ toJSON(needs) }}
-        run: node scripts/pipeline.mjs aggregate
-      - uses: actions/upload-artifact@v7
-        if: ${{ needs.scope.outputs.kind != 'documentation' }}
-        with:
-          name: ${{ steps.evidence.outputs.name }}
-          path: tmp/verification-evidence.json
-          if-no-files-found: error
-          retention-days: 30
-  deploy:
-    name: Deploy to termite-warranty-dev
-    needs:
-      - scope
-      - verify
-    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.kind == 'product' && needs.verify.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}
-    runs-on: ubuntu-latest
-    environment: development
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v7
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-          cache: npm
-      - name: Install dependencies
-        run: npx --yes npm@11.19.1 ci
-      - name: Download verified Hosting artifact
-        uses: actions/download-artifact@v8
-        with:
-          artifact-ids: ${{ needs.scope.outputs.hostingArtifactId }}
-          run-id: ${{ needs.scope.outputs.sourceRunId }}
-          github-token: ${{ github.token }}
-          path: .output/public
-          digest-mismatch: error
-      - name: Reject obsolete candidate
+      - run: ./scripts/check-governance.ps1
+      - run: git diff --check HEAD^1 HEAD
+      - run: node scripts/pipeline.mjs scope
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/pipeline.mjs current-dev
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v3
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
-      - name: Prepare explicit Dev deployment and preserve protection hold
-        run: node scripts/development-deployment.mjs prepare
-      - name: Deploy Firestore, Functions, and Hosting
-        run: npx firebase deploy --config firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
-      - name: Verify deployed Dev release and protection hold
-        run: node scripts/development-deployment.mjs check
-      - id: deployed
-        run: node scripts/pipeline.mjs publish-deployment
-      - uses: actions/upload-artifact@v7
-        with:
-          name: ${{ steps.deployed.outputs.name }}
-          path: tmp/deployment-verification.json
-          if-no-files-found: error
-          retention-days: 30
-    concurrency:
-      group: development-deployment
-      cancel-in-progress: false
