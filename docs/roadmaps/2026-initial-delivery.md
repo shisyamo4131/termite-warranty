@@ -1,5 +1,7 @@
 # 2026 Initial-Delivery Roadmap
 
+2026-10-16：反復配備は[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の手動Dev・受入れ後PRへ簡素化するLocal改修を承認。HS試行期間を待機理由にせず、Dev試行データは保持する。実配備・Prod昇格・保護開始の承認は別途。納品マイルストーンへの加点なし。[作業範囲](technical-remediation.md#2026-10-16-dev配備の軽量化local改修中)。
+
 ## 2026-10-15 現行日程
 
 Dev22d5bacの本人受入れ、記録修正の包括検証、dev→main PR27、main4d7422fのProd配備・全5照合が完了。Dev自動配備も有効。[証拠・残件](production-readiness.md#2026-10-15-現在地とhs試行日程)。以下のDev未切替・Prod未反映は当時の記録。

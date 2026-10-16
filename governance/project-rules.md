@@ -1,5 +1,9 @@
 # termite-warranty Project Rules
 
+## 明示起動のDev配備（2026-10-16採用）
+
+[ADR0048](../docs/decisions/0048-explicit-lightweight-development-deployment.md)と[配備手順](../docs/runbooks/application-deployment.md)を適用する。dev/mainのPR保護、developmentのdev限定、Prodの既存保護を維持する。dev上のcontrollerから同一repositoryの確認済み未統合commitへ明示配備する実効範囲は承認済み。Localの必要gateと有効証拠再利用を維持し、証拠取り込み専用の固定全試験/JSONコメント/CI再実行を要求しない。通常Devの全ZIP/全Hosting hash比較を外す。実装・検証承認とmain統合/実配備承認を区別する。HS試行期間だけで待機せず、Devデータ保持・保護設定保留は維持する。
+
 - Status: Active
 - Owner: Project
 - Project-owned governance: `governance/common-governance.md`

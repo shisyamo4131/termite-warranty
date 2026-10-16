@@ -1,6 +1,6 @@
 # 0047 統合前の一度の検証と非製品変更の1PR化
 
-- Status: Accepted; merged to main, not synchronized to dev or deployment-proven
+- Status: Superseded for the daily Dev flow by [0048](0048-explicit-lightweight-development-deployment.md); historical evidence retained
 - Date: 2026-10-15
 - Approval: 親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` が04:56 UTCの本人承認を確認。専用branchで実装・試験・独立review・push・draft PRまで。merge、Dev/Prod配備、権限・設定・データ変更は未承認。
 - Additional approval: 同日の本人「見積もり報告後、PR #35の反映を許可する」に基づき、Prod昇格前の機能試験工程を除く追加修正を承認。再検証はDev側または試験・CI変更の技術確認へ戻す。統合・配備の承認は含まない。
