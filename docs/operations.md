@@ -2,17 +2,62 @@
 
 ## 2026-10-16 軽量Dev配備の切替実証
 
-オーナーは親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` で、非製品変更のPR統合・dev同期・新方式のDev配備実証を承認（「①は進めていいよ。」）。未統合commitをDevへ配備する能力の有効化を含む。Prod実配備、業務データ変更、新規資格情報・IAM・追加のセキュリティ設定変更は対象外。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持する。
+非製品変更のmain統合・dev同期・指定未統合commitのDev配備実証は完了。画面受入れは未実施。オーナー承認は親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` の「①は進めていいよ。」（未統合commit配備能力の有効化を含む）。Prod実配備、業務データ変更、新規資格情報/IAM/追加セキュリティ設定変更は行っていない。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持した。
 
-03:51:09 UTCに切替前確認を開始。元のLocal差分を `d51c193` に保存し、既存記録 `d79e0c1` / `d372311` とともに元branchへ保全した。main `0e9cd63` 基点の導入branchへ当該26ファイルだけを移植。4文書の競合はmain既存本文と今回追記だけで解消。製品コード・依存・Rules・Firebase設定・Prod workflowの差分なし、機械分類はci、独立静的reviewでも混入なしを確認した。Prod workflow自体の起動は発生するが、非製品scopeによりverify/deployはskipする構成である。
+### 統合と実証結果
 
-03:57:17 UTC、旧自動Dev配備を止めるため既存 `DEVELOPMENT_BRANCH_DEPLOY_ENABLED` をfalseへ変更し読戻し済み。新方式をdevへ同期し進行中旧runがないことを確認後に復帰する。必須check・branch protection・environment branch制限は変更しない。main基点の包括検証は下記のとおり完了し、PR統合へ進む。
+- 元Local差分を `d51c193` に保存し、未push記録 `d79e0c1` / `d372311` と元branchで保全。main `0e9cd63` 基点へ非製品26ファイルだけを移植した。4文書の競合は各branchの既存本文を保持して新追記のみを適用。製品/依存/Rules/Firebase設定/Prod workflowの混入なしを機械分類と独立reviewで確認した。
+- [PR39](https://github.com/shisyamo4131/termite-warranty/pull/39)を04:01:49 UTCにmain `bb30f6a2` へ通常merge。[PR40](https://github.com/shisyamo4131/termite-warranty/pull/40)を04:05:08にdev `14bced8` へ同期。旧Dev起動flagは03:57:17にfalse、旧push trigger消失と旧進行/待機run不在を確認後、04:06:49にtrueへ復帰。必須check・strict最新base・管理者適用・PR保護・environment dev限定は維持した。
+- 初回[手動run38848940102](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848940102)は親controllerのtsconfigを候補buildが参照して失敗。Cloud認証前に停止しdeploy skip。buildのcontroller/とcandidate/を兄弟配置へ修正し、guard作業場所/cache lockと負例試験を追随させた。製品・権限・artifact対象は不変。
+- 修正[PR41](https://github.com/shisyamo4131/termite-warranty/pull/41)を04:11:52にmain `cdd8156d` へ統合。直接main→devの[PR42](https://github.com/shisyamo4131/termite-warranty/pull/42)はstrict最新baseを満たさず、mainへ未リリース製品を逆流させないため閉じた。dev基点の同期[PR43](https://github.com/shisyamo4131/termite-warranty/pull/43)を04:15:08にdev `5a363cd1` へ通常merge。今後もstrict条件を満たすdev基点同期branchを用いる。
+- 成功[手動run38849715854](https://github.com/shisyamo4131/termite-warranty/actions/runs/38849715854) attempt1：controller `5a363cd10c3a6e6503225e51b194aaa3f752851f`、候補 `6b2d2d2e9a86e1fedd9267978883f94ea4d3d72f`（当時未統合、devとの差は本記録のみ）。native artifactでHosting/Functions domainを渡し、Firebase CLI成功、21 Functions ACTIVE、公開HTML/接続先正常、PITR=false・日次予定0・automation=false・既存退避パラメータ保持を確認。CLIは変更なしのFunctionsを省略し、Hostingを公開、Rules/索引を確認・反映した。全source ZIP/Hosting全hash比較は実行していない。
+- main pushのProd app run [38848478815](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848478815)と[38849368823](https://github.com/shisyamo4131/termite-warranty/actions/runs/38849368823)はscope成功・verify/deploy skip。保守run38848478876/38849368819もverify/publish skip。Prod実配備なし。dev同期push配備なし。
 
-導入候補 `01dcd43` のmain基点検証：`npm test` 606件中604pass/2skip/0fail（Windows symlink条件）、`npm run test:rules` 201pass/0fail、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1` はそれぞれexit0。focused `node --test test/documentation-changes.test.mjs` は13pass/exit0、`node --test test/governance-tools.test.mjs` は10pass/exit0。単体の初回2失敗はRules並行起動との共有一時lock競合であり、Rules停止後の単独再実行（03:59:37.093→03:59:41.597 UTC）で成功。Rules runnerは355775ms、log作成03:53:32→最終書込03:59:28 UTC（ファイル時刻参考）で停止まで完了。試験対象と生成物が異なるmain導入に必要な再検証であり、将来の通常Dev Actionsへ全試験を追加したものではない。最終記録のみの追記はコード試験を失効させず、governanceと差分checkを再確認する。
+### 検証とデータ保持
 
-ブラウザ操作は基盤のMXC/SystemDrive起動エラーで利用できず、画面受入れは未実施。HTTP成功を画面受入れと扱わない。切替後はログイン・一覧/詳細の非更新表示を本人確認事項とし、保存・発行・取込み・Auth操作を伴う業務試験は行わない。
+Localの各成功結果は個別exit0を確認した。main導入 `01dcd43` は包括7gateを実行：`npm test` 604pass/2skip、`npm run test:rules` 201pass、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`。focused `node --test test/documentation-changes.test.mjs` 13pass、`node --test test/governance-tools.test.mjs` 10pass。単体初回2失敗はRules並行起動との一時lock競合であり、Rules停止後03:59:37.093→03:59:41.597 UTCの単独再実行で成功。Rules runner355775ms・Emulator停止済み（log作成03:53:32→最終書込03:59:28 UTCはファイル時刻参考）。
+
+配置修正後、mainは単体605pass/2skip、devは624pass/2skip、双方のbuild・routing13・governance・diff checkは各exit0。skipは既存Windows symlink条件。型検査・Rules・Functions/seed構文・governance focusedは入力不変の成功証拠をpolicyに従い再利用（dev Rules203は下記Local改修記録）。workflow/validator差分は独立review済み。最終候補は検証済み同期tree `90a24b2` から文書1件だけの差であり、governance/diffのみ再確認した。今回の初回導入・異なるmain製品基点・不具合修正に必要な検証を、将来の通常Dev Actionsの全試験反復と混同しない。
+
+既存CLI認証でDev(default)を読取り、本文保存なしで比較。04:05:33.678→04:19:19.939 UTCで782文書（物件442を含む）と内容hash `70a25f5ad639be7404b90843b0a22e7e7c4e6906bf89b5120afc7b77ff80de2b` が一致。runtime/accessも同一・normal、operator lockなし。補助読取りの前後各exit0。seed/補正/削除/Auth変更/業務更新試験なし。この比較はDB文書とruntimeの範囲であり、Auth全ユーザーやCloud全資源の完全差分証明ではない。
+
+### 工程別実測（UTC）
+
+開始終了はGitHub APIのrun/job/step時刻、Git merge時刻とLocal時計による。run作成→最初jobを初期待機、job間空白を引継ぎ待機として分離し、runner内部queueだけとは断定しない。秒表示の0秒は秒未満を意味し得る。並行工程は合算しない。
+
+| 工程 | 開始→終了 | 所要・待機 |
+| --- | --- | --- |
+| 導入準備・main基点検証・PR作成 | 03:51:09→04:00:38 | 9分29秒（初回導入、通常反復とは別） |
+| PR39 check | 04:00:41→04:01:13 | 32秒＝初期待機2秒＋job30秒 |
+| PR40同期check | 04:03:54→04:04:40 | 46秒＝初期待機3秒＋job43秒 |
+| 初回手動Dev失敗 | 04:07:07→04:07:56 | 49秒、初期待機3秒、build失敗、配備なし |
+| 原因調査・修正・PR同期・再起動 | 04:07:56→04:15:47 | 7分51秒。修正PR41は47秒、置換PR42は48秒、PR43は41秒（いずれも内数） |
+| 成功手動Dev全体 | 04:15:47→04:17:51 | 2分04秒 |
+| 同run build job | 04:15:51→04:16:39 | 48秒、開始前待機4秒 |
+| 候補依存導入（build側） | 04:16:01→04:16:19 | 18秒 |
+| Nuxt build | 04:16:19→04:16:33 | 14秒 |
+| Functions domain準備 / artifact upload | 04:16:33→04:16:33 / 04:16:33→04:16:35 | 0秒表示 / 2秒 |
+| 同run deploy job | 04:16:42→04:17:50 | 68秒、job間待機3秒 |
+| controller / 候補依存導入 | 04:16:51→04:17:04 / 04:17:05→04:17:16 | 13秒 / 11秒（依存導入合計42秒） |
+| artifact download / 候補再確認 | 04:17:16→04:17:18 / 04:17:18→04:17:19 | 2秒 / 1秒 |
+| 認証・predeploy | 04:17:19→04:17:22 | 3秒 |
+| Firebase CLI配備 | 04:17:22→04:17:45 | 23秒、Functions変更なしで省略 |
+| 配備後の限定確認 | 04:17:45→04:17:47 | 2秒 |
+| データ保持の後読取り | 04:18:17.642→04:19:19.977 | 62.335秒（前読取りの開始時刻は未測定） |
+| 最終記録・整合確認 | 04:19:00→本記録commitのcommitter時刻 | Git時刻を終端に算出。後読取りと約20秒重複 |
+| 人の画面受入れ待ち | 未開始・未完了 | 未測定 |
+
+導入開始→データ保持確認は28分10.977秒。初回導入/失敗修正/複数PR/確認/待機を含むため通常1回の配備時間ではない。記録終了までの全体は03:51:09→本記録commitの時刻で算出し、最終報告へ記載する。
+
+PR38参考値はCI6分45秒、Dev5分15秒（CLI2分01秒・公開後照合1分17秒）、記録3分37秒、全体20分52秒。今回は軽量PRで全試験を実行せずLocal必要試験を先に実施し、buildをDev側へ移した。通常工程から専用JSON証明・全ZIP/Hosting hash照合・dev merge後配備が消える。一方、依存導入・build・CLI・人の受入れは残る。今回Functionsは省略、PR38は21件更新、queue/VM/cache/試験範囲/照合保証/初回導入条件が異なるため、差を因果的改善や削減率・将来所要時間として提示しない。
+
+### 残る受入れ
+
+ブラウザ操作はMXC/SystemDrive基盤起動エラーで利用できず、実画面成功とは記録しない。本人による非更新のログイン、物件/保証の一覧・検索・詳細・履歴、請求一覧/詳細、通常メニュー、ログアウト後の拒否を確認する。保存・発行・取込み・アカウント作成等の業務データ更新試験は対象外。HS正式受入れ・Prod昇格・保護開始は別工程。新たな権限承認不足はない。
 
 ## 2026-10-16 軽量Dev配備のLocal改修
+
+本節は切替前のLocal完了時点の記録。現在の統合・配備状態は上の切替実証節を優先する。
 
 本人採用の[ADR0048](decisions/0048-explicit-lightweight-development-deployment.md)に従って手動Dev/軽いPR/Prod接続を改修中。[切替手順](runbooks/application-deployment.md)を正本とする。必要Local試験と成功証拠再利用を維持し、証拠取り込み専用の全試験・JSONコメント・再実行、Dev通常配備の全ZIP/全Hosting hash照合を外す。既存Prod照合・復旧照合は維持。main統合・実Dev配備・Cloud設定/データ変更は未実施。
 
