@@ -1,266 +1,130 @@
 import assert from 'node:assert/strict'
 import {test} from 'node:test'
-import {classifyDiff,pathKind,inputDigests} from '../scripts/lib/change-scope.mjs'
-import {compareEvent,prEvidence,assertAggregate,assertCurrentRun,assertCurrentBranch,evidenceName,hostingName,resolveScope,deploymentEvidence,acceptanceFor,promotionEvidence,verificationRevision} from '../scripts/pipeline.mjs'
-import {requiredCommands,validateLocalReceipt,readOwnerRecord,receiptDigest} from '../scripts/lib/local-verification.mjs'
-import {rulesWorkers} from '../scripts/lib/rules-test-plan.mjs'
-import {tapSummary} from '../scripts/local-verification.mjs'
-const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40),repo={id:1363463339,owner:{id:72244713}}
-const raw=(path,old='100644',next='100644',status='M')=>':'+old+' '+next+' '+a+' '+b+' '+status+'\0'+path+'\0'
-const entries=[{path:'app/a.vue',sha:a,mode:'100644'},{path:'test/a.mjs',sha:a,mode:'100644'},{path:'docs/operations.md',sha:a,mode:'100644'}]
-const inputs=inputDigests(entries)
-test('four change classes distinguish deployed files, tests, CI and ordinary documentation',()=>{
-  for(const [path,kind] of [['app/a.vue','product'],['functions/test-a.js','product'],['scripts/prepare-functions-deploy.mjs','product'],['test/a.mjs','test'],['scripts/pipeline.mjs','ci'],['.github/workflows/deploy-production.yml','ci'],['governance/verification-policy.json','ci'],['docs/new.md','documentation'],['deliverables/production-schedule-2026-10-05/build_pdf.py','documentation']])assert.equal(classifyDiff(raw(path)),kind,path)
-  assert.equal(classifyDiff(raw('docs/new.md','000000','100644','A')),'documentation')
-  assert.equal(classifyDiff(raw('docs/old.md','100644','000000','D')),'documentation')
-  assert.equal(classifyDiff(raw('docs/new.md')+raw('app/a.vue')),'product')
-  assert.equal(classifyDiff(raw('test/a.mjs')+raw('.github/workflows/a.yml')),'ci')
-  for(const value of ['',raw('unknown.file'),raw('docs/../app/a.vue'),raw('docs/link.md','100644','120000'),raw('docs/a.md','100644','100755'),raw('docs/a.md').slice(0,-1)])assert.throws(()=>classifyDiff(value))
-})
-test('documentation changes preserve both identities; tests change verification only; application changes both',()=>{
-  for(const [index,verification,product] of [[2,false,false],[1,true,false],[0,true,true]]){
-    const next=structuredClone(entries);next[index].sha=b;const result=inputDigests(next)
-    assert.equal(result.verification!==inputs.verification,verification);assert.equal(result.product!==inputs.product,product)
-  }
-  const previous=[...entries,{path:'legacy.bin',sha:a,mode:'100644'}],next=structuredClone(previous);next.at(-1).sha=b
-  assert.notEqual(inputDigests(previous).product,inputDigests(next).product)
-  assert.throws(()=>inputDigests([...entries,entries[0]]))
-})
-test('PR comparison binds the actual base/head and synthetic merge; direct/forced pushes are refused',()=>{
-  const event={repository:repo,pull_request:{base:{repo,sha:a,ref:'main'},head:{repo,sha:b,ref:'codex/ci'}}},env={GITHUB_REPOSITORY:'shisyamo4131/termite-warranty',GITHUB_SHA:c,GITHUB_EVENT_NAME:'pull_request'}
-  assert.equal(compareEvent(event,env,[a,b]),a)
-  for(const parents of [[b,a],[a],[],[a,b,c]])assert.throws(()=>compareEvent(event,env,parents))
-  const foreign=structuredClone(event);foreign.pull_request.head.repo.id=0;assert.throws(()=>compareEvent(foreign,env,[a,b]))
-  const push={repository:repo,before:a,after:c,forced:false,deleted:false},n={...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'}
-  assert.equal(compareEvent(push,n,[a,b]),a)
-  for(const patch of [{forced:true},{deleted:true},{before:b},{after:a}])assert.throws(()=>compareEvent({...push,...patch},n,[a,b]))
-  assert.throws(()=>compareEvent(push,n,[a]))
-  assert.doesNotThrow(()=>assertCurrentBranch({commit:{sha:c}},n,'main'))
-  for(const [actual,env,branch] of [[{commit:{sha:b}},n,'main'],[{},n,'main'],[{commit:{sha:c}},{...n,GITHUB_EVENT_NAME:'pull_request'},'main'],[{commit:{sha:c}},n,'dev'],[{commit:{sha:c}},{...n,GITHUB_REF:'refs/heads/other'},'other']])assert.throws(()=>assertCurrentBranch(actual,env,branch))
-})
-function local(){return {schema:1,kind:'termite-local-verification',...inputs,install:{command:'npx --yes npm@11.19.1 ci',exitCode:0},runtime:{platform:'win32',node:'v22.23.2',npm:'11.19.1',javaMajor:21,powershellMajor:7},gates:requiredCommands.map(g=>({...g,exitCode:0,elapsedMs:1,tests:{total:2,passed:g.id==='firestore-rules-test'?rulesWorkers.flatMap(w=>w.files).length:2,failed:0,skipped:0,cancelled:0},suite:'baseline',emulatorsStopped:true,workers:rulesWorkers.map(w=>({worker:w.id,exitCode:0,unexpected:0,byFile:Object.fromEntries(w.files.map(f=>[f,{passed:1,failed:0,skipped:0}])),cases:w.files.map(f=>JSON.stringify([f,1,1,'test']))}))}))}}
-test('Local evidence requires all commands, complete tests, runtime compatibility and merge inputs',()=>{
-  assert.equal(validateLocalReceipt(local(),inputs).schema,1)
-  for(const mutate of [r=>r.verification='0'.repeat(64),r=>r.product='0'.repeat(64),r=>r.runtime.platform='linux',r=>r.runtime.npm='11.0.0',r=>delete r.install,r=>r.install.exitCode=1,r=>r.gates.pop(),r=>r.gates.push(r.gates[0]),r=>r.gates[0].exitCode=1,r=>r.gates[0].command='echo pass',r=>r.gates.find(g=>g.id==='domain-test').tests.skipped=2,r=>r.gates.find(g=>g.id==='domain-test').tests.total=3,r=>r.gates.find(g=>g.id==='firestore-rules-test').emulatorsStopped=false,r=>r.gates.find(g=>g.id==='firestore-rules-test').workers.pop(),r=>r.gates.find(g=>g.id==='firestore-rules-test').workers[0].byFile[rulesWorkers[0].files[0]].failed=1,r=>r.gates.find(g=>g.id==='firestore-rules-test').workers[0].byFile[rulesWorkers[0].files[0]].skipped=1,r=>r.gates.find(g=>g.id==='firestore-rules-test').workers[0].cases.pop()]){const r=local();mutate(r);assert.throws(()=>validateLocalReceipt(r,inputs))}
-  assert.deepEqual(tapSummary('# tests 2\n# pass 2\n# fail 0\n# cancelled 0\n# skipped 0\n'),{total:2,passed:2,failed:0,cancelled:0,skipped:0})
-})
-test('only the latest owner comment is an attestation; forged authors and malformed replacements cannot approve',()=>{
-  const comment=(id,owner,record)=>({id,user:{id:owner},body:'TERMITE local-verification\n'+JSON.stringify(record)})
-  assert.equal(readOwnerRecord([comment(1,0,local())],repo.owner.id,'local-verification'),null)
-  const result=readOwnerRecord([comment(1,repo.owner.id,local()),comment(2,repo.owner.id,{revoked:true})],repo.owner.id,'local-verification')
-  assert.equal(result.commentId,2);assert.throws(()=>validateLocalReceipt(result.record,inputs))
-  assert.throws(()=>readOwnerRecord([{...comment(1,repo.owner.id,{}),body:'TERMITE local-verification\ninvalid'}],repo.owner.id,'local-verification'))
-})
+import {mkdtempSync,writeFileSync,mkdirSync,rmSync} from 'node:fs'
+import {tmpdir} from 'node:os'
+import {join,resolve,dirname} from 'node:path'
+import {execFileSync} from 'node:child_process'
+import {classifyDiff,inputDigests} from '../scripts/lib/change-scope.mjs'
+import {compareEvent,sameProduct,reviewedLocal,acceptedDeployment,successfulPR,resolveScope,assertCurrentBranch,manualWorkflow} from '../scripts/pipeline.mjs'
+import {admitCandidate} from '../scripts/development-candidate.mjs'
+import {activeInventory,protectionHeld,developmentConfig} from '../scripts/development-deployment.mjs'
+const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40),repo={id:1363463339,owner:{id:72244713}},repository='shisyamo4131/termite-warranty'
+const raw=path=>':100644 100644 '+a+' '+b+' M\0'+path+'\0'
+const body='- [x] Local verification reviewed\nLocal verification: operations record, commands and exit codes\n- [x] Dev acceptance reviewed\nDev acceptance: owner non-mutating screen review\nDev run: https://github.com/'+repository+'/actions/runs/10'
+const pr={number:1,user:repo.owner,body,head:{repo,ref:'feature',sha:b},base:{repo,ref:'dev',sha:a}}
+const env={GITHUB_REPOSITORY:repository,GITHUB_SHA:c,GITHUB_REF:'refs/heads/dev',GITHUB_EVENT_NAME:'pull_request'}
 function fixture(){
-  const run={id:10,run_attempt:1,repository:repo,head_repository:repo,path:'.github/workflows/deploy-development.yml',event:'pull_request',head_branch:'feature',head_sha:a,status:'completed',conclusion:'success',updated_at:'2000-01-01T00:00:00Z'}
-  const artifact=name=>({id:20,name,size_in_bytes:400,expired:false,expires_at:new Date(Date.now()+86400000).toISOString(),workflow_run:{id:10,repository_id:repo.id,head_repository_id:repo.id,head_sha:a}})
-  const f={run,runs:[run],artifacts:[artifact(evidenceName(inputs,1)),{...artifact(hostingName(inputs,1)),id:21}],pr:{number:1,head:{sha:a,ref:'feature'}}}
-  f.read=async path=>path.includes('/workflows/')?{total_count:f.runs.length,workflow_runs:f.runs}:{total_count:f.artifacts.length,artifacts:f.artifacts}
-  return f
+ const r={id:10,run_attempt:1,repository:repo,head_repository:repo,path:manualWorkflow,event:'workflow_dispatch',head_branch:'dev',head_sha:a,display_title:'Dev '+b,status:'completed',conclusion:'success'}
+ const jobs=[{name:'Deploy to termite-warranty-dev',run_id:10,run_attempt:1,status:'completed',conclusion:'success'}]
+ const f={r,jobs}
+ f.read=async p=>p.includes('/jobs')?{total_count:f.jobs.length,jobs:f.jobs}:f.r
+ return f
 }
-test('native successful PR evidence is reusable without arbitrary age; latest failure and wrong artifacts stop',async()=>{
-  const f=fixture();assert.equal((await prEvidence(f.read,f.pr,inputs,{hosting:true})).hostingArtifactId,21)
-  const identity={event:'pull_request',branch:'feature',revision:a}
-  assert.doesNotThrow(()=>assertCurrentRun(f.run,identity))
-  for(const mutate of [r=>r.repository.id=0,r=>r.repository.owner.id=0,r=>r.head_repository.id=0,r=>r.path='other.yml',r=>r.event='push',r=>r.head_branch='other',r=>r.head_sha=b,r=>r.status='in_progress',r=>r.conclusion='failure',r=>r.id='10',r=>r.run_attempt=0,r=>r.run_attempt='1']){const run=structuredClone(f.run);mutate(run);assert.throws(()=>assertCurrentRun(run,identity))}
-  for(const mutate of [f=>f.runs.push({...f.run,id:11,conclusion:'failure'}),f=>f.run.run_attempt=2,f=>f.run.head_repository={id:0},f=>f.artifacts[0].name='forged',f=>f.artifacts[0].expired=true,f=>f.artifacts[0].workflow_run.head_sha=b,f=>f.artifacts.pop(),f=>f.runs=[]]){const f=fixture();mutate(f);await assert.rejects(prEvidence(f.read,f.pr,inputs,{hosting:true}))}
+test('existing classification treats delivery controllers as CI, unknown changes fail closed',()=>{
+ for(const [p,k] of [['app/a.vue','product'],['functions/a.js','product'],['scripts/development-candidate.mjs','ci'],['scripts/development-deployment.mjs','ci'],['test/a.mjs','test'],['docs/a.md','documentation']])assert.equal(classifyDiff(raw(p)),k)
+ for(const p of ['unknown.file','docs/../app/a.vue'])assert.throws(()=>classifyDiff(raw(p)))
 })
-test('downstream Local reuse rejects edited, deleted or superseded owner attestations',async()=>{
-  const f=fixture(),record=local(),comment={id:30,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify(record)}
-  f.artifacts[0].name=evidenceName(inputs,1,{commentId:30,digest:receiptDigest(record)})
-  let comments=[comment];const read=path=>path.startsWith('/issues/')?Promise.resolve(comments):f.read(path)
-  assert.equal((await prEvidence(read,f.pr,inputs)).artifactId,20)
-  for(const next of [[],[{...comment,body:'TERMITE local-verification\ninvalid'}],[{...comment,body:'TERMITE local-verification\n'+JSON.stringify({...record,revision:b})}],[comment,{...comment,id:31}]]){
-    comments=next;await assert.rejects(prEvidence(read,f.pr,inputs))
-  }
+test('record-only and technical changes preserve product; application or unknown changes do not',()=>{
+ for(const paths of ['','docs/operations.md\0','test/a.mjs\0.github/workflows/a.yml\0'])assert.equal(sameProduct(a,b,()=>paths),true)
+ for(const paths of ['app/a.vue\0','package-lock.json\0','unknown\0','functions/a.js\0'])assert.equal(sameProduct(a,b,()=>paths),false)
+ assert.throws(()=>sameProduct('HEAD',b))
+ const entries=[{path:'app/a.vue',sha:a,mode:'100644'},{path:'docs/a.md',sha:a,mode:'100644'}]
+ const next=structuredClone(entries);next[1].sha=b;assert.deepEqual(inputDigests(entries),inputDigests(next))
 })
-test('aggregate accepts only complete producers, intentional Local reuse, or admitted source reuse',()=>{
-  for(const kind of ['documentation','test','ci','product'])for(const local of [true,false])for(const reuse of [true,false])for(const event of ['pull_request','push']){
-    const scope={kind,local,reuse},full=event==='pull_request'&&kind!=='documentation'&&!reuse
-    const needs={scope:{result:'success'},application:{result:full?'success':'skipped'},rules:{result:full&&!local?'success':'skipped'}}
-    if(event==='push'&&kind==='product'&&!reuse){assert.throws(()=>assertAggregate(scope,needs,event));continue}
-    assert.doesNotThrow(()=>assertAggregate(scope,needs,event))
-    for(const key of ['scope','application','rules'])for(const result of ['success','failure','cancelled','skipped']){
-      if(result===needs[key].result)continue
-      const n=structuredClone(needs);n[key].result=result;assert.throws(()=>assertAggregate(scope,n,event))
-    }
-  }
-  for(const kind of ['documentation','test','ci','product'])for(const reuse of [true,false])for(const local of [true,false]){
-    const scope={kind,reuse,local},needs={scope:{result:'success'},application:{result:'skipped'},rules:{result:'skipped'}}
-    if(kind!=='documentation'&&!reuse)assert.throws(()=>assertAggregate(scope,needs,'pull_request',true),/upstream verification/)
-    else{
-      assert.doesNotThrow(()=>assertAggregate(scope,needs,'pull_request',true))
-      for(const key of ['application','rules']){const n=structuredClone(needs);n[key].result='success';assert.throws(()=>assertAggregate(scope,n,'pull_request',true))}
-    }
-  }
+test('integration compares actual synthetic parents; dev pushes and forced main pushes are rejected',()=>{
+ const event={repository:repo,pull_request:pr}
+ assert.equal(compareEvent(event,env,[a,b]),a)
+ for(const parents of [[b,a],[a],[]])assert.throws(()=>compareEvent(event,env,parents))
+ const push={repository:repo,before:a,after:c,forced:false,deleted:false}
+ assert.throws(()=>compareEvent(push,{...env,GITHUB_EVENT_NAME:'push'},[a,b]))
+ assert.equal(compareEvent(push,{...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'},[a,b]),a)
+ assert.throws(()=>compareEvent({...push,forced:true},{...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'},[a,b]))
 })
-function routeFixture(path='app/a.vue',branch='dev',eventName='pull_request'){
-  const f=fixture(),env={GITHUB_REPOSITORY:'shisyamo4131/termite-warranty',GITHUB_SHA:c,GITHUB_EVENT_NAME:eventName,GITHUB_REF:'refs/heads/'+branch}
-  const source={number:1,merged_at:'2026-10-15T00:00:00Z',merge_commit_sha:c,base:{repo,sha:a,ref:branch},head:{repo,sha:b,ref:branch==='main'?'dev':'feature'}}
-  const event=eventName==='pull_request'?{repository:repo,pull_request:source}:{repository:repo,before:a,after:c,forced:false,deleted:false}
-  const state={entries:structuredClone(entries),comments:[],source,run:{...f.run,head_sha:b,head_branch:source.head.ref},deploy:{...f.run,id:11,event:'push',head_sha:c,head_branch:'dev'}}
-  const artifact=(run,name,id)=>({...f.artifacts[0],id,name,workflow_run:{...f.artifacts[0].workflow_run,id:run.id,head_sha:run.head_sha}})
-  state.prArtifacts=[artifact(state.run,evidenceName(inputs,1),20),artifact(state.run,hostingName(inputs,1),21)]
-  state.deployArtifacts=[artifact(state.deploy,evidenceName(inputs,1),30),artifact(state.deploy,'deployment-v3-'+inputs.product+'-1',31)]
-  const read=async p=>{
-    if(p.startsWith('/issues/'))return state.comments
-    if(p.startsWith('/git/commits/'))return {tree:{sha:a}}
-    if(p.startsWith('/git/trees/'))return {sha:a,truncated:false,tree:entries.map(e=>({...e,type:'blob'}))}
-    if(p.startsWith('/commits/'))return [{...state.source,base:{...state.source.base,ref:p.includes(c)?'dev':'main'}}]
-    if(p==='/actions/runs/11')return state.deploy
-    if(p.startsWith('/actions/workflows/'))return {total_count:1,workflow_runs:[state.run]}
-    if(p.startsWith('/actions/runs/10/artifacts'))return {total_count:state.prArtifacts.length,artifacts:state.prArtifacts}
-    if(p.startsWith('/actions/runs/11/artifacts'))return {total_count:state.deployArtifacts.length,artifacts:state.deployArtifacts}
-    throw Error('Unexpected API '+p)
-  }
-  const run=(...args)=>{
-    if(args[0]==='rev-parse')return c
-    if(args[0]==='show')return a+' '+b
-    if(args[0]==='diff')return raw(path)
-    if(args[0]==='ls-tree')return (args.includes(a)?entries:state.entries).map(e=>e.mode+' blob '+e.sha+'\t'+e.path+'\0').join('')
-    throw Error('Unexpected Git '+args)
-  }
-  return {state,env,event,read,run}
-}
-const accept=product=>({id:40,user:{id:repo.owner.id},body:'TERMITE dev-acceptance\n'+JSON.stringify({schema:1,accepted:true,product,deploymentRunId:11,reference:'owner acceptance fixture'})})
-test('scope executes all four PR routes and non-product pushes without cloud work',async()=>{
-  for(const [path,branch,kind] of [['app/a.vue','dev','product'],['test/a.mjs','main','test'],['scripts/pipeline.mjs','main','ci'],['docs/a.md','main','documentation']]){
-    const f=routeFixture(path,branch)
-    if(kind!=='product')f.event.pull_request.head.ref='feature'
-    const s=await resolveScope(f.read,f.event,f.env,f.run)
-    assert.equal(s.kind,kind);assert.equal(s.reuse,false);assert.equal(s.local,false)
-    if(kind!=='documentation'){
-      f.state.comments=[{id:1,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify(local())}]
-      assert.equal((await resolveScope(f.read,f.event,f.env,f.run)).local,true)
-      f.state.entries[1].sha=b;await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
-    }
-    if(kind!=='product'){
-      const push=routeFixture(path,'main','push'),s=await resolveScope(async()=>{throw Error('Non-product push must not query evidence')},push.event,push.env,push.run)
-      assert.equal(s.kind,kind);assert.equal(s.reuse,false)
-      const wrong=routeFixture(path,'dev');await assert.rejects(resolveScope(wrong.read,wrong.event,wrong.env,wrong.run))
-    }
-  }
-  const wrong=routeFixture('app/a.vue','main');wrong.event.pull_request.head.ref='feature'
-  await assert.rejects(resolveScope(wrong.read,wrong.event,wrong.env,wrong.run))
+test('ordinary Local record replaces full-suite JSON attestation; unchecked or foreign review stops',()=>{
+ reviewedLocal(pr)
+ for(const p of [{...pr,user:{id:0}},{...pr,body:body.replace('[x]','[ ]')},{...pr,body:'- [x] Local verification reviewed'}])assert.throws(()=>reviewedLocal(p))
 })
-test('Dev push uses one exact source artifact; missing or failed source stops instead of rerunning tests',async()=>{
-  const f=routeFixture('app/a.vue','dev','push'),s=await resolveScope(f.read,f.event,f.env,f.run)
-  assert.equal(s.reuse,true);assert.equal(s.sourceRunId,10);assert.equal(s.hostingArtifactId,21)
-  for(const change of [f=>f.state.run.conclusion='failure',f=>f.state.prArtifacts.pop(),f=>f.state.run.run_attempt=2]){
-    const f=routeFixture('app/a.vue','dev','push');change(f);await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
-  }
+test('accepted native Dev run is sufficient without proof artifacts; documents do not invalidate acceptance',async()=>{
+ const f=fixture()
+ assert.equal((await acceptedDeployment(f.read,pr,c,()=> 'docs/operations.md\0')).revision,b)
+ f.r.path='.github/workflows/deploy-development.yml';f.r.event='push'
+ assert.equal((await acceptedDeployment(f.read,pr,c,()=> '')).revision,a)
 })
-test('acceptance requires actual Dev post-check evidence and exact product; promotion never supplies missing tests',async()=>{
-  const f=routeFixture('app/a.vue','main');f.state.comments=[accept(inputs.product)]
-  assert.equal((await deploymentEvidence(f.read,11,inputs.product)).deploymentRunId,11)
-  assert.equal((await acceptanceFor(f.read,f.event.pull_request,inputs)).commentId,40)
-  assert.equal((await resolveScope(f.read,f.event,f.env,f.run)).reuse,true)
-  f.state.entries[1].sha=b
-  assert.equal((await acceptanceFor(f.read,f.event.pull_request,inputDigests(f.state.entries))).commentId,40)
-  f.state.comments.push({id:41,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify({...local(),...inputDigests(f.state.entries)})})
-  await assert.rejects(resolveScope(f.read,f.event,f.env,f.run),/Synchronize and verify/)
-  f.state.entries[0].sha=b;await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
-  for(const change of [f=>f.state.deploy.conclusion='failure',f=>f.state.deployArtifacts.pop(),f=>f.state.comments=[accept('0'.repeat(64))],f=>f.state.comments=[{...accept(inputs.product),user:{id:0}}]]){
-    const f=routeFixture('app/a.vue','main');f.state.comments=[accept(inputs.product)];change(f)
-    await assert.rejects(acceptanceFor(f.read,f.event.pull_request,inputs))
-  }
+test('failed, skipped, foreign and malformed deployment runs cannot approve a candidate',async()=>{
+ for(const mutate of [f=>f.r.conclusion='failure',f=>f.r.status='in_progress',f=>f.r.event='pull_request',f=>f.r.path='other.yml',f=>f.r.display_title='Dev HEAD',f=>f.r.head_repository={id:0},f=>f.r.head_branch='feature',f=>f.jobs[0].conclusion='skipped',f=>f.jobs[0].run_attempt=2,f=>f.jobs=[]]){
+  const f=fixture();mutate(f);await assert.rejects(acceptedDeployment(f.read,pr,c,()=> ''))
+ }
+ for(const p of [{...pr,body:body.replace('Dev acceptance reviewed','withdrawn')},{...pr,body:body+'\nDev run: https://github.com/'+repository+'/actions/runs/11'},{...pr,user:{id:0}}])await assert.rejects(acceptedDeployment(fixture().read,p,c,()=> ''))
+ await assert.rejects(acceptedDeployment(fixture().read,pr,c,()=> 'app/a.vue\0'))
+})
+test('latest failed PR check is not replaced with older success',async()=>{
+ const r={...fixture().r,path:'.github/workflows/deploy-development.yml',head_sha:b,head_branch:'feature',event:'pull_request'}
+ await successfulPR(async()=>({total_count:1,workflow_runs:[r]}),pr)
+ await assert.rejects(successfulPR(async()=>({total_count:2,workflow_runs:[r,{...r,id:11,conclusion:'failure'}]}),pr))
+})
+test('PR routing requires acceptance only for product, uses no test fallback, and rejects direct product promotion',async()=>{
+ for(const [path,kind] of [['docs/a.md','documentation'],['test/a.mjs','test'],['scripts/pipeline.mjs','ci'],['app/a.vue','product']]){
+  const f=fixture(),run=(...args)=>args[0]==='rev-parse'?c:args[0]==='show'?a+' '+b:args.includes('--raw')?raw(path):''
+  const result=await resolveScope(f.read,{repository:repo,pull_request:pr},env,run)
+  assert.equal(result.kind,kind);assert.equal(result.reuse,kind==='product')
+  if(kind==='product')await assert.rejects(resolveScope(f.read,{repository:repo,pull_request:{...pr,base:{...pr.base,ref:'main'}}},env,run))
+ }
+})
+test('manual candidate binds controller, branch head and current dev ancestor before credentials',async()=>{
+ const e={repository:repo,inputs:{source_branch:'codex/change',source_sha:b,local_verified:'true',verification_reference:'operations record'}}
+ const n={...env,GITHUB_SHA:a,GITHUB_EVENT_NAME:'workflow_dispatch'}
+ const read=async p=>({commit:{sha:p==='/branches/dev'?a:b}})
+ const run=(...args)=>args[0]==='rev-parse'?a:a
+ assert.equal((await admitCandidate(read,e,n,run)).revision,b)
+ for(const patch of [{source_sha:'HEAD'},{source_branch:'main'},{source_branch:'../other'},{local_verified:'false'},{verification_reference:''},{verification_reference:'bad\nvalue'}])await assert.rejects(admitCandidate(read,{...e,inputs:{...e.inputs,...patch}},n,run))
+ for(const patch of [{GITHUB_REF:'refs/heads/main'},{GITHUB_EVENT_NAME:'push'},{GITHUB_REPOSITORY:'foreign/repo'}])await assert.rejects(admitCandidate(read,e,{...n,...patch},run))
+ await assert.rejects(admitCandidate(async()=>({commit:{sha:c}}),e,n,run))
+ await assert.rejects(admitCandidate(read,e,n,(...args)=>args[0]==='merge-base'?c:a))
+})
+test('current-main guard preserves production branch and stale candidate restrictions',()=>{
+ const n={...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'}
+ assertCurrentBranch({commit:{sha:c}},n,'main')
+ for(const patch of [{GITHUB_SHA:a},{GITHUB_EVENT_NAME:'workflow_dispatch'},{GITHUB_REF:'refs/heads/dev'}])assert.throws(()=>assertCurrentBranch({commit:{sha:c}},{...n,...patch},'main'))
+})
+test('light Dev checks retain protection hold and refuse incomplete inventories and candidate deployment hooks',()=>{
+ protectionHeld({pointInTimeRecoveryEnablement:'POINT_IN_TIME_RECOVERY_DISABLED'},{})
+ for(const [db,schedules] of [[{},{}],[{pointInTimeRecoveryEnablement:'POINT_IN_TIME_RECOVERY_DISABLED'},{backupSchedules:[{}]}],[{pointInTimeRecoveryEnablement:'POINT_IN_TIME_RECOVERY_DISABLED'},{nextPageToken:'more'}]])assert.throws(()=>protectionHeld(db,schedules))
+ for(const inventory of [{nextPageToken:'more'},{unreachable:['region']},{functions:[]}])assert.throws(()=>activeInventory(inventory))
+ assert.throws(()=>developmentConfig({hosting:{public:'.output/public',predeploy:'danger'}}))
+ assert.throws(()=>developmentConfig({hosting:{public:'../outside'}}))
 })
 
-test('main synchronization verifies only non-product inputs on dev and never deploys them',async()=>{
-  for(const path of ['test/a.mjs','scripts/pipeline.mjs','docs/a.md']){
-    const f=routeFixture(path,'dev');f.event.pull_request.head.ref='main'
-    const scope=await resolveScope(f.read,f.event,f.env,f.run)
-    assert.equal(scope.reuse,false);assert.equal(scope.local,false)
-    const push=routeFixture(path,'dev','push')
-    const pushed=await resolveScope(async()=>{throw Error('Non-product push must not read deployment evidence')},push.event,push.env,push.run)
-    assert.notEqual(pushed.kind,'product')
-  }
-  const product=routeFixture('app/a.vue','dev');product.event.pull_request.head.ref='main'
-  await assert.rejects(resolveScope(product.read,product.event,product.env,product.run),/must not change/)
-  const hidden=routeFixture('test/a.mjs','dev');hidden.event.pull_request.head.ref='main';hidden.state.entries[0].sha=b
-  await assert.rejects(resolveScope(hidden.read,hidden.event,hidden.env,hidden.run),/changed product inputs/)
-  for(const path of ['test/a.mjs','scripts/pipeline.mjs']){
-    const f=routeFixture(path,'main');await assert.rejects(resolveScope(f.read,f.event,f.env,f.run),/upstream technical PR/)
-  }
+test('main push refreshes the merged promotion, checks latest PR result and accepts a deleted source branch',async()=>{
+ const f=fixture(),promotion={...pr,merged_at:'2026-10-16T00:00:00Z',merge_commit_sha:c,head:{...pr.head,ref:'dev'},base:{...pr.base,ref:'main'}}
+ const latest={...f.r,path:'.github/workflows/deploy-development.yml',event:'pull_request',head_sha:b,head_branch:'dev'}
+ let withdrawn=false,failed=false
+ const calls=[],read=async p=>{
+  calls.push(p)
+  if(p==='/commits/'+c+'/pulls?per_page=100')return [promotion]
+  if(p==='/pulls/1')return {...promotion,body:withdrawn?'withdrawn':body}
+  if(p.includes('/actions/workflows/'))return {total_count:1,workflow_runs:[{...latest,conclusion:failed?'failure':'success'}]}
+  return f.read(p)
+ }
+ const run=(...args)=>args[0]==='rev-parse'?c:args[0]==='show'?a+' '+b:args.includes('--raw')?raw('app/a.vue'):''
+ const e={repository:repo,before:a,after:c,forced:false,deleted:false},n={...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'}
+ assert.equal((await resolveScope(read,e,n,run)).reuse,true)
+ assert.ok(calls.includes('/pulls/1'));assert.ok(!calls.some(p=>p.startsWith('/branches/')))
+ withdrawn=true;await assert.rejects(resolveScope(read,e,n,run));withdrawn=false
+ failed=true;await assert.rejects(resolveScope(read,e,n,run));failed=false
+ f.r.path='.github/workflows/deploy-development.yml';f.r.event='push'
+ assert.equal((await resolveScope(read,e,n,run)).reuse,true)
 })
 
-function refreshedPromotion(){
-  const f=routeFixture('app/a.vue','main'),d='d'.repeat(40),e='e'.repeat(40)
-  f.state.comments=[accept(inputs.product)];f.state.entries[1].sha=b
-  const next=inputDigests(f.state.entries)
-  const source={...f.state.source,number:2,merge_commit_sha:b,base:{...f.state.source.base,ref:'dev'},head:{repo,sha:e,ref:'main'}}
-  const run={...f.state.run,id:12,head_sha:e,head_branch:'main'}
-  const evidence={...f.state.prArtifacts[0],id:50,name:evidenceName(next,1),workflow_run:{...f.state.prArtifacts[0].workflow_run,id:12,head_sha:e}}
-  const state={source,run,evidence,remote:structuredClone(f.state.entries),upstreamComments:[]}
-  const read=async p=>{
-    if(p===`/git/commits/${b}`)return {tree:{sha:d}}
-    if(p===`/git/trees/${d}?recursive=1`)return {sha:d,truncated:false,tree:state.remote.map(x=>({...x,type:'blob'}))}
-    if(p===`/commits/${b}/pulls?per_page=100`)return [state.source]
-    if(p.includes('/actions/workflows/')&&p.includes('head_sha='+e))return {total_count:1,workflow_runs:[state.run]}
-    if(p==='/actions/runs/12/artifacts?per_page=100')return {total_count:1,artifacts:[state.evidence]}
-    if(p==='/issues/2/comments?per_page=100')return state.upstreamComments
-    return f.read(p)
-  }
-  return {...f,read,technical:state,next}
-}
-test('changed technical inputs require the exact upstream candidate proof while keeping business acceptance',async()=>{
-  const f=refreshedPromotion(),scope=await resolveScope(f.read,f.event,f.env,f.run)
-  assert.equal(scope.reuse,true);assert.equal(scope.local,false);assert.equal(scope.acceptance.commentId,40);assert.equal(scope.sourceRunId,12)
-  f.state.comments.push({id:41,user:{id:repo.owner.id},body:'TERMITE local-verification\ninvalid'})
-  assert.equal((await promotionEvidence(f.read,f.event.pull_request,f.next,f.run)).sourceRunId,12)
-  for(const mutate of [f=>f.technical.remote[1].sha=a,f=>f.technical.remote[0].sha=b,f=>f.technical.source.merge_commit_sha=c,f=>f.technical.source.base.ref='main',f=>f.technical.run.conclusion='failure',f=>f.technical.run.run_attempt=2,f=>f.technical.evidence.name=evidenceName(inputs,1),f=>f.technical.evidence.expired=true]){
-    const f=refreshedPromotion();mutate(f);await assert.rejects(resolveScope(f.read,f.event,f.env,f.run))
-  }
-  const attested=refreshedPromotion(),record={...local(),...attested.next},comment={id:50,user:{id:repo.owner.id},body:'TERMITE local-verification\n'+JSON.stringify(record)}
-  attested.technical.upstreamComments=[comment]
-  attested.technical.evidence.name=evidenceName(attested.next,1,{commentId:50,digest:receiptDigest(record)})
-  assert.equal((await resolveScope(attested.read,attested.event,attested.env,attested.run)).reuse,true)
-  for(const comments of [[],[{...comment,body:'TERMITE local-verification\ninvalid'}],[comment,{...comment,id:51,body:'TERMITE local-verification\n{"revoked":true}'}]]){
-    attested.technical.upstreamComments=comments;await assert.rejects(resolveScope(attested.read,attested.event,attested.env,attested.run))
-  }
-})
-test('documentation commits preserve the last changed-input proof without crossing a technical change or latest failure',async()=>{
-  const f=refreshedPromotion(),d='d'.repeat(40),e='e'.repeat(40)
-  f.event.pull_request=structuredClone(f.event.pull_request)
-  f.event.pull_request.head.sha=d
-  const read=p=>p===`/git/commits/${d}`?f.read(`/git/commits/${b}`):f.read(p)
-  const run=(...args)=>args[0]==='show'&&args.at(-1)==='HEAD'?a+' '+d:args[0]==='show'&&args.at(-1)===d?b+' '+e:f.run(...args)
-  assert.equal(verificationRevision(d,f.next,run),b)
-  assert.equal((await resolveScope(read,f.event,f.env,run)).sourceRunId,12)
-  f.technical.run.conclusion='failure'
-  await assert.rejects(resolveScope(read,f.event,f.env,run))
-  f.technical.run.conclusion='success'
-  const changed=(...args)=>args[0]==='ls-tree'&&args.includes(b)?entries.map(e=>e.mode+' blob '+e.sha+'\t'+e.path+'\0').join(''):run(...args)
-  await assert.rejects(resolveScope(read,f.event,f.env,changed),/no unique merged PR/)
-  const unbounded=(...args)=>args[0]==='show'?b:args[0]==='ls-tree'?f.run('ls-tree','HEAD'):f.run(...args)
-  assert.throws(()=>verificationRevision(d,f.next,unbounded),/bounded verification lookup/)
-})
-
-test('main push revalidates changed-input upstream proof and never compensates for a failed technical run',async()=>{
-  const f=refreshedPromotion()
-  const env={...f.env,GITHUB_EVENT_NAME:'push'},event={repository:repo,before:a,after:c,forced:false,deleted:false}
-  const promoted={...f.state.run,id:13},evidence={...f.state.prArtifacts[0],id:60,name:evidenceName(f.next,1),workflow_run:{...f.state.prArtifacts[0].workflow_run,id:13}}
-  function reader(){
-    let associations=0,queries=0
-    return async p=>{
-      if(p===`/commits/${c}/pulls?per_page=100`&&++associations===1)return [f.state.source]
-      if(p.includes('/actions/workflows/')&&p.includes('head_sha='+b)&&++queries===1)return {total_count:1,workflow_runs:[promoted]}
-      if(p==='/actions/runs/13/artifacts?per_page=100')return {total_count:1,artifacts:[evidence]}
-      return f.read(p)
-    }
-  }
-  assert.equal((await resolveScope(reader(),event,env,f.run)).sourceRunId,12)
-  f.technical.run.conclusion='failure'
-  await assert.rejects(resolveScope(reader(),event,env,f.run),/successful trusted run/)
-})
-test('main product push rechecks both promotion PR proof and owner acceptance',async()=>{
-  const f=routeFixture('app/a.vue','main','push');f.state.comments=[accept(inputs.product)]
-  const read=p=>p===`/commits/${c}/pulls?per_page=100`?Promise.resolve([{...f.state.source,base:{...f.state.source.base,ref:'main'}}]):f.read(p)
-  // The same commit cannot represent both promotion and Dev in this fixture;
-  // route deployment association separately while retaining all API validation.
-  let associations=0
-  const routed=p=>p===`/commits/${c}/pulls?per_page=100`?(++associations===1?read(p):f.read(p)):read(p)
-  assert.equal((await resolveScope(routed,f.event,f.env,f.run)).reuse,true)
-  f.state.comments=[{...accept(inputs.product),body:'TERMITE dev-acceptance\n{"accepted":false}'}];associations=0
-  await assert.rejects(resolveScope(routed,f.event,f.env,f.run))
+test('real Git compares accepted product through record commits and rejects merge-result product edits',()=>{
+ const temporaryRoot=resolve(tmpdir()),root=mkdtempSync(join(temporaryRoot,'termite-diff-test-'))
+ const run=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',windowsHide:true}).trimEnd()
+ const commit=()=>{run('add','.');run('-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','fixture');return run('rev-parse','HEAD')}
+ try{
+  run('init','-q');mkdirSync(join(root,'app'));mkdirSync(join(root,'docs'))
+  writeFileSync(join(root,'app/a.vue'),'accepted\n');writeFileSync(join(root,'docs/record.md'),'before\n');const accepted=commit()
+  writeFileSync(join(root,'docs/record.md'),'after\n');const recorded=commit()
+  assert.equal(sameProduct(accepted,recorded,run),true)
+  writeFileSync(join(root,'app/a.vue'),'conflict resolution\n');const changed=commit()
+  assert.equal(sameProduct(accepted,changed,run),false)
+ }finally{if(dirname(resolve(root))!==temporaryRoot)throw Error('Unexpected fixture cleanup path.');rmSync(root,{recursive:true,force:true})}
 })

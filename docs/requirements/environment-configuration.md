@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-10-16採用：[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)。development環境はdev限定のまま、dev controllerから確認済み未統合commitへ明示配備する。branch protection・必須check名・secret/IAM・ProdのWIF/照合は維持。Local改修段階で実設定・Cloud状態は変更していない。以下の起動方式と現在地は旧経路の記録。[切替手順](../runbooks/application-deployment.md)。
+
 2026-10-15検証フロー：[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)をPR35でmainへ統合済み。非製品変更はmain向け1PR、製品はdev→mainを維持する。branch保護・必須check名・environment許可branch・IAM・secret・Cloud設定は変更していない。dev未同期・実配備未実証であり、以下の実設定/実証結果を更新したものではない。
 
 2026-10-15現在：Dev0dc6aca／run38674603493、本人が受入れた元Dev22d5bacの記録run38675079811、main4d7422f／Prod run38675498552が成功。Prod公開版c837957f050b2703、21 Functions ACTIVE。全5照合と後処理成功、独立読取りでPITR無効・日次予定0・automation=false・他3保護入力空を確認。Devも配備時に保護保留を確認。日次バックアップ・PITR・Auth退避はリリース直前まで保留し、IAM／環境設定は変更していない。[証拠](../operations.md#2026-10-15-dev受入れ記録prod反映完了)。

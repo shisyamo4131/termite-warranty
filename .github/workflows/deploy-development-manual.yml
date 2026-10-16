@@ -1,0 +1,104 @@
+name: Deploy selected development candidate
+run-name: Dev ${{ inputs.source_sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: Same-repository feature branch including current dev
+        required: true
+        type: string
+      source_sha:
+        description: Full commit checked locally
+        required: true
+        type: string
+      local_verified:
+        description: Applicable Local tests and screen acceptance are complete
+        required: true
+        type: boolean
+      verification_reference:
+        description: Non-secret Local verification record reference
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: development-deployment
+  cancel-in-progress: false
+jobs:
+  build:
+    if: ${{ github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    outputs:
+      revision: ${{ steps.candidate.outputs.revision }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - id: candidate
+        run: node scripts/development-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.candidate.outputs.revision }}
+          path: candidate
+          persist-credentials: false
+      - run: npx --yes npm@11.19.1 ci
+        working-directory: candidate
+      - run: npm run build
+        working-directory: candidate
+      - run: npm run prepare:functions
+        working-directory: candidate
+      - uses: actions/upload-artifact@v7
+        with:
+          name: development-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            candidate/.output/public
+            candidate/functions/domain
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+  deploy:
+    name: Deploy to termite-warranty-dev
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' && github.ref == 'refs/heads/dev' && vars.DEVELOPMENT_BRANCH_DEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.build.outputs.revision }}
+          path: candidate
+          persist-credentials: false
+      - run: npx --yes npm@11.19.1 ci
+        working-directory: candidate
+      - uses: actions/download-artifact@v8
+        with:
+          name: development-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: candidate
+          digest-mismatch: error
+      - run: node scripts/development-candidate.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}
+          cleanup_credentials: true
+      - run: node scripts/development-deployment.mjs prepare
+      - run: npx --no-install firebase deploy --config candidate/firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive
+      - run: node scripts/development-deployment.mjs check

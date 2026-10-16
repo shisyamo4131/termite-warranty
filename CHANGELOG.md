@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-16 Dev配備の軽量化（Local・未切替）
+
+- dev上の明示起動で確認済み改修commitをbuild/配備する候補を実装。dev pushの二重配備を廃止し、PR保護とProdの既存照合を維持。
+- 必要Local試験は通常記録で扱い、専用JSON全試験証明を廃止。Devの全Functions ZIP/全Hosting hash比較を外し、対象/保護保留/公開入口確認を残す。[判断と制約](docs/decisions/0048-explicit-lightweight-development-deployment.md)。
+
 ## 2026-10-15 納品前改修候補（Local・未配備）
 
 - 保存結果不明時の要求固定・内容照合と、マスタ新規作成の重複防止を追加。保存後の再取得失敗は読取りだけ再試行する。

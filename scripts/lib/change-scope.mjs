@@ -5,6 +5,7 @@ export const git=(...args)=>execFileSync('git',args,{encoding:'utf8',windowsHide
 // These tools do not contribute to the deployed application. Everything else
 // under scripts remains a product/operational input, deliberately conservative.
 const verificationTools=new Set([
+  'development-candidate.mjs','development-deployment.mjs',
   'pipeline.mjs','local-verification.mjs','documentation-changes.mjs','ci-introduction.mjs',
   'verification-evidence.mjs','development-acceptance.mjs','development-workflow-contract.mjs',
   'production-workflow-contract.mjs','check-governance.ps1','render-governance.ps1',

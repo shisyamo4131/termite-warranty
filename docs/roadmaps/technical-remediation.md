@@ -1,5 +1,9 @@
 # Technical Remediation Backlog
 
+## 2026-10-16 Dev配備の軽量化（Local改修中）
+
+[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。現時点は未切替、性能改善は未実測。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。
+
 ## 2026-10-15 納品前レビューで採用した追加改修
 
 オーナーの同日指示に基づくLocal候補を実装し、独立レビュー・対象回帰・包括7gateを確認した（単体はWindows symlink 3skip）。[実測と制約](../operations.md#2026-10-15-納品前改修local検証)。未commit・未配備であり、Devの業務再確認・HS受入れは未実施。既存納品進捗の加点なし。納品順序は[初期納品ロードマップ](2026-initial-delivery.md)を参照する。

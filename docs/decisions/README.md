@@ -12,6 +12,7 @@
 
 | ID | Decision | Status | Date |
 |---|---|---|---|
+| [0048](0048-explicit-lightweight-development-deployment.md) | 明示起動の軽量Dev・受入れ後PR（Local改修・未切替） | Accepted | 2026-10-16 |
 | [0047](0047-single-verification-and-nonproduct-pr.md) | 統合前の一度の検証・非製品1PR・受入れ記録分離（main統合済み、実配備未実証） | Accepted | 2026-10-15 |
 | [0046](0046-verification-reuse-and-dev-acceptance.md) | 同一内容のPR検証再利用とDev受入れ記録 | Accepted | 2026-10-14 |
 | [0045](0045-legacy-property-list-retirement.md) | 旧一覧条件の拒否と所属付き保証案内 | Accepted | 2026-10-13 |
