@@ -1,6 +1,6 @@
 # TR-003 Verification and Development-deploy Gates
 
-2026-10-16：日常Dev経路は[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の軽量化を採用。main/dev切替・Dev実証済み。画面受入れは未実施。[実績](../operations.md#2026-10-16-軽量dev配備の切替実証)。必要gate/失効条件を維持し、Local専用全試験証明とDev通常の全ZIP/全Hosting hash比較を廃止する。PRは記録と受入れ確認、Devは明示build/配備、Prodは既存build/WIF/全5照合を維持。以下は旧設計・実績であり、新経路へ旧証拠連鎖を要求しない。[実手順](../runbooks/application-deployment.md)。
+2026-10-16：日常Dev経路は[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の軽量化を採用。main/dev切替・Dev実証済み。本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[実績](../operations.md#2026-10-16-軽量dev配備の切替実証)。必要gate/失効条件を維持し、Local専用全試験証明とDev通常の全ZIP/全Hosting hash比較を廃止する。PRは記録と受入れ確認、Devは明示build/配備、Prodは既存build/WIF/全5照合を維持。以下は旧設計・実績であり、新経路へ旧証拠連鎖を要求しない。[実手順](../runbooks/application-deployment.md)。
 
 2026-10-15の[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)で検証場所・結果再利用・構造検査を改訂し、PR35でmainへ統合済み。必須gateの内容、資格情報分離、固定配備先、成果物一致、失敗時停止は維持。以下の独立step固定順・全構造照合・全変更2段階PRの規定は旧設計として扱う。dev未同期・実配備未実証。
 

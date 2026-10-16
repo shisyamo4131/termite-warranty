@@ -1,6 +1,6 @@
 # Dev／Prod 通常アプリの配備手順
 
-[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の採用済み配備手順。main/dev切替と新経路のDev実証は完了、画面受入れは未実施。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。旧経路の実績とPR38本人確認は[operations](../operations.md)を参照する。
+[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の採用済み配備手順。main/dev切替と新経路のDev実証は完了、本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。旧経路の実績とPR38本人確認は[operations](../operations.md)を参照する。
 
 ## 1. 対象と承認境界
 

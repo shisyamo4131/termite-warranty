@@ -1,6 +1,6 @@
 # 0048 明示起動の軽量Dev配備と受入れ後のPR統合
 
-- Status: Accepted; main/dev cutover and explicit Dev deployment verified; screen acceptance pending
+- Status: Accepted; main/dev cutover and explicit Dev deployment verified; limited read-only owner screen confirmation recorded (scope in operations)
 - Date: 2026-10-16
 - Approval: 親タスク01a1186d-ebfa-70e3-9fa5-67accdb2202eから伝達された本人「①は推奨案を採用する。作業開始。なお、HS側のDev受入れ検証期間中だが、そこは気にしなくてよい。」。dev統合PR維持、dev固定controllerから未統合候補への明示配備、Prod保護維持を採用。実装・必要検証まで実行し、main統合/実配備前に報告する。
 - Supersedes: [0047](0047-single-verification-and-nonproduct-pr.md)の日常Dev/証拠取り込み経路。過去の実績は取り消さない。
