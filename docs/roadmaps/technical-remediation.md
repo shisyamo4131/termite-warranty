@@ -2,7 +2,7 @@
 
 ## 2026-10-16 Dev配備の軽量化（切替・実証済み）
 
-[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。main/dev切替・未統合候補Dev実証・データ保持比較を完了。[実測と残る画面受入れ](../operations.md#2026-10-16-軽量dev配備の切替実証)。性能改善の因果は未証明。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。
+[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。main/dev切替・未統合候補Dev実証・データ保持比較を完了。[実測・本人の限定画面確認・残る範囲](../operations.md#2026-10-16-軽量dev配備の切替実証)。性能改善の因果は未証明。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。
 
 ## 2026-10-15 納品前レビューで採用した追加改修
 
