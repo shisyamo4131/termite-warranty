@@ -1,5 +1,17 @@
 # Operations
 
+## 2026-10-16 軽量Dev配備の切替実証
+
+オーナーは親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` で、非製品変更のPR統合・dev同期・新方式のDev配備実証を承認（「①は進めていいよ。」）。未統合commitをDevへ配備する能力の有効化を含む。Prod実配備、業務データ変更、新規資格情報・IAM・追加のセキュリティ設定変更は対象外。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持する。
+
+03:51:09 UTCに切替前確認を開始。元のLocal差分を `d51c193` に保存し、既存記録 `d79e0c1` / `d372311` とともに元branchへ保全した。main `0e9cd63` 基点の導入branchへ当該26ファイルだけを移植。4文書の競合はmain既存本文と今回追記だけで解消。製品コード・依存・Rules・Firebase設定・Prod workflowの差分なし、機械分類はci、独立静的reviewでも混入なしを確認した。Prod workflow自体の起動は発生するが、非製品scopeによりverify/deployはskipする構成である。
+
+03:57:17 UTC、旧自動Dev配備を止めるため既存 `DEVELOPMENT_BRANCH_DEPLOY_ENABLED` をfalseへ変更し読戻し済み。新方式をdevへ同期し進行中旧runがないことを確認後に復帰する。必須check・branch protection・environment branch制限は変更しない。main基点の包括検証は下記のとおり完了し、PR統合へ進む。
+
+導入候補 `01dcd43` のmain基点検証：`npm test` 606件中604pass/2skip/0fail（Windows symlink条件）、`npm run test:rules` 201pass/0fail、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1` はそれぞれexit0。focused `node --test test/documentation-changes.test.mjs` は13pass/exit0、`node --test test/governance-tools.test.mjs` は10pass/exit0。単体の初回2失敗はRules並行起動との共有一時lock競合であり、Rules停止後の単独再実行（03:59:37.093→03:59:41.597 UTC）で成功。Rules runnerは355775ms、log作成03:53:32→最終書込03:59:28 UTC（ファイル時刻参考）で停止まで完了。試験対象と生成物が異なるmain導入に必要な再検証であり、将来の通常Dev Actionsへ全試験を追加したものではない。最終記録のみの追記はコード試験を失効させず、governanceと差分checkを再確認する。
+
+ブラウザ操作は基盤のMXC/SystemDrive起動エラーで利用できず、画面受入れは未実施。HTTP成功を画面受入れと扱わない。切替後はログイン・一覧/詳細の非更新表示を本人確認事項とし、保存・発行・取込み・Auth操作を伴う業務試験は行わない。
+
 ## 2026-10-16 軽量Dev配備のLocal改修
 
 本人採用の[ADR0048](decisions/0048-explicit-lightweight-development-deployment.md)に従って手動Dev/軽いPR/Prod接続を改修中。[切替手順](runbooks/application-deployment.md)を正本とする。必要Local試験と成功証拠再利用を維持し、証拠取り込み専用の全試験・JSONコメント・再実行、Dev通常配備の全ZIP/全Hosting hash照合を外す。既存Prod照合・復旧照合は維持。main統合・実Dev配備・Cloud設定/データ変更は未実施。
