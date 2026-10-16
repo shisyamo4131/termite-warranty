@@ -92,6 +92,8 @@ export function validateManualDevelopment(text){
   for(const j of [b,d])need(j.steps.some(s=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate'),'Candidate dependencies must match its lock.')
   const source=d.steps.find(s=>s.with?.path==='candidate'&&s.uses?.startsWith('actions/checkout@'))
   need(source?.with?.ref==='${{ needs.build.outputs.revision }}'&&source.with['persist-credentials']===false,'Deployment source must match admitted build commit.')
+  need(b.steps[0]?.uses?.startsWith('actions/checkout@')&&b.steps[0].with?.path==='controller'&&b.steps[0].with['fetch-depth']===0&&b.steps[0].with['persist-credentials']===false,'Build controller must be separate from the candidate and its ancestors.')
+  need(b.steps[required(b,'node scripts/development-candidate.mjs')]['working-directory']==='controller'&&b.steps.find(s=>s.uses?.startsWith('actions/setup-node@'))?.with?.['cache-dependency-path']==='controller/package-lock.json','Controller guard and cache must use its checkout.')
   required(b,'npm run build');required(b,'npm run prepare:functions')
   const candidate=b.steps.find(s=>s.with?.path==='candidate'&&s.uses?.startsWith('actions/checkout@'))
   need(candidate?.with?.ref==='${{ steps.candidate.outputs.revision }}'&&candidate.with['persist-credentials']===false,'Build fixed admitted commit only.')
