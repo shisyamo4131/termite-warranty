@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [HS試行の改修要望・対応状況](roadmaps/hs-trial-feedback.md)：10月19日まで受付。第1陣5件のLocal対応済み2件・HS回答待ち3件、Dev配備と保護設定の保留を整理。
+
 2026-10-16採用：[明示起動の軽量Dev配備](decisions/0048-explicit-lightweight-development-deployment.md)。main統合・dev同期・未統合候補のDev実証を完了。本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](operations.md#2026-10-16-軽量dev配備の切替実証)。[現行の改修手順](runbooks/application-deployment.md)を優先し、以下の日付付き現在地は各時点の記録として読む。
 
 検証・統合フローは[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。PR35でmainへ統合済み、dev未同期・実配備未実証。以下の2段階PR・期限付き再利用は旧方式の説明。現在値と非配備測定の範囲は[運用記録](operations.md)を参照。

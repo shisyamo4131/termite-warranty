@@ -1,5 +1,27 @@
 # Operations
 
+## 2026-10-17 HS試行1回目の確定改修
+
+対象は[仕様書0.1.132](specification.md#2026-10-17-hs試行1回目への返信で確定した改修)の2件。基準は実取得したdev `14c220251ee37961354a0252522c6d1691043dd4`、作業ブランチ `codex/hs-trial-first-feedback`。画面2ファイルと既存試験1ファイル、関連文書の差分。Local受入れ完了時点ではコミット・pushは未実施だったが、同日後続指示で改修ブランチへの保存を承認された。19日までの受付と5件の現在地を[HS試行対応状況](roadmaps/hs-trial-feedback.md)に整理。PR・Dev／Prod配備は今回の対象外。保護設定保留を維持する。
+
+Localブラウザー受入れ（2026-10-17）：専用demo Emulatorと `http://127.0.0.1:23600/` の架空2物件（支店あり／なし、初回申込日2026-08-01、引渡日2026-09-30）で確認。10月指定が9月対象になること、保険CSVが8列・2行で支店名のカンマを保持し、支店なしと保険申込が空欄になることを実ダウンロードで照合した。請求一覧は申込日2026-08-01、同じ物件の保証書一覧は引渡日2026-09-30を表示。実データ・実環境は使用していない。Localの初期fixtureの支店参照先を現行companyBranchesへ合わせた後に確認した。
+
+試験の影響分類は文書・UI・アプリ処理の和集合。追加した3件は実CSV出力処理の列順・引用符・未指定・参照不足／取得失敗／条件変更の拒否、および共通テンプレートの請求／保証書表示を検証する。
+
+| 検証コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `npm test` | 627成功、2skip（ホストでsymlink fixtureを作れない既存試験）。追加3件を含む | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功、配備なし | 0 |
+| `npm run test:rules` | 203成功・失敗/skip 0、試験Emulator終了確認。全体384.040秒 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+最初の単体試験は制限環境で9失敗（617成功・3skip）、Emulator起動もポート準備に失敗したため、通常実行権限でやり直し。製品コードの追加変更なしで単体627成功・2skipとなった。追加試験作成時の期待値は既存CSVの全セル引用仕様に合わせて修正した。上表は修正後の製品・試験状態を対象とする。配備／権限／保存契約／スキーマ変更がないため、ADR・データ契約・配備設定は変更しない。ロールバックは今回の画面差分の差戻しで、データ移行は不要。残件はDev配備の指示とHS再確認、未確定3点の回答。
+
+変更ファイル：`app/components/MeetingPrototype.vue`、`app/components/WarrantyCertificateManagement.vue`、`test/insurance-period-display.test.mjs`、`docs/specification.md`、`docs/requirements/insurance-reporting.md`、`docs/design/monthly-queries.md`、`docs/requirements/source-materials.md`、`docs/requirements/house-solution-confirmations.md`とその`HSC-036-insurance-reporting-cycle.md`、`docs/roadmaps/2026-initial-delivery.md`、本書、`CHANGELOG.md`。Local改修時点では新規文書・ガバナンス変更はない。後続の受付整理で `docs/roadmaps/hs-trial-feedback.md` を追加し、`docs/README.md` と納品工程からリンクした。ガバナンス・実行設定は変更せず、文書整合検査と差分検査は終了コード0。既存の過去受入れ記録の7列表記は当時の証跡として保持。最終文書更新は製品・試験・依存関係を変更せず、上記の成功証拠を無効化しない。今回起動したLocalサーバー／Emulatorは受入れ後に停止し、4ポートの閉鎖を確認。ダウンロード待ちAPIはtimeoutしたが、18:38:37保存の実ファイルを別途読み取り照合しexit 0。Local受入れ完了であり、HS本人の受入れを代替しない。
+
 ## 2026-10-16 軽量Dev配備の切替実証
 
 非製品変更のmain統合・dev同期・指定未統合commitのDev配備実証は完了。本人の限定した非更新画面確認も完了（範囲と回答は下記）。オーナー承認は親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` の「①は進めていいよ。」（未統合commit配備能力の有効化を含む）。Prod実配備、業務データ変更、新規資格情報/IAM/追加セキュリティ設定変更は行っていない。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持した。

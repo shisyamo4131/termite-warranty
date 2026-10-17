@@ -30,7 +30,7 @@
     <v-table class="business-list-table" density="compact" fixed-header><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
       <tbody><tr v-for="row in visibleRows" :key="key(row)">
         <td><v-checkbox v-model="selected" :value="key(row)" :aria-label="`${row.warrantyNumber} ${row.certificatePeriodLabel}を選択`" :disabled="working || dirty || !row.certificateIdentifiable" hide-details /></td>
-        <td>{{ row.warrantyNumber }}<div>{{ row.name }}</div><div class="text-caption">引渡日：{{ row.handoverDate }}</div></td>
+        <td>{{ row.warrantyNumber }}<div>{{ row.name }}</div><div class="text-caption">{{ billing ? '申込日' : '引渡日' }}：{{ billing ? row.applicationDate : row.handoverDate }}</div></td>
         <td>{{ references.name('companies',row.constructionCompanyId) }}<div>{{ references.name('branches',row.branchId) }}</div></td>
         <td>{{ row.certificatePeriodLabel }}<div>{{ row.certificateStartDate }} ～ {{ row.certificateExpiryDate }}</div><v-chip v-if="row.certificateMonth<loadedMonth && !row.certificateIssued" size="small" color="warning">過去の{{ pendingLabel }}</v-chip></td>
         <td><v-chip size="small" :color="row.certificateIssued ? 'success' : 'default'">{{ row.certificateIdentifiable ? row.certificateIssued ? doneLabel : pendingLabel : '要確認（期間記録不足）' }}</v-chip></td>

@@ -1,5 +1,13 @@
 # termite-warranty Specification
 
+## 2026-10-17 HS試行1回目への返信で確定した改修
+
+オーナーのHS宛返信（同日18:28 JST）と実装指示により、保険報告CSVの「工務店名」の次に「支店名」を追加する。支店未指定は空欄とし、指定された支店の名称を参照できない場合は既存の出力拒否を維持する。従来の7列から8列になるため、列位置を固定した外部処理は確認が必要。「保険申込」は引き続き空欄。
+
+請求用一覧の物件欄の「引渡日」を「申込日」に変更し、既存の初回申込日を表示する。延長の請求抽出基準日や請求CSVの11列、保証書一覧の引渡日表示、指定年月の前月を基準とする抽出は変更しない。保存形式の変更・移行は不要。
+
+保険満了案内の削除、住所の外部キーへの置換／列追加、報告済み印はHS回答待ちであり未採用。今回はLocal実装・開発側受入れまで。Dev／Prod配備と保護設定は実施しない。[返信の出典](requirements/source-materials.md#2026-10-17-hs試行1回目とオーナー返信)、[保険詳細](requirements/insurance-reporting.md)。
+
 ## 2026-10-15 納品準備・追加改修の確定条件
 
 オーナーの同日追加指示による確定事項。実装・検証・配備の完了記録とは区別する。DevでのHS試行、追加修正と再確認、HSによるDev受入れを経て、受入れ対象をProdへ配備し納品する。既存Prodの先行配備をHS受入れ・納品完了の代わりにしない。正式投入は確定した原資料から行い、現在のDev試行データをProdへ複製しない。Dev試行データは保持する。[納品要件](requirements/delivery-and-technology.md)と[工程](roadmaps/2026-initial-delivery.md)を参照する。
@@ -512,7 +520,7 @@ UI改修・Dev反映・架空データ3件の準備と開発側表示確認を�
 UX-R01、UX-R06はオーナーOK。UX-R02の数値入力もOK。請求の延長対象を「未請求かつ延長後の開始月」とする案は未確定で、現行の操作年月抽出を維持しHSC-010で確認する。保険満了画面は外部への案内が目的ではない。具体的な用途・月次報告との役割はHSC-036で再確認する。
 
 - Last updated: 2026-10-06
-- Specification version: 0.1.131
+- Specification version: 0.1.132
 - Status: Confirmed initial-release requirements; implementation and acceptance incomplete
 - Current phase: UX-R07 accepted. 0.1.101 interval-linked lifecycle deployed to Dev and functionally verified; UI/UX differences await owner review. External corrections remain with HS. Billing month/payer questions and C12 remain open/deferred. Measured evidence is linked above.
 

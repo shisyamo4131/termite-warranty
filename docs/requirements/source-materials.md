@@ -1,5 +1,11 @@
 # 受領資料台帳
 
+## 2026-10-17 HS試行1回目とオーナー返信
+
+AIR Driveの[HS試行 1回目.pdf](https://drive.google.com/file/d/1ewQX_cPI3zyhGej3AfDXPJSH1Sf8CF4h/view)（6ページ）と、AIR Gmailの[Re: 開発環境における試行のお願い](https://mail.google.com/mail/u/?authuser=dmaruyama.air%40gmail.com#all/1a14930cd0d19606)（2026-10-17 18:28:18 JST、message ID `1a14930cd0d19606`）を確認。
+
+返信で確定したのは保険報告CSVの支店名列追加と請求用一覧の申込日表示。保険満了案内の削除は必要性の確認中、住所と外部キーの扱い・報告済み印は質問中。引用メール内の認証情報や実物件情報は転記しない。実装範囲は[仕様書](../specification.md#2026-10-17-hs試行1回目への返信で確定した改修)、未決は[HSC-036](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md)で管理する。
+
 ## 2026-10-10 新潟南2件の原資料修正
 
 オーナーの原資料修正指示により、AIRの[取込み用Excel原本](https://docs.google.com/spreadsheets/d/1FpP0BS9dd9aL8F0_LTZ6bpdFxsunU00h/edit)のUH!F13・F31を、1508-00から1508-01へ変更した。両行のE列は新潟南であることを修正前に照合。HSC99・SHS66・UH277の計442件も再確認した。同じDriveファイルIDを維持し、形式・配置先・共有設定は変更していない。
