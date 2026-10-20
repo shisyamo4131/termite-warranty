@@ -81,7 +81,7 @@ function contact(t, outcome) {
   const scope=vue.effectScope()
   const source=readFileSync(new URL('../app/components/BusinessContactFields.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*\r?\n/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
-  const env={ref:vue.ref,watch:vue.watch,defineProps:()=>({}),defineModel:()=>form,onBeforeUnmount:()=>{},postalRule,lengthRule,phoneRule,emailRule,propertyAddress,hostedPostalLookupProvider:{},createPostalLookupCoordinator:()=>({cancel(){},async lookup(){lookups++;return outcome()}})}
+  const env={ref:vue.ref,watch:vue.watch,defineProps:()=>({}),defineModel:()=>form,onBeforeUnmount:()=>{},postalRule,lengthRule,phoneRule,emailRule,propertyAddress,zipcloudPostalLookupProvider:{},createPostalLookupCoordinator:()=>({cancel(){},async lookup(){lookups++;return outcome()}})}
   const result=scope.run(()=>new Function(...Object.keys(env),code+'\nreturn {lookup,applyCandidate,candidates};')(...Object.values(env)))
   t.after(()=>scope.stop())
   return {...result,form,lookups:()=>lookups}

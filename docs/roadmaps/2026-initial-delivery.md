@@ -1,5 +1,11 @@
 # 2026 Initial-Delivery Roadmap
 
+2026-10-20現在：zipcloud切替・旧方式撤去のLocal受入れ完了。`4387365` をDevへ配備しrun 39409008651の公開後照合まで成功。本人がDev `4387365` の受入れ完了とPRによるdev統合を承認。詳細は[運用記録](../operations.md#2026-10-20-zipcloud受入れ旧方式撤去とdev配備)。Prod・保護設定は保留。
+
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+2026-10-20追加：zipcloud住所入力補助のLocal実装・検証と、納品書への外部サービス依存条件の明記を承認。[決定・記載案](../decisions/0050-zipcloud-postal-lookup.md)。Dev／Prod配備、本人受入れ、正式納品書の作成・説明・受領確認は未実施。バックアップ・PITR・Auth退避は保留。
+
 2026-10-20管理引継ぎ：既存ProdにHS Ownerを追加・受諾し、HSで権限管理とFirestore読取りを確認。開発者Owner・現在の請求先を維持し、HS側請求先への切替は今回の引継ぎ条件から外す。[実施結果・残確認](../operations.md#2026-10-20-prodのhsオーナー招待受諾)。業務アプリ管理者・正式投入・HS正式受入れ・保護設定は別工程であり、納品完了やマイルストーン加点とはしない。
 
 2026-10-20最新：Dev `62df660` の本人受入れとLocal受入れが完了し、PRによるdev統合を承認。[記録](../operations.md#2026-10-20-devlocal本人受入れ完了)。HS正式受入れ・未確定要望・Prod反映・保護設定保留は別判定。

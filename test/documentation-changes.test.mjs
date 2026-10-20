@@ -136,3 +136,12 @@ test('real Git compares accepted product through record commits and rejects merg
   assert.equal(sameProduct(accepted,changed,run),false)
  }finally{if(dirname(resolve(root))!==temporaryRoot)throw Error('Unexpected fixture cleanup path.');rmSync(root,{recursive:true,force:true})}
 })
+
+test('reviewed postal screenshots are documents without admitting adjacent assets',()=>{
+ const paths=['docs/design/evidence/local-postal-2026-10-20/dashboard.png', 'docs/design/evidence/zipcloud-2026-10-20/loading-dialog.png', 'docs/design/evidence/zipcloud-2026-10-20/manual-preserved.png']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('app/a.vue')),'product')
+ assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/other.png')))
+ assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/loading-dialog.js')))
+})

@@ -1,4 +1,5 @@
 <template>
+  <PostalLookupDialog :active="lookupPending" />
   <v-text-field v-model="form.postalCode" label="郵便番号（7桁・任意）" :rules="[postalRule]" @blur="handlePostalBlur" />
   <v-alert v-if="lookupMessage" :type="lookupMessage.type" class="mb-4">{{ lookupMessage.text }}</v-alert>
   <v-select v-if="candidateOptions.length" v-model="selectedCandidate" :items="candidateOptions" item-title="label" item-value="value" label="町域候補を選択" return-object class="mb-3" @update:model-value="applyCandidate" />
@@ -13,6 +14,8 @@ import { propertyAddress } from '../../src/domain/property-warranty.mjs'
 import type { PostalLookupAddress, PostalLookupProvider } from '../../src/domain/postal-lookup.mjs'
 
 const props = defineProps<{ postalLookupProvider?: PostalLookupProvider; validateRequired?: boolean }>()
+const lookupPending = ref(false)
+let pendingGeneration = 0
 const form = defineModel<{ postalCode: string; address: string; buildingName: string }>({ required: true })
 type Candidate = { label: string; value: Partial<PostalLookupAddress> }
 const lookupMessage = ref<{ type: 'info' | 'error'; text: string } | null>(null)
@@ -26,6 +29,8 @@ const coordinator = createPostalLookupCoordinator({
 })
 
 function cancelPostalLookup() {
+  pendingGeneration++
+  lookupPending.value = false
   coordinator.cancel()
   editVersion += 1
   lookupMessage.value = null
@@ -37,9 +42,16 @@ watch(() => [form.value, form.value.postalCode, form.value.address, props.postal
 async function handlePostalBlur() {
   cancelPostalLookup()
   if (!props.postalLookupProvider || !form.value.postalCode?.trim() || postalRule(form.value.postalCode) !== true) return
+  if (form.value.address.trim()) {
+    return
+  }
   const version = editVersion
   Object.assign(lookupDraft, { postalCode: form.value.postalCode, prefecture: '', municipality: '', streetTownAndNumber: '' })
-  const outcome = await coordinator.lookup()
+  const requestGeneration = ++pendingGeneration
+  lookupPending.value = true
+  const outcome = await coordinator.lookup().finally(() => {
+    if (requestGeneration === pendingGeneration) lookupPending.value = false
+  })
   // Includes edits changed back to the original value, postal edits and a replaced form.
   if (outcome.state !== 'current' || editVersion !== version) return
   if (outcome.result.status === 'resolved') {

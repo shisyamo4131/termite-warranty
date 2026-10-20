@@ -1,4 +1,5 @@
 <template>
+  <PostalLookupDialog :active="lookupPending" />
   <v-text-field v-model="form.postalCode" label="郵便番号" :rules="[postalRule]" @blur="lookup" />
   <v-alert v-if="message" :type="message.type" class="mb-4">{{ message.text }}</v-alert>
   <v-select v-if="candidates.length" :items="candidates" label="住所候補を選択" @update:model-value="applyCandidate" />
@@ -11,17 +12,19 @@
 
 <script setup lang="ts">
 import { postalRule, lengthRule, phoneRule, emailRule } from '../../src/domain/input-rules.mjs'
-import { hostedPostalLookupProvider } from '../../src/domain/hosted-postal-lookup.mjs'
+import { zipcloudPostalLookupProvider } from '../../src/domain/zipcloud-postal-lookup.mjs'
 import { createPostalLookupCoordinator } from '../../src/domain/postal-lookup.mjs'
 import { propertyAddress } from '../../src/domain/property-warranty.mjs'
 defineProps<{ showFax?: boolean }>()
+const lookupPending = ref(false)
+let pendingGeneration = 0
 const form = defineModel<{ postalCode: string; address1: string; address2: string; telephone: string; email: string; fax?: string }>({ required: true })
 const candidates = ref<string[]>([])
 const message = ref<{type: 'info' | 'error'; text: string} | null>(null)
 let version = 0
 const address = { postalCode: '', prefecture: '', municipality: '', streetTownAndNumber: '', buildingName: '' }
-const coordinator = createPostalLookupCoordinator({ subject: 'constructionCompany', getAddress: () => address, getProvider: () => hostedPostalLookupProvider })
-function cancel() { version++; coordinator.cancel(); candidates.value = []; message.value = null }
+const coordinator = createPostalLookupCoordinator({ subject: 'constructionCompany', getAddress: () => address, getProvider: () => zipcloudPostalLookupProvider })
+function cancel() { pendingGeneration++; lookupPending.value = false; version++; coordinator.cancel(); candidates.value = []; message.value = null }
 watch(() => [form.value, form.value.postalCode, form.value.address1], cancel, { flush: 'sync' })
 async function lookup() {
   cancel()
@@ -29,7 +32,11 @@ async function lookup() {
   if (form.value.address1.trim() || !form.value.postalCode.trim() || postalRule(form.value.postalCode) !== true) return
   const token = version
   Object.assign(address, { postalCode: form.value.postalCode, prefecture: '', municipality: '', streetTownAndNumber: '' })
-  const outcome = await coordinator.lookup()
+  const requestGeneration = ++pendingGeneration
+  lookupPending.value = true
+  const outcome = await coordinator.lookup().finally(() => {
+    if (requestGeneration === pendingGeneration) lookupPending.value = false
+  })
   if (token !== version || outcome.state !== 'current') return
   if (outcome.result.status === 'resolved') form.value.address1 = propertyAddress(outcome.result.address)
   else if (outcome.result.status === 'ambiguous') {

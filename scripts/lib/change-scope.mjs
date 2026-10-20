@@ -17,7 +17,8 @@ const verificationTools=new Set([
   'lib/rules-test-workflow.mjs','lib/focused-test-reporter.mjs','lib/test-emulators.mjs',
   'lib/test-emulator-stage.mjs','lib/test-functions-loader.mjs','lib/test-functions-register.mjs',
 ])
-const documentExtras=new Set(['README.md','CHANGELOG.md','INITIAL_PROMPT.md',
+const documentExtras=new Set(['docs/design/evidence/local-postal-2026-10-20/dashboard.png','docs/design/evidence/zipcloud-2026-10-20/loading-dialog.png','docs/design/evidence/zipcloud-2026-10-20/manual-preserved.png',
+'README.md','CHANGELOG.md','INITIAL_PROMPT.md',
   'deliverables/insurance-report-guide-2026-10-19/README.md',
   'deliverables/insurance-report-guide-2026-10-19/build_pdf.py',
   'deliverables/insurance-report-guide-2026-10-19/build_alternatives.py',

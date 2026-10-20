@@ -44,7 +44,7 @@ function safeResult(result) {
       return value
     }).filter((candidate) => Object.keys(candidate).length > 0)
     : undefined
-  return Object.keys(address).length > 0
+  return Object.keys(address).length > 0 || candidates?.length > 0
     ? { status: result.status, address, ...(candidates ? { candidates } : {}) }
     : unavailableResult()
 }
