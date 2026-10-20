@@ -316,6 +316,11 @@ a:hover {
 .business-counts > div { display: flex; flex-direction: column; gap: 4px; }
 .business-counts span, .business-counts small { font-size: 0.8125rem; color: var(--clear-sky-muted-text); }
 .business-counts strong { font-size: 1.25rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+/* Monthly summaries share one compact row; narrow screens wrap without clipping. */
+.business-count-summary { display: flex; flex-wrap: wrap; gap: 4px 0; align-items: baseline; font-size: 0.875rem; line-height: 1.6; padding-bottom: 8px; border-bottom: 1px solid var(--clear-sky-border); }
+.business-count-summary > span { white-space: nowrap; }
+.business-count-summary > span + span::before { content: "｜"; margin: 0 8px; color: var(--clear-sky-muted-text); }
+.business-count-summary strong { font-weight: 600; font-variant-numeric: tabular-nums; }
 .business-selection-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 12px 0; }
 .business-selection-bar > .v-input { flex: 0 1 auto; }
 .business-list-table td { padding-top: 8px !important; padding-bottom: 8px !important; }
@@ -323,6 +328,14 @@ a:hover {
 .business-list-table .v-selection-control { min-height: 32px; }
 .business-search-actions { padding-top: 20px; }
 .property-search-actions { height: 56px; }
+/* Match the input control, excluding its reserved message area. */
+.business-search-actions.report-search-actions { padding-top: 12px; }
+.report-search-actions .property-search-actions { height: auto; min-height: 56px; align-content: center; }
+/* VRow has no comfortable density prop: keep horizontal gutters, reduce vertical gutters. */
+.v-row.monthly-search-comfortable { margin-top: -8px; margin-bottom: -8px; }
+.v-row.monthly-search-comfortable > [class*="v-col"] { padding-top: 8px; padding-bottom: 8px; }
+.monthly-search-field, .monthly-search-field.v-input { flex: 0 1 240px; width: 240px; min-width: 0; max-width: 100%; }
+.monthly-search-checkbox.v-input { flex: 0 0 auto; min-height: 56px; }
 @media (max-width: 599px) { .business-selection-bar > div { width: 100%; } .business-selection-bar .v-btn { max-width: 100%; height: auto; min-height: 40px; white-space: normal; } .business-counts { gap: 12px 20px; } }
 
 /* Vuetify reserves a page scrollbar by default, even when this workspace fits. */

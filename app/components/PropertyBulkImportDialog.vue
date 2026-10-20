@@ -24,7 +24,7 @@
           <v-alert v-if="preview.errors.length" type="error" class="mb-4">{{ preview.errors.length }}件の問題があるため全件を登録できません。ファイルを修正して再検証してください。</v-alert>
           <v-table v-if="preview.errors.length" density="compact"><thead><tr><th>行</th><th>項目</th><th>理由</th></tr></thead><tbody><tr v-for="(item,index) in preview.errors" :key="index"><td>{{ item.line || '全体' }}</td><td>{{ item.field }}</td><td>{{ item.message }}</td></tr></tbody></v-table>
           <v-pagination v-if="preview.rows.length" v-model="page" :length="Math.max(1,Math.ceil(preview.rows.length/20))" :disabled="busy" />
-          <v-table v-if="preview.rows.length" density="compact"><thead><tr><th>行／{{ preview.externalKeyLabel || keyLabel }}</th><th>物件名</th><th>本支店コード</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchCode ?? '—' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
+          <v-table ref="previewTable" v-if="preview.rows.length" density="compact"><thead><tr><th>行／{{ preview.externalKeyLabel || keyLabel }}</th><th>物件名</th><th>本支店コード</th><th>保証番号</th><th>住所</th><th>申込日／引渡日</th><th>資材名</th></tr></thead><tbody><tr v-for="row in preview.rows.slice((page-1)*20,page*20)" :key="row.line"><td>{{ row.line }}<br>{{ row.externalKey }}</td><td>{{ row.name }}</td><td>{{ row.branchCode ?? '—' }}</td><td>{{ row.warrantyNumber || '登録時に採番' }}</td><td>{{ row.address }}</td><td>{{ row.applicationDate }}<br>{{ row.handoverDate }}</td><td>{{ row.insulationMaterials || '—' }}</td></tr></tbody></v-table>
           <v-checkbox v-if="!preview.errors.length && !locked && !result" v-model="confirmed" label="所属・本支店・日付・補完内容を確認し、全件を本登録します。" :disabled="busy" />
         </template>
         <v-alert v-if="discardConfirmation" type="warning" class="mt-4">登録が拒否された今回の取込みを破棄し、入力を見直します。<div class="d-flex flex-wrap ga-2 mt-3"><v-btn variant="outlined" @click="discardConfirmation=false">戻る</v-btn><v-btn variant="outlined" @click="discardRejected">入力を見直す</v-btn></div></v-alert>
@@ -55,6 +55,7 @@ const groupId=ref(''), companyId=ref(''), companyOptions=ref<Company[]>([])
 const format=ref('common'), file=ref<File | File[] | null>(null), csv=ref('')
 const importForm=ref<{validate:()=>Promise<{valid:boolean}>}|null>(null)
 const busy=ref(false), problem=ref(''), preview=ref<Preview|null>(null), confirmed=ref(false), page=ref(1)
+const previewTable=usePaginationScroll(page)
 const locked=ref(false), rejected=ref(false), result=ref<CommitResult|null>(null), discardConfirmation=ref(false)
 const requestId=ref('')
 const pendingRecord=ref<PendingImport|null>(null)

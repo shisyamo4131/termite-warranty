@@ -1,25 +1,24 @@
 <template>
-  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon :item="billing ? 'billing' : 'certificates'" /><span>{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</span></h1>
-  <details class="business-help"><summary>抽出条件・操作の注意</summary>
-  <v-alert v-if="!billing" type="info" class="mb-4">初回は引渡月、延長分はその保証開始月で抽出します。指定年月の前月以前の未発行分を表示し、「発行済みを含める」では前月分だけを表示します。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</v-alert>
-  <v-alert v-if="billing" type="info" class="mb-4">指定した保証グループの、指定年月の前月以前の未請求分を表示します。「請求済みを含める」では前月分だけを表示します。初回は申込月、延長は延長申込月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</v-alert>
-  <v-alert v-else type="warning" class="mb-4">CSVは全保証グループ共通の21列です。日付は年月日を分けた列も出力します。Wordの会社情報や固定の保証年数は手動で確認・変更してください。保証書そのものの作成・印刷には対応していません。</v-alert>
-  </details>
+  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon :item="billing ? 'billing' : 'certificates'" /><span>{{ billing ? '請求用一覧' : '保証書CSV・発行管理' }}</span><v-tooltip location="bottom" max-width="520" open-on-click><template #activator="{ props: tooltipProps }"><v-btn v-bind="tooltipProps" icon="$info" variant="text" size="small" aria-label="抽出条件・操作の注意" /></template><div class="text-body-2"><p v-if="billing">指定した保証グループの、指定年月の前月以前の未請求分を表示します。「請求済みを含める」では前月分だけを表示します。初回は申込月、延長は延長申込月が基準です。請求状況が不明な過去データは、物件・保証の編集画面で確認してください。</p><template v-else><p>初回は引渡月、延長分はその保証開始月で抽出します。指定年月の前月以前の未発行分を表示し、「発行済みを含める」では前月分だけを表示します。CSV出力後、実際に保証書を発行した期間を別操作で「発行済み」にしてください。</p><p class="mt-2">CSVは全保証グループ共通の21列です。日付は年月日を分けた列も出力します。Wordの会社情報や固定の保証年数は手動で確認・変更してください。保証書そのものの作成・印刷には対応していません。</p></template></div></v-tooltip></h1>
   <v-alert v-if="error" type="error" class="mb-4">{{ error }}</v-alert>
   <v-alert v-if="message" type="success" class="mb-4">{{ message }}</v-alert>
   <v-card class="mb-4"><v-card-text>
-    <v-form @submit.prevent="load"><div class="d-flex flex-wrap ga-3 align-start">
-      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" style="flex:1 1 240px;min-width:0;max-width:400px" />
-      <BusinessDateInput v-model="month" label="指定年月" type="month" :disabled="working" :rules="[monthRule]" style="flex:1 1 180px;max-width:240px" />
+    <v-form @submit.prevent="load"><v-row class="monthly-search-comfortable"><v-col cols="12"><div class="d-flex flex-wrap ga-3 ga-y-2 align-start">
+      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" class="monthly-search-field" />
+      <BusinessDateInput v-model="month" label="指定年月" type="month" :disabled="working" :rules="[monthRule]" class="monthly-search-field" />
+      <v-checkbox v-model="includeDone" :label="`${doneLabel}を含める`" hide-details :disabled="working" class="monthly-search-checkbox" />
       <div class="property-search-actions d-flex align-center"><v-btn color="primary" variant="flat" type="submit" :disabled="working">検索・更新</v-btn></div>
-    </div><p v-if="basisMonth" class="text-body-2 mb-2">対象：{{ basisMonth }}月分</p><v-checkbox v-model="includeDone" :label="`${doneLabel}を含める`" :disabled="working" /></v-form>
+    </div></v-col></v-row></v-form>
 
-    <p v-if="billing && groupId" class="text-body-2 mb-3">請求先：{{ references.groups.value.find(group=>group.id===groupId)?.billingRecipient?.name || '未設定' }}</p>
   </v-card-text></v-card>
   <v-alert v-if="dirty && loadedMonth" type="warning" class="mb-4">検索条件が変わりました。「検索・更新」を押してください。</v-alert>
   <v-card class="business-results"><v-card-text class="business-results-content">
-    <p v-if="loadedMonth" class="text-body-2 mb-3">{{ references.name('groups',loadedGroup) }} ／ 指定年月：{{ loadedSelectedMonth }} ／ 対象：{{ loadedMonth }}月分</p>
-    <div class="business-counts" aria-live="polite"><div><span>抽出結果</span><strong>{{ rows.length }}期間</strong><small>{{ pendingLabel }} {{ rows.filter(r=>r.certificateIdentifiable && !r.certificateIssued).length }} ／ {{ doneLabel }} {{ rows.filter(r=>r.certificateIdentifiable && r.certificateIssued).length }} ／ 要確認 {{ rows.filter(r=>!r.certificateIdentifiable).length }}</small></div><div><span>選択中</span><strong>{{ selectedRows.length }}期間</strong><small>選択中の{{ pendingLabel }}：{{ pendingRows.length }}期間</small></div><div><span>今回{{ doneLabel }}にする対象</span><strong>{{ pendingRows.length }}期間</strong><small>選択中の{{ pendingLabel }}のみ</small></div></div>
+    <div class="business-count-summary" aria-live="polite">
+      <span>抽出 <strong>{{ rows.length }}件</strong></span>
+      <span>選択 <strong>{{ selectedRows.length }}件</strong></span>
+      <span>今回{{ doneLabel }}にする対象 <strong>{{ pendingRows.length }}件</strong></span>
+      <span v-if="rows.some(r=>!r.certificateIdentifiable)" class="text-warning">要確認 <strong>{{ rows.filter(r=>!r.certificateIdentifiable).length }}件</strong></span>
+    </div>
     <div class="business-selection-bar">
     <v-checkbox :model-value="allSelected" label="全ページの対象を選択" :disabled="working || dirty || !rows.length" hide-details @update:model-value="selectAll" />
     <div class="d-flex flex-wrap ga-2">
@@ -27,10 +26,10 @@
       <v-btn v-if="!readOnly" variant="flat" color="primary" :disabled="!pendingRows.length || working || dirty" @click="confirm=true">{{ doneLabel }}にする</v-btn>
     </div>
     </div>
-    <v-table class="business-list-table" density="compact" fixed-header><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
+    <v-table ref="listTable" class="business-list-table" density="compact" fixed-header><thead><tr><th>選択</th><th>保証書No／物件名</th><th>担当工務店・本支店</th><th>保証期間</th><th>{{ billing ? '請求' : '保証書' }}</th><th>詳細</th></tr></thead>
       <tbody><tr v-for="row in visibleRows" :key="key(row)">
         <td><v-checkbox v-model="selected" :value="key(row)" :aria-label="`${row.warrantyNumber} ${row.certificatePeriodLabel}を選択`" :disabled="working || dirty || !row.certificateIdentifiable" hide-details /></td>
-        <td>{{ row.warrantyNumber }}<div>{{ row.name }}</div><div class="text-caption">引渡日：{{ row.handoverDate }}</div></td>
+        <td>{{ row.warrantyNumber }}<div>{{ row.name }}</div><div class="text-caption">{{ billing ? '申込日' : '引渡日' }}：{{ billing ? row.applicationDate : row.handoverDate }}</div></td>
         <td>{{ references.name('companies',row.constructionCompanyId) }}<div>{{ references.name('branches',row.branchId) }}</div></td>
         <td>{{ row.certificatePeriodLabel }}<div>{{ row.certificateStartDate }} ～ {{ row.certificateExpiryDate }}</div><v-chip v-if="row.certificateMonth<loadedMonth && !row.certificateIssued" size="small" color="warning">過去の{{ pendingLabel }}</v-chip></td>
         <td><v-chip size="small" :color="row.certificateIssued ? 'success' : 'default'">{{ row.certificateIdentifiable ? row.certificateIssued ? doneLabel : pendingLabel : '要確認（期間記録不足）' }}</v-chip></td>
@@ -40,7 +39,7 @@
     <v-pagination v-if="rows.length>20" v-model="page" :length="Math.ceil(rows.length/20)" :disabled="working" />
   </v-card-text></v-card>
   <v-dialog v-model="confirm" max-width="700" persistent scrollable><v-card :border="false" class="business-dialog"><BusinessDialogHeader :title="`${doneLabel}にする期間の確認`" :icon="billing ? 'billing' : 'certificates'" :busy="working" @close="confirm=false" /><v-card-text>
-    <p>次の{{ pendingRows.length }}期間を{{ doneLabel }}にします。<template v-if="!billing">CSVを出力しただけでは発行済みにしないでください。</template><template v-else>請求書の作成・送信や入金登録は行いません。</template></p>
+    <p>次の{{ pendingRows.length }}件を{{ doneLabel }}にします。<template v-if="!billing">CSVを出力しただけでは発行済みにしないでください。</template><template v-else>請求書の作成・送信や入金登録は行いません。</template></p>
     <p v-for="row in pendingRows" :key="key(row)" class="mt-3">{{ row.warrantyNumber }}／{{ row.name }} — {{ row.certificatePeriodLabel }}：{{ row.certificateStartDate }} ～ {{ row.certificateExpiryDate }}</p>
     <v-alert v-if="error" type="error" class="mt-4">{{ error }}</v-alert>
   </v-card-text><v-card-actions><v-btn variant="outlined" :disabled="working" @click="confirm=false">戻る</v-btn><v-spacer/><v-btn color="primary" variant="flat" :disabled="working || dirty || readOnly || !pendingRows.length" @click="issue">{{ doneLabel }}にする</v-btn></v-card-actions></v-card></v-dialog>
@@ -62,6 +61,7 @@ const groupId=ref(''),loadedGroup=ref('')
 const groups=computed(()=>references.groups.value.filter(group=>group.enabled!==false))
 const groupRule=(value:string)=>groups.value.some(group=>group.id===value)||'有効な保証グループを選択してください。'
 const month=ref(japanDate().slice(0,7)),loadedMonth=ref(''),rows=ref<Row[]>([]),selected=ref<string[]>([]),page=ref(1)
+const listTable=usePaginationScroll(page)
 const includeDone=ref(false),loadedIncludeDone=ref(false),loadedSelectedMonth=ref('')
 const basisMonth=computed(()=>{try{return selectedMonthToBasisMonth(month.value)}catch{return ''}})
 const working=ref(false),error=ref(''),message=ref(''),confirm=ref(false)
@@ -87,8 +87,8 @@ async function issue(){if(props.readOnly || dirty.value || !pendingRows.value.le
   for(const row of pendingRows.value)grouped.set(row.id,[...(grouped.get(row.id)??[]),row])
   let completed=0
   try{for(const [id,periods] of grouped){const signature=JSON.stringify([id,periods[0]!.revision,periods.map(key)]);if(!requests.has(signature))requests.set(signature,crypto.randomUUID());await props.call(billing.value?'billPeriods':'issueCertificate',{groupId:loadedGroup.value,id,revision:periods[0]!.revision,requestId:requests.get(signature),month:loadedMonth.value,periods:periods.map(p=>({id:p.certificatePeriodId,startDate:p.certificateStartDate,expiryDate:p.certificateExpiryDate}))});if(!active)return;completed+=periods.length;for(const row of periods){row.certificateIssued=true;if(billing.value)row.billingState='billed'};if(billing.value && !loadedIncludeDone.value){rows.value=rows.value.filter(row=>!periods.some(p=>key(p)===key(row)));page.value=Math.min(page.value,Math.max(1,Math.ceil(rows.value.length/20)))}}
-    confirm.value=false;await fetchRows();requests.clear();message.value=`${completed}期間を${doneLabel.value}にしました。`
-  }catch(e){throw new Error(`${completed}期間の更新を確認済みです。${e instanceof Error?e.message:'更新に失敗しました。'} 通信結果が不明な場合は同じ操作を再試行できます。対象が変更されている場合は「戻る」から一覧を更新してください。`)}
+    confirm.value=false;await fetchRows();requests.clear();message.value=`${completed}件を${doneLabel.value}にしました。`
+  }catch(e){throw new Error(`${completed}件の更新を確認済みです。${e instanceof Error?e.message:'更新に失敗しました。'} 通信結果が不明な場合は同じ操作を再試行できます。対象が変更されている場合は「戻る」から一覧を更新してください。`)}
 })}
 watch(()=>props.refresh,()=>{if(loadedGroup.value && !dirty.value)void load()})
 onMounted(()=>execute(async()=>{await references.ensureReady()}))

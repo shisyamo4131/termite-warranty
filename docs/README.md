@@ -1,5 +1,8 @@
 # Documentation Map
 
+- [HS試行の改修要望・対応状況](roadmaps/hs-trial-feedback.md)：10月19日まで受付。8件の要望と回答を整理。10月20日は位置合わせ・ページ切替をLocal改修、追加指示で折りたたみを不採用とし、保険報告の適用条件の重複表示を非表示。3月次画面の件数をコンパクト行へ揃え、操作ボタンも一覧カード内へ統一。Dev配備・保護設定は保留。
+- [保険報告用一覧の図解・生成元](../deliverables/insurance-report-guide-2026-10-19/README.md)：前月以前の未報告と前月限定の違いを説明。
+
 2026-10-16採用：[明示起動の軽量Dev配備](decisions/0048-explicit-lightweight-development-deployment.md)。main統合・dev同期・未統合候補のDev実証を完了。本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](operations.md#2026-10-16-軽量dev配備の切替実証)。[現行の改修手順](runbooks/application-deployment.md)を優先し、以下の日付付き現在地は各時点の記録として読む。
 
 検証・統合フローは[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。PR35でmainへ統合済み、dev未同期・実配備未実証。以下の2段階PR・期限付き再利用は旧方式の説明。現在値と非配備測定の範囲は[運用記録](operations.md)を参照。
