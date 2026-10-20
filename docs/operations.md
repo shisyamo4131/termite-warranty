@@ -1,8 +1,12 @@
 # Operations
 
+## 2026-10-20 Dev・Local本人受入れ完了
+
+オーナーがDev `62df6601a2491440ba078d69a6d4c284db1b923c` の受入れ完了を明示し、Local受入れも完了として記録すること、PRでdevへ統合することを承認した。対象は配備済みのHS確定改修・一覧／管理画面改善。受入れ対象からの後続差分は文書のみで、製品・設定・依存は同一。成功Dev run 39369177848と下記Local検証を再利用し、PR必須checkで仮統合との製品同一性を確認する。今回の本人受入れはHSの正式受入れを代替しない。バックアップ・PITR・Auth退避は引き続き保留。main統合・Prod配備は対象外。
+
 ## 2026-10-20 月次検索横並びのDev候補
 
-Dev配備・照合完了：`62df6601a2491440ba078d69a6d4c284db1b923c`、[Actions 39369177848](https://github.com/shisyamo4131/termite-warranty/actions/runs/39369177848) success。build37秒、deploy job77秒、開始04:21:56–完了04:23:54 UTC（1分58秒）。CLI成功、公開入口・Dev接続先・ACTIVE 21 Functions・PITR無効・日次予定0・backupAutomation=falseを確認。文書整合／diffチェック各終了0。本人のDev／Local受入れは未完了で、オーナーの確認待ち。Prod未反映。
+Dev配備・照合完了：`62df6601a2491440ba078d69a6d4c284db1b923c`、[Actions 39369177848](https://github.com/shisyamo4131/termite-warranty/actions/runs/39369177848) success。build37秒、deploy job77秒、開始04:21:56–完了04:23:54 UTC（1分58秒）。CLI成功、公開入口・Dev接続先・ACTIVE 21 Functions・PITR無効・日次予定0・backupAutomation=falseを確認。文書整合／diffチェック各終了0。本人のDev／Local受入れは後続指示で完了（上記）。Prod未反映。
 
 `MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`clear-sky-theme.css` の表示変更。3画面の対象月補足削除、済みチェックを年月と検索の間へ移動、年月・グループ240px統一、保険報告の登録状態非表示・報告状態チップを説明上へ移動・期間列名短縮。UI／文書＋Dev配備として包括7gateを選定。仕様・テーマ・変更履歴を同期。データ契約・ADR・CI・権限は不変。切戻しは当該表示差分を戻した候補の通常配備。
 
