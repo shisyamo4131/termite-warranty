@@ -1,5 +1,7 @@
 # 0031 Japan Post Postal Data for Postal-Code Lookup
 
+> 2026-10-20後続決定：[ADR0050](0050-zipcloud-postal-lookup.md)によりLocalの検索経路をzipcloudへ置換。以下は旧CSV方式の判断記録。Dev／Prodの実配備は別承認。
+
 - Date: 2026-09-17
 - Status: Accepted
 - Related specification: [Postal-code requirements](../specification.md#functional-requirements)

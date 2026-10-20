@@ -1,4 +1,5 @@
 <template>
+  <PostalLookupDialog :active="lookupPending" />
   <v-text-field v-model="form.postalCode" label="郵便番号（7桁）" :rules="[...(!postalOptional && validateRequired!==false ? [requiredRule] : []), postalRule]" :required="!postalOptional" @blur="handlePostalBlur" />
   <v-alert v-if="lookupMessage" :type="lookupMessage.type" class="mb-4">
     {{ lookupMessage.text }}
@@ -34,6 +35,8 @@ const props = defineProps<{
   validateRequired?: boolean
 }>()
 
+const lookupPending = ref(false)
+let pendingGeneration = 0
 const form = defineModel<MasterAddressDraft>({ required: true })
 const lookupMessage = ref<{ type: 'info' | 'error'; text: string } | null>(null)
 const candidateOptions = ref<Array<{ label: string; value: { prefecture?: string; municipality?: string; streetTownAndNumber?: string } }>>([])
@@ -53,15 +56,26 @@ watch(
 
 function markFieldEdited(field: PostalLookupField) {
   coordinator.markFieldEdited(field)
+  cancelPostalLookup()
 }
 
+watch(() => [form.value, form.value.postalCode] as const, cancelPostalLookup, { flush: 'sync' })
+
 async function handlePostalBlur() {
+  cancelPostalLookup()
   if (!props.lookupSubject || !props.postalLookupProvider) return
   lookupMessage.value = null
   candidateOptions.value = []
   selectedCandidate.value = null
   if (!form.value.postalCode?.trim() || postalRule(form.value.postalCode)!==true) return
-  const outcome = await coordinator.lookup()
+  if ([form.value.prefecture, form.value.municipality, form.value.streetTownAndNumber].some(value => value?.trim())) {
+    return
+  }
+  const requestGeneration = ++pendingGeneration
+  lookupPending.value = true
+  const outcome = await coordinator.lookup().finally(() => {
+    if (requestGeneration === pendingGeneration) lookupPending.value = false
+  })
   if (outcome.state !== 'current') return
   if (outcome.result.status === 'ambiguous') {
     candidateOptions.value = (outcome.result.candidates ?? []).map((candidate) => ({
@@ -77,7 +91,7 @@ async function handlePostalBlur() {
 }
 
 function applyCandidate(option: { label: string; value: { prefecture?: string; municipality?: string; streetTownAndNumber?: string } } | null) {
-  if (!option) return
+  if (!option || !candidateOptions.value.includes(option)) return
   for (const field of ['prefecture', 'municipality', 'streetTownAndNumber'] as const) {
     const value = option.value[field]
     if (value) form.value[field] = value
@@ -89,6 +103,8 @@ function applyCandidate(option: { label: string; value: { prefecture?: string; m
 }
 
 function cancelPostalLookup() {
+  pendingGeneration++
+  lookupPending.value = false
   coordinator.cancel()
   lookupMessage.value = null
   candidateOptions.value = []

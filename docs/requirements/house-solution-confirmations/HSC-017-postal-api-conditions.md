@@ -1,5 +1,9 @@
 # HSC-017: Japan Post Postal Data and Lookup Operations
 
+> 2026-10-20後続決定：オーナーがzipcloudのLocal実装・検証を承認。[ADR0050](../../decisions/0050-zipcloud-postal-lookup.md)と仕様書を現行方針とする。以下のCSV決定は過去の経緯。Dev／Prod未配備。
+
+2026-10-20追記：以下は初回採用時の記録。手動更新と同一オリジン検索は実装済みで、Local自動更新は[ADR0049](../../decisions/0049-local-postal-auto-update.md)を採用し、実装・開発側Local検証を完了。Dev／Prodの自動公開は[HSC-040](HSC-040-postal-data-automatic-update.md)の残件。
+
 - Status: Resolved
 - Decision owner: Project owner
 

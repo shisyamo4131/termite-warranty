@@ -1,5 +1,15 @@
 # Technical Remediation Backlog
 
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+## 2026-10-20 zipcloud切替
+
+[ADR0050](../decisions/0050-zipcloud-postal-lookup.md)を現行方針とし、旧Local自動更新の起動接続を外す。Local実装・開発側検証完了。[実績](../operations.md#2026-10-20-zipcloud住所入力補助)：単体659成功・2skip、Rules203成功、実ブラウザーの候補選択・手入力保持、実サービスの66候補取得。本人受入れ・Dev／Prod配備・納品書完成を残件とする。
+
+## 2026-10-20 Local郵便番号自動更新
+
+採用範囲は[ADR0049](../decisions/0049-local-postal-auto-update.md)。実装と開発側Local検証まで完了、Dev／Prod公開は対象外。完了条件は月次取得・検証・正常版維持・再起動・画面切替の回帰、実公式データでのLocal反映、通常成果物へのLocalデータ混入なし、包括7gate。[結果](../operations.md#2026-10-20-local郵便番号自動更新)。本人のLocal受入れ・Git統合・配備は未実施。初期納品全体の進捗率・納期・保護保留は変更しない。
+
 ## 2026-10-16 Dev配備の軽量化（切替・実証済み）
 
 [ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。main/dev切替・未統合候補Dev実証・データ保持比較を完了。[実測・本人の限定画面確認・残る範囲](../operations.md#2026-10-16-軽量dev配備の切替実証)。性能改善の因果は未証明。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。

@@ -349,7 +349,7 @@ async function propertyAddressViewForTest(provider) {
   const source=readFileSync(new URL('../app/components/PropertyAddressFields.vue',import.meta.url),'utf8')
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
   const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
-  const form=vue.ref({postalCode:'1000001',address:'手入力住所',buildingName:'別建物'})
+  const form=vue.ref({postalCode:'1000001',address:'',buildingName:'別建物'})
   const props=vue.reactive({postalLookupProvider:provider,validateRequired:true})
   let unmount
   const view=new Function('defineProps','defineModel','ref','watch','onBeforeUnmount','defineExpose','createPostalLookupCoordinator','propertyAddress','requiredRule','lengthRule','postalRule',
@@ -382,24 +382,30 @@ test('single address postal lookup preserves manual edits and invalidates stale 
   resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
   await pending
   assert.equal(view.form.value.address,'手入力住所')
+  await view.handlePostalBlur()
+  assert.equal(view.form.value.address,'手入力住所')
+  assert.equal(view.lookupMessage.value, null)
+  view.form.value.address=''
   const fresh=view.handlePostalBlur()
   resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
   await fresh
   assert.equal(view.form.value.address,'東京都架空市架空町')
   assert.equal(view.form.value.buildingName,'別建物')
+  view.form.value.address=''
   const ambiguous=view.handlePostalBlur()
   resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
   await ambiguous
-  assert.equal(view.form.value.address,'東京都架空市架空町')
+  assert.equal(view.form.value.address,'')
   const oldCandidate=view.candidateOptions.value[0]
   view.form.value.postalCode='1000002'
   view.applyCandidate(oldCandidate)
-  assert.equal(view.form.value.address,'東京都架空市架空町')
+  assert.equal(view.form.value.address,'')
   const second=view.handlePostalBlur()
   resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
   await second
   view.applyCandidate(view.candidateOptions.value[0])
   assert.equal(view.form.value.address,'東京都架空市候補町')
+  view.form.value.address=''
   const replaced=view.handlePostalBlur()
   view.form.value={postalCode:'1000002',address:'別物件住所',buildingName:''}
   resolve({status:'resolved',address:{prefecture:'古い県',municipality:'古い市'}})
@@ -412,7 +418,7 @@ test('single address postal lookup failure retains address and allows a later re
   let fail=true
   const view=await propertyAddressViewForTest({lookup:async()=>{if(fail)throw new Error('offline');return {status:'resolved',address:{prefecture:'架空県',municipality:'架空市',streetTownAndNumber:'架空町'}}}})
   await view.handlePostalBlur()
-  assert.equal(view.form.value.address,'手入力住所')
+  assert.equal(view.form.value.address,'')
   assert.equal(view.lookupMessage.value.type,'error')
   fail=false
   await view.handlePostalBlur()
@@ -474,7 +480,7 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{},options={}){
   references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
   vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
   const companyProfileDependencies={useCompanyProfile:()=>({reset:()=>{}}),...(await import('../src/domain/company-settings.mjs'))}
-  const notifications=[];const env={...(await import('../app/composables/usePaginationScroll.ts')),useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={...(await import('../app/composables/usePaginationScroll.ts')),useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',zipcloudPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   Object.assign(env,companyProfileDependencies,{selectedMonthToBasisMonth})
   return new Function(...Object.keys(env),code+';return {propertyId,pendingProperty,pendingSetting,retryProperty,retrySetting,setting,settingAction,openSetting,requestId,frozenPayload,rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))

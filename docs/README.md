@@ -1,5 +1,9 @@
 # Documentation Map
 
+- [zipcloud住所入力補助・納品書への記載事項](decisions/0050-zipcloud-postal-lookup.md)：現行のLocal切替方針。旧CSV／Local自動更新の説明より優先。配備・正式納品書は後発。
+
+- 【廃止済み・判断履歴】[Local郵便番号自動更新](design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)：月次確認、正常版維持、状態表示・再確認・旧版復帰。[決定](decisions/0049-local-postal-auto-update.md)。Dev／Prod自動公開は対象外。
+
 - [HS試行の改修要望・対応状況](roadmaps/hs-trial-feedback.md)：10月19日まで受付。8件の要望と回答を整理。10月20日は位置合わせ・ページ切替をLocal改修、追加指示で折りたたみを不採用とし、保険報告の適用条件の重複表示を非表示。3月次画面の件数をコンパクト行へ揃え、操作ボタンも一覧カード内へ統一。Dev配備・保護設定は保留。
 - [保険報告用一覧の図解・生成元](../deliverables/insurance-report-guide-2026-10-19/README.md)：前月以前の未報告と前月限定の違いを説明。
 

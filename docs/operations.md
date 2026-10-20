@@ -1,5 +1,109 @@
 # Operations
 
+## 2026-10-20 zipcloud受入れ・旧方式撤去とDev配備
+
+最終Local検証（旧方式撤去後）：`npm test` 639成功・既存2skip、exit 0（4,323ms）。前回662成功から旧方式専用23試験を削除。`npm run test:rules` 203成功、Emulator停止確認、exit 0（399,616ms）。`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` は各exit 0。ログはGit対象外の `tmp/zipcloud-cleanup-{unit,rules,build,syntax}.log`。単体と連携の同時実行による2件の排他競合は、連携正常終了後の全単体再実行で解消。governance／差分チェックはコミット直前に確認する。UI・API・入力保持の受入れ済み挙動に追加変更はなく、削除対象だけを生成成果物でも確認した。
+
+本人が検索中ダイアログを含むLocal受入れ完了を宣言し、コミット・push・Dev配備、旧日本郵便方式の実装撤去を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。Prod配備・dev統合後の本人Dev受入れを先取りしない。バックアップ・PITR・Auth退避は保留。請求先ガイド／PDFは今回のコミット対象外として保持する。
+
+削除対象：`public/postal-data/`の949ファイル、`scripts/postal-data.mjs`、`src/domain/hosted-postal-lookup.mjs`、`test/postal-data.test.mjs`。未コミットだったLocal自動更新module／状態UI／lib2ファイル／専用試験とGit管理外の`.local-postal/`も撤去。packageの更新コマンド・旧試験登録、試験内旧provider名も除去。共通`postal-lookup`と住所保存・移行処理は日本郵便データ配信機構ではないため維持。履歴文書・証跡は廃止注記付きで保持し、復帰はGit旧版から改修・検証する。
+
+Localの型検査、build、Functions構文、seed構文はexit 0。生成物に旧JSON／manifest参照／Local配信先なし、zipcloud URLありをNode assertで確認、exit 0。包括gateを選定し、全単体・隔離Emulator連携試験の最終結果は下記に記録する。単体の途中再実行で既存連携試験の排他lockと競合して2件失敗したため、強制解除せず連携試験終了後に再実行する。
+
+
+## 2026-10-20 住所検索中の入力遮断
+
+本人の追加指示により、検索中は閉じられないダイアログを表示して入力を遮断する。「入力済みの住所を保持しました」のVAlertだけを削除し、手入力保持・候補選択・取得失敗の案内は維持。応答・失敗・providerの8秒打切りで解除し、取消済みの旧応答では新しい検索のダイアログを閉じない。
+
+今回の変更：`app/components/PostalLookupDialog.vue`（共通表示）、`PropertyAddressFields.vue`、`MasterAddressFields.vue`、`BusinessContactFields.vue`（待機状態と解除）、`test/zipcloud-postal.test.mjs`、`test/property-warranty.test.mjs`。仕様・住所要件・ADR0050・TR009設計・CHANGELOGを更新。データ形式／権限／配備設定は不変で、データ契約・移行・新ADRは不要。既存未コミット差分を保持し、コミット・push・配備は未実施。バックアップ等は保留。
+
+検証分類：UI＋application-logic＋文書。`npm test` は662成功・既存2skip、exit 0（`tmp/postal-dialog-test.log`）。最初の試験は新しいBusinessContact用ハーネスのVue.versionと既存変数versionの衝突で1件失敗、ハーネス修正後に全件成功。`npm run typecheck` exit 0、`npm run build` exit 0（`tmp/postal-dialog-build.log`）。Rules203成功・Functions構文・seed構文は直前zipcloud検証のexit 0証拠を再利用：今回の差分はVue表示／待機状態・UI試験・文書のみで、policyのdomain／Functions／永続化／依存／試験環境の失効条件に該当しない。governanceとdiff最終チェックは完了報告に記録。
+
+Local実画面で検索中表示、Escape／文字入力後もフォームを保持、完了後の住所補完とダイアログ解除を確認。[画面](design/evidence/zipcloud-2026-10-20/loading-dialog.png)。3住所コンポーネントの失敗・取消・旧応答の待機状態は実scriptの自動試験で確認。ブラウザーで障害・時間切れを強制していない。フォームの保存・業務データ・採番の操作はなし。本人Local受入れは未実施。
+
+
+## 2026-10-20 zipcloud住所入力補助
+
+オーナーがzipcloud採用方向でLocal実装・検証、納品書への外部サービス依存条件の記録を指示。基点は主checkout dev `cc3b05f4448ecf6a31ad011306b4aefcda3473df` の既存未コミット差分。請求先ガイド／PDF等を保持し、コミット・push・Dev／Prod配備・外部設定変更は行わない。旧CSVのLocal自動更新についての下記記録より、本節と[ADR0050](decisions/0050-zipcloud-postal-lookup.md)を優先する。
+
+### 今回の差分・境界
+
+- 新規provider：`src/domain/zipcloud-postal-lookup.mjs`。固定HTTPS、JSON、8秒制限、Cookie／Refererなし、無効応答・1000件以上は失敗、永続キャッシュなし。APIキー・新依存packageなし。
+- 接続／保持：`app/components/MeetingPrototype.vue`、`BusinessContactFields.vue`、`MasterAddressFields.vue`、`PropertyAddressFields.vue`、`src/domain/postal-lookup.mjs`。自社情報／請求先を含む既存住所入力をzipcloudへ接続。空欄のみ補完、候補選択、建物名・既入力の保持、旧応答／候補の失効。
+- 試験：`test/zipcloud-postal.test.mjs`、`test/postal-lookup.test.mjs`、`test/property-warranty.test.mjs`、`test/company-settings-ui.test.mjs`、`package.json`。既入力がある試験は「自動上書き」を期待せず、明示クリア後の検索と途中編集／送信による取消を検証。
+- 起動：`nuxt.config.ts`から旧Local自動更新moduleを解除（HEADと同じ構成へ戻る）。Local状態UIの接続を除去。既存の未コミット旧module／UI／更新ツール、`.local-postal/`、同梱CSV生成物は復帰用に保全する。
+- 文書：仕様書、branches-and-addresses、delivery-and-technology、HSC-017／040と台帳、ADR0031／0049への後続決定注記とADR0050・索引、TR-009、技術／初期納品ロードマップ、docs索引、CHANGELOG、本節。HSC-040は方式決定済みへ移動。納品書の本文案をADR0050に保存し、正式文書化・説明・受領確認は残件。
+- 住所保存形式・DB・Rules・IAM・CI・バックアップ／PITR／Auth退避の変更なし。データ契約・移行資料の更新は不要。旧機構の削除整理は今回行わない。
+
+### 検証と実通信
+
+分類はdocumentation-only＋UI＋application-logic＋build/configの混在として包括7gateを選択。追加のdocumentation-routing／governance-toolsはトリガーパス未変更のため不要。
+
+- 実providerを公開郵便番号4件で照合するNode assert：1000001=単一、0790177=3候補、4520961=66候補、0000000=該当なし、exit 0。limit=1000を受理した観測であり、最大許容値／利用枠の保証ではない。
+- Localブラウザーで物件・工務店の3候補を表示し選択反映を確認（CORS含む）。物件の手入力住所・建物名保持、該当なし後の手入力も確認。[手入力保持の画面](design/evidence/zipcloud-2026-10-20/manual-preserved.png)。フォームは保存せず閉じ、業務文書・採番は操作していない。
+- 通信失敗は実サービスを故障させず、注入したネットワーク例外／HTTP失敗／JSON不正／APIエラー／時間切れで自動検証。実Vue scriptの候補選択・失敗案内・手入力・検索中編集・郵便番号変更・送信取消を検証。外部サービス障害時の実運用を経験した証拠とは区別する。
+- 初回包括試験は一時フォルダーのGit／rename権限制限と旧上書き仕様の試験3件で失敗（exit 1）。権限制限を外し、旧試験を保持方針へ更新後に成功。初回実通信はサンドボックスのネットワーク制限で失敗（exit 1）、公開コードのみを用いた通常権限の再試行で成功。実装上の外部安全制御は緩めていない。
+
+最終結果（上記変更後の未コミット作業ツリー）：
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `node --test test/postal-lookup.test.mjs test/zipcloud-postal.test.mjs test/property-warranty.test.mjs` | 99成功（自社情報接続変更前。自社情報を含む最終結果は次行） | 0 |
+| `npm test` | 661件中659成功・既存2skip、最終4,696ms | 0 |
+| `npm run typecheck` | 最終成功 | 0 |
+| `npm run build` | 最終静的生成成功。既存のチャンクサイズ等の警告あり | 0 |
+| `npm run test:rules` | 203成功・Emulator停止確認、405,432ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功。文書最終追記後も再確認する | 0 |
+
+Rulesは既定の隔離プロファイル、`CI=true`、`METADATA_SERVER_DETECTION=none`、`XDG_CONFIG_HOME=tmp/firebase-config-notice`で実行。後続変更はBusinessContactFieldsのprovider参照と単体試験・文書のみで、Rules／永続化／domain／環境の失効入力は変えていないため成功結果を再利用する。型検査・build・単体試験は後続変更後に成功。最終governance／差分空白検査の終了コードは完了報告に記録する。
+
+開発側Local実装・検証は完了。`http://127.0.0.1:23600/`で本人が確認できる。本人のLocal受入れ、Dev／Prod配備、正式納品書の完成・説明・受領確認は未実施。バックアップ等は引き続き保留。
+
+## 2026-10-20 Local郵便番号自動更新
+
+オーナーの推奨案採用・実装とLocal検証指示に基づく。基点は主checkoutのdev `cc3b05f4448ecf6a31ad011306b4aefcda3473df`、下記の未コミット差分。既存のHS請求先ガイド・PDF・docs索引差分を保持。Git操作・配備・外部設定変更は未実施。
+
+### 変更範囲
+
+- 処理：`scripts/lib/local-postal.mjs`、`scripts/lib/local-postal-http.mjs`、`modules/local-postal.ts`、`scripts/postal-data.mjs`、`src/domain/hosted-postal-lookup.mjs`。
+- 接続・画面・試験：`.gitignore`、`nuxt.config.ts`、`package.json`、`app/components/LocalPostalStatus.vue`、`app/components/MeetingPrototype.vue`、`test/local-postal.test.mjs`。
+- 文書：`docs/specification.md`、`docs/requirements/branches-and-addresses.md`、HSC-017・HSC-040と確認事項索引、`docs/design/tr-009-japan-post-postal-data.md`、ADR0049と決定索引、`docs/roadmaps/technical-remediation.md`、`docs/README.md`、`CHANGELOG.md`、本記録。[画面証跡](design/evidence/local-postal-2026-10-20/dashboard.png)も保存。
+- データ契約・Firestore Rules・IAM・CI・クラウド設定は不変。アプリの住所保存形式や登録済み住所を変更しないため業務スキーマ・移行資料は更新対象外。
+
+### 実データ・Local画面の実証
+
+公式ページは2026-09-30更新分。原124,526行を正規化し124,525件（重複1行）。同梱2026-08-31版124,522件との差は追加3・削除0。全分割の件数・ハッシュを検査後、Git対象外の`.local-postal/`に反映。同梱ファイルは変更なし。
+
+現在の公式ZIPはローカルヘッダーに長さを持たない形式であり、旧処理が解凍失敗した。中央ディレクトリの長さ・CRCを検証する修正と回帰試験を追加。公式CSVの正規化重複も実測に基づき許容上限を明示した。失敗した2回とも参照先の切替なし。
+
+Local画面で基準日・確認日時・124,525件を表示。「再確認」→変更なし、「前の版へ戻す」→8月31日版・自動停止、「再確認」→9月30日版・再開を確認。物件新規入力で1000001→東京都千代田区千代田、住所の手修正後0000000→該当なしでも入力保持を確認し、保存・採番せず閉じた。業務レコードを試験用に作成・変更していない。
+
+Localを再起動して版保持を確認。さらにLocal専用確認日時を前月へ一時変更して起動時の当月未確認を再現し、ボタンやforce指定なしで公式取得・「変更なし」へ更新されることを検証。現在版・前版は維持され、確認日時は実時刻2026-10-20T08:17:34.176Zへ復帰。試験用日時は残っていない。24時間の実時間待機は行わず、月境界・翌日再試行は時刻を制御した試験で確認。
+
+### 完成検証
+
+影響分類は文書・UI・アプリ処理・Nuxt実行設定の和として包括7gateを選択。配備／クラウド操作は対象外。各コマンドの終了状態を個別に確認。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `node --test test/local-postal.test.mjs test/postal-data.test.mjs test/postal-lookup.test.mjs` | 38成功。異常入力・中断・プロセス終了後復帰・競合・HTTP境界・新版切替・既存入力保護 | 0 |
+| `npm test` | 651件中649成功・既存2skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 静的生成成功。既存のチャンクサイズ等の警告あり | 0 |
+| `npm run test:rules` | 203成功・試験Emulator停止確認、390,873ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+通常成果物の郵便manifestが同梱版とバイト一致し、Local保存先・専用配信先のディレクトリと公式ページ取得コードが静的JSへ混入しないことをNode assertで確認（exit 0）。公式取得・Local反映、起動時自動確認のassertもexit 0。governanceとdiffチェックの最終結果は本タスク完了報告に記録する。
+
+初回の限定試験はサンドボックスの一時ディレクトリrenameがEPERMとなり、通常権限で再試験成功。包括試験の初回は既存画面試験の動的読込みとimport.metaの置き場所が衝突し、Local判定を専用コンポーネントへ移して全件再試験成功。Rulesの初回は単体試験の排他ファイルと競合して開始前に停止し、所有試験の正常終了後に再実行成功。ロックの強制解除・検証省略は行っていない。
+
+### 残件・受入れ
+
+`http://127.0.0.1:23600/`の管理者ダッシュボードで本人がLocal受入れできる状態。操作手順・異常閾値・排他復旧は[TR-009](design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)。Dev／Prod自動公開、通知、公開競合制御はHSC-040の別段階。バックアップ・PITR・Auth退避保留は維持。PC／Local停止中は自動取得しない。過去の参照版は安全のため自動削除せず、容量整理は停止後に実施する。
+
 ## 2026-10-20 ProdのHSオーナー招待受諾
 
 本人が既存ProdのHSへの管理引継ぎと、開発者本人のOwner・現在の請求先維持を明示承認。続けてFirebase利用規約への同意と招待受諾を承認した（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。対象は実コンソールで確認した `termite-warranty-prod`。指定HSアカウントの受諾後、そのログインで「ユーザーと権限」を開き、HSと既存開発者の両方がOwner、メンバー追加操作が利用可能であることを確認した。メールアドレス・招待token・秘密情報は本書に保存しない。

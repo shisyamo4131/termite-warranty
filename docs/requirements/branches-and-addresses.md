@@ -1,5 +1,13 @@
 # Branches and Addresses
 
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+2026-10-20追加承認：住所API検索中は「住所を検索中…」の閉じられないモーダルダイアログで画面入力を遮断し、応答・失敗・8秒タイムアウトで解除する。入力済み住所の保持は維持し、その保持を知らせるVAlertは表示しない。該当なし・取得失敗の案内と複数候補の選択は維持する。Localのみ、配備は後発。
+
+## 2026-10-20 zipcloud採用
+
+住所検索の現行方針は[ADR0050](../decisions/0050-zipcloud-postal-lookup.md)。旧CSV同梱・Local自動更新に代えてzipcloudへ接続し、Localで検証する。入力済み住所は上書きせず、再検索には住所欄を空にする。複数候補は利用者が選択、建物名は保持、失敗・該当なしは手入力と通常保存を継続。保存形式は変更しない。Dev／Prod配備と正式納品書は後発。下のCSV方向は過去の決定。
+
 > 2026-10-08現在：本支店必須・条件付きコード必須・無効編集禁止・所属固定・共有Store②・計測・組織階層画面はDev反映済み。以下の日時付き準備記録より[最新実装・検証記録](../operations.md)を優先する。保証書専用CSVは未完了。
 
 ## 2026-10-08 本支店コードの条件付き必須化
@@ -120,8 +128,8 @@ The selected postal-data direction covers property, homeowner, and construction-
 ## Confirmed Postal-Code Data Direction
 
 - Use Japan Post's official nationwide 「住所の郵便番号（1レコード1行、UTF-8形式）」 CSV. Transform it for search, split by postal-code leading digits or an equivalent bounded shard key, and serve it from Firebase Hosting on the same origin.
-- Provide an initial-release manual update command and monthly update check. Record source/basis date, last-check date, generation date, schema version, shard/count/checksum manifest data, and warn administrators when the last check is at least 60 days old. Automatic updates are future scope.
-- No runtime external API, API key, billing, quota, App Check, or Google attribution is required. The provider-neutral foundation may remain reusable, but CSV transformation, publication, and freshness operations are not implemented yet.
+- Retain the manual update command and monthly update check. Record source/basis date, last-check date, generation date, schema version, shard/count/checksum manifest data, and warn administrators when the last check is at least 60 days old. On 2026-10-20, Local automatic checks and validated version switching were adopted in [ADR0049](../decisions/0049-local-postal-auto-update.md). Cloud automatic publication remains future scope.
+- No address-lookup external API, API key, billing, quota, App Check, or Google attribution is required. CSV transformation and same-origin lookup are implemented; Local updates fetch the official download separately from individual address searches. Current validation is recorded in [TR-009](../design/tr-009-japan-post-postal-data.md).
 
 When one postal code has multiple matching town-area records, the staff member selects a candidate. The lookup populates prefecture, municipality, and the town-area portion of the existing street/town-and-number field; the staff member enters or corrects chome and lot number in that same field, plus the separate building-name field.
 

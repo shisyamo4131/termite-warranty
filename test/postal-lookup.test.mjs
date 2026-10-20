@@ -269,7 +269,7 @@ test('master address lookup cancelled at submission cannot change displayed or s
   const source = (await readFile(new URL('../app/components/MasterAddressFields.vue', import.meta.url), 'utf8'))
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
   const code = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
-  const pending = deferred(), form = vue.ref(createAddress())
+  const pending = deferred(), form = vue.ref(createAddress({ prefecture: '', municipality: '', streetTownAndNumber: '' }))
   const props = {lookupSubject:'constructionCompany',postalLookupProvider:{lookup:()=>pending.promise}}
   const env = {...vue,...rules,createPostalLookupCoordinator,defineProps:()=>props,defineModel:()=>form,defineExpose:()=>{},onBeforeUnmount:()=>{}}
   const scope = vue.effectScope()

@@ -1,5 +1,38 @@
 # TR-009 Japan Post Postal-Data Lookup
 
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+2026-10-20追加承認：住所API検索中は「住所を検索中…」の閉じられないモーダルダイアログで画面入力を遮断し、応答・失敗・8秒タイムアウトで解除する。入力済み住所の保持は維持し、その保持を知らせるVAlertは表示しない。該当なし・取得失敗の案内と複数候補の選択は維持する。Localのみ、配備は後発。
+
+## 2026-10-20 zipcloud切替（現行）
+
+[ADR0050](../decisions/0050-zipcloud-postal-lookup.md)で検索経路をzipcloudへ切替。旧Local更新module・状態UIは起動経路から外す。旧コードとデータは復帰用に保持するが、現行検索からは参照しない。以下は旧方式の実装・検証記録。新方式の検証結果は[運用記録](../operations.md)を参照。
+
+## Local自動更新（2026-10-20）
+
+[ADR0049](../decisions/0049-local-postal-auto-update.md)が以下の旧「自動更新未採用」をLocalに限り更新する。クラウド自動公開は未採用。実装・開発側Local検証は完了し、本人のLocal受入れは未実施。
+
+### 実行・確認・復帰
+
+1. 通常どおり`npm run dev`で起動。開発サーバーのlisten時、以後24時間ごとに日本時間の当月の成功記録を確認する。未確認なら公式HTML→ZIP→HTMLの順で取得し、取得中の基準日変化・未来日・旧版への逆行を拒否する。
+2. 変換後の10万〜20万件、追加＋削除が現行の2%以内、正規化重複が原行数の0.1%以内、全分割ファイルの件数・ハッシュ・郵便番号接頭辞を検証する。異常値で自動的に閾値を緩めない。2026-09-30公式版は原124,526行、正規化124,525件、重複1行、同梱版との差分は追加3件・削除0件。閾値は`DEFAULT_LIMITS`で明示し、将来の大規模変更は開発者が原資料を確認する。
+3. `.local-postal/versions/`に版を保存し、`state.json`の置換で参照先を切り替える。失敗時は参照先を維持し、翌日以降に再試行する。停止中は取得せず、次回起動で未実施分を確認する。
+4. Localの管理者ダッシュボードで基準日・確認日時・件数・前回差分を確認。「再確認」は月次／翌日の待機を省く。60日以上未確認・取得検証失敗時は警告する。
+5. 「前の版へ戻す」の確認後、正常な旧版へ復帰して自動更新を停止する。「再確認」が成功すると再開する。開いた画面は次の住所検索から新しい版を使い、登録済み・入力済みの住所は変更しない。
+
+### 保存・安全境界
+
+- `public/postal-data/`は初期版のまま。Local取得結果はGit対象外で、build／配備へ含めない。Dev／Prodへ反映するには従来の明示した更新・レビュー・配備が別途必要。
+- Local handlerはNuxt開発時のみ登録。ループバックの接続元・Hostを限定し、更新POSTには同一Originと起動ごとのトークンが必要。住所検索でクラウド・Firestoreを参照しない。
+- 二重更新はPID付き排他ファイルで拒否。中断後は所有PIDの終了を確認できる場合だけ排他を回収。空・不正な排他や判別できない所有者は自動削除しない。復旧時はLocalサーバー停止と他の更新処理がないことを確認し、`.local-postal/update.lock`だけを退避して再起動する。公開データ・業務DBを削除しない。
+- 過去版と切替前の未参照候補は、処理中の検索との混在を避けるため自動削除しない。容量整理はLocalサーバー停止後、現在版・前版を保全して開発者が行う。
+- ファイル取得は公式の固定URL、リダイレクト拒否、60秒制限、HTML 2MiB／ZIP 10MiB／解凍64MiB上限。現行公式ZIPの中央ディレクトリにある長さ・CRCも確認する。
+- 外部メール、Dev／Prod更新、Git操作、業務DBバックアップ・PITR・Auth退避は実行しない。Firestoreのデータ契約・Rules・IAMの変更なし。
+
+### 検証記録
+
+最終結果は[運用記録](../operations.md#2026-10-20-local郵便番号自動更新)へ集約する。架空データによる月次境界・翌日再試行・通信失敗・破損・異常差分・基準日逆行・切替前失敗・プロセス終了後再開・二重起動・HTTP境界・ブラウザキャッシュ切替を対象とする。
+
 - Status: Local retry fix and bounded UI smoke verified on 2026-09-28, including all three master persistence paths; formal accessibility acceptance and deployment remain pending
 - Roadmap: [TR-009](../roadmaps/technical-remediation.md#tr-009-japan-post-postal-data)
 - Decision: [ADR 0031](../decisions/0031-japan-post-postal-data.md)
