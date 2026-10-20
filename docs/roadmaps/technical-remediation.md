@@ -1,5 +1,7 @@
 # Technical Remediation Backlog
 
+2026-10-20現在：zipcloud切替・旧方式撤去のLocal受入れ完了。`4387365` をDevへ配備しrun 39409008651の公開後照合まで成功。本人Dev受入れ→PR統合が次。詳細は[運用記録](../operations.md#2026-10-20-zipcloud受入れ旧方式撤去とdev配備)。Prod・保護設定は保留。
+
 2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
 
 ## 2026-10-20 zipcloud切替
