@@ -2,6 +2,8 @@
 
 ## 2026-10-20 zipcloud受入れ・旧方式撤去とDev配備
 
+PR #49（dev向け）の初回チェックは画面証跡PNGが未分類で停止。`scripts/lib/change-scope.mjs`の既存完全一致リストへ今回の証跡3ファイルだけを追加し、`test/documentation-changes.test.mjs`で文書判定・製品混在・隣接未分類ファイル拒否を確認。画像は静的証跡でアプリや配備設定から参照されない。分類修正の差戻しはこの3エントリを戻す。包括gateを選択し、`npm test` 640成功・既存2skip、限定回帰15成功、各exit 0。型検査・build・Rules203成功・Functions/seed構文は受入れ版の証拠を再利用：変更は文書とCI分類・試験だけで、それぞれの失効条件となる製品・依存・実行環境・永続化・Functions入力は不変。governance/diffは最終更新後に再確認。main統合やProd配備は行わない。
+
 本人Dev受入れ完了（2026-10-20）：オーナーが「Dev 4387365の受入れ完了」と明示し、受入れ記録とPRによるdev統合を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。対象は上記切替・検索中ダイアログ・旧方式撤去を含む配備版。最新候補との差分は文書記録のみで、製品内容は同一。成功runとLocal検証の証拠を再利用し、文書検査とPR必須チェックを行う。Prod配備・main統合・保護設定変更は行わない。仕様／データ契約／実装／CIは今回変更せず、業務データ操作もなし。
 
 Dev配備完了：`codex/zipcloud-address-lookup` の `438736549b32a7e3356e62bc77c77f3047fbea0d` をpushし、[run 39409008651](https://github.com/shisyamo4131/termite-warranty/actions/runs/39409008651)をdev controllerから起動。build／deployの両job成功。Hosting54ファイル、Functions21件ACTIVE、公開入口／接続先確認成功。公開後checkは `ready=true, protectionHeld=true, pitr=false, dailySchedules=0, backupAutomation=false`。現行の軽量Dev手順どおり全ソースZIP／全Hosting hash比較は行っていない。旧住所JSONはビルド対象から除去済みで、通常Hosting releaseを公開した。Dev業務データのseed・初期化・補正・削除、Authユーザー操作、Prod配備は行っていない。
