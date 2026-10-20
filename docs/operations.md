@@ -1,5 +1,13 @@
 # Operations
 
+## 2026-10-20 月次検索横並びのDev候補
+
+`MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`clear-sky-theme.css` の表示変更。3画面の対象月補足削除、済みチェックを年月と検索の間へ移動、年月・グループ240px統一、保険報告の登録状態非表示・報告状態チップを説明上へ移動・期間列名短縮。UI／文書＋Dev配備として包括7gateを選定。仕様・テーマ・変更履歴を同期。データ契約・ADR・CI・権限は不変。切戻しは当該表示差分を戻した候補の通常配備。
+
+最終CSS修正後 `npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-inline-typecheck.log`、`tmp/monthly-inline-build.log`）。`node tmp/monthly-inline-check.mjs` は終了0：両部品のscript全文不変、実テンプレートのSSRで未報告・報告済み・要確認のチップが説明上、本登録は非表示と確認。比較初回は改行コード差で失敗し、改行正規化後に一致。Local実画面で3画面の項目順・対象月補足なし、年月とグループ幅240pxを実測。狭幅は折返し。保険報告の本登録限定は `src/domain/insurance-state.mjs` のactive以外除外処理を保持。単体630成功・既存2skip、Rules203成功、Functions／seed構文終了0は前節の成功証拠を再利用（処理・依存・各失効入力不変）。governance・diffは文書反映後に実行。
+
+オーナーは今回「Dev受入れを以てLocal受入れも完了」と指定。配備前の開発側技術確認と本人受入れを区別し、本人受入れはDev配備後まで未完了とする。Dev配備は明示承認済み。既存データ・Auth・採番を保持し、バックアップ等は保留、Prod反映・dev/main統合は行わない。
+
 ## 2026-10-20 Local本人受入れ・Dev反映
 
 Dev配備完了：候補 `2996d15f9a47042d7b5a97839c1fdacd6a6bca50`、[Actions 39364904557](https://github.com/shisyamo4131/termite-warranty/actions/runs/39364904557) 全体success。build 03:33:21–03:34:15 UTC（54秒）、deploy job 03:34:18–03:35:32 UTC（74秒）、開始から完了まで2分11秒。Firebase CLIは成功し、変更のないFunctionsの再配備を省略。公開後checkはready=true、Functions ACTIVE 21、公開入口・Dev接続先一致、PITR=false、日次予定0、backupAutomation=false。全Functions ZIP／全Hosting hash照合は現行軽量Dev手順どおり行わない。既存データ・Authの初期化や更新処理は実行していない。受入れ先は https://termite-warranty-dev.web.app 。Dev本人受入れはこれから開始。governance・diffチェックも各終了0。未確定要望と保護設定保留を維持し、Prod配備・dev/main統合は行っていない。

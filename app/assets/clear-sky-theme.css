@@ -334,6 +334,8 @@ a:hover {
 /* VRow has no comfortable density prop: keep horizontal gutters, reduce vertical gutters. */
 .v-row.monthly-search-comfortable { margin-top: -8px; margin-bottom: -8px; }
 .v-row.monthly-search-comfortable > [class*="v-col"] { padding-top: 8px; padding-bottom: 8px; }
+.monthly-search-field, .monthly-search-field.v-input { flex: 0 1 240px; width: 240px; min-width: 0; max-width: 100%; }
+.monthly-search-checkbox.v-input { flex: 0 0 auto; min-height: 56px; }
 @media (max-width: 599px) { .business-selection-bar > div { width: 100%; } .business-selection-bar .v-btn { max-width: 100%; height: auto; min-height: 40px; white-space: normal; } .business-counts { gap: 12px 20px; } }
 
 /* Vuetify reserves a page scrollbar by default, even when this workspace fits. */

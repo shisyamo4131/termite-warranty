@@ -4,10 +4,11 @@
   <v-alert v-if="message" type="success" class="mb-4">{{ message }}</v-alert>
   <v-card class="mb-4"><v-card-text>
     <v-form @submit.prevent="load"><v-row class="monthly-search-comfortable"><v-col cols="12"><div class="d-flex flex-wrap ga-3 ga-y-2 align-start">
-      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" style="flex:1 1 240px;min-width:0;max-width:400px" />
-      <BusinessDateInput v-model="month" label="指定年月" type="month" :disabled="working" :rules="[monthRule]" style="flex:1 1 180px;max-width:240px" />
+      <v-autocomplete v-model="groupId" :items="groups" item-title="name" item-value="id" label="保証グループ" :disabled="working" :rules="[groupRule]" class="monthly-search-field" />
+      <BusinessDateInput v-model="month" label="指定年月" type="month" :disabled="working" :rules="[monthRule]" class="monthly-search-field" />
+      <v-checkbox v-model="includeDone" :label="`${doneLabel}を含める`" hide-details :disabled="working" class="monthly-search-checkbox" />
       <div class="property-search-actions d-flex align-center"><v-btn color="primary" variant="flat" type="submit" :disabled="working">検索・更新</v-btn></div>
-    </div></v-col><v-col cols="12"><p v-if="basisMonth" class="text-body-2 mb-2">対象：{{ basisMonth }}月分</p><v-checkbox v-model="includeDone" :label="`${doneLabel}を含める`" hide-details :disabled="working" /></v-col></v-row></v-form>
+    </div></v-col></v-row></v-form>
 
   </v-card-text></v-card>
   <v-alert v-if="dirty && loadedMonth" type="warning" class="mb-4">検索条件が変わりました。「検索・更新」を押してください。</v-alert>
