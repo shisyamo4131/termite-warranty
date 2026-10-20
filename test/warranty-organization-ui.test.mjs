@@ -1,3 +1,5 @@
+import './pagination-scroll.test.mjs'
+import { usePaginationScroll } from '../app/composables/usePaginationScroll.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
@@ -14,7 +16,7 @@ function view() {
   const events = [], scope = vue.effectScope()
   const source = readFileSync(new URL('../app/components/WarrantyOrganizationManagement.vue', import.meta.url), 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  const env = { ...vue, defineProps: () => props, defineEmits: () => (...args) => {
+  const env = { usePaginationScroll, ...vue, defineProps: () => props, defineEmits: () => (...args) => {
     events.push(args)
     if (args[0] === 'selectGroup') { props.groupId = args[1]; props.companyId = '' }
     if (args[0] === 'selectCompany') props.companyId = args[1]

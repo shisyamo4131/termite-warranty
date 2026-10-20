@@ -1,5 +1,87 @@
 # Operations
 
+## 2026-10-20 Local本人受入れ・Dev反映
+
+オーナーが一覧・管理画面のLocal受入れ完了を明示し、Dev配備を承認。対象は `codex/hs-trial-first-feedback` の確定HS改修と本日の一覧・管理画面改善。未確定のHS要望は実装せず、Dev既存データ・Auth・採番を保持する。バックアップ・PITR・Auth退避は保留。Prod反映・dev/main統合は含めない。
+
+配備用包括7gateを選定。最終アプリ状態の `npm test` は630成功・既存2skip・終了0（`tmp/dev-accepted-domain.log`）。`npm run typecheck` / `npm run build` は直前の `admin-help-*` ログの終了0を再利用し、その後アプリ入力変更なし。Rules203成功、Functions構文・seed構文終了0は下記「一覧操作のLocal改修」の証拠を再利用（Rules・Functions・domain・永続化・依存・実行環境の失効入力不変）。文書更新後のgovernance・diffチェックは再実行する。最新origin/devを候補が含むことを `git merge-base --is-ancestor origin/dev HEAD` 終了0で確認。配備完了とDev本人受入れは別判定とし、実行結果は成功確認後に追記する。
+
+## 2026-10-20 管理3画面の案内整理
+
+`WarrantyOrganizationManagement.vue` のパンくず下の見出し・戻るボタンを削除し、所属変更不可の説明を既存タイトル右ツールチップへ追加。階層移動時の既存フォーカス処理の対象をパンくずへ移した。`StaffAccountManagement.vue` の管理対象・パスワード案内をタイトル右の$infoツールチップへ移動。`MeetingPrototype.vue` のアラート設定説明だけを削除。権限・警告・入力・保存処理は維持。
+
+UI／文書分類。`npm run typecheck`、`npm run build` は各終了0（`tmp/admin-help-typecheck.log`、`tmp/admin-help-build.log`）。実Localで組織の階層移動・パンくずによる復帰・フォーカス、両情報ツールチップ全文、アラート設定の説明削除を確認。画面証跡は `tmp/local-organization-help-updated.png`、`tmp/local-staff-tooltip.png`、`tmp/local-alert-settings-no-note.png`。実データの作成・更新は行っていない。他技術gateは業務ロジック・データ・依存等の失効入力不変により既存成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しは今回の表示マークアップを復元。既存差分を保持し、未コミット・未push・Dev／Prod未配備。バックアップ等は保留。Localは確認用に継続。
+
+## 2026-10-20 組織管理の情報ツールチップ
+
+`WarrantyOrganizationManagement.vue` の接頭辞・無効状態の常設VAlertを、h1右の$infoツールチップへ全文移動。クリック／ホバー／フォーカス対応は保険報告と同じ。所属変更不可の説明・無効状態警告・操作制限・scriptは不変。Localでアイコン表示とクリックによる本文全文を確認（`tmp/local-organization-tooltip.png`）。`npm run typecheck`、`npm run build` は各終了0（`tmp/organization-tooltip-typecheck.log`、`tmp/organization-tooltip-build.log`）。UI／文書分類、他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しはツールチップを元のVAlertへ戻す。既存差分保持、未コミット・未push・Dev／Prod未配備。Local表示を継続。
+
+## 2026-10-20 設定画面の常設案内削除
+
+オーナー画像指示により `app/components/CompanySettings.vue` のWordテンプレート会社情報の常設VAlert1件だけを削除。保存・権限・入力警告・Word非自動更新仕様は不変。仕様・会社設定設計・変更履歴を同期。`npm run typecheck`、`npm run build` は各終了0（`tmp/company-notice-hide-typecheck.log`、`tmp/company-notice-hide-build.log`）。Local設定画面で案内なし・既存情報カードと編集ボタン表示を確認（`tmp/local-company-no-word-notice.png`）。UI／文書分類、他技術gateは失効入力不変の証拠を再利用。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しは当該VAlertの復元。既存差分保持、未コミット・未push・未配備、保護保留。Local設定画面を確認用に残す。
+
+## 2026-10-20 一覧操作のLocal改修
+
+検索欄高さの統一：オーナー指定に従い、保険報告を基準に請求・保証書CSVをVRow/VColの2段構成へ変更。`WarrantyCertificateManagement.vue`、`MeetingPrototype.vue`、`clear-sky-theme.css` の共通余白クラスをmonthly-search-comfortableとし、上下8pxを共有。保険報告の寸法は不変。script全文・disabled式の変更なしを静的assertで確認（終了0）。実Localの画面幅935pxで保険報告・請求・保証書CSVそれぞれの検索カード高さ227.9375pxをDOM実測し一致。狭幅で項目が折り返すと高さは項目数に応じて増える。画面証跡 `tmp/local-monthly-matched-height.png`。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-search-height-typecheck.log`、`tmp/monthly-search-height-build.log`）。UI／文書分類、他技術gateは失効入力不変で再利用。仕様・テーマ・変更履歴を同期。差戻しは2段ラッパー・共通クラス名の復元。データ契約・ADR・ガバナンス・CIは不変。未コミット・未push・未配備、保護保留。Localは確認用に継続。
+
+件数・操作カード統一を採用してLocal反映：`MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`clear-sky-theme.css`。共通business-count-summaryで抽出／選択／今回更新対象を1行表示、要確認0件は非表示、狭幅は折返し。保険報告の全選択・CSV・報告済み・ページ番号を一覧カード内へ移動し、全選択ラベルも揃えた。共用Meeting表の内容ラッパーを追加し、月次以外にはpa-0で余白を維持。既存の検索変更・記録不足警告、選択禁止、読み取り専用制限は維持。
+
+検証：`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-unified-typecheck.log`、`tmp/monthly-unified-build.log`）。`node tmp/monthly-unified-check.mjs` は終了0：変更前後のscript全文と全disabled式が一致、実テンプレートのVue SSR描画で抽出2／選択1／更新1と要確認の有無を両部品で確認。UI／文書変更、他技術gateは失効入力不変の先行成功証拠を再利用。実Localで3画面の0件表示・要確認非表示・カード内配置を確認（`tmp/local-report-unified.png`、`tmp/local-billing-unified.png`、`tmp/local-certificate-unified.png`）。非空結果での実更新は行っていない。仕様・テーマ・要望状況・文書入口・変更履歴を同期。データ契約・ADR・ガバナンス・CI・依存は不変。差戻しは今回の件数マークアップ・表ラッパーと専用CSS。既存差分保持、未コミット・未push・未配備、保護設定保留。Localは保証書CSVを表示したまま残す。
+
+数量単位の統一：`WarrantyCertificateManagement.vue` の数量に続く「期間」を7箇所「件」へ変更（集計4・確認1・成功通知1・部分失敗通知1）。保証期間を意味する項目名は維持。集計式・選択制御・保存処理は不変。Localで請求・保証書CSVの集計が件表示になることを確認。更新操作は行わず通知はソース確認のみ。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-count-unit-typecheck.log`、`tmp/monthly-count-unit-build.log`）。UI文言／文書分類とし他技術gateは失効入力不変で成功証拠を再利用。仕様・テーマ・変更履歴を同期。差戻しは数量単位7箇所の復元。データ契約・ADR・ガバナンス・配備設定は不変。未コミット・未push・未配備。
+
+件数配置の当初検討（後続指示で採用、下記は提案時点）：保険報告はオーナー指示で独立した総件数表示を削除済み、全選択対象数と選択数・選択中未報告数は残る。請求・保証書は従来の3区分集計を保持しているため見た目が異なる。全選択対象数は選択不可行を除くため総行数とは異なる場合がある。推奨は3画面共通のコンパクトな1行で「抽出件数／選択件数／今回更新件数」を表示し、要確認件数は存在するときだけ示す方式。抽出量確認と誤更新予防を維持し、独立した大きな集計領域による縦領域消費を抑える。今回は提案のみで保険報告の表示追加やレイアウト統合は行わない。
+
+結果欄の適用条件表示も後続指示で削除：`WarrantyCertificateManagement.vue` の保証グループ／指定年月／対象月のp要素だけを削除し、請求・保証書CSV両方に適用。検索欄・条件変更警告・選択禁止・scriptは不変。Localの検索済み請求画面で削除を確認（`tmp/local-monthly-no-summary.png`）。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-summary-hide-typecheck.log`、`tmp/monthly-summary-hide-build.log`）。UI／文書分類で他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。差戻しは当該p要素の復元。データ契約・ADR・ロードマップ判定・ガバナンス・配備設定は不変。既存差分を保持、未コミット・未push・Dev／Prod未配備、保護設定保留。
+
+後続指示で請求先補助表示を削除：`WarrantyCertificateManagement.vue` の検索欄の請求先p要素1件だけを削除。請求先マスタ・CSV・script・警告・選択禁止は不変。Localで保証グループ選択済みの請求一覧から表示が消えたことを確認（`tmp/local-billing-no-recipient.png`）。`npm run typecheck`・`npm run build` は各終了0（`tmp/billing-recipient-hide-typecheck.log`、`tmp/billing-recipient-hide-build.log`）。UI／文書分類で、他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップの完了判定・ガバナンス・配備設定は不変。差戻しは当該p要素の復元。既存差分保持、未コミット・未push・未配備。Local画面を継続。
+
+請求一覧・保証書CSVへ展開：`WarrantyCertificateManagement.vue` のテンプレートだけを変更。注意文の全文を情報ツールチップへ移動し、flex縦gap8px、済みチェックhide-details、請求先末尾余白0を適用。script全体と全disabled式が変更前と一致すること、条件変更・error/message・要確認表示の保持を静的assertで確認（終了0）。検索結果の集計と適用年月表示は今回の検索欄変更対象外として維持。差戻しは今回のテンプレート差分のみ戻す。
+
+`npm run typecheck`、`npm run build` は各終了0（ignored `tmp/monthly-layout-typecheck.log`、`tmp/monthly-layout-build.log`）。UI／文書変更のため他技術gateは失効入力不変の先行成功証拠を再利用。実Localの両画面でツールチップ全文、検索成功（0件）、年月変更の警告・元へ戻した後の解除を確認。非空結果や例外行の実操作は今回未実施。画面証跡は `tmp/local-certificate-compact.png`、`tmp/local-billing-compact.png`。保険報告本人受入れ済みを仕様・設計・要望状況へ記録し、変更履歴を同期。データ契約・ADR・CI・ガバナンス・依存は不変。
+
+Localだけに架空グループ `local-monthly-layout-demo`（架空レイアウト確認用）を未存在時のみ作成し、本人確認用に残した。確認済みdemoプロジェクト・127.0.0.1:28080に限定、既存データの上書き・業務文書作成・採番変更なし。初回sandbox接続は停止し、昇格実行で終了0（`tmp/monthly-layout-fixture.mjs`）。Localアプリ・Emulatorは継続し、請求一覧を開いて残す。既存作業ツリー差分を保持、今回も未コミット・未push・Dev／Prod未配備。バックアップ等は保留。
+
+常設注意文・AppBarの追加変更：`MeetingPrototype.vue` の「個別確認が必要な行は選択対象外です。」だけを削除し、review行のdisabled・全選択除外の式は静的assertで保持確認（終了0）。サーバー処理は未変更。狭幅メニューはVuetify同梱のMDI menu（$menu）、ログアウトの左は[公式MDI logout SVG](https://raw.githubusercontent.com/Templarian/MaterialDesign/master/svg/logout.svg)のpathを使用。読み上げ名・イベント処理・表示条件は維持。外部SVG読取りは初回自動承認で拒否されたが、project-rulesの公開資料取得の恒常承認を提示した再審査で許可され、読取り成功。依存追加なし。
+
+今回のUI完了検証：`npm run typecheck`、`npm run build` は各終了0（ignored `tmp/report-appbar-typecheck.log`、`tmp/report-appbar-build.log`）。Localブラウザーで常設文なし、両アイコンの描画、メニューを開く→保険報告一覧へ戻る操作を確認。ログアウト自体は実行せずログイン状態を保持。画面証跡 `tmp/local-report-appbar.png`。例外データでの実操作試験は今回未実施。既存の単体・Rules・Functions／seed構文は失効入力不変により再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・CI・権限・ガバナンスは不変。差戻しは今回の表示箇所のみ復元。未コミット・未push・未配備、保護設定保留。Local画面とサービスは本人確認用に継続。
+
+保険報告の追加4点：`MeetingPrototype.vue` と `clear-sky-theme.css` を変更し、欄直下の件数を非表示、再抽出注意は独立表示、報告済みチェックにhide-details、注意文はタイトル右のMDI information（Vuetify同梱$info）のツールチップへ移動。既存VRowのpropsはdense/noGuttersでcomfortableはないため、保険報告専用CSSで上下paddingを12→8px、rowの上下marginを-8pxに設定。横余白・入力メッセージを保持。他の一覧の件数は変更なし。差戻しはこの4点のテンプレート・専用CSSのみ復元する。
+
+今回の検証：`npm run typecheck`（`tmp/report-compact-typecheck.log`）、`npm run build`（`tmp/report-compact-build.log`）はそれぞれ終了0。実Localブラウザーで件数表示なし、情報アイコンのクリックで従前の説明全文が表示、年月変更で再抽出注意が表示、戻して抽出後に注意が消えることを確認。スクリーンショット `tmp/local-report-compact.png`。検索欄は常時表示。UI／文書変更として単体・Rules・Functions／seed構文は失効入力不変の先行成功証拠を再利用。仕様・テーマ・要望状況・変更履歴を更新。データ契約・ADR・ガバナンス・権限・CI・配備設定は不変。作業ツリーの既存差分を保持し、未コミット・未push・Dev／Prod未配備。保護設定保留。
+
+追加指示のLocal確認準備：`MeetingPrototype.vue` の検索欄直下の「指定年月／対象月」だけを削除。年月入力・欄内の対象月・再抽出注意は保持。今回の変更分類はUI／文書。`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check` は各終了0。下記の単体・Rules・Functions／seed構文は、それぞれのpolicy失効入力が変更されないため成功証拠を再利用。仕様・テーマ・要望台帳・入口・納品ロードマップ・変更履歴を同期。データ契約・ADR・CI・権限は変更なし。差戻しは当該表示1行の復元。
+
+Local Emulatorは停止状態から `npm run emulators:start` で起動。初回はsandbox内でHub起動に失敗し、昇格実行で起動成功。`npm run emulators:seed` は終了0、既存スクリプトの架空データ・デモアカウントのみ準備。`npm run dev` で `http://127.0.0.1:23600/` を起動し、アプリ内ブラウザーでログイン→保険報告一覧→対象抽出を確認。2026-10指定は0件。2026-11へ変更時の再抽出注意、2026-10へ戻した後の注意解除、重複表示なしを確認。表示用タブとLocalサービスを残した。画面証跡はignored `tmp/local-report-summary-hidden.png`。この確認は検索欄の表示・操作であり、非空結果の業務受入れではない。Dev／Prodへの配備、コミット・push、バックアップ等は行っていない。
+
+オーナー指示の①保険報告の入力・検索操作位置、③ページ付き一覧の縦スクロール復帰を実装。②検索欄省スペース化は3案を提示後、追加指示で折りたたみを不採用とし、保険報告の検索欄直下の適用条件の重複表示だけを非表示にした。作業ツリーにあった10月19日の資料・要望記録差分を保持。今回も未コミット・未push・未配備。保護設定保留を維持。
+
+変更した製品ファイル：`app/assets/clear-sky-theme.css`、`app/components/MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`WarrantyOrganizationManagement.vue`、`StaffAccountManagement.vue`、`PropertyBulkImportDialog.vue`、`app/composables/usePaginationScroll.ts`。ページ番号が変化した後、当該VTableの縦位置を0にし、表先頭が隠れたスクロール親だけを必要分調整する。横位置、選択、検索、データ取得・保存は維持。物件・両満了案内・保険報告、請求／保証書、組織3階層、HS担当者、旧工務店担当者経路、一括取込みの各ページ付き表へ接続した。
+
+回帰試験：`test/pagination-scroll.test.mjs`を新設し、通常npm testで実行される`test/warranty-organization-ui.test.mjs`から読み込む。既存のコンポーネント評価環境3件（同組織試験、`property-bulk-import-ui.test.mjs`、`property-warranty.test.mjs`）に本物の共通処理を渡す。次／前ページ、同じページの再選択、描画後の実行、他表への非干渉、横位置、親スクロール、アンマウントを検証。
+
+影響分類は文書・UI・アプリ処理の和集合。最終製品差分に対するゲート：
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 文書・生成整合成功 | 0 |
+| `git diff --check` | 空白差分検査成功 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm test` | 630成功、既存2skip | 0 |
+| `npm run test:rules` | 203成功、隔離Emulator停止を確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+単体試験の初回はsandboxの一時領域書込み制限、次は新規composableのテスト環境への注入不足で失敗。試験環境を修正して成功後、追加回帰の接続確認時に連携runnerの共有lockと競合したため、連携完了後の直列実行で全件成功を確認した。失敗結果を成功と流用していない。単体最終実測4.22秒、連携runner実測376.86秒（停止処理込み）。機能の遅延測定ではない。
+
+描画確認：ignored `tmp/hs-ui-browser.mjs` によるローカル隔離Vite＋Chrome試験（終了0）。実際の保険検索テンプレート断片・BusinessDateInput・Vuetify・共通CSSで、1280px幅の入力中央とボタン中央がともにy=101pxで一致。390px幅の折返しを目視。実際のWarrantyOrganizationManagementと架空45件で1→2→1の実クリック後に表先頭と行切替を確認。JavaScript例外0、favicon取得404は検証ページのアイコン未配置。試験ページ初期設定の不足によるタイムアウトは設定後の再実行で解消。データ・認証・外部環境へ接続しない部品試験であり、全画面のログイン後業務受入れやHS本人受入れの代替とはしない。
+
+3案の見本は736px／320pxで表示、条件変更パネルの入力・適用・閉じるを確認。共通の表示高さで比較できるようにし、保証グループを必要とする請求／保証書への切替も用意。採用候補はコンパクト常時表示（操作追加なし）、条件を折りたたむ（適用条件を残して一覧領域を広げる）、条件変更パネル（通常時は最小、変更時は表に重なる）。入力メッセージの保持・条件変更警告の維持が採用後の実装条件。測定前の削減pxや表示行数は保証しない。
+
+仕様0.1.133・テーマ設計・要望台帳・変更履歴・入口／納品ロードマップを更新。データ契約、ADR、ガバナンス、依存関係、CI、配備設定は不変。差戻しは今回の共通処理と8つの表接続、検索位置の変更を戻す。次はLocal業務画面の本人確認と、その他の省スペース配置の判断。Dev配備は別指示後。
+
+
 ## 2026-10-17 HS試行1回目の確定改修
 
 対象は[仕様書0.1.132](specification.md#2026-10-17-hs試行1回目への返信で確定した改修)の2件。基準は実取得したdev `14c220251ee37961354a0252522c6d1691043dd4`、作業ブランチ `codex/hs-trial-first-feedback`。画面2ファイルと既存試験1ファイル、関連文書の差分。Local受入れ完了時点ではコミット・pushは未実施だったが、同日後続指示で改修ブランチへの保存を承認された。19日までの受付と5件の現在地を[HS試行対応状況](roadmaps/hs-trial-feedback.md)に整理。PR・Dev／Prod配備は今回の対象外。保護設定保留を維持する。

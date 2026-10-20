@@ -1,3 +1,4 @@
+import { usePaginationScroll } from '../app/composables/usePaginationScroll.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
@@ -17,7 +18,7 @@ function viewForTest(storage,invoke,identity=scope) {
   const open=vue.ref(false),mounted=[],unmount=[],events=[]
   const source=readFileSync(new URL('../app/components/PropertyBulkImportDialog.vue',import.meta.url),'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
-  const env={...pending,requiredRules,BULK_IMPORT_MAX_BYTES,window:{sessionStorage:storage,addEventListener:()=>{},removeEventListener:()=>{}},defineProps:()=>props,defineModel:()=>open,defineEmits:()=>((...args)=>events.push(args)),ref:vue.ref,computed:vue.computed,watch:vue.watch,onMounted:fn=>mounted.push(fn),onBeforeUnmount:fn=>unmount.push(fn)}
+  const env={usePaginationScroll,...pending,requiredRules,BULK_IMPORT_MAX_BYTES,window:{sessionStorage:storage,addEventListener:()=>{},removeEventListener:()=>{}},defineProps:()=>props,defineModel:()=>open,defineEmits:()=>((...args)=>events.push(args)),ref:vue.ref,computed:vue.computed,watch:vue.watch,onMounted:fn=>mounted.push(fn),onBeforeUnmount:fn=>unmount.push(fn)}
   const view=new Function(...Object.keys(env),code+'\nreturn {searchCompanies,activeGroups,selectedGroup,groupId,companyId,csv,format,file,preview,confirmed,requestId,pendingRecord,locked,rejected,result,problem,discardConfirmation,commitFile,checkStatus,readFile,discardRejected,restorePending,previewFile,importForm};')(...Object.values(env))
   return {...view,props,open,events,mount:()=>mounted.forEach(fn=>fn()),unmount:()=>unmount.forEach(fn=>fn())}
 }

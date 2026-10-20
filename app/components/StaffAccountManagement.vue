@@ -2,7 +2,7 @@
   <section>
     <div class="d-flex align-center justify-space-between ga-4 mb-6">
       <div>
-        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span></h1>
+        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span><v-tooltip v-if="canManage" location="bottom" max-width="520" open-on-click><template #activator="{ props: tooltipProps }"><v-btn v-bind="tooltipProps" icon="$info" variant="text" size="small" aria-label="担当者アカウント管理の注意事項" /></template><div class="text-body-2">{{ targetDescription }}。パスワードは本人が設定・再設定します。</div></v-tooltip></h1>
         <p class="text-body-2 text-medium-emphasis mb-0">ハウスソリューション側の担当者アカウントを発行・編集・無効化します。</p>
       </div>
       <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
@@ -13,11 +13,8 @@
     </v-alert>
     <v-card v-else>
       <v-card-text>
-        <v-alert type="info" class="mb-4">
-          {{ targetDescription }}。パスワードは本人が設定・再設定します。
-        </v-alert>
         <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-        <v-table>
+        <v-table ref="listTable">
           <thead><tr><th>表示名</th><th>メールアドレス</th><th>権限</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="account in visibleAccounts" :key="account.uid">
@@ -89,6 +86,7 @@ const editingUid = ref('')
 const creationRequestId = ref('')
 const creationDraft = ref<{ email: string; displayName: string } | null>(null)
 const page = ref(1)
+const listTable=usePaginationScroll(page)
 const form = reactive({ displayName: '', email: '' })
 
 const canManage = computed(() => profile.value?.accountType === 'staff'
