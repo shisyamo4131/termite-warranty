@@ -145,3 +145,12 @@ test('reviewed postal screenshots are documents without admitting adjacent asset
  assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/other.png')))
  assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/loading-dialog.js')))
 })
+
+test('reviewed HS billing guide is documentation with adjacent and mixed changes guarded',()=>{
+ const paths=['deliverables/hs-cloud-billing-guide-2026-10-20/README.md', 'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/02-menu.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/03-linked.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/04-billing-list.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/05-trial-step1.png', 'output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('app/a.vue')),'product')
+ assert.equal(classifyDiff(raw('deliverables/hs-cloud-billing-guide-2026-10-20/other.py')),'product')
+ assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed-billing.pdf')))
+})

@@ -1,5 +1,14 @@
 # Operations
 
+## 2026-10-20 HS請求先ガイドの文書統合
+
+本人が未コミットの請求先ガイド・PDF・関連文書をコミット／pushし、PRでdevへ統合するよう承認。対象は `deliverables/hs-cloud-billing-guide-2026-10-20/` のREADME、生成元、画像5枚と `output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf`、docs索引。PDF・画像は既存成果物を維持し、実登録・請求切替は行わない。画像にカード番号・認証情報がないことを確認。PDF全10ページの文字抽出と生成元の構文検査はbundled Pythonでexit 0（標準Pythonはpypdf未導入のため初回exit 1、新規インストールなし）。前回の全ページ描画・目視確認記録は生成元READMEに保持。
+
+現行CIでは未分類／製品扱いとなるため、`scripts/lib/change-scope.mjs`に確認済み8ファイルだけを完全一致で文書登録し、`test/documentation-changes.test.mjs`で文書判定、製品混在、隣接ファイルを自動許可しないことを検証。初回登録はCI技術変更を含む。`npm test` は641成功・既存2skip、exit 0（`tmp/hs-billing-guide-tests.log`）。同コマンドに入力該当のdocumentation-routing回帰を含む。包括gateは選定するが、型検査・build・Rules203成功・Functions/seed構文は4387365の成功証拠を再利用：アプリ・依存・Functions・Rules・永続化・実行環境は不変でpolicyの失効条件に該当しない。文書分類と文書生成元はアプリbuild／Functions／配備設定から参照されず、Hosting公開先は.output/public。governance／diff検査は最終差分で実行する。
+
+アプリ・業務仕様・データ契約・既存Dev受入れは変更なし。Dev／Prod配備は起動せず、main統合も行わない。バックアップ・PITR・Auth退避と請求切替は保留を維持。文書統合の差戻しは当該PRを通常revertする。
+
+
 ## 2026-10-20 zipcloud受入れ・旧方式撤去とDev配備
 
 PR #49（dev向け）の初回チェックは画面証跡PNGが未分類で停止。`scripts/lib/change-scope.mjs`の既存完全一致リストへ今回の証跡3ファイルだけを追加し、`test/documentation-changes.test.mjs`で文書判定・製品混在・隣接未分類ファイル拒否を確認。画像は静的証跡でアプリや配備設定から参照されない。分類修正の差戻しはこの3エントリを戻す。包括gateを選択し、`npm test` 640成功・既存2skip、限定回帰15成功、各exit 0。型検査・build・Rules203成功・Functions/seed構文は受入れ版の証拠を再利用：変更は文書とCI分類・試験だけで、それぞれの失効条件となる製品・依存・実行環境・永続化・Functions入力は不変。governance/diffは最終更新後に再確認。main統合やProd配備は行わない。
