@@ -2,6 +2,8 @@
 
 ## 2026-10-20 Local本人受入れ・Dev反映
 
+Dev配備完了：候補 `2996d15f9a47042d7b5a97839c1fdacd6a6bca50`、[Actions 39364904557](https://github.com/shisyamo4131/termite-warranty/actions/runs/39364904557) 全体success。build 03:33:21–03:34:15 UTC（54秒）、deploy job 03:34:18–03:35:32 UTC（74秒）、開始から完了まで2分11秒。Firebase CLIは成功し、変更のないFunctionsの再配備を省略。公開後checkはready=true、Functions ACTIVE 21、公開入口・Dev接続先一致、PITR=false、日次予定0、backupAutomation=false。全Functions ZIP／全Hosting hash照合は現行軽量Dev手順どおり行わない。既存データ・Authの初期化や更新処理は実行していない。受入れ先は https://termite-warranty-dev.web.app 。Dev本人受入れはこれから開始。governance・diffチェックも各終了0。未確定要望と保護設定保留を維持し、Prod配備・dev/main統合は行っていない。
+
 オーナーが一覧・管理画面のLocal受入れ完了を明示し、Dev配備を承認。対象は `codex/hs-trial-first-feedback` の確定HS改修と本日の一覧・管理画面改善。未確定のHS要望は実装せず、Dev既存データ・Auth・採番を保持する。バックアップ・PITR・Auth退避は保留。Prod反映・dev/main統合は含めない。
 
 配備用包括7gateを選定。最終アプリ状態の `npm test` は630成功・既存2skip・終了0（`tmp/dev-accepted-domain.log`）。`npm run typecheck` / `npm run build` は直前の `admin-help-*` ログの終了0を再利用し、その後アプリ入力変更なし。Rules203成功、Functions構文・seed構文終了0は下記「一覧操作のLocal改修」の証拠を再利用（Rules・Functions・domain・永続化・依存・実行環境の失効入力不変）。文書更新後のgovernance・diffチェックは再実行する。最新origin/devを候補が含むことを `git merge-base --is-ancestor origin/dev HEAD` 終了0で確認。配備完了とDev本人受入れは別判定とし、実行結果は成功確認後に追記する。
