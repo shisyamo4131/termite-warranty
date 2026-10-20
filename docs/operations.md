@@ -2,9 +2,11 @@
 
 ## 2026-10-20 zipcloud受入れ・旧方式撤去とDev配備
 
+本人Dev受入れ完了（2026-10-20）：オーナーが「Dev 4387365の受入れ完了」と明示し、受入れ記録とPRによるdev統合を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。対象は上記切替・検索中ダイアログ・旧方式撤去を含む配備版。最新候補との差分は文書記録のみで、製品内容は同一。成功runとLocal検証の証拠を再利用し、文書検査とPR必須チェックを行う。Prod配備・main統合・保護設定変更は行わない。仕様／データ契約／実装／CIは今回変更せず、業務データ操作もなし。
+
 Dev配備完了：`codex/zipcloud-address-lookup` の `438736549b32a7e3356e62bc77c77f3047fbea0d` をpushし、[run 39409008651](https://github.com/shisyamo4131/termite-warranty/actions/runs/39409008651)をdev controllerから起動。build／deployの両job成功。Hosting54ファイル、Functions21件ACTIVE、公開入口／接続先確認成功。公開後checkは `ready=true, protectionHeld=true, pitr=false, dailySchedules=0, backupAutomation=false`。現行の軽量Dev手順どおり全ソースZIP／全Hosting hash比較は行っていない。旧住所JSONはビルド対象から除去済みで、通常Hosting releaseを公開した。Dev業務データのseed・初期化・補正・削除、Authユーザー操作、Prod配備は行っていない。
 
-`./scripts/check-governance.ps1`、`git diff --check` は候補commit前に各exit 0。commit／push／workflow起動は各exit 0、run完了はsuccessを読取り確認。本人Local受入れは完了、Devの本人受入れはこれから。Dev受入れ後に既存手順のPRでdevへ統合する。配備版と以後の文書記録commitを混同しない。別件の請求先ガイド・PDFとそのREADMEリンクは未コミットのまま保全。
+`./scripts/check-governance.ps1`、`git diff --check` は候補commit前に各exit 0。commit／push／workflow起動は各exit 0、run完了はsuccessを読取り確認。本人Local受入れ・Dev受入れは完了。既存手順のPRでdevへ統合する。配備版と以後の文書記録commitを混同しない。別件の請求先ガイド・PDFとそのREADMEリンクは未コミットのまま保全。
 
 最終Local検証（旧方式撤去後）：`npm test` 639成功・既存2skip、exit 0（4,323ms）。前回662成功から旧方式専用23試験を削除。`npm run test:rules` 203成功、Emulator停止確認、exit 0（399,616ms）。`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` は各exit 0。ログはGit対象外の `tmp/zipcloud-cleanup-{unit,rules,build,syntax}.log`。単体と連携の同時実行による2件の排他競合は、連携正常終了後の全単体再実行で解消。governance／差分チェックはコミット直前に確認する。UI・API・入力保持の受入れ済み挙動に追加変更はなく、削除対象だけを生成成果物でも確認した。
 
