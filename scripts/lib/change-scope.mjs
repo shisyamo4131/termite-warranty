@@ -17,7 +17,16 @@ const verificationTools=new Set([
   'lib/rules-test-workflow.mjs','lib/focused-test-reporter.mjs','lib/test-emulators.mjs',
   'lib/test-emulator-stage.mjs','lib/test-functions-loader.mjs','lib/test-functions-register.mjs',
 ])
-const documentExtras=new Set(['docs/design/evidence/local-postal-2026-10-20/dashboard.png','docs/design/evidence/zipcloud-2026-10-20/loading-dialog.png','docs/design/evidence/zipcloud-2026-10-20/manual-preserved.png',
+const documentExtras=new Set([
+  'deliverables/hs-cloud-billing-guide-2026-10-20/README.md',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/02-menu.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/03-linked.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/04-billing-list.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/05-trial-step1.png',
+  'output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf',
+'docs/design/evidence/local-postal-2026-10-20/dashboard.png','docs/design/evidence/zipcloud-2026-10-20/loading-dialog.png','docs/design/evidence/zipcloud-2026-10-20/manual-preserved.png',
 'README.md','CHANGELOG.md','INITIAL_PROMPT.md',
   'deliverables/insurance-report-guide-2026-10-19/README.md',
   'deliverables/insurance-report-guide-2026-10-19/build_pdf.py',
