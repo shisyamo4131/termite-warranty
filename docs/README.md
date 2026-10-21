@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [保険報告の説明・図解比較・契約番号の提案資料](../deliverables/insurance-report-guide-2026-10-19/README.md)：10月19日PDF3点と生成元。未採用提案と現行仕様を区別する。[HS試行対応表](roadmaps/hs-trial-feedback.md)・[判断記録](requirements/house-solution-confirmations/HSC-036-insurance-reporting-cycle.md)。文書のみmain反映、対応アプリのProd反映は保留。
+
 - [HS本番環境管理アカウント・請求先登録の統合ガイド](../deliverables/hs-prod-account-2026-10-21/README.md)：11ページ、パスワードは空の入力欄。10月23日の請求先切替用で、納品書とは別紙。
 - [請求先登録ガイドの生成元・撮影原画像](../deliverables/hs-cloud-billing-guide-2026-10-20/README.md)：単独PDFは統合版へ置換。
 
