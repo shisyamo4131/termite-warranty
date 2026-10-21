@@ -2,6 +2,10 @@
 
 ## 2026-10-21 満了後保険操作・UH初期計画のDev候補
 
+Dev配備完了：候補 `c2c7a0e52e463e781101eab63735fe1c6e3046bc` をcommit／push（各exit 0）、dev controllerの手動配備を起動（exit 0）。[run 39577888288](https://github.com/shisyamo4131/termite-warranty/actions/runs/39577888288)はbuild／deployともsuccess。build 18:33:34〜18:34:56 JST（82秒）、deploy 18:35:00〜18:40:27（327秒）、両jobの開始〜終了は6分53秒。公開後 `ready=true,functionsActive=21,publicEntry=true,protectionHeld=true,pitr=false,dailySchedules=0,backupAutomation=false`。既存軽量手順どおり全ソースZIP／Hosting hash独立比較は行わない。
+
+Dev画面を再読込し、2018年10月→18-001→詳細の前半2018-07-08〜2023-07-07が未報告で「報告不要にする」有効を確認。Dev実データの保険状態は変更せず、更新操作はLocal画面と隔離連携試験で検証。Local画面では報告済み再表示と後半未報告維持まで確認（Git管理外のtmp/expired-insurance-local.png）。本人Dev業務受入れは待ち。受入れ完了後に通常PRでdev統合し、main／Prodへは進めない。今回候補の19ファイルをcommit済み、別件の請求先記録3文書は未コミットで保全。
+
 オーナーが満了後の報告不要・報告済みを許容、実報告判断は運用事項と確定し、UHのProd初期住所複製を承認して改修・Dev受入れまでを指示。通常のDev候補配備を行い、本人受入れ完了・dev統合は先取りしない。Prod配備・正式投入・保護設定は保留。
 
 変更：WarrantyLifecycleDetails／MeetingPrototypeの不要操作の期限条件と期限説明、Functionsの不要設定／取消の満了拒否を除去。HS権限・本登録状態・期間ID・理由・履歴・revision・receiptは維持。報告済みは既存の過去対象月の報告コマンドを維持し、期限を理由とした新規制限を追加しない。過去物件計画はUHだけ正規化externalKeyを住所へ複製し、原入力・他グループ住所・キー予約を保持。取込み時の自動不要化、全住所必須化、物件検索は今回未実装。仕様・保険／住所要件・HSC036・ADR0041・設計契約・試行ロードマップ・取込み手順・changelogを反映。保存スキーマ・IAM・CI・ガバナンスは不変。切戻しは改修差分を通常revertし再検証／Dev再配備する。既存の状態履歴は削除せず、取込み計画は旧digestを使わず再生成する。
