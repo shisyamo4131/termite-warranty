@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-21 統合PDF・資料整理のmain限定反映
+
+本人が今回の文書変更だけをmainへPR統合するよう承認。dev全体は統合せず、main `6c762aa` を基点にdev `fb1aca9` の統合ガイド・関連README・再生成用Python3本／撮影原画像5枚と、10月5日版スケジュール削除を限定反映する。mainには旧請求先PDF自体が存在しないため、旧PDFを追加してから削除する操作は行わない。索引と本記録はmainに必要な部分だけ追記する。
+
+文書を配備入力と誤判定しないため、確認済み12パスだけを既存の完全一致文書リストへ登録し、回帰試験2件を追加。PR全体はci分類であり、アプリ・workflow・配備起動条件は変更しない。mainのpush処理は分類確認だけを行い、kind=productを要求するbuild／deployは省略されることを統合後に確認する。今回の許可はmain文書統合のみで、Dev／Prod配備・正式投入・バックアップ・PITR・Auth退避は保留。
+
+包括gateを選定し、変更で失効する単体／文書分類検証を実行。`npm test` 607成功・既存2skip、exit 0（`tmp/hs-guide-main-tests.log`）。初回はdev用試験の旧PDFパスがmainの対象にないため1件失敗し、今回の対象に限定して全試験再実行後に成功。型検査・build・Rules・Functions/seed構文は既存mainの成功証拠を再利用：app/src/functions/public、依存、Nuxt/TypeScript、Rules/索引、Firebase設定、workflow、governanceは基点mainと差分なし。文書の分類追加・試験・生成コードからこれらの入力は変更されず、policyの失効条件に該当しない。
+
+統合PDFの11ページ・空のパスワード欄・全ページ文字抽出と生成元3本の構文検査はbundled Pythonでexit 0。PDFはdev受入済み成果物と同一で、作成時の全ページ描画確認を再利用。governance／差分検査は最終状態で実行。業務仕様・データ契約・ADR・納品進捗の変更なし。通常PR revertで今回の文書と限定分類を差し戻せる。PR／Actionsを統合・配備省略の証拠とする。
+
 ## 2026-10-20 ProdのHSオーナー招待受諾
 
 本人が既存ProdのHSへの管理引継ぎと、開発者本人のOwner・現在の請求先維持を明示承認。続けてFirebase利用規約への同意と招待受諾を承認した（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。対象は実コンソールで確認した `termite-warranty-prod`。指定HSアカウントの受諾後、そのログインで「ユーザーと権限」を開き、HSと既存開発者の両方がOwner、メンバー追加操作が利用可能であることを確認した。メールアドレス・招待token・秘密情報は本書に保存しない。
