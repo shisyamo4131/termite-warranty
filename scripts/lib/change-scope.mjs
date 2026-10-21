@@ -18,6 +18,11 @@ const verificationTools=new Set([
   'lib/test-emulator-stage.mjs','lib/test-functions-loader.mjs','lib/test-functions-register.mjs',
 ])
 const documentExtras=new Set([
+  'deliverables/hs-prod-account-2026-10-21/README.md',
+  'deliverables/hs-prod-account-2026-10-21/build_pdf.py',
+  'deliverables/hs-prod-account-2026-10-21/combine_pdf.py',
+  'output/pdf/HS_本番管理アカウントと請求先登録ガイド.pdf',
+  'output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-05.pdf',
   'deliverables/hs-cloud-billing-guide-2026-10-20/README.md',
   'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py',
   'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png',

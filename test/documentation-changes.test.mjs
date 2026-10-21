@@ -154,3 +154,14 @@ test('reviewed HS billing guide is documentation with adjacent and mixed changes
  assert.equal(classifyDiff(raw('deliverables/hs-cloud-billing-guide-2026-10-20/other.py')),'product')
  assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed-billing.pdf')))
 })
+
+test('combined account guide and retired schedule remain bounded documents',()=>{
+ const paths=['deliverables/hs-prod-account-2026-10-21/README.md','deliverables/hs-prod-account-2026-10-21/build_pdf.py','deliverables/hs-prod-account-2026-10-21/combine_pdf.py','output/pdf/HS_本番管理アカウントと請求先登録ガイド.pdf','output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-05.pdf']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('functions/index.js')),'product')
+ assert.equal(classifyDiff(raw('deliverables/hs-prod-account-2026-10-21/other.py')),'product')
+ assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed-account-guide.pdf')))
+ const removed=':100644 000000 '+a+' '+'0'.repeat(40)+' D\0'+paths[4]+'\0'
+ assert.equal(classifyDiff(removed),'documentation')
+})
