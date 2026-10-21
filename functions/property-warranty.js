@@ -396,7 +396,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (['waiveInsurance','undoInsuranceWaiver'].includes(action)) {
       if (old.status !== 'active') fail('failed-precondition','本登録済みの物件だけが対象です。')
       const period = old.insurancePeriods.find(period => period.id === input.insurancePeriodId)
-      if (!period || period.expiryDate < date) fail('failed-precondition','対象の保険期間が終了したため変更できません。')
+      if (!period) fail('failed-precondition','対象の保険期間を確認して開き直してください。')
       if (action === 'waiveInsurance') {
         if (period.state !== 'pending') fail('failed-precondition','未報告の保険期間を選択してください。')
         const reason = text(input.reason,'報告不要とする理由')

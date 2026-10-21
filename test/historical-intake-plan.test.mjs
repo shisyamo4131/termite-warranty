@@ -20,6 +20,21 @@ test('counters follow preserved number year and reserved gaps, not application y
   const input=fixture();input.rows[0].warrantyNumber='HSC-25-999';input.reservedNumbers=[{group:'HSC',number:'HSC-25-1001',reference:'fictional excluded source'}]
   const plan=prepare(input);assert.equal(plan.summary.counters.find(x=>x.id==='HSC_2025').nextValue,1002);assert.equal(plan.summary.yearDifferences.length,1)
 })
+
+test('UH historical intake copies the contract number into address, preserves the key and other groups',()=>{
+  const input=fixture(),original=structuredClone(input)
+  // Even an old source address is superseded by the owner-approved UH mapping.
+  input.rows.at(-1).fields.address='架空の旧住所'
+  const plan=prepare(input)
+  const properties=plan.documents.filter(row=>row.path.startsWith('propertyWarranties/')).map(row=>row.data)
+  const uh=properties.filter(row=>row.groupId==='UH')
+  assert.equal(uh.length,277)
+  for(const row of uh){assert.equal(row.address,row.externalKey);assert.match(row.address,/^0001-000\d{4}$/)}
+  for(const row of properties.filter(row=>row.groupId!=='UH'))assert.equal(row.address,'架空市1-1')
+  assert.equal(input.rows[0].fields.address,original.rows[0].fields.address)
+  assert.equal(input.rows.at(-1).fields.address,'架空の旧住所')
+  assert.equal(plan.documents.filter(row=>row.path.startsWith('externalKeyReservations/')).length,277)
+})
 test('missing, extra, duplicated, unmapped and invalid rows fail closed',()=>{
   for(const change of [i=>i.rows.pop(),i=>i.rows.push({...i.rows[0],sourceRow:999,warrantyNumber:'HSC-26-998'}),i=>i.rows[1].warrantyNumber=i.rows[0].warrantyNumber,i=>i.rows[0].branchId='unknown',i=>i.rows.at(-1).externalKey='bad',i=>i.rows.at(-1).fields.maxYears=20,i=>i.branches[0].address={postalCode:'bad'},i=>delete i.decisions['S-03'],i=>i.rows[0].fields.handoverDate='2026-02-30']){const input=fixture();change(input);assert.throws(()=>prepare(input))}
   assert.throws(()=>prepareHistoricalIntake(fixture(),{today:'2026-02-30'}))

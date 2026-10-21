@@ -1,5 +1,27 @@
 # Operations
 
+## 2026-10-21 満了後保険操作・UH初期計画のDev候補
+
+オーナーが満了後の報告不要・報告済みを許容、実報告判断は運用事項と確定し、UHのProd初期住所複製を承認して改修・Dev受入れまでを指示。通常のDev候補配備を行い、本人受入れ完了・dev統合は先取りしない。Prod配備・正式投入・保護設定は保留。
+
+変更：WarrantyLifecycleDetails／MeetingPrototypeの不要操作の期限条件と期限説明、Functionsの不要設定／取消の満了拒否を除去。HS権限・本登録状態・期間ID・理由・履歴・revision・receiptは維持。報告済みは既存の過去対象月の報告コマンドを維持し、期限を理由とした新規制限を追加しない。過去物件計画はUHだけ正規化externalKeyを住所へ複製し、原入力・他グループ住所・キー予約を保持。取込み時の自動不要化、全住所必須化、物件検索は今回未実装。仕様・保険／住所要件・HSC036・ADR0041・設計契約・試行ロードマップ・取込み手順・changelogを反映。保存スキーマ・IAM・CI・ガバナンスは不変。切戻しは改修差分を通常revertし再検証／Dev再配備する。既存の状態履歴は削除せず、取込み計画は旧digestを使わず再生成する。
+
+分類：UI＋application-logic＋data-contract-schema-migration、Dev配備のため包括7gateを選定。`npm test`643成功・既存2skip（exit 0）、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit 0。取込み／画面表示の対象試験12成功（exit 0）。`npm run test:rules`204成功・Emulator停止確認（exit 0、402,790ms）。`./scripts/check-governance.ps1`と`git diff --check`もexit 0。ログはGit管理外のtmp/expired-insurance-*。包括以外の入力連動回帰は対象path未変更。未実行を成功扱いにしない。
+
+Local画面：demo-termite-warrantyの架空物件で2018年10月指定→前半2018-07-08〜2023-07-07の不要設定→未報告一覧0件→不要取消→1件再表示→報告済み登録→0件を確認。不要理由・担当・日時を保持、後半は未報告のまま。テスト専用物件local-expired-insurance-checkと履歴はLocal受入れ用に残す（実採番消費なし）。最初のsandbox内LocalサーバーはChromeから接続不可で停止し、通常ローカル環境で起動し直して確認。Devの実保険状態を試験のために変更しない。
+
+## 2026-10-21 Dev保険未報告の再現とUH住所複製
+
+本人がDevでの症状確認と、Dev UH物件の住所へのお施主様契約No複製を指示。ChromeのDevで本人ログイン後、保険報告一覧に2018年10月を指定し1件抽出、UH18-001の詳細で前半2018-07-08〜2023-07-07は未報告かつ報告不要操作なし、後半2023-07-08〜2028-07-07は同操作ありを確認。読取りだけで保険報告・不要・取消操作は実行しない。画面の `period.expiryDate>=today` とFunctionsの `period.expiryDate < date` による拒否を確認した。検索年月は操作期限の基準日を変更しない。
+
+住所複製の事前読取り：Dev `termite-warranty-dev` の `(default)`、保証グループ `UH` は277件、externalKey欠落0、住所空欄277、既存非空住所0。`externalKey`を契約Noとしてそのまま複製し先頭ゼロを保持。取込み・通常保存の必須条件変更や保険状態変更を混在させない。
+
+Git管理外の `tmp/copy-uh-contract-address.mjs` で、Dev固定・対象277件・住所空欄・キー有効・revision正常・通常運用世代一致・運用占有なしを事前検査。全UHを再取得し事前像不変をtransaction内で検査後、277件のaddress、revision（+1）、updatedAtのみを原子的に更新した。再試行は1回に限定し、結果不明時は自動再実行しない。更新後の全443物件をメモリ上の事前像と比較し、対象以外は全文不変、対象は上記3項目以外不変を確認。別プロセスの読取りでも277件全件の住所＝externalKey、欠落0、非一致0を確認。採番、保証番号、外部キー予約、保険状態・履歴、グループ設定、Auth、Prodは変更なし。
+
+コマンド結果（各exit 0）：`node tmp/inspect-uh-address.mjs`（前後）、`node tmp/copy-uh-contract-address.mjs test`（正常1・拒否5ケース）、`node --check tmp/copy-uh-contract-address.mjs`、`node tmp/copy-uh-contract-address.mjs apply --dev-277-empty-addresses`。住所の戻しが必要なら、実行後の業務更新を再確認し、今回の対象を特定した補正を別途承認する。自動巻戻しや保護サービス設定は行っていない。実データ本文・カード情報・秘密値は文書へ転記しない。
+
+データ移行の検証として `npm test` は642成功・既存2skip、exit 0（`tmp/meeting-20261021-tests.log`）。初回はsandboxの一時Git／rename権限制約で失敗し、同じ試験の通常権限実行で解消した。Rulesは既存4387365の203成功証拠を再利用：今回はアプリ・Functions・Rules・データ形状・依存・試験環境を変更せず、既存address文字列と更新管理値のみを補正し失効条件に該当しない。新しい取込み状態・検索・必須制御の実装検証には流用しない。文書のみの仕様採用記録と現況を反映、governance・diff検査は最終差分で実施する。配備・正式投入・バックアップ・PITR・Auth退避は保留。
+
 ## 2026-10-21 統合ガイドと不要資料の整理・dev統合準備
 
 本人が統合PDF・資料整理をcommit／pushしPRでdevへ統合するよう承認。11ページの統合版は空のパスワード入力欄としおりを保持。元PDF2つと未送付の10月5日版スケジュールを削除し、関連README・索引を整理。再生成可能な確認画像24点はGit対象外のtmpから削除し、他の履歴・送付済み資料・生成元・撮影原画像・証跡を保持した。

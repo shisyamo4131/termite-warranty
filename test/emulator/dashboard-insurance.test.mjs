@@ -281,7 +281,7 @@ test('report must be undone before waiver; report cancellation retains another p
   assert.deepEqual(final.insuranceWaiverEvents[0],saved.insuranceWaiverEvents[0])
 })
 
-test('period-end date allows cancellation but next Japanese day rejects both setting and cancellation',async t=>{
+test('period-end date and next Japanese day allow waiver and cancellation without losing history',async t=>{
   const {db,get,mutate}=await fixture(t)
   await put(db,'last-day',property('2021-10-11'))
   await put(db,'locked',property('2021-10-11'))
@@ -292,9 +292,30 @@ test('period-end date allows cancellation but next Japanese day rejects both set
   await mutate('waiveInsurance','locked',{insurancePeriodId:period.id,reason:'満了当日'})
   const preserved=await get('locked')
   t.mock.timers.setTime(new Date('2026-10-10T15:00:00.000Z').getTime())
-  await assert.rejects(mutate('undoInsuranceWaiver','locked',{insurancePeriodId:period.id}),e=>e.code==='failed-precondition')
-  await assert.rejects(mutate('waiveInsurance','last-day',{insurancePeriodId:period.id,reason:'翌日'}),e=>e.code==='failed-precondition')
-  assert.deepEqual(await get('locked'),preserved)
+  await mutate('undoInsuranceWaiver','locked',{insurancePeriodId:period.id})
+  await mutate('waiveInsurance','last-day',{insurancePeriodId:period.id,reason:'翌日'})
+  assert.equal((await get('locked')).insurancePeriods[0].state,'pending')
+  assert.deepEqual((await get('locked')).insuranceWaiverEvents[0],preserved.insuranceWaiverEvents[0])
+  assert.equal((await get('last-day')).insurancePeriods[0].state,'waived')
+})
+
+test('2018 historical first half can be waived or reported and disappears from its monthly pending list',async t=>{
+  const {db,invoke,get,mutate}=await fixture(t)
+  await put(db,'historical',property('2018-07-08'))
+  const initial=await get('historical'),period=initial.insurancePeriods[0]
+  const list=()=>invoke('list',{filter:{reportMonth:'2018-10'},omitReferenceLabels:true})
+  assert.deepEqual((await list()).rows.map(row=>row.id),['historical'])
+  await mutate('waiveInsurance','historical',{insurancePeriodId:period.id,reason:'過去の満了期間'})
+  assert.deepEqual((await list()).rows,[])
+  await mutate('undoInsuranceWaiver','historical',{insurancePeriodId:period.id})
+  assert.deepEqual((await list()).rows.map(row=>row.id),['historical'])
+  await mutate('report','historical',{month:'2018-10',reportTarget:insuranceReportTarget(await get('historical'),'2018-10')})
+  assert.equal((await get('historical')).insurancePeriods[0].state,'reported')
+  assert.deepEqual((await list()).rows,[])
+  await assert.rejects(mutate('waiveInsurance','historical',{insurancePeriodId:period.id,reason:'直接上書き'}),e=>e.code==='failed-precondition')
+  await mutate('undoReport','historical',{targetReportId:latestInsuranceReport(await get('historical')).requestId})
+  assert.equal((await get('historical')).insurancePeriods[0].state,'pending')
+  assert.deepEqual((await get('historical')).periods,initial.periods)
 })
 
 test('old operation format and stale revision cannot change confirmed state',async t=>{
