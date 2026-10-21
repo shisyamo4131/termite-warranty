@@ -2,13 +2,21 @@
 
 ## 2026-10-21 検索・住所必須・過去取込みのDev候補
 
+最終照合完了：19:36:22 JSTの読取りで3索引すべてREADYを確認。直後19:36:26の画面再試行ではcode 9が残ったが、独立した同条件のFirestore読取りで2件取得し、その後のDev画面でもUH＋2018-11が2件（18-003を含む、引渡日はいずれも11月）となった。Functionsログ19:37:17 JSTにpropertyList success／propertyWarranties 2件を確認。途中の再配備・設定追加・業務データ変更はなし。索引作成・利用反映待ちの間に発生したエラーとして観測結果を記録し、READY直後からの反映時間の内訳までは断定しない。
+
+Devでは新検索欄と初期20件、UH詳細の住所必須表示、前半／後半の報告不要ボタンを読取りで確認し、保存せず閉じた。Devの業務試験書込み・再取込みは未実施。本人の今回候補受入れは待ち。残作業は本人受入れ→PRでdev統合、保留解除後のProd反映判断と新仕様での初期計画再生成・正式投入。Prod配備・バックアップ・PITR・Auth退避は保留。初回10年の保証自体が満了した物件の一括取込み拒否は維持する。別件の請求先記録3文書の未コミット分は今回も保全する。
+
+候補 `1657f6bce406183f15423aff5f98fc75720bd5ee` をcommit/push（各exit 0）し、[Dev run 39584907468](https://github.com/shisyamo4131/termite-warranty/actions/runs/39584907468)を実行。buildは19:29:05〜19:29:57 JST（52秒）、deployは19:30:01〜19:32:46（165秒）、両jobの開始〜終了3分41秒、いずれもsuccess。公開照合はready=true、Functions21、publicEntry=true、protectionHeld=true、PITR=false、日次予定0、backupAutomation=false。
+
+配備後の新検索で500を検出。Functionsログの19:34:33 JSTはpropertyListのFirestore query失敗code 9、Firestore Admin APIの実読取りでは今回追加のgroupId＋handoverDate索引3本がCREATINGだった。CLIの索引配備成功は作成申請の完了で、READYの保証ではない。当時は再配備せずREADYと画面検索の成功を待った。CI成功だけで完了とは判定しなかった。既存の20件初期表示は成功。ログはGit管理外tmp/oct21-dev-deploy.log、tmp/oct21-dev-query-log.txt。
+
 オーナー承認範囲は3項目の改修、Local検証、Dev候補配備・照合。先行の「報告不要」操作の本人受入れは保持し、今回候補の本人受入れを先取りしない。Prod配備・正式投入・既存Dev再取込み・バックアップ／PITR／Auth退避は実施しない。
 
 変更：物件検索はgroupId一致＋handoverDateの月範囲、両条件必須、未指定は最新20件、閲覧範囲と更新順を維持。3索引を追加。住所は本登録で共通必須、下書き任意は維持、旧addressRequired=falseは無視し設定UIを撤去。UH取込みは元externalKeyを住所へ複製。新規CSV・初期計画のみ、取込基準日前に満了したpending期間を既存waive履歴形式で不要化し、当日満了・将来・報告済みを保持。CSV日付跨ぎは再プレビュー、初期計画は実行日本日付を照合し、再開はjournalを維持する。初期計画の仮監査値は実行者・実時刻へ置換する。
 
 分類はUI／application-logic／data-contract-schema-migration／project-guidance／deployの複合で包括7gateを選定。project-rulesの旧検索条件を承認済み条件へ更新し生成整合を確認。IAM・CI・保護設定は変更しない。仕様、検索・住所要件、現行設計契約、CSV設計、初期取込み手順、試行ロードマップ、changelogを反映。新しいデータ型・ADR・文書の追加はなく、既存の索引から参照可能。既存の履歴を消さず、切戻しは通常revert・再検証・承認されたDev再配備とする。戻した旧版は新規取込みの自動不要化を行わず、旧検索UIに戻る。
 
-Local画面：架空物件でグループだけの検索を拒否、HSC＋2018-07の抽出1件、条件クリアで初期表示、本登録物件の空住所の保存拒否を確認。実Dev業務データへの試験書込みは行わない。型検査・build・Functions syntax・seed syntax・ガバナンスはexit 0。単体最終は647成功・既存2skip、exit 0（tmp/oct21-unit-final.log）。対象CSV試験32成功、exit 0。初回の連携試験は旧検索／住所任意の期待値で失敗し修正。連携実行中の単体再実行では一時領域ロック競合が発生したため、その終了後に順次再実行して単体成功を確認。最終の `npm run test:rules` は205成功、Emulator正常終了、exit 0（374,805ms、tmp/oct21-rules-final.log）。参照Store試験も実行前に新しい検索条件へ更新して成功を確認。Dev配備は次工程。
+Local画面：架空物件でグループだけの検索を拒否、HSC＋2018-07の抽出1件、条件クリアで初期表示、本登録物件の空住所の保存拒否を確認。実Dev業務データへの試験書込みは行わない。型検査・build・Functions syntax・seed syntax・ガバナンスはexit 0。単体最終は647成功・既存2skip、exit 0（tmp/oct21-unit-final.log）。対象CSV試験32成功、exit 0。初回の連携試験は旧検索／住所任意の期待値で失敗し修正。連携実行中の単体再実行では一時領域ロック競合が発生したため、その終了後に順次再実行して単体成功を確認。最終の `npm run test:rules` は205成功、Emulator正常終了、exit 0（374,805ms、tmp/oct21-rules-final.log）。参照Store試験も実行前に新しい検索条件へ更新して成功を確認。Dev配備・照合結果は本節冒頭の記録を参照。
 
 包括7gate：`npm test`、`npm run test:rules`、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`はいずれも独立exit 0。`git diff --check`・索引定義重複検査もexit 0。追加の入力連動回帰は対象path未変更。後続は文書更新のみで、アプリ／データ／試験の成功証拠を失効させない。
 
