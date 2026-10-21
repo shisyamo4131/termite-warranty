@@ -1,5 +1,19 @@
 # 受領資料台帳
 
+## 2026-10-19 HS回答と2回目の試行資料
+
+AIR Gmailの[RE: 開発環境における試行のお願い](https://mail.google.com/mail/u/?authuser=dmaruyama.air%40gmail.com#all/1a15365ac523f840)（2026-10-19 18:02:24 JST、message ID `1a15365ac523f840`）と添付2点を確認。①保険満了案内は不要、②支店名追加への謝意、③UHは住所欄に契約番号・他グループは住所、④抽出件数とCSV空欄への質問。⑤に追加回答なし。
+
+「HS試行 2回目.pdf」はページ切替時に一覧内の縦スクロールを先頭へ戻す要望。文言は保険満了案内だが画像は保険報告用一覧で、適用画面は要確認。「SOINS報告分 白蟻 2026年9月分.pdf」は住所／契約番号の様式参考として確認。ファイル名と紙面の年表記に相違があり業務値は検証していない。実物件情報・認証情報・原本の写しはリポジトリへ保存しない。
+
+10月19日のオーナー指示：③・④の追加改修に関わる説明と仕様・費用確定はAriLaboへ依頼。続く指示で④の抽出動作は現行仕様どおりと確認し、過去分登録に伴う未報告確認の必要性をAriLaboへ説明した旨を報告。依頼は要望の記録と図解PDF作成。現行仕様の確認と、変更要望の採用・実装承認を区別する。[対応状況](../roadmaps/hs-trial-feedback.md)、[HSC-036](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md)。
+
+## 2026-10-17 HS試行1回目とオーナー返信
+
+AIR Driveの[HS試行 1回目.pdf](https://drive.google.com/file/d/1ewQX_cPI3zyhGej3AfDXPJSH1Sf8CF4h/view)（6ページ）と、AIR Gmailの[Re: 開発環境における試行のお願い](https://mail.google.com/mail/u/?authuser=dmaruyama.air%40gmail.com#all/1a14930cd0d19606)（2026-10-17 18:28:18 JST、message ID `1a14930cd0d19606`）を確認。
+
+返信で確定したのは保険報告CSVの支店名列追加と請求用一覧の申込日表示。保険満了案内の削除は必要性の確認中、住所と外部キーの扱い・報告済み印は質問中。引用メール内の認証情報や実物件情報は転記しない。実装範囲は[仕様書](../specification.md#2026-10-17-hs試行1回目への返信で確定した改修)、未決は[HSC-036](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md)で管理する。
+
 ## 2026-10-10 新潟南2件の原資料修正
 
 オーナーの原資料修正指示により、AIRの[取込み用Excel原本](https://docs.google.com/spreadsheets/d/1FpP0BS9dd9aL8F0_LTZ6bpdFxsunU00h/edit)のUH!F13・F31を、1508-00から1508-01へ変更した。両行のE列は新潟南であることを修正前に照合。HSC99・SHS66・UH277の計442件も再確認した。同じDriveファイルIDを維持し、形式・配置先・共有設定は変更していない。
