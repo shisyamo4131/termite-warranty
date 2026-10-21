@@ -2,7 +2,7 @@
 
 ## 2026-10-21 物件限定の再取込み
 
-今回の承認範囲は同一原資料442件での物件・保証再取込み。`historical-intake.mjs apply --properties-only` を必須とし、propertyWarranties・propertyOperationReceipts・externalKeyReservations・warrantyCountersだけを置換する。工務店・本支店・保証グループ・その他設定・アカウントは保持し、全保持像hashを前後照合する。既存マスタのID／親／コード／年度設定が計画と違えば停止。停止状態・世代・排他・原像hash・監査・中断再開条件は既存方式を維持。Prodとinitial-onlyへこのモードを使わない。旧全業務初期化モードへ切り替えて再試行しない。旧入力が消失したためAIR原本を再取得し、確定SHA-256一致・442行の旧出典rowHash一致を確認して入力を再構成。原本・対応・実値はGit外。投入予定の自動不要化は148期間、UH住所複製277件。実行結果はoperationsへ記録する。
+今回の承認範囲は同一原資料442件での物件・保証再取込み。`historical-intake.mjs apply --properties-only` を必須とし、propertyWarranties・propertyOperationReceipts・externalKeyReservations・warrantyCountersだけを置換する。工務店・本支店・保証グループ・その他設定・アカウントは保持し、全保持像hashを前後照合する。既存マスタのID／親／コード／年度設定が計画と違えば停止。停止状態・世代・排他・原像hash・監査・中断再開条件は既存方式を維持。Prodとinitial-onlyへこのモードを使わない。旧全業務初期化モードへ切り替えて再試行しない。旧入力が消失したためAIR原本を再取得し、確定SHA-256一致・442行の旧出典rowHash一致を確認して入力を再構成。原本・対応・実値はGit外。実行済みの自動不要化は148期間、UH住所複製277件。保持46文書不変を照合し、normal16へ再開済み。実行版060acb4と各正式コマンドの結果は[運用記録](../operations.md#2026-10-21-保険満了案内廃止物件限定再取込み)。通常CI配備と厳密復旧照合の成果物形式が異なるため、既存の復旧用ビルドで同一版を配備し全preflight合格を確認してから停止・初期化する。比較条件を緩和しない。
 
 ## 2026-10-21 満了期間の自動報告不要化
 

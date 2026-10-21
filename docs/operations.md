@@ -2,9 +2,21 @@
 
 ## 2026-10-21 保険満了案内廃止・物件限定再取込み
 
-Local包括7gate完了：`npm test` 647成功・既存2skip、`npm run test:rules` 205成功・400604ms・emulatorsStopped=true、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`は各exit 0。最終コード2a12abdに対する証拠。UIの保険用メニュー・設定削除をLocal実画面で確認。初回の試験は旧メニュー数／旧検索拒否理由の期待値と型の残存を修正。終了した初回試験の残存ロックは所有nonce・PID終了を確認して1ファイルだけ除去、最終は通常終了した。入力連動の追加回帰は対象path未変更。最終コードの関係する全gateを満たし、後続文書だけではアプリ証拠を失効させない。取込み元はAIR現Excelの確定hash一致、再構成442行の既存出典rowHash一致。Dev実行は次工程。
+Dev候補 `060acb495fb8af9dba50cfbaf9c4ffa8d606704b` の配備・再取込み・通常再開完了。本人受入れは次工程。[手動Dev run 39589575814](https://github.com/shisyamo4131/termite-warranty/actions/runs/39589575814)はbuild/deploy success。厳密復旧照合用の同一版再配備後、Hosting版は `sites/termite-warranty-dev/versions/e381400574161081`。21 Functions ACTIVE、接続先一致、既存環境パラメータ不変、PITR無効・日次予定0・backupAutomation=false。Prod・正式投入・保護設定は未変更。
 
-本人が1657f6bのDev受入れ完了を明示。今回のUI・アプリロジック・データ操作・配備の複合変更には包括7gateを選定。保険案内入口と設定だけを廃止し報告操作・保証案内を維持する。再取込みは本人がマスタ・アカウント・会社情報・請求先・その他設定の保持を明示承認。対象Dev(default)、制御recovery-control、Prod禁止。失敗時は停止状態を保持し同一計画・ownerで調査、結果不明時に再削除や通常再開をしない。旧版へのコード切戻しはrevert・再検証・承認済みDev配備で行う。データ差戻しが必要なら保持した非公開原像と承認範囲を確認する。Local検証完了、配備・再取込みは次工程。
+再取込み実績：`historical-intake.mjs apply --properties-only` の正式処理はexit 0・complete=true・442物件・置換対象736文書。独立読取りもexit 0でHSC99／SHS66／UH277、UH住所＝契約No277件、満了済み報告不要148期間、保持46文書の全hash一致、17採番一致、旧操作記録0、外部キー予約277を確認。2026年度の次番号はHSC100／SHS68／UH128。マスタ・スタッフ・会社情報・請求先・その他設定は保持、Authとの権限照合も正式処理で成功。原資料・実値・照合用原像はGit外。
+
+厳密照合の初回不一致は、RulesとFunctionsの43ファイルがWindows/CIの改行コード差（改行正規化後は全一致）、Hostingは通常generateと既存復旧用の固定buildId/時刻正規化の違いを確認。既存 `build:recovery-release` と既存の2DB配備構成で同じコードをDevへ再配備しexit 0。比較条件は緩和せず、CI・IAM・保護設定も変更しない。直後Hostingは全56件一致だが集計fileCount未反映で停止し、再配備せず読取りpreflightを再実行して全10項目pass（21ソース、Hosting56、索引25、除外33、両Rules）を確認した。読取りpreflightのexit 0だけでは合格とせず、checksの全passで判定した。
+
+実行順はenter→停止/原像確認→限定apply→独立全件照合→plan-intake→publish→reopen→observe。各正式コマンドexit 0。実行ID `historical-properties-20261021`、公開計画 `historical-properties-20261021-publish`。plan-intakeは全782文書verified、publishはverification15、reopenはnormal16、最終observeは両DB normal16一致・進行更新なし・Auth退避占有なし・運用占有なし。取込み承認参照 `owner-20261021-properties-only`、通常再開参照 `owner-20261021-dev-delivery-normal` は今回の本人による限定再取込みとDev提供の指示を記録したもの。本人の新候補受入れ完了とは扱わない。
+
+Dev画面の読取り確認：通常再開後、UH＋2018-07で18-001の1件を抽出。詳細で住所と契約Noの一致、前半2018-07-08〜2023-07-07の報告不要、後半2023-07-08〜2028-07-07の未報告を確認。保険満了案内メニューなし、アラート設定は保証満了2か月前だけを表示。実値は記録せず、画面確認で業務状態を更新していない。
+
+ログはGit外の `tmp/oct21-recovery-deploy.log`、`tmp/oct21-reimport-preflight-final2.json`、`tmp/oct21-reimport-apply.log`、`tmp/oct21-reimport-verify.json`、`tmp/oct21-reimport-plan-publication.json`、`tmp/oct21-reimport-publication.json`、`tmp/oct21-reimport-reopen.json`、`tmp/oct21-reimport-final-state.json`、`tmp/oct21-final-dev-check.json`。後続は今回候補の本人Dev受入れ、PRでdev統合、Prod反映判断、正式投入。バックアップ/PITR/Auth退避の保留を維持。
+
+Local包括7gate完了：`npm test` 647成功・既存2skip、`npm run test:rules` 205成功・400604ms・emulatorsStopped=true、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`は各exit 0。最終コード2a12abdに対する証拠。UIの保険用メニュー・設定削除をLocal実画面で確認。初回の試験は旧メニュー数／旧検索拒否理由の期待値と型の残存を修正。終了した初回試験の残存ロックは所有nonce・PID終了を確認して1ファイルだけ除去、最終は通常終了した。入力連動の追加回帰は対象path未変更。最終コードの関係する全gateを満たし、後続文書だけではアプリ証拠を失効させない。取込み元はAIR現Excelの確定hash一致、再構成442行の既存出典rowHash一致。Dev実行結果は本節冒頭。
+
+本人が1657f6bのDev受入れ完了を明示。今回のUI・アプリロジック・データ操作・配備の複合変更には包括7gateを選定。保険案内入口と設定だけを廃止し報告操作・保証案内を維持する。再取込みは本人がマスタ・アカウント・会社情報・請求先・その他設定の保持を明示承認。対象Dev(default)、制御recovery-control、Prod禁止。失敗時は停止状態を保持し同一計画・ownerで調査、結果不明時に再削除や通常再開をしない。旧版へのコード切戻しはrevert・再検証・承認済みDev配備で行う。データ差戻しが必要なら保持した非公開原像と承認範囲を確認する。Local検証および配備・再取込み結果は本節冒頭。
 
 ## 2026-10-21 検索・住所必須・過去取込みのDev候補
 
