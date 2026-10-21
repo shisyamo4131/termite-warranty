@@ -35,6 +35,7 @@ function materialized(plan,journal) {
     const data={...row.data,updatedAt:journal.startedAt},root=row.path.split('/')[0]
     if(root==='propertyWarranties') {
       data.createdAt=journal.startedAt
+      data.insuranceWaiverEvents=data.insuranceWaiverEvents.map(event=>({...event,actorUid:journal.actorUid,actorName:journal.actorUid,at:journal.startedAt.toDate().toISOString()}))
       data.historicalIntakeSource={...data.historicalIntakeSource,operationId:journal.operationId}
       data.history=[{kind:'historicalImport',requestId:journal.operationId,date:journal.today,at:journal.startedAt.toDate().toISOString(),actorUid:journal.actorUid}]
     }
@@ -91,6 +92,8 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
       if(initialOnly&&journal.initialOnly!==true)deny()
       if(journal.planHash!==planHash||journal.inventoryHash!==inventoryHash||journal.generation!==generation||journal.actorUid!==actorUid||journal.today!==today||journal.settingsHash!==intakeSettingsHash(plan.preservedSettings))deny()
     }else {
+      const startedAt=Timestamp.now()
+      if(new Date(startedAt.toMillis()+9*60*60*1000).toISOString().slice(0,10)!==today)deny()
       const image=await documentImage(db);noPortal(image)
       if(initialOnly&&(business(image).size||journal))deny()
       if(imageHash(image)!==inventoryHash)deny()
@@ -99,7 +102,7 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
       if(actor?.enabled!==true||actor.role!=='developer_superuser')deny()
       const deleteManifest=[...business(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))
       if(Buffer.byteLength(JSON.stringify(deleteManifest))>512*1024)deny()
-      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt:Timestamp.now()}
+      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt}
       if(initialOnly)initial.initialOnly=true
       await db.runTransaction(async tx=>{await guard(tx);tx.set(receipt,initial)});journal=initial
       await afterCommit('journal')

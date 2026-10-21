@@ -8,10 +8,10 @@ import { pendingWarrantyCandidates, warrantyNoticeOrder } from '../functions/war
 import { propertyListFilter } from '../functions/property-list-filter.js'
 
 test('property list accepts only bounded or explicit business query shapes',()=>{
-  for(const f of [undefined,{}, {warrantyNumber:' X '},{alertKind:'warranty',notification:'pending'},{alertKind:'insurance'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
+  for(const f of [undefined,{}, {groupId:' G ',handoverMonth:'2026-10'},{alertKind:'warranty',notification:'pending'},{alertKind:'insurance'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
   for(const f of [null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
   assert.throws(()=>propertyListFilter('propertyList',{reportMonth:'2026-10'}),{code:'invalid-argument'})
-  const original={warrantyNumber:' X '};assert.deepEqual(propertyListFilter('propertyList',original),{warrantyNumber:'X'});assert.equal(original.warrantyNumber,' X ')
+  const original={groupId:' G ',handoverMonth:'2026-10'};assert.deepEqual(propertyListFilter('propertyList',original),{groupId:'G',handoverMonth:'2026-10'});assert.equal(original.groupId,' G ')
 })
 
 test('warranty notice candidates keep starting conditions and reject migration changes without fallback', async t => {
@@ -732,16 +732,16 @@ test('successful registration closes both dialogs; active edit remains open',asy
 })
 
 test('property search submits only the exact number, clears the applied number, and blocks invalid input',async()=>{
- const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001';v.filter.search='ignored';v.filter.fiscalYear='2026';await v.loadRows();assert.equal(calls.at(-1).action,'propertyList');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:'QA-26-001'});assert.deepEqual(v.appliedPropertyFilters.value,[{key:'warrantyNumber',label:'保証番号：QA-26-001'}]);await v.removePropertyFilter('warrantyNumber');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:''});assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(calls.length,before)
+ const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.filter.groupId='G';v.filter.handoverMonth='2026-10';v.filter.search='ignored';v.filter.fiscalYear='2026';await v.loadRows();assert.equal(calls.at(-1).action,'propertyList');assert.deepEqual(calls.at(-1).filter,{groupId:'G',handoverMonth:'2026-10'});assert.deepEqual(v.appliedPropertyFilters.value,[{key:'propertySearch',label:'G ／ 引渡年月：2026-10'}]);await v.removePropertyFilter('warrantyNumber');assert.deepEqual(calls.at(-1).filter,{groupId:'',handoverMonth:''});assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(calls.length,before)
 })
 
 test('pending list results keep submitted filters and busy clear cannot erase them',async()=>{
  let resolve;const v=await prototypeViewForTest(()=>new Promise(r=>{resolve=r}))
- v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001'
+ v.searchForm.value={validate:async()=>({valid:true})};v.filter.groupId='G';v.filter.handoverMonth='2026-10'
  const pending=v.loadRows();await new Promise(r=>setImmediate(r))
- await v.clearFilter();assert.equal(v.filter.warrantyNumber,'QA-26-001')
- v.filter.warrantyNumber='QA-26-002';resolve({rows:[{id:'tokyo'}],limited:false});await pending
- assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'保証番号：QA-26-001');assert.equal(v.reportDirty.value,true)
+ await v.clearFilter();assert.equal(v.filter.handoverMonth,'2026-10')
+ v.filter.handoverMonth='2026-11';resolve({rows:[{id:'tokyo'}],limited:false});await pending
+ assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'G ／ 引渡年月：2026-10');assert.equal(v.reportDirty.value,true)
 })
 
 test('account creation sends setup mail despite list refresh failure and prevents duplicate creation',async()=>{
@@ -794,15 +794,15 @@ test('ambiguous report commit never reselects a refreshed next interval or chang
 test('group field requirements default safely and apply equally to formal manual registration',async()=>{
  const {propertyFieldRequirements}=await import('../src/domain/property-field-requirements.mjs');
  assert.deepEqual(propertyFieldRequirements({name:'HSC'}),{addressRequired:true,insulationMaterialsRequired:true});
- assert.deepEqual(propertyFieldRequirements({name:'UH'}),{addressRequired:false,insulationMaterialsRequired:false});
- assert.throws(()=>propertyFieldRequirements({addressRequired:'false'}));assert.throws(()=>propertyFieldRequirements({insulationMaterialsRequired:null}));
+ assert.deepEqual(propertyFieldRequirements({name:'UH'}),{addressRequired:true,insulationMaterialsRequired:false});
+ assert.equal(propertyFieldRequirements({addressRequired:false}).addressRequired,true);assert.throws(()=>propertyFieldRequirements({insulationMaterialsRequired:null}));
  const input={name:'架空物件',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-02',address:'',foundationInsulation:true,insulationMaterials:''};
- assert.throws(()=>normalizeProperty(input,true));assert.equal(normalizeProperty(input,true,{name:'UH'}).address,'');
- assert.throws(()=>normalizeProperty(input,true,{addressRequired:false,insulationMaterialsRequired:true}),/資材/);
+ assert.throws(()=>normalizeProperty(input,true));assert.throws(()=>normalizeProperty(input,true,{name:'UH'}),/住所/);
+ assert.throws(()=>normalizeProperty({...input,address:'架空住所'},true,{addressRequired:false,insulationMaterialsRequired:true}),/資材/);
  assert.throws(()=>normalizeProperty({...input,insulationMaterials:'架空資材'},true,{addressRequired:true,insulationMaterialsRequired:false}),/住所/);
  const view=await prototypeViewForTest(async()=>({}));view.groups.value=[{id:'old',name:'UH'},{id:'new',name:'HSC'}];view.dialogCompanies.value=[{id:'c',defaultGroupId:'new'}];view.form.value={constructionCompanyId:'c'};
  assert.equal(view.propertyKeySettings.value.required,false);assert.equal(view.propertyRequirements.value.addressRequired,true);
- view.current.value={warrantyNumber:'issued',groupId:'old'};assert.equal(view.propertyKeySettings.value.required,true);assert.equal(view.propertyRequirements.value.addressRequired,false);
+ view.current.value={warrantyNumber:'issued',groupId:'old'};assert.equal(view.propertyKeySettings.value.required,true);assert.equal(view.propertyRequirements.value.addressRequired,true);
 });
 
 

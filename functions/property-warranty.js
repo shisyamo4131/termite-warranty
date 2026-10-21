@@ -151,6 +151,12 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     if (!a.staff && a.scope === 'branch') query = query.where('branchId', '==', a.branchId)
     if (f.warrantyNumber?.trim()) query = query.where('warrantyNumber', '==', f.warrantyNumber.trim())
     if ((f.reportMonth || f.billingMonth) && !a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
+    const handoverSearch = !!(f.groupId && f.handoverMonth)
+    if (handoverSearch) {
+      const [year, month] = f.handoverMonth.split('-').map(Number)
+      const nextMonth = `${month === 12 ? year + 1 : year}-${String(month === 12 ? 1 : month + 1).padStart(2, '0')}-01`
+      query = query.where('groupId', '==', f.groupId).where('handoverDate', '>=', `${f.handoverMonth}-01`).where('handoverDate', '<', nextMonth)
+    }
     const monthly = !!(f.reportMonth || f.billingMonth)
     const monthlyBaseQuery = query
     if (monthly) {
@@ -160,8 +166,9 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       query = f.reportMonth
         ? query.where('insuranceQueryStart', '<=', f.reportMonth).where('insuranceQueryEnd', '>=', f.reportMonth)
         : query.where('billingQueryMonths', 'array-contains', f.billingMonth)
-    } else query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
-    const filtered = !!(monthly || f.warrantyNumber || f.alertKind)
+    } else if (handoverSearch) query = query.orderBy('handoverDate')
+    else query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
+    const filtered = !!(monthly || handoverSearch || f.warrantyNumber || f.alertKind)
     if (!filtered) query = query.limit(20)
     const notice = f.alertKind === 'warranty' ? await pendingWarrantyCandidates(db, f, a) : f.alertKind === 'insurance' ? await insuranceNoticeCandidates(db, f, a.staff) : null
     if (f.alertKind && !notice) fail('invalid-argument', 'この検索条件には対応していません。画面を再読み込みしてください。')
@@ -170,7 +177,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     let result = [...unique.values()].map(withInsurance).filter(row => matchesProperty(row, f))
     if (notice) result = result.filter(row => Object.hasOwn(row, 'updatedAt')).sort(warrantyNoticeOrder)
     let unclassifiedCount = 0
-    if (monthly) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
+    if (monthly || handoverSearch) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     if (f.alertKind) {
       result = result.filter(row => expiryAlertEligible(row, f.alertKind, notice.basisDate, notice.settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
       if (f.alertKind === 'warranty') result = result.filter(row => row.warrantyNotified === false)
@@ -292,9 +299,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         try {
           const previousFields = old ? propertyFieldRequirements(old) : null
           const fieldSettings = propertyFieldRequirements({ name: value.name,
-            addressRequired: input.addressRequired === undefined ? previousFields?.addressRequired : input.addressRequired,
             insulationMaterialsRequired: input.insulationMaterialsRequired === undefined ? previousFields?.insulationMaterialsRequired : input.insulationMaterialsRequired })
-          if (previousFields && Object.keys(previousFields).some(key => previousFields[key] !== fieldSettings[key])) fail('failed-precondition', '登録済みグループの住所・資材名の必須設定は変更できません。')
+          if (previousFields && Object.keys(previousFields).some(key => previousFields[key] !== fieldSettings[key])) fail('failed-precondition', '登録済みグループの資材名の必須設定は変更できません。')
           Object.assign(value, fieldSettings)
         } catch (error) { if (error instanceof HttpsError) throw error; fail('invalid-argument', error.message) }
         if (old && (normalizeWarrantyPrefix(old.prefix) !== normalizeWarrantyPrefix(value.prefix) || old.fiscalStartMonth !== value.fiscalStartMonth)) fail('failed-precondition', '登録済みグループの接頭辞・年度開始月は変更できません。')

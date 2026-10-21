@@ -4,7 +4,7 @@ import { withInsuranceDefaults } from '../src/domain/monthly-query.mjs'
 import { expiryAlertEligible } from '../src/domain/property-warranty.mjs'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { materializeInsuranceState, insurancePeriodStates, insuranceProjection, insuranceProjectionMatches, validateInsuranceState, periodReportSelection, insuranceNoticeExpiry, insuranceMonthlyRows, insuranceReportedQueryProjection } from '../src/domain/insurance-state.mjs'
+import { waiveExpiredImportedPeriods, materializeInsuranceState, insurancePeriodStates, insuranceProjection, insuranceProjectionMatches, validateInsuranceState, periodReportSelection, insuranceNoticeExpiry, insuranceMonthlyRows, insuranceReportedQueryProjection } from '../src/domain/insurance-state.mjs'
 import { assertInsuranceCapacity, firestoreDocumentBytes, FIRESTORE_DOCUMENT_LIMIT } from '../src/domain/insurance-capacity.mjs'
 import { warrantyNoticeCutoff } from '../src/domain/dashboard.mjs'
 import { coveragePeriods, initialInsurance, alertStartDate, handoverChangeBlockers, extensionUndoPreview } from '../src/domain/property-warranty.mjs'
@@ -270,3 +270,16 @@ test('notice migration reserves waiver undo capacity and blocks oversized legacy
   assert.throws(()=>prepareInsuranceNoticeRow(row,{documentPath,at}),/容量/)
   assert.throws(()=>prepareInsuranceNoticeRow({status:'draft',notes:'x'.repeat(FIRESTORE_DOCUMENT_LIMIT)},{documentPath,at}),/容量/)
 })
+
+ test('new historical imports waive only expired pending periods, keep audit and preserve reports',()=>{
+  const source=fixture(10),before=structuredClone(source)
+  const options={today:'2025-09-30',actorUid:'staff',actorName:'架空担当',at:'2025-09-30T00:00:00.000Z'}
+  assert.deepEqual(waiveExpiredImportedPeriods(source,options).insurancePeriods.map(p=>p.state),['pending','pending'])
+  const value=waiveExpiredImportedPeriods(source,{...options,today:'2025-10-01'})
+  assert.deepEqual(value.insurancePeriods.map(p=>p.state),['waived','pending'])
+  assert.deepEqual(validateInsuranceState(value),[]);assert.equal(value.insuranceWaiverEvents[0].actorUid,'staff')
+  assert.deepEqual(waiveExpiredImportedPeriods(value,{...options,today:'2025-10-01'}),value)
+  assert.deepEqual(waiveExpiredImportedPeriods(report(source,0),{...options,today:'2025-10-01'}).insurancePeriods.map(p=>p.state),['reported','pending'])
+  assert.deepEqual(source,before)
+  assert.equal(insuranceMonthlyRows([value],'2020-10').rows.length,0)
+ })

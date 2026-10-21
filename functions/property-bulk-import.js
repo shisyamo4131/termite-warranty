@@ -5,7 +5,7 @@ import { Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
 import { insuranceNoticeProjection } from './domain/insurance-notice-query.mjs'
 import { monthlyQueryProjection } from './domain/monthly-query.mjs'
-import { materializeInsuranceState, insuranceProjection } from './domain/insurance-state.mjs'
+import { materializeInsuranceState, insuranceProjection, waiveExpiredImportedPeriods } from './domain/insurance-state.mjs'
 import { assertInsuranceCapacity } from './domain/insurance-capacity.mjs'
 import { prepareBulkImportRows } from './domain/property-bulk-import.mjs'
 import { coveragePeriods, fiscalYear, initialInsurance, initialInsurancePeriodAt, japanDate, warrantyNumber } from './domain/property-warranty.mjs'
@@ -144,19 +144,20 @@ export async function propertyBulkImportOperation(db, input, uid) {
         const insurance = initialInsurancePeriodAt(value, today)
         if (insurance) Object.assign(value, insurance)
         Object.assign(value,materializeInsuranceState(value,{newRegistration:true}))
+        Object.assign(value,waiveExpiredImportedPeriods(value,{today,actorUid:uid,actorName:account.displayName ?? '',at:now.toDate().toISOString()}))
         Object.assign(value,insuranceProjection(value))
         Object.assign(value, monthlyQueryProjection(value), insuranceNoticeProjection(value))
         try { assertInsuranceCapacity(value,{documentPath:refs[index].path,today}) } catch (error) { errors.push(reason(row,'保険記録',error.message)) }
         plans.push({ row, ref: refs[index], branchLabel: branch ? `${branch.name}（${row.branchCode}）` : '', value })
       }
     }
-    const previewHash = hash(JSON.stringify({ digest, group: group ? { name: group.name, prefix: group.prefix, fiscalStartMonth: group.fiscalStartMonth, enabled: group.enabled ?? true, ...keyPolicy, ...requirements } : null, company: company ? { name: company.name, defaultGroupId: company.defaultGroupId, enabled: company.enabled ?? true } : null, branches: [...branches].map(([code, branch]) => [code, branch.id, branch.name, branch.enabled ?? true]), counters: [...counters].map(([year, counter]) => [year, counter.original, counter.value]), numbers: plans.map(plan => plan.value.warrantyNumber) }))
-    const preview = { count: parsed.rows.length, externalKeyLabel:keyLabel, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchCode: plan.row.branchCode, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
+    const previewHash = hash(JSON.stringify({ digest, today, group: group ? { name: group.name, prefix: group.prefix, fiscalStartMonth: group.fiscalStartMonth, enabled: group.enabled ?? true, ...keyPolicy, ...requirements } : null, company: company ? { name: company.name, defaultGroupId: company.defaultGroupId, enabled: company.enabled ?? true } : null, branches: [...branches].map(([code, branch]) => [code, branch.id, branch.name, branch.enabled ?? true]), counters: [...counters].map(([year, counter]) => [year, counter.original, counter.value]), numbers: plans.map(plan => plan.value.warrantyNumber) }))
+    const preview = { count: parsed.rows.length, externalKeyLabel:keyLabel, rows: plans.map(plan => ({ line: plan.row.line, externalKey: plan.row.externalKey, branchCode: plan.row.branchCode, branchId: plan.value.branchId, branchLabel: plan.branchLabel, warrantyNumber: plan.value.warrantyNumber, name: plan.value.name, address: plan.value.address, waivedPeriodCount: plan.value.insurancePeriods.filter(period=>period.state==='waived').length, applicationDate: plan.value.applicationDate, handoverDate: plan.value.handoverDate, insulationMaterials: plan.value.insulationMaterials })), errors, previewHash }
     const existingNumbers = await existingImportValues(tx, db.collection('propertyWarranties'), 'warrantyNumber', plans.map(plan => plan.value.warrantyNumber))
     for (const plan of plans) if (existingNumbers.has(plan.value.warrantyNumber)) errors.push(reason(plan.row, '保証番号', '既存の保証番号と重複しています。'))
     if (!commit) return preview
     if (errors.length) fail('failed-precondition', '入力に問題があるため全件を棄却しました。', errors, true)
-    if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に所属・本支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)
+    if (previewHash !== input.previewHash) fail('aborted', 'プレビュー後に日付・所属・本支店・採番設定が変わりました。再度プレビューしてください。', undefined, true)
     const sources = plans.map(plan => ({ propertyId: plan.ref.id, externalKey: plan.row.externalKey, requestId, format, values: plan.row.sourceValues, createdAt: now }))
     const ids = plans.map(plan => plan.ref.id)
     const receipt = { uid, digest, previewHash, count: plans.length, ids, createdAt: now }

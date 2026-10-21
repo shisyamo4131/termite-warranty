@@ -358,6 +358,9 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   const confirm={...base,action:'commit',confirmed:true,previewHash:preview.previewHash}
   const result=await propertyBulkImportOperation(target,confirm,'excel-admin')
   assert.equal(result.count,3)
+  const imported=(await target.collection('propertyWarranties').get()).docs.map(doc=>doc.data())
+  for(const row of imported){assert.equal(row.address,row.externalKey);assert.deepEqual(row.insurancePeriods.map(period=>period.state),['waived','pending']);assert.equal(row.insuranceWaiverEvents[0].actorUid,'excel-admin');assert.match(row.insuranceWaiverEvents[0].reason,/満了/)}
+
   for(let index=0;index<result.ids.length;index++) {
     const property=(await target.doc('propertyWarranties/'+result.ids[index]).get()).data()
     const source=(await target.doc('propertyImportSources/'+result.ids[index]).get()).data()
@@ -365,7 +368,7 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
     assert.equal(property.handoverDate,preview.rows[index].handoverDate)
     assert.equal(property.startDate,property.handoverDate)
     assert.equal(property.fiscalYear,2018)
-    assert.equal(property.address,'');assert.equal(property.insulationMaterials,'')
+    assert.equal(property.address,property.externalKey);assert.equal(property.insulationMaterials,'')
     assert.equal(source.values['申込日'],dates[index][0]);assert.equal(source.values['引渡日'],dates[index][1])
   }
   assert.equal((await target.doc('warrantyCounters/U_2018').get()).data().lastValue,3)
@@ -402,19 +405,19 @@ test('warranty alert list excludes capped periods and preserves notification and
   } finally {for(const key of keys)await db.doc('propertyWarranties/'+key).delete()}
 })
 
-test('property list finds an older exact number, rejects partial numbers and keeps company/branch scope',async()=>{
-  const keys=Array.from({length:25},(_,i)=>`exact-search-${i}`)
+test('property search requires group and month, includes all matches and preserves tenant scope',async()=>{
+  const keys=Array.from({length:25},(_,i)=>`group-month-${i}`)
   try {
-    for(const [i,key] of keys.entries()) await db.doc(`propertyWarranties/${key}`).set({name:'架空検索物件',warrantyNumber:`QA-26-${i}`,constructionCompanyId:'meeting-co',branchId:'meeting-branch',updatedAt:new Date(2000,0,i+1),status:'active'})
+    for(const [i,key] of keys.entries()) await db.doc(`propertyWarranties/${key}`).set({name:'架空検索物件',groupId:'search-group',handoverDate:`2018-12-${String(i+1).padStart(2,'0')}`,constructionCompanyId:'meeting-co',branchId:'meeting-branch',updatedAt:new Date(2000,0,i+1),status:'active'})
     assert.equal((await call('propertyList')).limited,true)
     assert.ok((await call('propertyList')).rows.length<=20)
-    const result=await call('propertyList',{filter:{warrantyNumber:' QA-26-0 '}})
-    assert.deepEqual(result.rows.map(r=>r.id),[keys[0]])
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'26-0'}})).rows.length,0)
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-head')).rows.length,1)
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-branch-user')).rows.length,1)
-    for(const uid of ['meeting-otherbranch','meeting-otherco']) assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},uid)).rows.length,0)
-    await assert.rejects(call('propertyList',{filter:{search:'架空'}}),e=>e.code==='invalid-argument')
+    const filter={groupId:'search-group',handoverMonth:'2018-12'}
+    const result=await call('propertyList',{filter})
+    assert.equal(result.limited,false);assert.deepEqual(result.rows.map(r=>r.id),[...keys].reverse())
+    for(const uid of ['meeting-head','meeting-branch-user'])assert.equal((await call('propertyList',{filter},uid)).rows.length,25)
+    for(const uid of ['meeting-otherbranch','meeting-otherco'])assert.equal((await call('propertyList',{filter},uid)).rows.length,0)
+    for(const invalid of [{groupId:'search-group'},{handoverMonth:'2018-12'},{warrantyNumber:'QA-26-0'}, {...filter,handoverMonth:'2018-13'}])await assert.rejects(call('propertyList',{filter:invalid}),e=>e.code==='invalid-argument')
+    for(const mismatch of [{...filter,handoverMonth:'2019-01'},{...filter,handoverMonth:'2018-11'},{...filter,groupId:'other'}])assert.deepEqual((await call('propertyList',{filter:mismatch})).rows,[])
   } finally { for(const key of keys) await db.doc(`propertyWarranties/${key}`).delete() }
 })
 
@@ -598,11 +601,11 @@ test('application date editable before registration, drives fiscal year, and is 
   await call('save',command(row.id,3,{fields:legacyClient}))
   row=await call('detail',{id:row.id});assert.equal(row.applicationDate,'2026-03-31');assert.equal(row.warrantyNumber,number)
   assert.equal(row.handoverDate,'2026-09-30')
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:number}})).rows[0].id,row.id)
+  assert.equal((await call('propertyList',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.find(value=>value.id===row.id).id,row.id)
   await assert.rejects(call('list',{filter:{from:'2026-09-01',to:'2026-09-30'}}),e=>e.code==='invalid-argument')
   await call('cancel',command(row.id,4,{reason:'架空確認'}))
   assert.equal((await call('detail',{id:row.id})).status,'cancelled')
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:number}})).rows[0].status,'cancelled')
+  assert.equal((await call('propertyList',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.find(value=>value.id===row.id).status,'cancelled')
 })
 
 test('group identity locked before numbering, disable blocks new use but retains existing coverage',async()=>{
@@ -660,7 +663,7 @@ test('company and branch disable stop only new registrations; reenable preserves
   assert.equal(extended.groupId,original.groupId)
   assert.equal(extended.warrantyNumber,original.warrantyNumber)
   assert.equal(extended.years,20)
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:original.warrantyNumber}})).rows[0].id,original.id)
+  assert.equal((await call('propertyList',{filter:{groupId:original.groupId,handoverMonth:original.handoverDate.slice(0,7)}})).rows.find(value=>value.id===original.id).id,original.id)
   await assert.rejects(saveCompany(co,'SHS',true),/先に有効化/)
   await call('reenableMaster',{kind:'company',id:co})
   assert.equal((await db.doc(`companyBranches/${branch}`).get()).data().enabled,false)
@@ -742,8 +745,8 @@ test('same name and address need no confirmation; owner/affiliation/insulation c
   const row=await call('detail',{id:'warning-property'})
   assert.equal(row.history.at(-1).before.name,fields.name)
   assert.equal(row.history.at(-1).before.ownerTelephone,'')
-  assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber}})).rows.length,1)
-  assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber.slice(-3)}})).rows.length,0)
+  assert.ok((await call('list',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.some(value=>value.id===row.id))
+  await assert.rejects(call('list',{filter:{warrantyNumber:row.warrantyNumber}}),e=>e.code==='invalid-argument')
 })
 
 test('alert settings are admin-only; branch account creation retains ownership restrictions',async()=>{
@@ -868,7 +871,7 @@ test('list rejects legacy scans before property reads and scopes pending notices
   for(const [uid,company,scope,branchId] of [['head','C','company',''],['a','C','branch','A'],['b','C','branch','B'],['other','D','company',''],['missing','C','branch',''],['bad','bad/path','company',''],['disabled','C','company','']])setup.set(target.doc('constructionCompanyAccounts/'+uid),{enabled:uid!=='disabled',role:'construction_company',scope,constructionCompanyId:company,branchId})
   for(const company of ['C','D'])setup.set(target.doc('constructionCompanies/'+company),{name:'架空'+company})
   for(const branch of ['A','B'])setup.set(target.doc('companyBranches/'+branch),{name:'架空'+branch,constructionCompanyId:'C'})
-  const base={name:'架空案内対象',status:'active',constructionCompanyId:'C',branchId:'A',years:10,maxYears:20,handoverDate:'2016-10-01',expiryDate:'2026-09-30',warrantyNotified:false,warrantyNoticePending:true,updatedAt:Timestamp.now(),warrantyNumber:'EXACT-OLD'}
+  const base={name:'架空案内対象',status:'active',constructionCompanyId:'C',branchId:'A',years:10,maxYears:20,handoverDate:'2016-10-01',expiryDate:'2026-09-30',warrantyNotified:false,warrantyNoticePending:true,updatedAt:Timestamp.now(),warrantyNumber:'EXACT-OLD',groupId:'search-old'}
   setup.set(target.doc('propertyWarranties/a'),base)
   setup.set(target.doc('propertyWarranties/b'),{...base,branchId:'B',warrantyNumber:'B'})
   setup.set(target.doc('propertyWarranties/d'),{...base,constructionCompanyId:'D',branchId:'',warrantyNumber:'D'})
@@ -889,14 +892,14 @@ test('list rejects legacy scans before property reads and scopes pending notices
   for(const uid of ['missing','bad','disabled']) {await assert.rejects(invoke(uid,pending),e=>e.code==='permission-denied');assert.equal(reads(),0)}
   await assert.rejects(invoke('head',{alertKind:'insurance'}),e=>e.code==='permission-denied')
   const batch=target.batch()
-  for(let i=0;i<30;i++)for(const company of ['C','D'])batch.set(target.doc(`propertyWarranties/unrelated-${company}-${i}`),{...base,constructionCompanyId:company,warrantyNoticePending:false,warrantyNotified:true,warrantyNumber:`UNRELATED-${company}-${i}`})
+  for(let i=0;i<30;i++)for(const company of ['C','D'])batch.set(target.doc(`propertyWarranties/unrelated-${company}-${i}`),{...base,constructionCompanyId:company,warrantyNoticePending:false,warrantyNotified:true,warrantyNumber:`UNRELATED-${company}-${i}`,groupId:'unrelated'})
   const { warrantyNoticePending: _pending, ...withoutProjection } = base
   batch.set(target.doc('propertyWarranties/missing-projection'),withoutProjection)
   await batch.commit()
   assert.deepEqual((await invoke('a',pending)).rows.map(r=>r.id),['a']);assert.equal(reads(),1)
   assert.equal((await invoke('head',{})).rows.length,20)
-  assert.deepEqual((await invoke('a',{warrantyNumber:' EXACT-OLD '},'propertyList')).rows.map(r=>r.id).sort(),['a','missing-projection'])
-  assert.deepEqual((await invoke('a',{warrantyNumber:'B'},'propertyList')).rows,[])
+  assert.deepEqual((await invoke('a',{groupId:'search-old',handoverMonth:'2016-10'},'propertyList')).rows.map(r=>r.id).sort(),['a','missing-projection'])
+  assert.deepEqual((await invoke('a',{groupId:'absent',handoverMonth:'2016-10'},'propertyList')).rows,[])
   assert.equal((await target.doc('propertyWarranties/missing-projection').get()).data().warrantyNoticePending,undefined)
   const many=target.batch();for(let i=0;i<21;i++)many.set(target.doc('propertyWarranties/pending-'+i),{...base,warrantyNumber:'P'+i});await many.commit()
   assert.equal((await invoke('a',pending)).rows.length,22);assert.equal(reads(),22)

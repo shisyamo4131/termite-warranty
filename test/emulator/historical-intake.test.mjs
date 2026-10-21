@@ -1,3 +1,4 @@
+import {mock} from 'node:test'
 import test,{after} from 'node:test'
 import assert from 'node:assert/strict'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
@@ -13,7 +14,8 @@ import {captureIntakeSettings} from '../../scripts/lib/historical-intake-setting
 import {initializeProductionData,bindProductionAdministrator} from '../../scripts/lib/production-bootstrap-data.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty-test'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
-after(()=>deleteApp(app))
+after(()=>{mock.restoreAll();return deleteApp(app)})
+mock.method(Timestamp,'now',()=>Timestamp.fromDate(new Date('2026-10-10T01:00:00.000Z')))
 const state={protocol:2,generation:21,phase:'recovering',databaseId:'(default)',controlDatabaseId:'test-historical-control'}
 const today='2026-10-10',input=historicalFixture(),planHash=prepareHistoricalIntake(input,{today}).planDigest
 test('empty Prod bootstrap semantics: partial initial state resumes closed, existing business refuses and admin binding retains Auth',async()=>{
@@ -155,3 +157,18 @@ test('new or changed known business data after interrupted deletion is preserved
     assert.equal((await db.doc(path).get()).data().mustRetain,true)
   }
 })
+
+ test('intake refuses stale dates and writes expired-period waiver with actual operator audit',async()=>{
+   const options=await fixture(),changed=structuredClone(input)
+   changed.rows[0].fields.handoverDate='2018-07-08'
+   const stale='2026-10-09'
+   await assert.rejects(executeHistoricalIntake(db,control,auth,changed,{...options,today:stale,planHash:prepareHistoricalIntake(changed,{today:stale}).planDigest}))
+   assert.equal((await db.doc('propertyWarranties/old-fixture').get()).exists,true)
+   const retry=await fixture(),plan=prepareHistoricalIntake(changed,{today})
+   await executeHistoricalIntake(db,control,auth,changed,{...retry,planHash:plan.planDigest})
+   const path=plan.documents.find(doc=>doc.path.startsWith('propertyWarranties/')).path
+   const row=(await db.doc(path).get()).data(),receipt=(await db.doc('_recovery/historicalIntake').get()).data()
+   assert.deepEqual(row.insurancePeriods.map(period=>period.state),['waived','pending'])
+   assert.equal(row.insuranceWaiverEvents[0].actorUid,'intake-developer')
+   assert.equal(row.insuranceWaiverEvents[0].at,receipt.startedAt.toDate().toISOString())
+ })

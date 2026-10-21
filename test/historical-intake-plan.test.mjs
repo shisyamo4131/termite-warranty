@@ -56,3 +56,11 @@ test('preserved company and billing settings bind the plan; names are not identi
   for(const mutate of [v=>v.billingRecipients.push(v.billingRecipients[0]),v=>v.billingRecipients[0].groupId='renamed-id',v=>v.billingRecipients[0].identity.prefix='DIFFERENT',v=>v.companyProfile=typed('invalid')]){const bad=structuredClone(input);mutate(bad.preservedBusinessSettings);assert.throws(()=>prepare(bad))}
   assert.throws(()=>captureIntakeSettings(new Map([['warrantyGroups/unknown',{fields:{...group,billingRecipient:recipient}}]])))
 })
+
+ test('historical plan records expired first half waiver and future second half remains pending',()=>{
+   const input=fixture();input.rows[0].fields.handoverDate='2018-07-08'
+   const plan=prepare(input),row=plan.documents.find(d=>d.path.startsWith('propertyWarranties/')).data
+   assert.deepEqual(row.insurancePeriods.map(p=>p.state),['waived','pending'])
+   assert.equal(row.insuranceWaiverEvents[0].actorUid,'historical-intake-plan')
+   assert.equal(row.insuranceWaiverEvents[0].expiryDate,'2023-07-07')
+ })
