@@ -1,5 +1,8 @@
 # Documentation Map
 
+- [HS本番環境管理アカウント・請求先登録の統合ガイド](../deliverables/hs-prod-account-2026-10-21/README.md)：11ページ、パスワードは空の入力欄。10月23日の請求先切替用で、納品書とは別紙。
+- [請求先登録ガイドの生成元・撮影原画像](../deliverables/hs-cloud-billing-guide-2026-10-20/README.md)：単独PDFは統合版へ置換。
+
 2026-10-16採用：[明示起動の軽量Dev配備](decisions/0048-explicit-lightweight-development-deployment.md)。Local実装・検証を進行中、main統合・dev同期・実配備は未実施。[現行の改修手順](runbooks/application-deployment.md)を優先し、以下の日付付き現在地は各時点の記録として読む。
 
 検証・統合フローは[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。PR35でmainへ統合済み、dev未同期・実配備未実証。以下の2段階PR・期限付き再利用は旧方式の説明。現在値と非配備測定の範囲は[運用記録](operations.md)を参照。

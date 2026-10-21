@@ -17,7 +17,20 @@ const verificationTools=new Set([
   'lib/rules-test-workflow.mjs','lib/focused-test-reporter.mjs','lib/test-emulators.mjs',
   'lib/test-emulator-stage.mjs','lib/test-functions-loader.mjs','lib/test-functions-register.mjs',
 ])
-const documentExtras=new Set(['README.md','CHANGELOG.md','INITIAL_PROMPT.md',
+const documentExtras=new Set([
+  'deliverables/hs-prod-account-2026-10-21/README.md',
+  'deliverables/hs-prod-account-2026-10-21/build_pdf.py',
+  'deliverables/hs-prod-account-2026-10-21/combine_pdf.py',
+  'output/pdf/HS_本番管理アカウントと請求先登録ガイド.pdf',
+  'output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-05.pdf',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/README.md',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/02-menu.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/03-linked.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/04-billing-list.png',
+  'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/05-trial-step1.png',
+'README.md','CHANGELOG.md','INITIAL_PROMPT.md',
   'deliverables/production-schedule-2026-10-05/README.md',
   'deliverables/production-schedule-2026-10-05/build_pdf.py',
   'output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-13.pdf'])
