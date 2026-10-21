@@ -8,8 +8,8 @@ import { pendingWarrantyCandidates, warrantyNoticeOrder } from '../functions/war
 import { propertyListFilter } from '../functions/property-list-filter.js'
 
 test('property list accepts only bounded or explicit business query shapes',()=>{
-  for(const f of [undefined,{}, {groupId:' G ',handoverMonth:'2026-10'},{alertKind:'warranty',notification:'pending'},{alertKind:'insurance'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
-  for(const f of [null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
+  for(const f of [undefined,{}, {groupId:' G ',handoverMonth:'2026-10'},{alertKind:'warranty',notification:'pending'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
+  for(const f of [{alertKind:'insurance'},null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
   assert.throws(()=>propertyListFilter('propertyList',{reportMonth:'2026-10'}),{code:'invalid-argument'})
   const original={groupId:' G ',handoverMonth:'2026-10'};assert.deepEqual(propertyListFilter('propertyList',original),{groupId:'G',handoverMonth:'2026-10'});assert.equal(original.groupId,' G ')
 })
@@ -279,9 +279,9 @@ test('calendar-month alerts include boundary and overdue, excluding unknown date
   assert.equal(expiryAlertEligible({status:'active'},'insurance','2027-05-01'),false)
   assert.equal(insuranceExpiryDate('2026-10-01'),'2031-09-30')
   assert.equal(insuranceExpiryDate(''),'')
-  assert.deepEqual(normalizeAlertSettings(),{warrantyMonths:2,insuranceMonths:2})
+  assert.deepEqual(normalizeAlertSettings(),{warrantyMonths:2})
   assert.throws(()=>normalizeAlertSettings({warrantyMonths:0}))
-  assert.throws(()=>normalizeAlertSettings({insuranceMonths:1.5}))
+  assert.deepEqual(normalizeAlertSettings({insuranceMonths:1.5}),{warrantyMonths:2})
   assert.equal(matchesProperty({handoverDate:''},{handoverMissing:'yes'}),true)
   assert.equal(matchesProperty({handoverDate:'2026-10-01'},{handoverMissing:'yes'}),false)
 })
@@ -718,10 +718,13 @@ test('warranty alerts always request pending notices despite hidden filters',asy
  for(const notification of ['pending','done','all']){v.filter.notification=notification;await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'warranty',notification:'pending'})}
 })
 
-test('insurance alerts ignore hidden filters and warranty notification state',async()=>{
- const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false,companies:[],branches:[],groups:[]}})
- v.tab.value='insuranceAlerts';await new Promise(r=>setImmediate(r));
- Object.assign(v.filter,{notification:'done',search:'hidden',fiscalYear:'2026',companyId:'hidden'});await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'insurance'})
+test('retired insurance notices are absent from navigation and settings',async()=>{
+ const {readFile}=await import('node:fs/promises')
+ const source=await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')
+ assert.equal(source.includes('insuranceAlerts'),false)
+ assert.equal(source.includes('alertSettings.insuranceMonths'),false)
+ assert.ok(source.includes("title:'保証満了案内'"))
+ assert.ok(source.includes("title:'保険報告用一覧'"))
 })
 
 test('failed draft save keeps the dialog and entered values',async()=>{
@@ -917,7 +920,7 @@ test('certificate CSV preserves quoting, imported period identity and calendar b
 
 test('business navigation preserves role and recovery boundaries and blocks busy navigation',async()=>{
   const ui=await prototypeViewForTest(async()=>({}))
-  assert.equal(ui.businessNavigation.value.length,7)
+  assert.equal(ui.businessNavigation.value.length,6)
   assert.deepEqual(ui.managementNavigation.value.map(x=>x.value),['companySettings','settings','staff','alertSettings','recovery'])
   ui.busy.value=true
   ui.navigate('report')

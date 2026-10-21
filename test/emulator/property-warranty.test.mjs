@@ -752,7 +752,7 @@ test('same name and address need no confirmation; owner/affiliation/insulation c
 test('alert settings are admin-only; branch account creation retains ownership restrictions',async()=>{
   await assert.rejects(call('saveAlertSettings',{settings:{warrantyMonths:1,insuranceMonths:3}},'meeting-branch-user'),e=>e.code==='permission-denied')
   await call('saveAlertSettings',{settings:{warrantyMonths:1,insuranceMonths:3}})
-  assert.deepEqual(await call('alertSettings'),{warrantyMonths:1,insuranceMonths:3})
+  assert.deepEqual(await call('alertSettings'),{warrantyMonths:1})
   await assert.rejects(call('saveAlertSettings',{settings:{warrantyMonths:13}}))
   const created=await call('createAccount',{constructionCompanyId:'meeting-co',branchId:'meeting-branch',scope:'branch',displayName:'架空担当',email:'new-branch@example.invalid'})
   const view=await call('list',{},created.uid)
@@ -890,7 +890,7 @@ test('list rejects legacy scans before property reads and scopes pending notices
     assert.equal(record.rows.some(r=>r.collection==='propertyWarranties'),false)
   }
   for(const uid of ['missing','bad','disabled']) {await assert.rejects(invoke(uid,pending),e=>e.code==='permission-denied');assert.equal(reads(),0)}
-  await assert.rejects(invoke('head',{alertKind:'insurance'}),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('head',{alertKind:'insurance'}),e=>e.code==='invalid-argument')
   const batch=target.batch()
   for(let i=0;i<30;i++)for(const company of ['C','D'])batch.set(target.doc(`propertyWarranties/unrelated-${company}-${i}`),{...base,constructionCompanyId:company,warrantyNoticePending:false,warrantyNotified:true,warrantyNumber:`UNRELATED-${company}-${i}`,groupId:'unrelated'})
   const { warrantyNoticePending: _pending, ...withoutProjection } = base

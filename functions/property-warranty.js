@@ -14,7 +14,6 @@ import { externalKeySettings, normalizeExternalKey } from './domain/external-key
 import { normalizeBranchCode } from './domain/branch-code.mjs'
 import { propertyFieldRequirements } from './domain/property-field-requirements.mjs'
 import { insuranceNoticeProjection } from './domain/insurance-notice-query.mjs'
-import { insuranceNoticeCandidates } from './insurance-notice-query.js'
 import { monthlyQueryProjection, validMonth, withInsuranceDefaults } from './domain/monthly-query.mjs'
 import { FieldPath, Timestamp } from 'firebase-admin/firestore'
 import { HttpsError } from 'firebase-functions/v2/https'
@@ -143,9 +142,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
   if (action === 'list' || action === 'propertyList') {
     const f = propertyListFilter(action, input.filter)
     if (!a.staff && (typeof a.constructionCompanyId !== 'string' || !/^[\w-]{1,128}$/.test(a.constructionCompanyId) || a.scope === 'branch' && (typeof a.branchId !== 'string' || !/^[\w-]{1,128}$/.test(a.branchId)))) fail('permission-denied', '所属情報を確認してください。')
-    if (f.alertKind && !['warranty','insurance'].includes(f.alertKind)) fail('invalid-argument', '案内の種類が不正です。')
-    if (f.alertKind === 'insurance' && !a.staff) fail('permission-denied', '保険満了案内はHS担当者のみ閲覧できます。')
-    if ((f.reportMonth || f.alertKind === 'insurance') && (await db.doc('prototypeSettings/insuranceStates').get()).data()?.version !== 1) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
+    if (f.alertKind && f.alertKind !== 'warranty') fail('invalid-argument', '案内の種類が不正です。')
+    if (f.reportMonth && (await db.doc('prototypeSettings/insuranceStates').get()).data()?.version !== 1) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
     let query = db.collection('propertyWarranties')
     if (!a.staff) query = query.where('constructionCompanyId', '==', a.constructionCompanyId)
     if (!a.staff && a.scope === 'branch') query = query.where('branchId', '==', a.branchId)
@@ -170,7 +168,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     else query = query.orderBy('updatedAt', 'desc').orderBy(FieldPath.documentId(), 'desc')
     const filtered = !!(monthly || handoverSearch || f.warrantyNumber || f.alertKind)
     if (!filtered) query = query.limit(20)
-    const notice = f.alertKind === 'warranty' ? await pendingWarrantyCandidates(db, f, a) : f.alertKind === 'insurance' ? await insuranceNoticeCandidates(db, f, a.staff) : null
+    const notice = f.alertKind === 'warranty' ? await pendingWarrantyCandidates(db, f, a) : null
     if (f.alertKind && !notice) fail('invalid-argument', 'この検索条件には対応していません。画面を再読み込みしてください。')
     const snapshots = notice ? [notice.snapshot] : await Promise.all([query.get(), ...(f.reportMonth && f.includeDone === true ? [monthlyBaseQuery.where('insuranceReportedQueryMonths','array-contains',f.reportMonth).get()] : [])])
     const unique = new Map(snapshots.flatMap(page=>rows(page)).map(row=>[row.id,row]))
@@ -179,7 +177,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     let unclassifiedCount = 0
     if (monthly || handoverSearch) result.sort((a, b) => (b.updatedAt?.seconds ?? 0) - (a.updatedAt?.seconds ?? 0) || (b.updatedAt?.nanoseconds ?? 0) - (a.updatedAt?.nanoseconds ?? 0) || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0))
     if (f.alertKind) {
-      result = result.filter(row => expiryAlertEligible(row, f.alertKind, notice.basisDate, notice.settings[f.alertKind === 'insurance' ? 'insuranceMonths' : 'warrantyMonths']))
+      result = result.filter(row => expiryAlertEligible(row, f.alertKind, notice.basisDate, notice.settings.warrantyMonths))
       if (f.alertKind === 'warranty') result = result.filter(row => row.warrantyNotified === false)
     }
     if (f.reportMonth) ({rows:result,unclassifiedCount} = insuranceMonthlyRows(result, f.reportMonth, {includeDone:f.includeDone === true}))

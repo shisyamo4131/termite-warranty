@@ -253,7 +253,7 @@ export function insuranceExpiryDate(startDate) {
 }
 export function normalizeAlertSettings(input = {}) {
   const result = {}
-  for (const key of ['warrantyMonths', 'insuranceMonths']) {
+  for (const key of ['warrantyMonths']) {
     const value = Number(input[key] ?? 2)
     if (!Number.isInteger(value) || value < 1 || value > 12) throw new Error('案内時期は1〜12か月前で指定してください。')
     result[key] = value

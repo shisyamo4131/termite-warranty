@@ -11,7 +11,6 @@ export function propertyListFilter(action, input) {
   if (action === 'list') {
     if (Object.hasOwn(f, 'alertKind')) {
       if (f.alertKind === 'warranty' && f.notification === 'pending') allowed = ['alertKind', 'notification']
-      else if (f.alertKind === 'insurance') allowed = ['alertKind']
       else reject()
     } else if (Object.hasOwn(f, 'reportMonth')) allowed = ['reportMonth', 'includeDone', 'warrantyNumber']
     else if (Object.hasOwn(f, 'billingMonth')) allowed = ['billingMonth', 'warrantyNumber']

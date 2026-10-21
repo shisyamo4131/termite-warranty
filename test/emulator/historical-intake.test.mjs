@@ -172,3 +172,33 @@ test('new or changed known business data after interrupted deletion is preserved
    assert.equal(row.insuranceWaiverEvents[0].actorUid,'intake-developer')
    assert.equal(row.insuranceWaiverEvents[0].at,receipt.startedAt.toDate().toISOString())
  })
+
+ test('property-only reimport preserves masters settings and accounts and resumes exact scope',async()=>{
+   const options=await fixture()
+   await executeHistoricalIntake(db,control,auth,input,options)
+   await db.doc('warrantyGroups/HSC').update({name:'架空・保持する変更',customField:'retain'})
+   await db.doc('prototypeSettings/alerts').set({warrantyMonths:7})
+   await db.doc('propertyOperationReceipts/old').set({propertyId:'old-fixture'})
+   const before=await documentImage(db),next={...input,preservedBusinessSettings:captureIntakeSettings(before)}
+   const opts={...options,operationId:'fictional-properties-only',propertiesOnly:true,planHash:prepareHistoricalIntake(next,{today}).planDigest,inventoryHash:(await inspectHistoricalTarget(db,control,auth)).inventoryHash}
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,{...opts,afterCommit:async kind=>{if(kind==='delete')throw Error('interrupted')}}))
+   const owner=(await control.doc('recovery/operatorLock').get()).data().owner
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,{...opts,propertiesOnly:false,resumeOwner:owner,previousWorkerEnded:true}))
+   await executeHistoricalIntake(db,control,auth,next,{...opts,resumeOwner:owner,previousWorkerEnded:true})
+   const after=await documentImage(db)
+   for(const [path,row] of before)if(!['propertyWarranties','propertyOperationReceipts','externalKeyReservations','warrantyCounters'].includes(path.split('/')[0]))assert.equal(after.get(path)?.hash,row.hash,path)
+   assert.equal((await db.doc('propertyOperationReceipts/old').get()).exists,false)
+   assert.equal((await db.collection('propertyWarranties').get()).size,442)
+   await verifyCompletedHistoricalIntake(db,control,auth,opts)
+ })
+
+ test('property-only reset refuses incompatible retained fiscal settings before deleting properties',async()=>{
+   const options=await fixture()
+   await executeHistoricalIntake(db,control,auth,input,options)
+   await db.doc('warrantyGroups/HSC').update({fiscalStartMonth:12})
+   const before=await documentImage(db),next={...input,preservedBusinessSettings:captureIntakeSettings(before)}
+   const opts={...options,operationId:'fictional-retained-conflict',propertiesOnly:true,planHash:prepareHistoricalIntake(next,{today}).planDigest,inventoryHash:(await inspectHistoricalTarget(db,control,auth)).inventoryHash}
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,opts))
+   const after=await documentImage(db)
+   for(const [path,row] of before)assert.equal(after.get(path)?.hash,row.hash,path)
+ })
