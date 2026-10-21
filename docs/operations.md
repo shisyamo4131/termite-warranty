@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-21 統合ガイドと不要資料の整理・dev統合準備
+
+本人が統合PDF・資料整理をcommit／pushしPRでdevへ統合するよう承認。11ページの統合版は空のパスワード入力欄としおりを保持。元PDF2つと未送付の10月5日版スケジュールを削除し、関連README・索引を整理。再生成可能な確認画像24点はGit対象外のtmpから削除し、他の履歴・送付済み資料・生成元・撮影原画像・証跡を保持した。
+
+新しいガイド3ファイル・統合PDF・削除旧スケジュールの5パスのみを `scripts/lib/change-scope.mjs` の完全一致文書リストに追加。隣接未分類ファイルの拒否、アプリ混在時のproduct判定、旧PDF削除のdocumentation判定を回帰試験で確認。配備条件・workflowは変更しない。分類修正はCI変更として扱い、包括gateを選定する。`npm test` は642成功・既存2skip、exit 0（`tmp/hs-combined-guide-tests.log`）。入力に対応するdocumentation-routing回帰を含む。初回はsandboxの一時Git設定／renameの権限制約でexit 1だったため、同じ試験を制約外で再実行して解消した。
+
+型検査・build・Rules203成功・Functions/seed構文は4387365の成功証拠を再利用。現在のdevと当該版のapp/src/functions/public・依存・Nuxt/TypeScript・Rules/索引・Firebase設定・seedのGit差分なしを確認。今回も当該入力は変更せず、policyの失効条件に該当しない。PDFの全11ページ文字抽出、空のフォーム本体とwidget・appearance、生成元2本の構文検査はbundled Pythonでexit 0。作成時の全ページ描画・目視確認済みPDFを変更していない。governance／diffは最終差分で確認する。
+
+業務仕様・データ契約・Dev本人受入れの変更なし。main統合、Dev／Prod配備、正式投入、バックアップ・PITR・Auth退避は行わない。資料・分類修正の差戻しは通常のPR revertとする。統合結果はGitHub PRとActionsを正本に確認する。
+
 ## 2026-10-20 HS請求先ガイドの文書統合
 
 本人が未コミットの請求先ガイド・PDF・関連文書をコミット／pushし、PRでdevへ統合するよう承認。対象は `deliverables/hs-cloud-billing-guide-2026-10-20/` のREADME、生成元、画像5枚と `output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf`、docs索引。PDF・画像は既存成果物を維持し、実登録・請求切替は行わない。画像にカード番号・認証情報がないことを確認。PDF全10ページの文字抽出と生成元の構文検査はbundled Pythonでexit 0（標準Pythonはpypdf未導入のため初回exit 1、新規インストールなし）。前回の全ページ描画・目視確認記録は生成元READMEに保持。

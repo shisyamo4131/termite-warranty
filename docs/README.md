@@ -1,5 +1,7 @@
 # Documentation Map
 
+- [HS本番環境管理アカウント連絡票](../deliverables/hs-prod-account-2026-10-21/README.md)：10月23日の請求先切替用。パスワードは空の入力欄。納品書とは別紙。
+
 - [zipcloud住所入力補助・納品書への記載事項](decisions/0050-zipcloud-postal-lookup.md)：現行のLocal切替方針。旧CSV／Local自動更新の説明より優先。配備・正式納品書は後発。
 
 - 【廃止済み・判断履歴】[Local郵便番号自動更新](design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)：月次確認、正常版維持、状態表示・再確認・旧版復帰。[決定](decisions/0049-local-postal-auto-update.md)。Dev／Prod自動公開は対象外。
