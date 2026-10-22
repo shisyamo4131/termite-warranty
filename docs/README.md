@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-10-22：最終納品日は**11月2日**。[最新の納品残作業・条件付き作業枠](roadmaps/2026-initial-delivery.md#2026-10-22-最終納品日と残作業)を優先する。以下の共有スケジュールPDFは旧日程資料で、改訂・差替えは未実施。
+
 - [HS本番環境管理アカウント連絡票](../deliverables/hs-prod-account-2026-10-21/README.md)：10月23日の請求先切替用。パスワードは空の入力欄。納品書とは別紙。
 
 - [zipcloud住所入力補助・納品書への記載事項](decisions/0050-zipcloud-postal-lookup.md)：現行のLocal切替方針。旧CSV／Local自動更新の説明より優先。配備・正式納品書は後発。

@@ -1,5 +1,13 @@
 # Operations
 
+## 2026-10-22 Dev受入れ・dev統合と納品日変更
+
+オーナーが本チャットで「Dev受入れ→PRでdevへの統合を進めてください」と指示。直前の提供対象060acb495fb8af9dba50cfbaf9c4ffa8d606704bの本人Dev受入れ了承として記録する。対象は満了後の保険操作、保証グループ＋引渡年月検索、住所必須化、過去取込みの満了期間自動不要化、保険満了案内／設定撤去、442件の限定再取込み。HS社長の正式利用開始了承とは区別する。
+
+配備run39589575814はsuccessをGitHubで再確認。再取込み時の同一版再配備・全件照合・normal16は下記10/21の正式記録を参照。受入れ版以後の差分は文書のみで、アプリ／実行設定は同一。既存包括7gate（647成功・2skip、205連携成功ほか各exit 0）を失効基準に従って再利用し、今回の文書はガバナンス・diff検査、統合は必須PR checkを適用する。追加配備・データ変更・保護有効化は行わない。既存の請求先関連3文書の未コミット部分は保持し今回のcommitから除外する。
+
+最終納品日は本人指定により2026-11-02へ変更。納品条件を緩和せず、利用開始日や保留解除を推定しない。優先順位と条件付き作業枠は[納品ロードマップ](roadmaps/2026-initial-delivery.md#2026-10-22-最終納品日と残作業)を参照。文書の `./scripts/check-governance.ps1` と `git diff --check` は各exit 0。コード・設定・データ形状は今回変更せず、追加のアプリ試験／再配備は省略。統合結果はPRのmerged状態とmerge commitで確定する。
+
 ## 2026-10-21 保険満了案内廃止・物件限定再取込み
 
 Dev候補 `060acb495fb8af9dba50cfbaf9c4ffa8d606704b` の配備・再取込み・通常再開完了。本人受入れは次工程。[手動Dev run 39589575814](https://github.com/shisyamo4131/termite-warranty/actions/runs/39589575814)はbuild/deploy success。厳密復旧照合用の同一版再配備後、Hosting版は `sites/termite-warranty-dev/versions/e381400574161081`。21 Functions ACTIVE、接続先一致、既存環境パラメータ不変、PITR無効・日次予定0・backupAutomation=false。Prod・正式投入・保護設定は未変更。
