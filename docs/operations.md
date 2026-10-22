@@ -1,5 +1,81 @@
 # Operations
 
+## 2026-10-22 Dev受入れ・dev統合と納品日変更
+
+オーナーが本チャットで「Dev受入れ→PRでdevへの統合を進めてください」と指示。直前の提供対象060acb495fb8af9dba50cfbaf9c4ffa8d606704bの本人Dev受入れ了承として記録する。対象は満了後の保険操作、保証グループ＋引渡年月検索、住所必須化、過去取込みの満了期間自動不要化、保険満了案内／設定撤去、442件の限定再取込み。HS社長の正式利用開始了承とは区別する。
+
+配備run39589575814はsuccessをGitHubで再確認。再取込み時の同一版再配備・全件照合・normal16は下記10/21の正式記録を参照。受入れ版以後の差分は文書のみで、アプリ／実行設定は同一。既存包括7gate（647成功・2skip、205連携成功ほか各exit 0）を失効基準に従って再利用し、今回の文書はガバナンス・diff検査、統合は必須PR checkを適用する。追加配備・データ変更・保護有効化は行わない。既存の請求先関連3文書の未コミット部分は保持し今回のcommitから除外する。
+
+最終納品日は本人指定により2026-11-02へ変更。納品条件を緩和せず、利用開始日や保留解除を推定しない。優先順位と条件付き作業枠は[納品ロードマップ](roadmaps/2026-initial-delivery.md#2026-10-22-最終納品日と残作業)を参照。文書の `./scripts/check-governance.ps1` と `git diff --check` は各exit 0。コード・設定・データ形状は今回変更せず、追加のアプリ試験／再配備は省略。統合結果はPRのmerged状態とmerge commitで確定する。
+
+## 2026-10-21 保険満了案内廃止・物件限定再取込み
+
+Dev候補 `060acb495fb8af9dba50cfbaf9c4ffa8d606704b` の配備・再取込み・通常再開完了。本人受入れは次工程。[手動Dev run 39589575814](https://github.com/shisyamo4131/termite-warranty/actions/runs/39589575814)はbuild/deploy success。厳密復旧照合用の同一版再配備後、Hosting版は `sites/termite-warranty-dev/versions/e381400574161081`。21 Functions ACTIVE、接続先一致、既存環境パラメータ不変、PITR無効・日次予定0・backupAutomation=false。Prod・正式投入・保護設定は未変更。
+
+再取込み実績：`historical-intake.mjs apply --properties-only` の正式処理はexit 0・complete=true・442物件・置換対象736文書。独立読取りもexit 0でHSC99／SHS66／UH277、UH住所＝契約No277件、満了済み報告不要148期間、保持46文書の全hash一致、17採番一致、旧操作記録0、外部キー予約277を確認。2026年度の次番号はHSC100／SHS68／UH128。マスタ・スタッフ・会社情報・請求先・その他設定は保持、Authとの権限照合も正式処理で成功。原資料・実値・照合用原像はGit外。
+
+厳密照合の初回不一致は、RulesとFunctionsの43ファイルがWindows/CIの改行コード差（改行正規化後は全一致）、Hostingは通常generateと既存復旧用の固定buildId/時刻正規化の違いを確認。既存 `build:recovery-release` と既存の2DB配備構成で同じコードをDevへ再配備しexit 0。比較条件は緩和せず、CI・IAM・保護設定も変更しない。直後Hostingは全56件一致だが集計fileCount未反映で停止し、再配備せず読取りpreflightを再実行して全10項目pass（21ソース、Hosting56、索引25、除外33、両Rules）を確認した。読取りpreflightのexit 0だけでは合格とせず、checksの全passで判定した。
+
+実行順はenter→停止/原像確認→限定apply→独立全件照合→plan-intake→publish→reopen→observe。各正式コマンドexit 0。実行ID `historical-properties-20261021`、公開計画 `historical-properties-20261021-publish`。plan-intakeは全782文書verified、publishはverification15、reopenはnormal16、最終observeは両DB normal16一致・進行更新なし・Auth退避占有なし・運用占有なし。取込み承認参照 `owner-20261021-properties-only`、通常再開参照 `owner-20261021-dev-delivery-normal` は今回の本人による限定再取込みとDev提供の指示を記録したもの。本人の新候補受入れ完了とは扱わない。
+
+Dev画面の読取り確認：通常再開後、UH＋2018-07で18-001の1件を抽出。詳細で住所と契約Noの一致、前半2018-07-08〜2023-07-07の報告不要、後半2023-07-08〜2028-07-07の未報告を確認。保険満了案内メニューなし、アラート設定は保証満了2か月前だけを表示。実値は記録せず、画面確認で業務状態を更新していない。
+
+ログはGit外の `tmp/oct21-recovery-deploy.log`、`tmp/oct21-reimport-preflight-final2.json`、`tmp/oct21-reimport-apply.log`、`tmp/oct21-reimport-verify.json`、`tmp/oct21-reimport-plan-publication.json`、`tmp/oct21-reimport-publication.json`、`tmp/oct21-reimport-reopen.json`、`tmp/oct21-reimport-final-state.json`、`tmp/oct21-final-dev-check.json`。後続は今回候補の本人Dev受入れ、PRでdev統合、Prod反映判断、正式投入。バックアップ/PITR/Auth退避の保留を維持。
+
+Local包括7gate完了：`npm test` 647成功・既存2skip、`npm run test:rules` 205成功・400604ms・emulatorsStopped=true、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`は各exit 0。最終コード2a12abdに対する証拠。UIの保険用メニュー・設定削除をLocal実画面で確認。初回の試験は旧メニュー数／旧検索拒否理由の期待値と型の残存を修正。終了した初回試験の残存ロックは所有nonce・PID終了を確認して1ファイルだけ除去、最終は通常終了した。入力連動の追加回帰は対象path未変更。最終コードの関係する全gateを満たし、後続文書だけではアプリ証拠を失効させない。取込み元はAIR現Excelの確定hash一致、再構成442行の既存出典rowHash一致。Dev実行結果は本節冒頭。
+
+本人が1657f6bのDev受入れ完了を明示。今回のUI・アプリロジック・データ操作・配備の複合変更には包括7gateを選定。保険案内入口と設定だけを廃止し報告操作・保証案内を維持する。再取込みは本人がマスタ・アカウント・会社情報・請求先・その他設定の保持を明示承認。対象Dev(default)、制御recovery-control、Prod禁止。失敗時は停止状態を保持し同一計画・ownerで調査、結果不明時に再削除や通常再開をしない。旧版へのコード切戻しはrevert・再検証・承認済みDev配備で行う。データ差戻しが必要なら保持した非公開原像と承認範囲を確認する。Local検証および配備・再取込み結果は本節冒頭。
+
+## 2026-10-21 検索・住所必須・過去取込みのDev候補
+
+最終照合完了：19:36:22 JSTの読取りで3索引すべてREADYを確認。直後19:36:26の画面再試行ではcode 9が残ったが、独立した同条件のFirestore読取りで2件取得し、その後のDev画面でもUH＋2018-11が2件（18-003を含む、引渡日はいずれも11月）となった。Functionsログ19:37:17 JSTにpropertyList success／propertyWarranties 2件を確認。途中の再配備・設定追加・業務データ変更はなし。索引作成・利用反映待ちの間に発生したエラーとして観測結果を記録し、READY直後からの反映時間の内訳までは断定しない。
+
+Devでは新検索欄と初期20件、UH詳細の住所必須表示、前半／後半の報告不要ボタンを読取りで確認し、保存せず閉じた。Devの業務試験書込み・再取込みは未実施。本人の今回候補受入れは待ち。残作業は本人受入れ→PRでdev統合、保留解除後のProd反映判断と新仕様での初期計画再生成・正式投入。Prod配備・バックアップ・PITR・Auth退避は保留。初回10年の保証自体が満了した物件の一括取込み拒否は維持する。別件の請求先記録3文書の未コミット分は今回も保全する。
+
+候補 `1657f6bce406183f15423aff5f98fc75720bd5ee` をcommit/push（各exit 0）し、[Dev run 39584907468](https://github.com/shisyamo4131/termite-warranty/actions/runs/39584907468)を実行。buildは19:29:05〜19:29:57 JST（52秒）、deployは19:30:01〜19:32:46（165秒）、両jobの開始〜終了3分41秒、いずれもsuccess。公開照合はready=true、Functions21、publicEntry=true、protectionHeld=true、PITR=false、日次予定0、backupAutomation=false。
+
+配備後の新検索で500を検出。Functionsログの19:34:33 JSTはpropertyListのFirestore query失敗code 9、Firestore Admin APIの実読取りでは今回追加のgroupId＋handoverDate索引3本がCREATINGだった。CLIの索引配備成功は作成申請の完了で、READYの保証ではない。当時は再配備せずREADYと画面検索の成功を待った。CI成功だけで完了とは判定しなかった。既存の20件初期表示は成功。ログはGit管理外tmp/oct21-dev-deploy.log、tmp/oct21-dev-query-log.txt。
+
+オーナー承認範囲は3項目の改修、Local検証、Dev候補配備・照合。先行の「報告不要」操作の本人受入れは保持し、今回候補の本人受入れを先取りしない。Prod配備・正式投入・既存Dev再取込み・バックアップ／PITR／Auth退避は実施しない。
+
+変更：物件検索はgroupId一致＋handoverDateの月範囲、両条件必須、未指定は最新20件、閲覧範囲と更新順を維持。3索引を追加。住所は本登録で共通必須、下書き任意は維持、旧addressRequired=falseは無視し設定UIを撤去。UH取込みは元externalKeyを住所へ複製。新規CSV・初期計画のみ、取込基準日前に満了したpending期間を既存waive履歴形式で不要化し、当日満了・将来・報告済みを保持。CSV日付跨ぎは再プレビュー、初期計画は実行日本日付を照合し、再開はjournalを維持する。初期計画の仮監査値は実行者・実時刻へ置換する。
+
+分類はUI／application-logic／data-contract-schema-migration／project-guidance／deployの複合で包括7gateを選定。project-rulesの旧検索条件を承認済み条件へ更新し生成整合を確認。IAM・CI・保護設定は変更しない。仕様、検索・住所要件、現行設計契約、CSV設計、初期取込み手順、試行ロードマップ、changelogを反映。新しいデータ型・ADR・文書の追加はなく、既存の索引から参照可能。既存の履歴を消さず、切戻しは通常revert・再検証・承認されたDev再配備とする。戻した旧版は新規取込みの自動不要化を行わず、旧検索UIに戻る。
+
+Local画面：架空物件でグループだけの検索を拒否、HSC＋2018-07の抽出1件、条件クリアで初期表示、本登録物件の空住所の保存拒否を確認。実Dev業務データへの試験書込みは行わない。型検査・build・Functions syntax・seed syntax・ガバナンスはexit 0。単体最終は647成功・既存2skip、exit 0（tmp/oct21-unit-final.log）。対象CSV試験32成功、exit 0。初回の連携試験は旧検索／住所任意の期待値で失敗し修正。連携実行中の単体再実行では一時領域ロック競合が発生したため、その終了後に順次再実行して単体成功を確認。最終の `npm run test:rules` は205成功、Emulator正常終了、exit 0（374,805ms、tmp/oct21-rules-final.log）。参照Store試験も実行前に新しい検索条件へ更新して成功を確認。Dev配備・照合結果は本節冒頭の記録を参照。
+
+包括7gate：`npm test`、`npm run test:rules`、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`はいずれも独立exit 0。`git diff --check`・索引定義重複検査もexit 0。追加の入力連動回帰は対象path未変更。後続は文書更新のみで、アプリ／データ／試験の成功証拠を失効させない。
+
+受入れ項目：保証グループ＋引渡年月の一致、片方指定の拒否、クリア、保証番号欄撤去、UHを含む本登録の空住所拒否、取込みプレビューの契約No住所と報告不要期間数、既存満了後の手動不要／取消操作の維持。取込み実行・日付境界・監査・再送・全件棄却はLocal架空データで確認し、Devへ試験物件を追加する必要はない。
+
+## 2026-10-21 満了後保険操作・UH初期計画のDev候補
+
+本人受入れ：オーナーが同日本チャットで「『報告不要』の件はDev受入れ完了でOK」と明示。対象は上記候補の報告不要対応に限定し、検索軸変更・他の未実装要件の受入れへ拡張しない。検索軸変更が未実装との指摘を受け、次の改修優先事項として整理。今回の指示は残作業報告であり、追加実装・PR統合・配備は行っていない。
+
+Dev配備完了：候補 `c2c7a0e52e463e781101eab63735fe1c6e3046bc` をcommit／push（各exit 0）、dev controllerの手動配備を起動（exit 0）。[run 39577888288](https://github.com/shisyamo4131/termite-warranty/actions/runs/39577888288)はbuild／deployともsuccess。build 18:33:34〜18:34:56 JST（82秒）、deploy 18:35:00〜18:40:27（327秒）、両jobの開始〜終了は6分53秒。公開後 `ready=true,functionsActive=21,publicEntry=true,protectionHeld=true,pitr=false,dailySchedules=0,backupAutomation=false`。既存軽量手順どおり全ソースZIP／Hosting hash独立比較は行わない。
+
+Dev画面を再読込し、2018年10月→18-001→詳細の前半2018-07-08〜2023-07-07が未報告で「報告不要にする」有効を確認。Dev実データの保険状態は変更せず、更新操作はLocal画面と隔離連携試験で検証。Local画面では報告済み再表示と後半未報告維持まで確認（Git管理外のtmp/expired-insurance-local.png）。本人Dev業務受入れは待ち。受入れ完了後に通常PRでdev統合し、main／Prodへは進めない。今回候補の19ファイルをcommit済み、別件の請求先記録3文書は未コミットで保全。
+
+オーナーが満了後の報告不要・報告済みを許容、実報告判断は運用事項と確定し、UHのProd初期住所複製を承認して改修・Dev受入れまでを指示。通常のDev候補配備を行い、本人受入れ完了・dev統合は先取りしない。Prod配備・正式投入・保護設定は保留。
+
+変更：WarrantyLifecycleDetails／MeetingPrototypeの不要操作の期限条件と期限説明、Functionsの不要設定／取消の満了拒否を除去。HS権限・本登録状態・期間ID・理由・履歴・revision・receiptは維持。報告済みは既存の過去対象月の報告コマンドを維持し、期限を理由とした新規制限を追加しない。過去物件計画はUHだけ正規化externalKeyを住所へ複製し、原入力・他グループ住所・キー予約を保持。取込み時の自動不要化、全住所必須化、物件検索は今回未実装。仕様・保険／住所要件・HSC036・ADR0041・設計契約・試行ロードマップ・取込み手順・changelogを反映。保存スキーマ・IAM・CI・ガバナンスは不変。切戻しは改修差分を通常revertし再検証／Dev再配備する。既存の状態履歴は削除せず、取込み計画は旧digestを使わず再生成する。
+
+分類：UI＋application-logic＋data-contract-schema-migration、Dev配備のため包括7gateを選定。`npm test`643成功・既存2skip（exit 0）、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit 0。取込み／画面表示の対象試験12成功（exit 0）。`npm run test:rules`204成功・Emulator停止確認（exit 0、402,790ms）。`./scripts/check-governance.ps1`と`git diff --check`もexit 0。ログはGit管理外のtmp/expired-insurance-*。包括以外の入力連動回帰は対象path未変更。未実行を成功扱いにしない。
+
+Local画面：demo-termite-warrantyの架空物件で2018年10月指定→前半2018-07-08〜2023-07-07の不要設定→未報告一覧0件→不要取消→1件再表示→報告済み登録→0件を確認。不要理由・担当・日時を保持、後半は未報告のまま。テスト専用物件local-expired-insurance-checkと履歴はLocal受入れ用に残す（実採番消費なし）。最初のsandbox内LocalサーバーはChromeから接続不可で停止し、通常ローカル環境で起動し直して確認。Devの実保険状態を試験のために変更しない。
+
+## 2026-10-21 Dev保険未報告の再現とUH住所複製
+
+本人がDevでの症状確認と、Dev UH物件の住所へのお施主様契約No複製を指示。ChromeのDevで本人ログイン後、保険報告一覧に2018年10月を指定し1件抽出、UH18-001の詳細で前半2018-07-08〜2023-07-07は未報告かつ報告不要操作なし、後半2023-07-08〜2028-07-07は同操作ありを確認。読取りだけで保険報告・不要・取消操作は実行しない。画面の `period.expiryDate>=today` とFunctionsの `period.expiryDate < date` による拒否を確認した。検索年月は操作期限の基準日を変更しない。
+
+住所複製の事前読取り：Dev `termite-warranty-dev` の `(default)`、保証グループ `UH` は277件、externalKey欠落0、住所空欄277、既存非空住所0。`externalKey`を契約Noとしてそのまま複製し先頭ゼロを保持。取込み・通常保存の必須条件変更や保険状態変更を混在させない。
+
+Git管理外の `tmp/copy-uh-contract-address.mjs` で、Dev固定・対象277件・住所空欄・キー有効・revision正常・通常運用世代一致・運用占有なしを事前検査。全UHを再取得し事前像不変をtransaction内で検査後、277件のaddress、revision（+1）、updatedAtのみを原子的に更新した。再試行は1回に限定し、結果不明時は自動再実行しない。更新後の全443物件をメモリ上の事前像と比較し、対象以外は全文不変、対象は上記3項目以外不変を確認。別プロセスの読取りでも277件全件の住所＝externalKey、欠落0、非一致0を確認。採番、保証番号、外部キー予約、保険状態・履歴、グループ設定、Auth、Prodは変更なし。
+
+コマンド結果（各exit 0）：`node tmp/inspect-uh-address.mjs`（前後）、`node tmp/copy-uh-contract-address.mjs test`（正常1・拒否5ケース）、`node --check tmp/copy-uh-contract-address.mjs`、`node tmp/copy-uh-contract-address.mjs apply --dev-277-empty-addresses`。住所の戻しが必要なら、実行後の業務更新を再確認し、今回の対象を特定した補正を別途承認する。自動巻戻しや保護サービス設定は行っていない。実データ本文・カード情報・秘密値は文書へ転記しない。
+
+データ移行の検証として `npm test` は642成功・既存2skip、exit 0（`tmp/meeting-20261021-tests.log`）。初回はsandboxの一時Git／rename権限制約で失敗し、同じ試験の通常権限実行で解消した。Rulesは既存4387365の203成功証拠を再利用：今回はアプリ・Functions・Rules・データ形状・依存・試験環境を変更せず、既存address文字列と更新管理値のみを補正し失効条件に該当しない。新しい取込み状態・検索・必須制御の実装検証には流用しない。文書のみの仕様採用記録と現況を反映、governance・diff検査は最終差分で実施する。配備・正式投入・バックアップ・PITR・Auth退避は保留。
+
 ## 2026-10-21 統合ガイドと不要資料の整理・dev統合準備
 
 本人が統合PDF・資料整理をcommit／pushしPRでdevへ統合するよう承認。11ページの統合版は空のパスワード入力欄としおりを保持。元PDF2つと未送付の10月5日版スケジュールを削除し、関連README・索引を整理。再生成可能な確認画像24点はGit対象外のtmpから削除し、他の履歴・送付済み資料・生成元・撮影原画像・証跡を保持した。

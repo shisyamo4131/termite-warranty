@@ -42,7 +42,7 @@ The product boundary is an independent business-management system for a new term
 
 - When a list has no search or filter value, subscribe to at most the 20 documents with the freshest server-maintained update timestamp, in descending order, using document ID as a stable tie-breaker.
 - Do not implement an unfiltered list by subscribing to an entire business collection or by creating one child listener per parent record. A record type without a reliable server-maintained freshness field must gain one before this default can be implemented.
-- Property/warranty list search is exact full warranty number only, as approved on 2026-10-06. Query that equality in Firestore and preserve account scope; unfiltered reads remain bounded to the freshest 20. Other search axes require business specification before adoption. For other approved prototype lists, the filtered complete-read exception remains as recorded in the specification; do not extend it to the property/warranty list or unfiltered lists.
+- Property/warranty list search uses warranty group AND handover year/month together, approved on 2026-10-21. Reject a single condition and warranty-number search. Apply group equality and handover-date range in Firestore, preserve account scope, return matching records sorted by update time/document ID descending. Unfiltered reads remain bounded to the freshest 20. Other business-list search contracts remain unchanged.
 - Case-list month semantics are not confirmed by this rule. Route the choice of application month, handover month, applied-warranty expiry month, default month, and result-limit interaction through HSC-032.
 
 ## Project-specific Roles and Workstreams

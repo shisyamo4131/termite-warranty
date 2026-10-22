@@ -8,6 +8,9 @@ import {fixedRuntimeState,sameFixedEpoch} from '../../src/domain/fixed-recovery.
 import {captureIntakeSettings,intakeSettingsHash,restoreIntakeSettings} from './historical-intake-settings.mjs'
 import {validateProductionTarget} from './production-deployment-plan.mjs'
 
+const propertyRoots=new Set(['propertyWarranties','propertyOperationReceipts','externalKeyReservations','warrantyCounters'])
+const selectedProperties=image=>new Map([...image].filter(([path])=>propertyRoots.has(path.split('/')[0])))
+const retainedBusiness=image=>new Map([...business(image)].filter(([path])=>!propertyRoots.has(path.split('/')[0])))
 const protectedRoots=new Set(['accountCreationOperations','staffAccounts','constructionCompanyAccounts','constructionCompanyAccountBindings','accountMutationLocks'])
 const hash=value=>intakeHash(typed(value))
 const deny=()=>{throw Error('HISTORICAL_INTAKE_REFUSED: inspect private evidence; maintenance is retained')}
@@ -35,6 +38,7 @@ function materialized(plan,journal) {
     const data={...row.data,updatedAt:journal.startedAt},root=row.path.split('/')[0]
     if(root==='propertyWarranties') {
       data.createdAt=journal.startedAt
+      data.insuranceWaiverEvents=data.insuranceWaiverEvents.map(event=>({...event,actorUid:journal.actorUid,actorName:journal.actorUid,at:journal.startedAt.toDate().toISOString()}))
       data.historicalIntakeSource={...data.historicalIntakeSource,operationId:journal.operationId}
       data.history=[{kind:'historicalImport',requestId:journal.operationId,date:journal.today,at:journal.startedAt.toDate().toISOString(),actorUid:journal.actorUid}]
     }
@@ -42,7 +46,7 @@ function materialized(plan,journal) {
   })
   for(const id of ['monthlyQueries','certificateQueries','billingQueries','insuranceReportQueries','insuranceNoticeQueries','insuranceStates','dashboard'])documents.push({path:'prototypeSettings/'+id,data:{version:1,generation:journal.generation,operationId:journal.operationId,verifiedDocuments:plan.summary.properties,updatedAt:journal.startedAt}})
   documents.push({path:'prototypeSettings/alerts',data:{warrantyMonths:2,insuranceMonths:2,updatedAt:journal.startedAt}})
-  return restoreIntakeSettings(documents,plan.preservedSettings)
+  return journal.propertiesOnly ? documents.filter(row=>propertyRoots.has(row.path.split('/')[0])) : restoreIntakeSettings(documents,plan.preservedSettings)
 }
 
 export async function verifyCompletedHistoricalIntake(db,control,auth,{operationId,generation,planHash,productionTarget}) {
@@ -60,9 +64,10 @@ export async function verifyCompletedHistoricalIntake(db,control,auth,{operation
 // Each chunk and its progress marker commit in the SAME database transaction.
 // A failed/unknown response retains the exclusive owner; explicit stopped-worker
 // acknowledgement and the exact prior owner are required to resume.
-export async function executeHistoricalIntake(db,control,auth,input,{today,planHash,inventoryHash,generation,operationId,actorUid,resumeOwner,previousWorkerEnded=false,afterCommit=async()=>{},productionTarget,initialOnly=false}={}) {
+export async function executeHistoricalIntake(db,control,auth,input,{today,planHash,inventoryHash,generation,operationId,actorUid,resumeOwner,previousWorkerEnded=false,afterCommit=async()=>{},productionTarget,initialOnly=false,propertiesOnly=false}={}) {
   target(db,control,productionTarget)
-  if(productionTarget&&!initialOnly)deny()
+  if(productionTarget&&!initialOnly||propertiesOnly&&(productionTarget||initialOnly))deny()
+  const selected=image=>propertiesOnly?selectedProperties(image):business(image)
   if(!Number.isSafeInteger(generation)||generation<1||!/^[-\w]{8,80}$/.test(operationId??'')||!/^[-\w]{1,128}$/.test(actorUid??'')||!/^[a-f0-9]{64}$/.test(inventoryHash??''))deny()
   const plan=prepared(input,today,planHash),lock=control.doc('recovery/operatorLock'),runtime=control.doc('recovery/runtime'),marker=db.doc('_recovery/access'),receipt=db.doc('_recovery/historicalIntake'),owner=randomUUID()
   if(initialOnly){const prior=(await receipt.get()).data();if(prior?(prior.operationId!==operationId||prior.initialOnly!==true):business(await documentImage(db)).size>0)deny()}
@@ -76,8 +81,8 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
     closed(state.data(),(await marker.get()).data(),control,generation)
     if(ops.size||exportLock.exists)deny()
     const prior=held.data()
-    if(held.exists&&!(previousWorkerEnded&&resumeOwner===prior.owner&&prior.kind==='historical-intake'&&prior.operationId===operationId&&prior.generation===generation&&prior.planHash===planHash)||!held.exists&&resumeOwner)deny()
-    tx.set(lock,{kind:'historical-intake',owner,operationId,generation,planHash,startedAt:Timestamp.now()})
+    if(held.exists&&!(previousWorkerEnded&&resumeOwner===prior.owner&&prior.kind==='historical-intake'&&prior.operationId===operationId&&prior.generation===generation&&prior.planHash===planHash&&Boolean(prior.propertiesOnly)===propertiesOnly)||!held.exists&&resumeOwner)deny()
+    tx.set(lock,{kind:'historical-intake',owner,operationId,generation,planHash,propertiesOnly,startedAt:Timestamp.now()})
   })
   const guard=async tx=>{
     const access=await tx.get(marker),state=await runtime.get(),held=await lock.get()
@@ -88,28 +93,38 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
     await afterCommit('lock')
     let journal=(await receipt.get()).data()
     if(journal?.operationId===operationId) {
-      if(initialOnly&&journal.initialOnly!==true)deny()
+      if(initialOnly&&journal.initialOnly!==true||Boolean(journal.propertiesOnly)!==propertiesOnly)deny()
       if(journal.planHash!==planHash||journal.inventoryHash!==inventoryHash||journal.generation!==generation||journal.actorUid!==actorUid||journal.today!==today||journal.settingsHash!==intakeSettingsHash(plan.preservedSettings))deny()
     }else {
+      const startedAt=Timestamp.now()
+      if(new Date(startedAt.toMillis()+9*60*60*1000).toISOString().slice(0,10)!==today)deny()
       const image=await documentImage(db);noPortal(image)
       if(initialOnly&&(business(image).size||journal))deny()
       if(imageHash(image)!==inventoryHash)deny()
       if(intakeSettingsHash(captureIntakeSettings(image))!==intakeSettingsHash(plan.preservedSettings))deny()
       const actor=(await db.doc('staffAccounts/'+actorUid).get()).data()
       if(actor?.enabled!==true||actor.role!=='developer_superuser')deny()
-      const deleteManifest=[...business(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))
+      if(propertiesOnly) {
+        for(const row of plan.documents.filter(row=>['warrantyGroups','constructionCompanies','companyBranches'].includes(row.path.split('/')[0]))) {
+          const existing=image.get(row.path)?.fields
+          if(!existing)deny()
+          for(const key of ['defaultGroupId','constructionCompanyId','branchCode','prefix','fiscalStartMonth'])if(row.data[key]!==undefined&&existing[key]!==row.data[key])deny()
+        }
+      }
+      const deleteManifest=[...selected(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))
       if(Buffer.byteLength(JSON.stringify(deleteManifest))>512*1024)deny()
-      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt:Timestamp.now()}
+      const initial={operationId,planHash,inventoryHash,generation,actorUid,today,settingsHash:intakeSettingsHash(plan.preservedSettings),accountHash:imageHash(accounts(image)),authorizationHash:await authorizationDigest(db,auth),status:'deleting',cursor:0,deleted:0,deleteManifest,startedAt}
+      if(propertiesOnly){initial.propertiesOnly=true;initial.retainedHash=imageHash(retainedBusiness(image))}
       if(initialOnly)initial.initialOnly=true
       await db.runTransaction(async tx=>{await guard(tx);tx.set(receipt,initial)});journal=initial
       await afterCommit('journal')
     }
-    const verifyAccounts=async()=>{if(await authorizationDigest(db,auth)!==journal.authorizationHash||imageHash(accounts(await documentImage(db)))!==journal.accountHash)deny()}
+    const verifyAccounts=async()=>{if(propertiesOnly&&imageHash(retainedBusiness(await documentImage(db)))!==journal.retainedHash)deny();if(await authorizationDigest(db,auth)!==journal.authorizationHash||imageHash(accounts(await documentImage(db)))!==journal.accountHash)deny()}
     await verifyAccounts()
     // Resume must match the sealed remaining preimages, including absence of additions.
     if(journal.status==='deleting') {
       if(!Array.isArray(journal.deleteManifest)||!Number.isSafeInteger(journal.deleted)||journal.deleted<0||journal.deleted>journal.deleteManifest.length)deny()
-      const remaining=journal.deleteManifest.slice(journal.deleted),currentImage=business(await documentImage(db))
+      const remaining=journal.deleteManifest.slice(journal.deleted),currentImage=selected(await documentImage(db))
       if(currentImage.size!==remaining.length||remaining.some(row=>currentImage.get(row.path)?.hash!==row.hash))deny()
       for(let index=0;index<remaining.length;index+=100) {
         const chunk=remaining.slice(index,index+100)
@@ -122,14 +137,14 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
         })
         await afterCommit('delete')
       }
-      if(business(await documentImage(db)).size)deny()
+      if(selected(await documentImage(db)).size)deny()
       await db.runTransaction(async tx=>{await guard(tx);tx.update(receipt,{status:'writing',cursor:0})})
       journal=(await receipt.get()).data()
     }
     const documents=materialized(plan,journal)
     if(journal.status==='writing') {
       if(!Number.isSafeInteger(journal.cursor)||journal.cursor<0||journal.cursor>documents.length)deny()
-      const written=business(await documentImage(db)),prefix=documents.slice(0,journal.cursor)
+      const written=selected(await documentImage(db)),prefix=documents.slice(0,journal.cursor)
       if(written.size!==prefix.length||prefix.some(row=>written.get(row.path)?.hash!==hash(row.data)))deny()
       for(let index=journal.cursor;index<documents.length;index+=100) {
         const chunk=documents.slice(index,index+100)
@@ -138,11 +153,12 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
       }
     }else if(journal.status!=='complete')deny()
     await verifyAccounts()
-    const image=business(await documentImage(db))
+    const completeImage=await documentImage(db),image=selected(completeImage)
+    if(propertiesOnly&&imageHash(retainedBusiness(completeImage))!==journal.retainedHash)deny()
     if(image.size!==documents.length||documents.some(row=>image.get(row.path)?.hash!==hash(row.data)))deny()
-    if(intakeSettingsHash(captureIntakeSettings(image))!==journal.settingsHash)deny()
+    if(intakeSettingsHash(captureIntakeSettings(completeImage))!==journal.settingsHash)deny()
     await inspectBusinessIntegrity(db,Object.fromEntries(plan.summary.counters.map(c=>[c.id,c.lastValue])))
-    await db.runTransaction(async tx=>{await guard(tx);tx.update(receipt,{status:'complete',expectedHash:imageHash(image),documents:documents.length,completedAt:Timestamp.now()})})
+    await db.runTransaction(async tx=>{await guard(tx);tx.update(receipt,{status:'complete',expectedHash:imageHash(business(completeImage)),documents:documents.length,completedAt:Timestamp.now()})})
     await control.runTransaction(async tx=>{if((await tx.get(lock)).data()?.owner!==owner)deny();tx.delete(lock)})
     return {complete:true,properties:plan.summary.properties,documents:documents.length,maintenanceRetained:true}
   }catch {

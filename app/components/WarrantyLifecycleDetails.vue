@@ -33,11 +33,10 @@
         <div class="d-flex flex-wrap align-center ga-2 mb-2"><strong>{{ transactions.find(p=>p.id===period.warrantyPeriodId)?.label }}・{{ period.half===1 ? '前半' : '後半' }}5年の保険</strong><v-chip v-if="period.startDate<=today && today<=period.expiryDate" size="small" color="primary">現在の期間</v-chip><v-chip v-if="matchesSelectedInsurancePeriod(period,selectedInsurancePeriod)" size="small" color="info">一覧で選んだ期間</v-chip></div>
         <div class="mb-3">{{ period.startDate }} ～ {{ period.expiryDate }}<v-chip v-if="period.startDate>today" size="small" class="ml-2">保険対象期間の開始前</v-chip></div>
         <div class="d-flex flex-wrap align-center ga-3"><v-chip :color="period.state==='reported' ? 'success' : period.state==='waived' ? 'secondary' : period.state===null ? 'warning' : 'default'" size="small">{{ insuranceStateLabel(period.state) }}</v-chip>
-          <template v-if="insuranceEditable && row.status==='active' && period.expiryDate>=today">
+          <template v-if="insuranceEditable && row.status==='active'">
             <v-btn v-if="period.state==='pending'" variant="outlined" :disabled="busy" @click="$emit('insurance','waiveInsurance',period)">報告不要にする</v-btn>
             <v-btn v-if="period.state==='waived'" color="error" variant="outlined" :disabled="busy" @click="$emit('insurance','undoInsuranceWaiver',period)">報告不要を取り消す</v-btn>
           </template>
-          <span v-if="period.state==='waived' && period.expiryDate<today" class="text-caption">期間終了のため取消不可</span>
         </div>
         <dl v-if="period.state==='waived'" class="waiver-facts mt-3"><dt>理由</dt><dd class="waiver-reason">{{ waiver(period.waiverId)?.reason || '記録を確認できません' }}</dd><dt>設定者</dt><dd>{{ waiver(period.waiverId)?.actorName || waiver(period.waiverId)?.actorUid || '要確認' }}</dd><dt>設定日時</dt><dd>{{ eventTime(waiver(period.waiverId)?.at) }}</dd></dl>
         <p v-if="period.state===null" class="text-body-2 mt-3">期間の状態を確認できません。記録を確認してください。</p>

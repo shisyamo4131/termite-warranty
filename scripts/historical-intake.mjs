@@ -13,7 +13,7 @@ import {captureIntakeSettings,intakeSettingsHash} from './lib/historical-intake-
 
 function artifactHash(){const hash=createHash('sha256'),paths=execFileSync('git',['ls-files','-z','--cached','--others','--exclude-standard','--','scripts','src','functions','test','package.json','package-lock.json','firestore.rules','firestore.control.rules','firebase.json'],{encoding:'utf8'}).split('\0').filter(Boolean);for(const path of [...new Set(paths)].sort()){hash.update(path+'\0');hash.update(readFileSync(path));hash.update('\0')}return hash.digest('hex')}
 async function main(){
-  const args=process.argv.slice(2),mode=args.shift(),o={},flags=new Set(['--apply','--previous-worker-ended']),keys=new Set([...flags,'--project','--control','--input','--output','--date','--plan-hash','--inventory-hash','--generation','--operation','--actor-uid','--resume-owner','--artifact-hash','--confirm'])
+  const args=process.argv.slice(2),mode=args.shift(),o={},flags=new Set(['--apply','--previous-worker-ended','--properties-only']),keys=new Set([...flags,'--project','--control','--input','--output','--date','--plan-hash','--inventory-hash','--generation','--operation','--actor-uid','--resume-owner','--artifact-hash','--confirm'])
   for(let i=0;i<args.length;i++){const key=args[i];if(!keys.has(key)||Object.hasOwn(o,key))throw Error('ARGS');o[key]=flags.has(key)?true:args[++i];if(o[key]===undefined||String(o[key]).startsWith('--'))throw Error('ARGS')}
   if(mode==='artifact'){if(args.length)throw Error('ARGS');console.log(JSON.stringify({artifactHash:artifactHash(),cloudWrites:false}));return}
   const project=o['--project'],controlId=o['--control'],local=project==='demo-termite-warranty'
@@ -35,7 +35,7 @@ async function main(){
     }
     if(mode==='inspect')console.log(JSON.stringify(await inspectHistoricalTarget(db,control,getAuth(app))))
     if(mode==='status') {const lock=(await control.doc('recovery/operatorLock').get()).data(),r=(await db.doc('_recovery/historicalIntake').get()).data();console.log(JSON.stringify({cloudWrites:false,lock:lock?{owner:lock.owner,operationId:lock.operationId,kind:lock.kind}:null,progress:r?{status:r.status,cursor:r.cursor,deleted:r.deleted,operationId:r.operationId}:null}))}
-    if(mode==='apply') {const bytes=readFileSync(o['--input']);if(bytes.length>32*1024*1024)throw Error('INPUT_SIZE');const result=await executeHistoricalIntake(db,control,getAuth(app),JSON.parse(bytes),{today:o['--date'],planHash:o['--plan-hash'],inventoryHash:o['--inventory-hash'],generation:Number(o['--generation']),operationId:o['--operation'],actorUid:o['--actor-uid'],resumeOwner:o['--resume-owner'],previousWorkerEnded:o['--previous-worker-ended']===true});console.log(JSON.stringify(result))}
+    if(mode==='apply') {const bytes=readFileSync(o['--input']);if(bytes.length>32*1024*1024)throw Error('INPUT_SIZE');const result=await executeHistoricalIntake(db,control,getAuth(app),JSON.parse(bytes),{today:o['--date'],planHash:o['--plan-hash'],inventoryHash:o['--inventory-hash'],generation:Number(o['--generation']),operationId:o['--operation'],actorUid:o['--actor-uid'],resumeOwner:o['--resume-owner'],previousWorkerEnded:o['--previous-worker-ended']===true,propertiesOnly:o['--properties-only']===true});console.log(JSON.stringify(result))}
   }finally{await Promise.all([db.terminate(),control.terminate(),deleteApp(app)])}
 }
 main().catch(()=>{console.error('HISTORICAL_INTAKE_REFUSED_OR_INTERRUPTED: inspect private evidence; no automatic reopening');process.exitCode=1})

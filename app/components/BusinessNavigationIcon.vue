@@ -8,7 +8,6 @@ const icons: Record<string, string> = {
   dashboard: 'network',
   properties: 'house',
   alerts: 'calendar-clock',
-  insuranceAlerts: 'shield-alert',
   report: 'clipboard-list',
   billing: 'receipt-text',
   certificates: 'file-badge',

@@ -40,12 +40,12 @@ test('CSV preserves leading zeros, quoted comma/newline/quotes and Unicode', () 
 test('group policy controls missing address and insulation material without bypassing required fields', () => {
   const empty={...sample,'住所':'','資材名':''};
   const result=prepareBulkImportRows(csv(empty),{group:{addressRequired:false,insulationMaterialsRequired:false}});
-  assert.deepEqual(result.errors,[]);assert.equal(result.rows[0].fields.address,'');assert.equal(result.rows[0].fields.insulationMaterials,'');
+  assert.ok(result.errors.some(error=>/住所/.test(error.message)));
   assert.ok(prepareBulkImportRows(csv(empty)).errors.length);
   assert.ok(prepareBulkImportRows(csv({...sample,'資材名':''})).errors.length);
   assert.deepEqual(prepareBulkImportRows(csv({...sample,'断熱材あり':'なし','資材名':''})).errors,[]);
   assert.ok(prepareBulkImportRows(csv({...sample,'建築面積':''})).errors.length);
-  assert.equal(Object.hasOwn(result.rows[0].fields,'ownerName'),false);
+  assert.equal(result.rows.length,0);
 })
 test('UH takes complete staff-prepared dates without calculating or matching branch prefix', () => {
   const value={...sample,'外部キー':'0123-2026001','支店コード':'9999','申込日':'2026-01-01','引渡日':'2026-05-02','最長保証期間':'10'};
@@ -327,7 +327,7 @@ test('actual group policy chooses UH validation even with a generated ID and com
   data['warrantyGroups/generated-id']={...data['warrantyGroups/HSC'],name:'UH',prefix:'',addressRequired:false,insulationMaterialsRequired:false};
   data['constructionCompanies/company'].defaultGroupId='generated-id';
   const db=fakeDb(data),input=request([{...sample,'外部キー':'0123-2026001','最長保証期間':'10','住所':'','資材名':''}],{groupId:'generated-id'});
-  const preview=await operation(db,input,'staff');assert.deepEqual(preview.errors,[]);assert.equal(preview.rows[0].address,'');
+  const preview=await operation(db,input,'staff');assert.deepEqual(preview.errors,[]);assert.equal(preview.rows[0].address,'0123-2026001');
   assert.ok((await operation(db,{...input,format:'uh'},'staff')).errors.some(error=>error.field==='形式'));
 })
 test('increment import is always initial 10 years and rejects expired initial warranty despite a 30-year cap', async () => {
@@ -363,12 +363,35 @@ test('optional-key groups cannot import and destination rejection uses only thre
  await assert.rejects(operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff'),/全件/);assert.equal(db.stats.writes.length,0);
 });
 test('required markers and the 14-column contract reject old and unmarked headers',()=>{
- assert.equal(CSV_TEMPLATE_HEADERS.length,14);assert.equal(CSV_TEMPLATE_HEADERS.filter(key=>key.endsWith('（＊）')).length,8);
+ assert.equal(CSV_TEMPLATE_HEADERS.length,14);assert.equal(CSV_TEMPLATE_HEADERS.filter(key=>key.endsWith('（＊）')).length,9);
  for(const name of ['上棟日','現在保証年数','既存保証番号'])assert.equal(CSV_TEMPLATE_HEADERS.includes(name),false);
  assert.throws(()=>parseBulkImportCsv(csv(sample).replace('外部キー（＊）','外部キー')),/見出し/);
 });
 test('group policy changes after preview invalidate commit without partial writes',async()=>{
  const {propertyBulkImportOperation:operation}=await server();const db=fakeDb(seed()),input=request(),preview=await operation(db,input,'staff');
- db.documents.get('warrantyGroups/HSC').addressRequired=false;
+ db.documents.get('warrantyGroups/HSC').insulationMaterialsRequired=false;
  await assert.rejects(operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff'),/再度プレビュー/);assert.equal(db.stats.writes.length,0);
 });
+
+test('import preview binds Japan date, expiry-day remains pending, next day requires re-preview',async t=>{
+ const {Timestamp}=await import('firebase-admin/firestore')
+ let current=Timestamp.fromDate(new Date('2026-10-21T14:59:59.000Z'))
+ t.mock.method(Timestamp,'now',()=>current)
+ const {propertyBulkImportOperation:operation}=await server(),db=fakeDb(seed())
+ const input={...request(),csv:csv({...sample,'申込日':'2021-10-01','引渡日':'2021-10-22'})}
+ const preview=await operation(db,input,'staff')
+ assert.deepEqual(preview.errors,[]);assert.equal(preview.rows[0].waivedPeriodCount,0)
+ current=Timestamp.fromDate(new Date('2026-10-21T15:00:00.000Z'))
+ await assert.rejects(operation(db,{...input,action:'commit',confirmed:true,previewHash:preview.previewHash},'staff'),/再度プレビュー/)
+ assert.equal(db.stats.writes.length,0)
+ const next=await operation(db,input,'staff');assert.equal(next.rows[0].waivedPeriodCount,1)
+ const result=await operation(db,{...input,action:'commit',confirmed:true,previewHash:next.previewHash},'staff')
+ const row=db.documents.get('propertyWarranties/'+result.ids[0])
+ assert.deepEqual(row.insurancePeriods.map(period=>period.state),['waived','pending'])
+ assert.equal(row.insuranceWaiverEvents[0].at,current.toDate().toISOString())
+})
+test('old address header is accepted but never bypasses required address',()=>{
+ const legacy=csv(sample).replace('住所（＊）','住所')
+ assert.deepEqual(prepareBulkImportRows(legacy).errors,[])
+ assert.ok(prepareBulkImportRows(csv({...sample,'住所':''}).replace('住所（＊）','住所'),{group:{addressRequired:false}}).errors.some(error=>/住所/.test(error.message)))
+})

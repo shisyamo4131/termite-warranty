@@ -218,3 +218,20 @@ export function insuranceMonthlyRows(rows, month, {includeDone=false}={}) {
   })
   return {rows:result,unclassifiedCount}
 }
+
+// Only new imports call this helper; existing records and report evidence are preserved.
+export function waiveExpiredImportedPeriods(row, {today, actorUid, actorName, at}) {
+  if (!validDate(today)) throw new Error('取込基準日を確認してください。')
+  const value = materializeInsuranceState(row)
+  const events = [...value.insuranceWaiverEvents]
+  for (const [index, period] of value.insurancePeriods.entries()) {
+    if (period.state !== 'pending' || period.expiryDate >= today) continue
+    let id = `import-waive-${index}`
+    while (events.some(event => event.id === id)) id += '-r'
+    events.push({kind:'waive',id,periodId:period.id,warrantyPeriodId:period.warrantyPeriodId,basisRevision:period.basisRevision,half:period.half,startDate:period.startDate,expiryDate:period.expiryDate,reason:'過去物件取込み時点で保険期間が満了しているため',actorUid,actorName,at})
+  }
+  const result = materializeInsuranceState({...value,insuranceWaiverEvents:events},{reconcile:true})
+  const errors = validateInsuranceState(result)
+  if (errors.length) throw new Error(errors.join('\n'))
+  return result
+}
