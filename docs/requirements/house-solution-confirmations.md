@@ -14,9 +14,8 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Status | Decision owner |
 | --- | --- | --- | --- |
-| HSC-043 | [保証グループ別の最大保証期間と選択制限](house-solution-confirmations/HSC-043-group-warranty-year-limit.md) | 要検討。UH10年の保存・取込み制限は既存。画面は全グループで10／20／30年を提示するため、グループ設定と画面制御の統一を検討。実装未承認 | Project owner / House Solution |
 | HSC-041 | [ログイン通信失敗の原因と認証サービス側ログ](house-solution-confirmations/HSC-041-authentication-diagnostics.md) | 診断はDev実受信済み。サービス切替なしで観測継続と決定。通信失敗の原因は未特定 | Project owner / Project |
-| HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 保証グループ別・当月以前の未請求抽出はDev反映済み。10/12に1グループ1請求先8項目をオーナーがDev検証し受入れOK。11列CSV維持。グループ間自動合算は追加せず、請求書本体等は後発 | Project / House Solution |
+| HSC-010 | [請求先単位・対象年月・請求状態](house-solution-confirmations/HSC-010-payer-contracting-party.md) | 保証グループ別・当月以前の未請求抽出はDev反映済み。10/12に1グループ1請求先8項目をオーナーがDev検証し受入れOK。11列CSV維持、10/22オーナー報告でHS担当者の運用Excel確認済み。グループ間自動合算は追加せず、請求書本体等は後発 | Project / House Solution |
 | HSC-001 | [Case, applied-warranty, and referenced-master data retention](house-solution-confirmations/HSC-001-data-retention-policy.md) | 終了分のCSV保管後削除・開発側復元は確定。取消済みもCSVをHS保管後に削除可（2026-10-05）、後発実装。トリガー・詳細は未確定 | House Solution |
 | HSC-002 | [Initial-release acceptance scope](house-solution-confirmations/HSC-002-release-acceptance-scope.md) | HS operators verify, HS president approves launch, AriLabo coordinates confirmed; 最終納品日は2026-11-02へ変更。利用開始日は未定、HS正式受入れ準備は継続 | House Solution |
 | HSC-023 | [Firestore取得・検索設計](house-solution-confirmations/HSC-023-ngram-query-consistency.md) | 月別DB12条件一致、Chromeで10月保険の画面・CSV・ログ305件一致。300件プレビュー中央値1,031ms・全行照合済み。月切替12条件・請求CSVも実画面照合済み。2担当者の採番・二重取込・保存競合は確認済み。実初期規模・多数利用者／長時間負荷等が残る | Project / HS business decision |
@@ -24,8 +23,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | HSC-030 | [Custom authentication-email sender](house-solution-confirmations/HSC-030-custom-auth-email-sender.md) | Deferred | House Solution, if requested |
 | HSC-034 | [Deterioration countermeasure grade and warranty limit](house-solution-confirmations/HSC-034-deterioration-countermeasure-grade.md) | Manual cap selection and later HS edits confirmed; no reduction below granted 30 years; business eligibility remains outside automation | House Solution |
 | HSC-035 | [Case cancellation and invalidation criteria](house-solution-confirmations/HSC-035-case-cancellation-invalidation-criteria.md) | 2026-10-05全体取消の事前保険報告取消は不要と再確認。外部減少報告はHS。個別の情報補正・旧データ対応は残る | House Solution |
-| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-21：UH住所・過去期間自動不要化・満了後操作は本人Dev受入れ済み。保険満了案内と保険用アラート設定削除は060acb4でDev反映・10/22本人受入れ了承。CSV印の別論点は継続 | House Solution / AriLabo / オーナー |
-| HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | グループ抽出・期間別発行/取消はDev検証済み。10/12に年月日分割を含む共通21列・選択期間の再出力を実装。検証・配備は運用記録参照。Wordとの実差込み確認、保証書生成・印刷・グループ訂正は残る | Project / House Solution |
+| HSC-037 | [保証書・保証グループ](house-solution-confirmations/HSC-037-warranty-groups.md) | グループ抽出・期間別発行/取消はDev検証済み。10/12に年月日分割を含む共通21列・選択期間の再出力を実装。検証・配備は運用記録参照。10/22オーナー報告でHS担当者のWord差込み確認済み。保証書生成・印刷・グループ訂正は後発 | Project / House Solution |
 | HSC-038 | [Construction-company Branches and Document Recipients](house-solution-confirmations/HSC-038-company-branches-recipients.md) | Initial dispatch/recipient management excluded; address-label CSV not adopted; hierarchy confirmed, remaining portal effects deferred | House Solution |
 | HSC-015 | [初期データ登録・受入れ](house-solution-confirmations/HSC-015-migration-scope-cleaning.md) | Devへ442物件を既存番号で投入・全件照合し、別了承で通常再開済み。代表画面・各CSV・架空1件の採番／編集／請求／取消・実442件不変・ログを確認しHI-06完了。HS試験運用・受入れは継続 | House Solution, supported by Project |
 | HSC-013 | [Construction-company submission and review](house-solution-confirmations/HSC-013-construction-company-submission.md) | Initial entry by HS; legacy portal closure adopted, company/branch authorization and verification mandatory before deferred reopening | House Solution, then project |
@@ -34,6 +32,8 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
+| HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-22 | Project owner | CSVの保険申込欄は空欄維持、既報告印は初期納品対象外。保険満了案内削除はDev本人受入れ済み |
+| HSC-043 | [保証グループ別の最大保証期間と選択制限](house-solution-confirmations/HSC-043-group-warranty-year-limit.md) | 2026-10-22 | Project owner | 保証グループ上限の共通制御を初期納品へ採用。UH10年、HSC／SHS30年。実装・移行・検証は未完了 |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 2026-10-20 | Project owner | zipcloud採用で独自定期更新案を置換（ADR0050）。Local検証・受入れ・配備と納品書は別工程 |
 | HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | 2026-10-12 | Project owner | 指定月の前月を基準に、通常は過去を含む未処理、済みを含める時は前月だけの未処理・処理済みを採用。チェック時は過去未処理も除外。確定仕様・実装・検証・Dev反映済み。Chromeの読取操作・実CSV出力も確認。HS受入れ・別途回答とは区別 |
 | HSC-006 | [ダッシュボードの仕様整理](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-10 | Project owner | Q30で詳細設計を確定し、後続承認でDev導入済み。追加指示で保険期間を古い順へ変更し、一覧選択の余白を除去。検証・受入はロードマップDB-04〜06 |

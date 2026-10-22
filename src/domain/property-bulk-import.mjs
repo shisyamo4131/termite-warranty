@@ -1,3 +1,4 @@
+import { assertGroupWarrantyLimit } from './group-warranty-limit.mjs'
 import { normalizeProperty } from './property-warranty.mjs'
 import { calculateExpiryDate } from './warranty.mjs'
 import { normalizeExternalKey } from './external-key.mjs'
@@ -65,7 +66,7 @@ function prepareRow(record, group) {
   }
   if (!/^(10|20|30)$/.test(v['最長保証期間'])) throw new Error('最長保証期間は10・20・30を入力してください。')
   const years = 10, maxYears = Number(v['最長保証期間'])
-  if (isUh && maxYears !== 10) throw new Error('UHの最長保証期間は10年です。')
+  assertGroupWarrantyLimit(group, maxYears)
   if (!['あり', 'なし'].includes(v['断熱材あり'])) throw new Error('断熱材ありは「あり」または「なし」を入力してください。')
   const foundationInsulation = v['断熱材あり'] === 'あり'
   if (v['建築面積'] && !/^\d+(?:\.\d{1,2})?$/.test(v['建築面積'])) throw new Error('建築面積は正の数・小数2桁までで入力してください。')

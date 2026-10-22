@@ -1,5 +1,17 @@
 # Dev／Prod 通常アプリの配備手順
 
+## 2026-10-22 保証グループ上限の導入
+
+承認済みDev導入に限り、アプリ配備の前に既存3グループへmaxWarrantyYearsを補完する。UH10、HSC／SHS30。通常の設定変更では既存物件を検査しない。この補完処理も上限超過の物件を修正せず、物件全体の要約hashは不変照合にだけ使う。保証期間・満了日・採番・履歴を更新しない。
+
+1. `node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev` を読取り実行。対象3グループの識別情報、欠落項目、442物件（実数が変われば理由確認）、beforeDigestとpropertiesDigestを確認する。認証情報や物件本文を出力しない。
+2. 実補完が承認済みであることを確認し、`node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev --apply <確認済みbeforeDigest>` を実行する。normal状態、同一原像、既存値の競合なしをtransactionで確認し、欠落項目だけ更新する。
+3. 同じ読取りコマンドでupdatesが0、propertiesDigestが実行前と一致することを確認する。結果不明時は読取りを先に行い、blind retryやデータ巻戻しをしない。
+4. 包括Local検証済み候補を以下の明示Dev配備経路で配備し、公開・Functions・保護保留と画面を照合する。Devでは確認用の物件登録・延長・採番を実行しない。
+
+Local用は`FIRESTORE_EMULATOR_HOST=127.0.0.1:28080`とdemo-termite-warrantyを使う。実行器はProdを拒否する。Prodへの補完・正式投入は別途保留解除後に対象を具体化する。アプリ切戻しでは補完項目を保持し、既存物件を巻き戻さない。
+
+
 ## 2026-10-21 検索索引を追加した候補の照合
 
 Firebase CLIの索引配備成功と、検索可能なREADYは別段階。今回のDev候補ではCI成功後も3索引がCREATINGで、新検索が一時的にcode 9／500になった。索引を追加した場合は管理APIで対象索引のREADYを確認し、実画面の同条件検索成功まで確認する。READY直後にも一時的に失敗した観測があるため、READY表示だけで業務確認を省略しない。状態を読取り、結果不明の再配備や索引再作成を行わない。Prod導入の際は、旧アプリと互換な追加索引を先行して作成・READY確認したうえで新アプリを公開する順序を準備する。今回、Prod設定・CI自動処理は変更していない。[実績](../operations.md#2026-10-21-検索住所必須過去取込みのdev候補)。

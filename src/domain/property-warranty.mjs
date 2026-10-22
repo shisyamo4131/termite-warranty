@@ -4,9 +4,9 @@ import { propertyFieldRequirements } from './property-field-requirements.mjs'
 import { activeInsuranceWaivers, insuranceNoticeExpiry, periodReportSelection } from './insurance-state.mjs'
 
 export const initialGroups = [
-  { id: 'HSC', name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
-  { id: 'SHS', name: 'SHS', prefix: 'SHS', fiscalStartMonth: 4, template: 'sample' },
-  { id: 'UH', name: 'UH', prefix: '', fiscalStartMonth: 1, template: 'sample', externalKeyRequired: true, externalKeyLabel: 'お施主様契約No' },
+  { id: 'HSC', name: 'HSC', maxWarrantyYears: 30, prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
+  { id: 'SHS', name: 'SHS', maxWarrantyYears: 30, prefix: 'SHS', fiscalStartMonth: 4, template: 'sample' },
+  { id: 'UH', name: 'UH', maxWarrantyYears: 10, prefix: '', fiscalStartMonth: 1, template: 'sample', externalKeyRequired: true, externalKeyLabel: 'お施主様契約No' },
 ]
 export function japanDate(now = new Date()) { return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10) }
 export function fiscalYear(date, startMonth) {

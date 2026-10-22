@@ -149,6 +149,7 @@
     </tbody></v-table>
   </details>
   <v-text-field v-if="setting.externalKeyRequired" v-model="setting.externalKeyLabel" label="外部キーの名称" :rules="[...(setting.externalKeyRequired ? requiredRules : []),externalKeyLabelRule]" :required="setting.externalKeyRequired" hint="例：お施主様契約No。表示名は後から変更できます。" persistent-hint />
+  <v-select v-model="setting.maxWarrantyYears" :items="[10,20,30]" :rules="[v=>[10,20,30].includes(v) || '最大保証期間を選択してください。']" required label="グループの最大保証期間（年）" hint="登録・編集時に参照する上限です。設定だけでは既存物件の期間・満了日は変わりません。" persistent-hint />
   <h2 class="business-section-title">請求先</h2>
   <v-text-field v-model="setting.billingRecipient.name" label="請求先名" :rules="optionalRules" />
   <v-text-field v-model="setting.billingRecipient.department" label="部署名" :rules="optionalRules" />
@@ -164,6 +165,7 @@
 </template>
 
 <script setup lang="ts">
+import { groupWarrantyLimit } from '../../src/domain/group-warranty-limit.mjs'
 import { selectedMonthToBasisMonth } from '../../src/domain/monthly-query.mjs'
 import { useDisplay } from 'vuetify'
 import { billingRecipientDefaults } from '../../src/domain/company-settings.mjs'
@@ -315,8 +317,9 @@ const noticeActionLabel=computed(()=>current.value?.warrantyNotified ? '未案�
 const noticeMode=ref<''|'warranty'|'report'|'billing'|'certificate'>('')
 const detailTitle=computed(()=>noticeMode.value==='certificate' ? '保証書発行の物件情報' : recoveryReadOnly.value ? '復旧後の物件・保証確認' : ({warranty:'保証満了案内',report:'保険報告の物件情報',billing:'請求対象の物件情報'}[noticeMode.value || 'warranty']))
 const historyFields=[{key:'applicationDate',label:'申込日'},{key:'handoverDate',label:'引渡日'},{key:'startDate',label:'保証開始日'},{key:'expiryDate',label:'保証満了日'},{key:'name',label:'物件名'},{key:'ownerTelephone',label:'施主電話番号'},{key:'years',label:'保証期間（年）'},{key:'maxYears',label:'最長保証期間（年）'}]
-const maxYearsOptions=computed(()=>[10,20,30].map(value=>({title:String(value),value,props:{disabled:value<Number(current.value?.years || 0)}})))
-function maxYearsRule(value:unknown){return [10,20,30].includes(Number(value)) ? Number(value)>=Number(current.value?.years || 0) || '延長済みの保証期間より短い上限にはできません。' : '10年・20年・30年を選択してください。'}
+const propertyGroupLimit=computed(()=>{try{return groupWarrantyLimit(propertyGroup.value)}catch{return 0}})
+const maxYearsOptions=computed(()=>[10,20,30].filter(value=>value<=propertyGroupLimit.value).map(value=>({title:String(value),value,props:{disabled:value<Number(current.value?.years || 0)}})))
+function maxYearsRule(value:unknown){if(!propertyGroupLimit.value)return '保証グループの最大保証期間を確認してください。';if(Number(value)>propertyGroupLimit.value)return `この保証グループの最大保証期間は${propertyGroupLimit.value}年です。`;return [10,20,30].includes(Number(value)) ? Number(value)>=Number(current.value?.years || 0) || '延長済みの保証期間より短い上限にはできません。' : '10年・20年・30年を選択してください。'}
 watch(propertyDialog,value=>{if(!value)historyDialog.value=false})
 const emptyAddress=()=>({postalCode:'',prefecture:'',municipality:'',streetTownAndNumber:'',buildingName:''})
 const emptyPropertyAddress=()=>({postalCode:'',address:'',buildingName:''})
@@ -486,6 +489,7 @@ async function exportCsv(){
   const data=selectedRows.value.map(r=>insurance ? [loadedReportMonth.value,r.name,[propertyAddress(r),r.buildingName].join(''),r.companyLabel || companyName(r.constructionCompanyId),r.branchId ? r.branchLabel || branchName(r.branchId) : '',r.handoverDate,r.buildingArea,''] : [r.billingKind,r.billingDate,r.companyLabel || companyName(r.constructionCompanyId),r.branchLabel || branchName(r.branchId),r.warrantyNumber,r.name,r.applicationDate,r.handoverDate,r.billingStartDate,r.billingExpiryDate,r.billingState==='billed' ? '請求済み' : r.billingState==='pending' ? '未請求' : '要確認'])
   const blob=new Blob(['\uFEFF'+[headers,...data].map(r=>r.map(csvCell).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${insurance?'保険報告':'請求用一覧'}_${insurance ? loadedReportMonth.value : filter.month}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)
 }
+watch(propertyGroupLimit,limit=>{if(propertyDialog.value && !current.value && limit)form.value.maxYears=Math.min(20,limit)})
 </script>
 
 <style scoped>
