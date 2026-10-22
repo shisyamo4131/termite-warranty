@@ -33,7 +33,7 @@ When a matter is resolved, retain its detail file with the decision, decision ma
 | ID | Matter | Decision date | Decision owner | Evidence |
 | --- | --- | --- | --- | --- |
 | HSC-036 | [Insurance Reporting Cycle](house-solution-confirmations/HSC-036-insurance-reporting-cycle.md) | 2026-10-22 | Project owner | CSVの保険申込欄は空欄維持、既報告印は初期納品対象外。保険満了案内削除はDev本人受入れ済み |
-| HSC-043 | [保証グループ別の最大保証期間と選択制限](house-solution-confirmations/HSC-043-group-warranty-year-limit.md) | 2026-10-22 | Project owner | 保証グループ上限の共通制御を初期納品へ採用。UH10年、HSC／SHS30年。実装・移行・検証は未完了 |
+| HSC-043 | [保証グループ別の最大保証期間と選択制限](house-solution-confirmations/HSC-043-group-warranty-year-limit.md) | 2026-10-22 | Project owner | 保証グループ上限の共通制御を初期納品へ採用。UH10年、HSC／SHS30年。Local検証・Dev補完／配備・照合完了、本人Dev受入れ待ち（運用記録参照） |
 | HSC-040 | [郵便番号データの定期自動更新](house-solution-confirmations/HSC-040-postal-data-automatic-update.md) | 2026-10-20 | Project owner | zipcloud採用で独自定期更新案を置換（ADR0050）。Local検証・受入れ・配備と納品書は別工程 |
 | HSC-042 | [月別一覧の過去未処理分と処理済みの抽出範囲](house-solution-confirmations/HSC-042-monthly-list-carryover.md) | 2026-10-12 | Project owner | 指定月の前月を基準に、通常は過去を含む未処理、済みを含める時は前月だけの未処理・処理済みを採用。チェック時は過去未処理も除外。確定仕様・実装・検証・Dev反映済み。Chromeの読取操作・実CSV出力も確認。HS受入れ・別途回答とは区別 |
 | HSC-006 | [ダッシュボードの仕様整理](house-solution-confirmations/HSC-006-dashboard-presentation.md) | 2026-10-10 | Project owner | Q30で詳細設計を確定し、後続承認でDev導入済み。追加指示で保険期間を古い順へ変更し、一覧選択の余白を除去。検証・受入はロードマップDB-04〜06 |
