@@ -192,13 +192,15 @@ test('new or changed known business data after interrupted deletion is preserved
    await verifyCompletedHistoricalIntake(db,control,auth,opts)
  })
 
- test('property-only reset refuses incompatible retained fiscal settings before deleting properties',async()=>{
+ test('property-only reset refuses incompatible retained fiscal settings or group caps before deleting properties',async()=>{
+  for(const change of [{fiscalStartMonth:12},{maxWarrantyYears:10}]){
    const options=await fixture()
    await executeHistoricalIntake(db,control,auth,input,options)
-   await db.doc('warrantyGroups/HSC').update({fiscalStartMonth:12})
+   await db.doc('warrantyGroups/HSC').update(change)
    const before=await documentImage(db),next={...input,preservedBusinessSettings:captureIntakeSettings(before)}
    const opts={...options,operationId:'fictional-retained-conflict',propertiesOnly:true,planHash:prepareHistoricalIntake(next,{today}).planDigest,inventoryHash:(await inspectHistoricalTarget(db,control,auth)).inventoryHash}
    await assert.rejects(executeHistoricalIntake(db,control,auth,next,opts))
    const after=await documentImage(db)
    for(const [path,row] of before)assert.equal(after.get(path)?.hash,row.hash,path)
+  }
  })

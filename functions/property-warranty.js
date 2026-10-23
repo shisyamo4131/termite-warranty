@@ -1,3 +1,4 @@
+import { groupWarrantyLimit, assertGroupWarrantyLimit } from './domain/group-warranty-limit.mjs'
 import { propertyInputHash, masterInputHash, inputHash } from './operation-input.js'
 import { normalizeExtensionApplication } from './domain/property-warranty.mjs'
 import { pendingBillingRows } from './domain/billing-output.mjs'
@@ -281,6 +282,8 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       }
       // Reserve numbering settings and prefixes from creation, even while disabled.
       if (action === 'saveGroup') {
+        try { value.maxWarrantyYears = groupWarrantyLimit({maxWarrantyYears: input.maxWarrantyYears ?? old?.maxWarrantyYears}) }
+        catch (error) { fail('invalid-argument', error.message) }
         if (input.billingRecipient !== undefined) {
           if (!input.billingRecipient || typeof input.billingRecipient !== 'object' || Array.isArray(input.billingRecipient)) fail('invalid-argument', '請求先の指定が不正です。')
           try { value.billingRecipient = normalizeBillingRecipient({ ...old?.billingRecipient, ...input.billingRecipient }) }
@@ -490,7 +493,6 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       if (old?.status === 'active' && supplied.applicationDate === undefined) supplied.applicationDate = old.applicationDate
       let fields
       try { fields = normalizeProperty(supplied, false) } catch (error) { fail('invalid-argument', error.message) }
-      if (old?.groupName?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
       if (old?.status === 'active' && fields.applicationDate !== old.applicationDate) fail('failed-precondition', '本登録後の申込日は変更できません。')
       if (old?.status === 'active' && (supplied.constructionCompanyId !== old.constructionCompanyId || (supplied.branchId || '') !== old.branchId)) fail('failed-precondition','本登録後の工務店・本支店は変更できません。誤登録は取消後に再登録してください。')
       if ((old?.years ?? 0) > fields.maxYears) fail('failed-precondition', '既に延長した期間より短い上限にはできません。')
@@ -504,6 +506,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
       // Issued records retain their group even after a company's reassignment.
       const keyGroupId = old?.status === 'active' ? old.groupId : company.defaultGroupId
       const keyGroup = keyGroupId ? (await tx.get(db.doc(`warrantyGroups/${id(keyGroupId)}`))).data() : null
+      try { assertGroupWarrantyLimit(keyGroup, fields.maxYears) } catch (error) { fail('failed-precondition', error.message) }
       let keySettings, externalKey
       try {
         keySettings = externalKeySettings(keyGroup ?? {})
@@ -546,7 +549,6 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         if (!groupId) fail('failed-precondition', 'HSに保証グループの設定を依頼してください。')
         const group = (await tx.get(db.doc(`warrantyGroups/${id(groupId)}`))).data()
         if (!group || group.enabled === false) fail('failed-precondition', '保証グループが未設定または無効です。HSに設定変更を依頼してください。')
-        if (group.name?.trim().toUpperCase() === 'UH' && fields.maxYears !== 10) fail('failed-precondition', 'UHの最長保証期間は10年です。')
         const year = fiscalYear(fields.applicationDate, group.fiscalStartMonth)
         const counterRef = db.doc(`warrantyCounters/${groupId}_${year}`)
         const counter = (await tx.get(counterRef)).data()

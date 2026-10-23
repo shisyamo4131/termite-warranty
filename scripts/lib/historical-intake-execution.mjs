@@ -108,7 +108,7 @@ export async function executeHistoricalIntake(db,control,auth,input,{today,planH
         for(const row of plan.documents.filter(row=>['warrantyGroups','constructionCompanies','companyBranches'].includes(row.path.split('/')[0]))) {
           const existing=image.get(row.path)?.fields
           if(!existing)deny()
-          for(const key of ['defaultGroupId','constructionCompanyId','branchCode','prefix','fiscalStartMonth'])if(row.data[key]!==undefined&&existing[key]!==row.data[key])deny()
+          for(const key of ['defaultGroupId','constructionCompanyId','branchCode','prefix','fiscalStartMonth','maxWarrantyYears'])if(row.data[key]!==undefined&&existing[key]!==row.data[key])deny()
         }
       }
       const deleteManifest=[...selected(image)].map(([path,row])=>({path,hash:row.hash})).sort((a,b)=>b.path.split('/').length-a.path.split('/').length||a.path.localeCompare(b.path))

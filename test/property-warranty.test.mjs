@@ -480,7 +480,7 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{},options={}){
   references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
   vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
   const companyProfileDependencies={useCompanyProfile:()=>({reset:()=>{}}),...(await import('../src/domain/company-settings.mjs'))}
-  const notifications=[];const env={...(await import('../app/composables/usePaginationScroll.ts')),useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',zipcloudPostalLookupProvider:{}}
+  const notifications=[];const env={...(await import('../src/domain/group-warranty-limit.mjs')),...(await import('../app/composables/usePaginationScroll.ts')),useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',zipcloudPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   Object.assign(env,companyProfileDependencies,{selectedMonthToBasisMonth})
   return new Function(...Object.keys(env),code+';return {propertyId,pendingProperty,pendingSetting,retryProperty,retrySetting,setting,settingAction,openSetting,requestId,frozenPayload,rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
@@ -654,10 +654,10 @@ test('saving a draft closes the dialog and delivers completion via snackbar',asy
 
 test('after thirty-year extension UI disallows a twenty-year cap and history labels are explicit',async()=>{
  const v=await prototypeViewForTest(async()=>({}))
- v.current.value={years:30,maxYears:30}
+ v.groups.value=[{id:'limit',maxWarrantyYears:30}];v.current.value={years:30,maxYears:30,warrantyNumber:'fixture',groupId:'limit'}
  assert.equal(v.maxYearsOptions.value[0].props.disabled,true)
  assert.notEqual(v.maxYearsRule(20),true);assert.equal(v.maxYearsRule(30),true)
- v.current.value={years:20,maxYears:30};assert.equal(v.maxYearsRule(20),true)
+ v.current.value={years:20,maxYears:30,warrantyNumber:'fixture',groupId:'limit'};assert.equal(v.maxYearsRule(20),true)
  assert.deepEqual(v.historyFields.filter(f=>['applicationDate','handoverDate','expiryDate'].includes(f.key)).map(f=>f.label),['申込日','引渡日','保証満了日'])
 })
 
@@ -1101,4 +1101,27 @@ test('malformed mutation responses keep the original submission unknown without 
   assert.equal(existing.pendingSetting.value.phase,'unknown')
   assert.equal(existing.setting.value.id,'expected-master')
   assert.deepEqual(calls.map(call=>call.action),['saveCompany'])
+})
+
+
+test('group limit is explicit, name-independent, and never mutates existing periods',async()=>{
+ const {groupWarrantyLimit,assertGroupWarrantyLimit}=await import('../src/domain/group-warranty-limit.mjs')
+ for(const value of [undefined,null,0,15,'30'])assert.throws(()=>groupWarrantyLimit({maxWarrantyYears:value}),/未設定|不正/)
+ assert.equal(assertGroupWarrantyLimit({name:'名称変更済み',maxWarrantyYears:10},10),10)
+ assert.throws(()=>assertGroupWarrantyLimit({name:'UH',maxWarrantyYears:10},20),/10年/)
+ assert.equal(assertGroupWarrantyLimit({name:'UH',maxWarrantyYears:30},30),30)
+ const v=await prototypeViewForTest(async()=>({}));v.groups.value=[{id:'g',maxWarrantyYears:10}];v.current.value={warrantyNumber:'issued',groupId:'g',years:10,maxYears:10}
+ assert.deepEqual(v.maxYearsOptions.value.map(x=>x.value),[10]);assert.notEqual(v.maxYearsRule(20),true)
+})
+
+test('group limit supplement validates identity and conflicts without changing properties',async()=>{
+ const {planGroupWarrantyLimits}=await import('../scripts/lib/group-warranty-limit-migration.mjs')
+ const group={id:'g',name:'架空',prefix:'X',fiscalStartMonth:1},assignment={...group,maxWarrantyYears:20}
+ const image={groups:[group],companies:[{id:'c',defaultGroupId:'g'}],properties:[{id:'p',constructionCompanyId:'c',years:10,maxYears:20,expiryDate:'2036-10-01'}]}
+ const before=structuredClone(image),plan=planGroupWarrantyLimits(image,[assignment]);assert.deepEqual(plan.updates,[{id:'g',maxWarrantyYears:20}]);assert.deepEqual(image,before)
+ assert.equal(planGroupWarrantyLimits(image,[{...assignment,maxWarrantyYears:10}]).updates[0].maxWarrantyYears,10)
+ assert.throws(()=>planGroupWarrantyLimits(image,[{...assignment,name:'違う名称'}]),/IDENTITY/)
+ assert.throws(()=>planGroupWarrantyLimits(image,[]),/未設定/)
+ image.groups[0].maxWarrantyYears=20;assert.equal(planGroupWarrantyLimits(image,[assignment]).updates.length,0)
+ assert.throws(()=>planGroupWarrantyLimits(image,[{...assignment,maxWarrantyYears:30}]),/LIMIT_CONFLICT/)
 })

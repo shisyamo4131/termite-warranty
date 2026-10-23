@@ -1,3 +1,4 @@
+import {assertGroupWarrantyLimit} from '../../src/domain/group-warranty-limit.mjs'
 import {createHash} from 'node:crypto'
 import {normalizeProperty,coveragePeriods,initialInsurance,fiscalYear,initialGroups} from '../../src/domain/property-warranty.mjs'
 import {normalizeExternalKey} from '../../src/domain/external-key.mjs'
@@ -59,11 +60,12 @@ export function prepareHistoricalIntake(input,{today}={}) {
     // The approved UH intake maps the source contract number to the normal address field.
     // Preserve the original key for duplicate detection and never mutate the source row.
     const fields=normalizeProperty(group.id==='UH'?{...row.fields,address:externalKey}:row.fields,true,group)
+    assertGroupWarrantyLimit(group,fields.maxYears)
     if(fields.applicationDate<'2000-01-01'||fields.applicationDate>='2100-01-01')fail('NUMBER_CENTURY_REQUIRES_REVIEW')
     const applicationYear=fiscalYear(fields.applicationDate,group.fiscalStartMonth)
     if(numberYear!==applicationYear)yearDifferences.push({group:group.id,row:row.sourceRow,applicationYear,numberYear})
     counters.set(counterId,Math.max(counters.get(counterId)??0,sequence))
-    if(group.id==='UH'&&(!/^\d{4}-\d{7}$/.test(externalKey)||fields.maxYears!==10))fail('UH_CONSTRAINT')
+    if(group.id==='UH'&&(!/^\d{4}-\d{7}$/.test(externalKey)))fail('UH_CONSTRAINT')
     if(group.externalKeyRequired&&!externalKey||externalKey&&externalKeys.has(externalKey))fail('EXTERNAL_KEY')
     if(externalKey)externalKeys.add(externalKey)
     const id='historical-'+intakeHash(group.id+'\0'+row.warrantyNumber).slice(0,40)

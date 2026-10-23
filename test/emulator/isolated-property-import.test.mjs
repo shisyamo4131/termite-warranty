@@ -23,7 +23,7 @@ test('manual external keys and CSV share reservations, immutable settings and re
   for(const root of await target.listCollections())await target.recursiveDelete(root)
   await target.doc('staffAccounts/key-admin').set({enabled:true,role:'house_solution_administrator'})
   const invoke=(action,input={})=>propertyPrototypeOperation(auth,target,{action,...input},'key-admin')
-  const group={id:'G',name:'架空キー必須',prefix:'KEY',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'架空契約No'}
+  const group={id:'G',name:'架空キー必須',prefix:'KEY',maxWarrantyYears:30,fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'架空契約No'}
   await invoke('saveGroup',group)
   await invoke('saveGroup',{...group,addressRequired:false})
   assert.equal((await target.doc('warrantyGroups/G').get()).data().addressRequired,true)
@@ -31,10 +31,10 @@ test('manual external keys and CSV share reservations, immutable settings and re
   await invoke('saveGroup',{...group,addressRequired:'true'})
   await assert.rejects(invoke('saveGroup',{...group,externalKeyRequired:false}),/変更できません/)
   await invoke('saveGroup',{...group,externalKeyLabel:'改訂表示名'})
-  await invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:false,addressRequired:false,insulationMaterialsRequired:false})
-  await assert.rejects(invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'契約番号'}),/変更できません/)
-  await assert.rejects(invoke('saveGroup',{id:'X',name:'UH',prefix:'U',fiscalStartMonth:1,externalKeyRequired:false}))
-  await invoke('saveGroup',{id:'U',name:'UH',prefix:'U',fiscalStartMonth:1})
+  await invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',maxWarrantyYears:30,fiscalStartMonth:1,externalKeyRequired:false,addressRequired:false,insulationMaterialsRequired:false})
+  await assert.rejects(invoke('saveGroup',{id:'F',name:'架空任意',prefix:'OPT',maxWarrantyYears:30,fiscalStartMonth:1,externalKeyRequired:true,externalKeyLabel:'契約番号'}),/変更できません/)
+  await assert.rejects(invoke('saveGroup',{id:'X',name:'UH',maxWarrantyYears:10,prefix:'U',maxWarrantyYears:30,fiscalStartMonth:1,externalKeyRequired:false}))
+  await invoke('saveGroup',{id:'U',name:'UH',maxWarrantyYears:10,prefix:'U',maxWarrantyYears:30,fiscalStartMonth:1})
   await target.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
   await invoke('saveBranch',{id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'})
   const inputFields={...fields,constructionCompanyId:'C',branchId:'B'}
@@ -166,7 +166,7 @@ test('real Firestore bulk transaction commits 279 rows atomically and recovery v
   const imported=getFirestore(app,'test-import-volume')
   for(const root of await imported.listCollections())await imported.recursiveDelete(root)
   await imported.doc('staffAccounts/import-admin').set({enabled:true,role:'house_solution_administrator'})
-  await imported.doc('warrantyGroups/G').set({name:'架空取込み',prefix:'QA',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
+  await imported.doc('warrantyGroups/G').set({name:'架空取込み',prefix:'QA',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
   await imported.doc('constructionCompanies/C').set({name:'架空工務店',defaultGroupId:'G',enabled:true})
   await propertyPrototypeOperation(auth,imported,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'import-admin')
   const makeCsv=(count,offset=0)=>CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+Array.from({length:count},(_,i)=>{

@@ -94,7 +94,7 @@ test('disabled masters reject stale edits and reenable only their state without 
   for(const [kind,collection,action,fields] of [
     ['company','constructionCompanies','saveCompany',{defaultGroupId:'g',address}],
     ['branch','companyBranches','saveBranch',{constructionCompanyId:'match-0'}],
-    ['group','warrantyGroups','saveGroup',{prefix:'INACTIVE',fiscalStartMonth:1}],
+    ['group','warrantyGroups','saveGroup',{prefix:'INACTIVE',fiscalStartMonth:1,maxWarrantyYears:30}],
   ]){
     const key='disabled-'+kind,original={name:'Original',enabled:false,...fields,legacyOnly:'preserved'}
     db.records.set(`${collection}/${key}`,original)

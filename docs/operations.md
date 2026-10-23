@@ -1,5 +1,36 @@
 # Operations
 
+## 2026-10-23 保証上限の本人Dev受入れと本番準備
+
+オーナーの「今回のDev受入れ→PRでdev統合、その後の本番準備まで」を、直前のDev候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` の本人受入れ了承と統合指示として記録。対象はグループ上限・登録編集時適用・保存済み上限による延長と、既存442件不変。HSの最終受入れとは別で、10/29・30に実施、11/2納品と指定された。PR統合結果はGitHubのmerged状態で確定する。
+
+Dev run39755202067の全体successを再確認。723a7aeから今回候補まで製品・試験・実行設定の差分なし（記録文書のみ）。10/22の包括7gate・画面確認・配備照合を再利用し、アプリ試験／build／Dev再配備は繰り返さない。今回変更は文書のみで `./scripts/check-governance.ps1` と `git diff --check` は各exit 0、PRでは必須Verify development deploymentを適用する。新仕様・データ契約・ADR・ガバナンス変更なし。請求先関連3文書の未コミット差分は混入させない。
+
+本番準備：ローカルの確定原本と入力sourceSha256一致、442行、Dev会社情報／請求先の混入なしを確認（Python検査exit 0）。`node scripts/prepare-historical-intake.mjs --input tmp/oct21-reimport-input.json --date 2026-10-23 --output tmp/oct23-production-preparation-plan.json` はexit 0、errors=0。HSC99・SHS66・UH277、グループ3・工務店3・本支店17。独立Python検査もexit 0、UH住所＝契約No277件・住所あり442件・満了報告不要148期間・上限HSC30/SHS30/UH10、Dev会社情報なし。初回読取りの文字コードエラーは成功扱いせずUTF-8指定で再実行した。2026年度次番号はHSC100・SHS68・UH128。これは10/23基準のLocal予行計画であり、正式投入用の承認済み計画ではない。実行日・原本更新有無・対象実像の再照合を必要とする。原本・計画・実値はGit外。
+
+ProdのGitHub変数PRODUCTION_APP_DEPLOY_ENABLEDは読取りでtrue。保留はenable停止ではなく、mainへの製品統合／配備を実行しない境界で維持する。設定変更なし。後日のmain統合は自動配備を伴うため別途保留解除が必要。実Cloudの初期化・管理者設定・正式投入・保護設定は実行していない。具体的な順序と実行前入力は[本番準備](runbooks/production-bootstrap-review.md#2026-10-23-受入れ版の本番準備)を参照。
+
+## 2026-10-22 保証グループ上限の実装・Dev準備
+
+候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` をcommit/push済み。Dev3グループの補完と読戻しは各exit 0、UH10／HSC30／SHS30、残更新0。442物件のpropertiesDigestは前後とも `6a849d3d56ccffa7877322f038bdfa2fc247ce1e1b6b2c7464699c0ccf28c62c` で一致。既存物件の期間・満了日・上限は不変。[Dev配備run39755202067](https://github.com/shisyamo4131/termite-warranty/actions/runs/39755202067)はbuild/deployともsuccess。build18:24:44〜18:26:00 JST（76秒）、deploy18:26:03〜18:29:15（192秒）、開始〜終了4分31秒。本人受入れ・dev統合は未実施。
+
+配備後の独立読取りもexit 0。21 Functions ACTIVE・環境パラメータ不変・公開接続先一致、Hosting `sites/termite-warranty-dev/versions/25840f643f575e53`、PITR=false・日次予定0・backupAutomation=false。補完コマンドの再読取りもexit 0、残更新0・442物件hash一致。Dev実画面でUHグループ10年／HSC30年、新規UHの初期値10年・候補10年だけ、新規HSCの初期値20年・候補10／20／30年を確認し、保存せず閉じた。Devの物件登録・延長・採番・試験データ追加なし。
+
+受入れ確認：保証グループの最大保証期間、UH／HSC／SHSの物件選択肢、既存物件の期間・満了日・上限が不変であること。設定引下げ後も保存済みmaxYearsで延長し、次の物件編集は最新グループ上限を検証するケースはLocal連携試験で確認済み。実データで不要な延長操作をしない。残る工程は本人Dev受入れ→PRでdev統合、納品ロードマップのProd準備・保留解除判断・正式投入・保護実証・納品資料／HS最終確認。別件の請求先記録3文書の未コミット部分は保持。今回候補と結果記録を改修branchへpushし、mainとProdは変更しない。
+
+包括7gate：`npm test` は650成功・既存2skip、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1` は各独立exit 0。最終 `npm run test:rules` は206成功・427874ms・emulatorsStopped=true、exit 0（tmp/group-limit-rules-release.log）。Local画面でUH10年のみ、HSC10／20／30年、グループ20年保存・読戻し・10年復帰を確認。架空工務店・本支店各2件をLocal確認用に残し、物件・採番は作成していない。
+
+グループ設定はmaxWarrantyYears、物件の保存済みmaxYearsを延長判定に使う。既存物件の期間・満了日・上限の一括更新なし。変更クラスはUI・アプリロジック・データ契約／補完・配備の複合で、包括7gateを選定。Prod・正式投入・保護設定は保留。試験のグループマスタにも明示的な上限を設定し、欠落時の拒否は専用試験で確認する。
+
+初回単体試験は旧fixture欠落とsandbox内temp rename制限で失敗。fixture更新・許可された実行環境で解消。後続の単体試験とRules同時実行は試験stage lock競合を検出したため成功扱いにせず、以後は順次実行する。初回Rulesはsandbox内エミュレーター起動制限で停止し、権限を取得して隔離profileで再実行。方針修正前に開始したRulesは旧候補を参照して失敗したため、最終版の証拠には再利用しない。画面試験でwatchの参照初期化順序を修正し、最終コードで必要gateを再確認した。包括7gateの省略なし。追加focused回帰は登録されたtrigger pathに変更なし。仕様・要件・現行設計契約・補完手順・changelogを更新し、CI・IAM・Rules・索引・ガバナンスは変更していない。新ADRは追加せず、既存物件maxYearsの意味を維持する。
+
+
+## 2026-10-22 優先1の回答記録
+
+オーナーが日程案を採用し、①保険CSVは現行維持、②保証グループ別上限を初期納品へ含める、③帳票はHS担当者確認済みと回答。仕様・対象要件・HSC-036/043の決定とHSC-010/037の確認状況、納品ロードマップへ逐次反映。①の未確定と③の確認待ちは解消。②は採用済み・実装未完了として区別する。
+
+今回の変更は要件決定・確認報告の文書化のみ。アプリ・データ契約の実フィールド・環境・CI・ガバナンスは変更せず、アプリ試験は実施しない。文書検証はgovernanceとdiffを適用する。既存請求先関連3文書の変更は保持。commit/push、PR、Dev／Prod配備、正式投入、保護有効化は今回実施しない。
+
 ## 2026-10-22 Dev受入れ・dev統合と納品日変更
 
 オーナーが本チャットで「Dev受入れ→PRでdevへの統合を進めてください」と指示。直前の提供対象060acb495fb8af9dba50cfbaf9c4ffa8d606704bの本人Dev受入れ了承として記録する。対象は満了後の保険操作、保証グループ＋引渡年月検索、住所必須化、過去取込みの満了期間自動不要化、保険満了案内／設定撤去、442件の限定再取込み。HS社長の正式利用開始了承とは区別する。

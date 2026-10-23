@@ -31,5 +31,6 @@ export function masterInputHash(input) {
   if (input.action === 'saveCompany') keys.push('defaultGroupId','address','telephone','fax','contactPerson','notes')
   if (input.action === 'saveBranch') keys.push('constructionCompanyId','groupId','address','telephone','fax','branchCode')
   if (input.action === 'saveGroup') keys.push('prefix','fiscalStartMonth','billingRecipient','externalKeyRequired','externalKeyLabel','addressRequired','insulationMaterialsRequired')
+  if (input.action === 'saveGroup' && input.maxWarrantyYears !== undefined) keys.push('maxWarrantyYears')
   return inputHash(select(input, keys))
 }
