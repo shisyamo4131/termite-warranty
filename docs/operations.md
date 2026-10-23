@@ -1,5 +1,72 @@
 # Operations
 
+## 2026-10-23 Prod開発者の表示名変更
+
+13:51 JST、オーナーの今回限定の明示承認により、既存Owner認証でProd開発者1名のAuthとstaffAccountsのdisplayNameだけを「株式会社 AIR」に変更した。通常の担当者管理画面では開発者本人が管理対象外のための限定例外であり、恒常的なOwner直接更新経路や権限拡張にはしない。
+
+変更前に実Owner権限、対象UID・メール・role・有効状態と両方の旧表示名一致を確認。AuthはdisplayNameだけを更新、担当者文書は取得時updateTimeを条件にdisplayNameだけ更新。変更後の両表示名一致、担当者文書の他全項目不変、Authのメール・有効状態・確認状態・権限claims・認証方式・token有効境界等の不変を確認。パスワード更新API／再設定／token失効は実行せず、過去の操作記録も更新していない。既存の会社情報の「最終更新者」等は当時の氏名が残る。Dev・配備・保護設定は変更なし。
+
+事前確認 `node tmp/oct23-rename-prod-developer.mjs` と変更・読戻し `node tmp/oct23-rename-prod-developer.mjs --apply` は各exit 0。結果は非公開入力を含まない tmp/oct23-prod-developer-name-result.json。製品コード・仕様・データ契約・検証方針の変更なし。今回の承認は本操作で消費済みとし、別のOwner直接更新へ拡張しない。
+
+## 2026-10-23 Prod初期投入・会社設定・開発者ログイン確認完了
+
+13:43 JST時点で、承認されたProd配備・初期化・管理者2名・過去物件442件の正式投入・会社情報登録・開発者本人ログイン・照合を完了。通常モードgeneration3。HS最終受入れ完了や利用開始了承を意味しない。10/29・30のHS最終受入れ、11/2納品を維持する。バックアップ・PITR・Auth退避は11/1まで保留（自動再開を予約したものではない）。
+
+最終読取りでDev／Prod各442件の全業務項目が確定計画と一致、欠落・追加・差異0。UH住所複製277件、満了保険の報告不要148期間、グループ上限10/30/30は確定計画どおり。工務店3、本支店17、採番17、外部キー予約277、本支店コード予約11、正規化した会社情報と3グループ請求先も一致。環境固有の日時・操作ID・担当者を除いた比較であり、生DB完全一致ではない。旧addressRequired保存値1件は異なるが、現行の共通住所必須処理では参照せず実効条件は全3グループ一致。Dev一般担当1名に対してProd一般担当0名は指示どおり。Devは変更していない。
+
+会社名・代表者肩書・代表者名の確定済み3項目を既存Prod画面から13:42:42 JSTに保存し、画面表示とDB読戻しで確認。他の任意項目と請求先は承認された空欄運用を維持。開発者は本人によるパスワード設定・ログインとダッシュボード442件表示を確認。HS管理者は作成／Auth照合済みだが、初回パスワード設定・ログインは未実施、HSへのメールも未送信。
+
+再開は本日承認済みの会社設定・ログイン確認のため、本人のログイン確認後に別approval識別子で実行。HSの正式受入れを代行していない。日次予定0、PITR無効、自動保護falseを両環境で再確認。全運用run終了後、一時PRODUCTION_OPERATION_REQUESTを削除し環境secret一覧0件を確認した。
+
+### 実行証拠と所要時間
+
+各時間はGitHub runの受付から完了まで（待ち時間・準備・後処理を含む）。人の承認待ちや画面操作を含む全作業時間ではない。
+
+| 工程 | run | 実測 | 結果 |
+| --- | --- | --- | --- |
+| Prod配備・5照合 | 39893549512 | 9分34秒 | success |
+| 閉鎖初期化 | 39895737353 | 1分59秒 | success |
+| Auth2名作成 | 39895946758 | 2分19秒 | success |
+| HS管理者登録 | 39896170559 | 2分12秒 | success |
+| 開発者登録 | 39896394086 | 2分35秒 | success |
+| 初回投入前照合 | 39896646482 | 2分11秒 | success |
+| パスワード設定後再照合 | 39898168098 | 1分27秒 | success |
+| 442件正式投入 | 39898330695 | 7分56秒 | success、業務文書778、既存削除0 |
+| 投入結果計画照合 | 39899128565 | 7分43秒 | success、検証対象780文書 |
+| 読取り確認モード公開 | 39899835242 | 8分37秒 | success、verification generation2 |
+| 通常モード移行 | 39901034547 | 6分43秒 | success、normal generation3 |
+
+配備はmain54c87af7a0d593e7d5e27feb7fac99076aec6aebの固定成果物。全5照合は2DB Rules・索引25本READY・Functions21本とソース・Hosting56ファイル。plan/publish/reopenは同一固定成果物を使用し、再配備や再投入はしていない。公開・再開は既存の全件データ／認証／配備版照合を経て成功。各runで非公開要求とWIF資格情報の後処理も成功。
+
+IAMは承認された3付与・固定main/専用2workflowのWIF条件を反映。追加承認されたrun.services.get／run.revisions.getの2読取り権限も反映・読戻し成功。初回IAM確認はJSONキー順序比較でexit1となったが、再適用せず意味比較でexit0。計画出力の既存ファイル保護でもexit1となり、別ファイルへ再生成してexit0・原資料SHA256と計画digest一致を確認。失敗を成功扱いしていない。
+
+最終確認コマンドは node tmp/oct23-read-production-readiness.mjs、node tmp/oct23-compare-masters.mjs、node tmp/oct23-read-account-signin.mjs が各exit0。読取り結果は順に tmp/oct23-production-readiness-summary.json、tmp/oct23-master-comparison.json、tmp/oct23-account-signin-status.json。secret削除・一覧読戻しも各exit0。機密入力やスクリーンショットはGit対象外のtmpに限定。
+
+今回の残差分は運用記録・本番手順・納品ロードマップの3文書だけ。製品実装・仕様・データ契約・ADR・配備構成は変更していない。包括7gateは固定mainの有効証拠を再利用（単体655成功・既存2skip等、下記配備記録）。追加した実環境の照合は上表と最終読取り。文書の最終governance/diff検査結果は作業報告で明示する。文書差分のcommit/push/PR統合は未実施。
+
+### 納品までの残作業
+
+1. HS管理者の初回パスワード設定と本人ログイン、引渡し・回復担当の確認。HS宛て再設定メールは送信前に対象と送信を確認する。
+2. 10/29・30に現行機能・確定取込み仕様でHS最終受入れ、指摘の是正／再確認。大幅な仕様追加は今回に含めない。利用開始了承は別途記録。
+3. 11/1に保留解除対象の保護設定、初回バックアップ・PITR・Auth退避、通知到達と復元検証。予定と実証成功を区別する。
+4. 11/2納品に向けて納品書（zipcloud外部依存・手入力を含む）、運用／障害連絡と未確定な対応時間・復旧目標、アカウント引渡し、現行日程PDF・納品物の最終確認。今回文書3件のGit反映も残る。
+
+## 2026-10-23 Prod配備成功・正式投入は追加IAMの停止中
+
+本人が追加権限・運用経路と配備／初期化／正式投入／照合を承認。新規運用経路はPR #58でdevへ統合（d3e9a5009dbc00ddc1a5661b0448578f7a25d8e8）。受入れ版の製品入力は不変。全単体 `npm test` 655成功・既存2skip、exit 0（tmp/oct23-prod-operation-tests.log）。新入口4試験は通常回帰へ組込み。governanceとdiff各exit 0。包括7gateを選び、失効しない型・build・連携・Functions/seed構文は10/22受入れ版の成功証拠を再利用。CI初回の末尾空行違反は修正し、最終run39892778428成功。
+
+不足索引3本を既存Prodへ先行作成、10/23 12:09 JSTに全25本READY・不足0を確認（既存22本不変）。PR #56の必須CI成功後に通常mergeし、main `54c87af7a0d593e7d5e27feb7fac99076aec6aeb` の自動配備run **39893549512** が成功。2DB Rules・索引READY・Functions21本/ソース21件・Hosting56ファイルの全5照合pass。Hostingの集計は2回目の観測で期待／一覧／集計56一致。資格情報後処理も成功。公開版 `sites/termite-warranty-prod/versions/3360556a3394c341`、公開12:18:29 JST。
+
+配備run全体は12:10:08〜12:19:42（9分34秒）。分類46秒、Prod成果物作成・検証2分27秒、公開job6分13秒（待ち時間等は全体との差）。Firebase配備完了12:18:30、全5照合完了12:19:36。業務上のHS受入れ成功を意味しない。
+
+受入れ済みDev723a7aeとmain54c87afの全製品入力digestは共に `97f1747b51d2a3b0b7c195c5e57062ae4da4045eb063297197b10e15be4e8420`。機能／実行設定の版は一致。配備後12:20 JST読取りではDev442件・Prod0件、Prod Auth／staff0・会社情報／グループなし。Dev442件と本日計画は業務項目すべて一致、欠落／追加／差異0。両環境21 Functions ACTIVE、日次予定0・PITR無効・自動処理false。Devデータと権限は変更していない。
+
+正式投入計画は `node scripts/prepare-historical-intake.mjs --input tmp/oct21-reimport-input.json --date 2026-10-23 --output tmp/oct23-production-final-plan.json` exit 0、442件・errors0、planDigest `19a2bc35257dd47170c85bd1a988daf2f3a607451110fbefde9b111bfae86b5f`。実投入は未実施。IAM変更scriptのplan呼出しが自動承認レビューで拒否（具体権限・条件・副作用の承認不足との理由）。変更処理を含まないGET専用読取りへ分離して計画を確認したが、実権限変更は行っていない。[具体承認対象](runbooks/production-bootstrap-review.md#2026-10-23-追加iamの具体承認対象)。停止は迂回しない。
+
+固定成果物：artifact12475354807、manifest SHA256 `71cf49d8ffc024dee448657ac7e90760b72da622df821a4ccee278ee7752587a`。ダウンロード済みmanifestはCI内digestと一致。GitHub artifact期限10/24 12:13:20 JST。保存済みローカルbundleはtmp/oct23-production-release。既存保守基準providerはa377bd20176a2ac5を維持。投入が終わるまでmainを固定し、文書だけの追加main統合で公開計画のrevisionを不用意に変えない。
+
+残作業：具体IAM承認後の反映・読戻し、非公開要求の一時secret登録、閉鎖初期化、指定2名Auth作成／管理者登録、442件投入・全件照合、verificationへの読取公開。その後HSの読取り確認と設定作業再開の了承、会社／請求先設定・ログイン／帳票確認。Auth作成だけではパスワード設定・本人ログイン・HS受入れ完了とはしない。バックアップ・PITR・Auth退避は11/1まで保留。一般担当は作成しない。
+
 ## 2026-10-23 本日実行の承認と初期設定の確定
 
 オーナーが本チャットでProd配備・初期化・正式投入を本日実施と指定し、この範囲の保留を解除。バックアップ・PITR・Auth退避の再開予定は11/1（日）で、本日は無効を維持する。10/29・30の現行仕様でのHS最終受入れ、11/2納品は維持する。日程指定だけで本日保護を設定したり、自動実行予約済みと扱わない。
