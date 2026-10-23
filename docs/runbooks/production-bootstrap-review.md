@@ -1,5 +1,18 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-10-23 追加IAMの具体承認対象
+
+自動承認レビューが、変更処理を含むスクリプトのplan呼出しを拒否した。理由は「具体的権限・条件・副作用までの承認ではない」。変更処理を含まないGET専用読取りで以下を確定した。実IAM変更は未実施。既存の包括承認を無視した再要求ではなく、このツール側停止の解除に必要な具体範囲の提示である。
+
+対象は既存Prod `termite-warranty-prod` の `prod-operator`。以下の3付与とWIF変更を行う計画。
+
+- 既存 `prodBusinessDatabase` を業務(default)・recovery-controlの2DB条件付きで付与：`datastore.databases.get`, `datastore.databases.getMetadata`, `datastore.entities.allocateIds`, `datastore.entities.create`, `datastore.entities.delete`, `datastore.entities.get`, `datastore.entities.list`, `datastore.entities.update`。削除は運用ロック等の正常な後処理にも必要。IAM自体は2DBの文書操作全般を許すため、CLIの空領域・世代・入力hash・操作allowlistで初回投入範囲を制限する。
+- 新規 `prodOperatorBootstrap`：`firebaseauth.users.create`, `firebaseauth.users.get`, `cloudfunctions.functions.get`, `cloudfunctions.functions.list`, `firebase.clients.get`, `firebasehosting.sites.get`, `firebaserules.releases.get`, `firebaserules.releases.getExecutable`, `firebaserules.rulesets.get`, `datastore.indexes.get`, `datastore.indexes.list`, `resourcemanager.projects.get`。Auth作成権限自体はプロジェクト単位で、実行器で承認入力の2名に限定する。既存Authの更新／削除・確認メール送信は含めない。
+- 既存 `prodSourceRead` の `storage.objects.get` を既存Functionsソースの3prefix条件（runtime-iam-plan.jsonのsourceCondition）付きで付与。任意bucket読取りへ広げない。
+- 運用WIFは固定repo/owner、main、production-operations、workflow_dispatchを維持し、workflow_refに既存 `verify-production-operator.yml` と新規 `execute-production-operation.yml` の2本だけを列挙する。
+
+非公開の原資料・設定・対象者を圧縮した要求はGitHubのproduction-operations環境secretへ一時登録し、digestを手動実行に明示する。非公開要求のGit/ログ/artifact保存は禁止し、作業後secretとrunner一時ファイルを削除。長期鍵なし。既存Owner・請求先・配備SA・Dev権限・バックアップ設定を変更しない。etag付き差分更新と読戻しを必須とし、失敗時にOwner/Editorを付与して回避しない。
+
 ## 2026-10-23 承認済み運用経路の追加
 
 オーナーが追加権限・運用経路整備とProd配備・初期化・正式投入・照合を承認。運用SAは既存の2DB条件付き業務読書き、指定2名のAuth作成／確認、配備結果の読取りに限定する。バックアップ・PITR・Auth退避は11/1まで保留。新workflowはmain・固定repo/owner・production-operations・手動起動だけ。既存read-only workflowと新実行workflowの2本だけをWIF条件へ列挙し、長期鍵を作らない。

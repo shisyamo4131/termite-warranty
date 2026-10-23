@@ -44,4 +44,3 @@ test('workflow requires main, serialized operations, input admission before WIF 
  assert.equal(j.steps.find(s=>s.uses==='google-github-actions/auth@v3').with.cleanup_credentials,true)
  assert.ok(!JSON.stringify(w).includes('upload-artifact'));assert.equal(j.steps.at(-1).if,'always()')
 })
-
