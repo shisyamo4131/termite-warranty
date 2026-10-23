@@ -1,5 +1,28 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-10-23 追加IAMの具体承認対象
+
+自動承認レビューが、変更処理を含むスクリプトのplan呼出しを拒否した。理由は「具体的権限・条件・副作用までの承認ではない」。変更処理を含まないGET専用読取りで以下を確定した。実IAM変更は未実施。既存の包括承認を無視した再要求ではなく、このツール側停止の解除に必要な具体範囲の提示である。
+
+対象は既存Prod `termite-warranty-prod` の `prod-operator`。以下の3付与とWIF変更を行う計画。
+
+- 既存 `prodBusinessDatabase` を業務(default)・recovery-controlの2DB条件付きで付与：`datastore.databases.get`, `datastore.databases.getMetadata`, `datastore.entities.allocateIds`, `datastore.entities.create`, `datastore.entities.delete`, `datastore.entities.get`, `datastore.entities.list`, `datastore.entities.update`。削除は運用ロック等の正常な後処理にも必要。IAM自体は2DBの文書操作全般を許すため、CLIの空領域・世代・入力hash・操作allowlistで初回投入範囲を制限する。
+- 新規 `prodOperatorBootstrap`：`firebaseauth.users.create`, `firebaseauth.users.get`, `cloudfunctions.functions.get`, `cloudfunctions.functions.list`, `firebase.clients.get`, `firebasehosting.sites.get`, `firebaserules.releases.get`, `firebaserules.releases.getExecutable`, `firebaserules.rulesets.get`, `datastore.indexes.get`, `datastore.indexes.list`, `resourcemanager.projects.get`。Auth作成権限自体はプロジェクト単位で、実行器で承認入力の2名に限定する。既存Authの更新／削除・確認メール送信は含めない。
+- 既存 `prodSourceRead` の `storage.objects.get` を既存Functionsソースの3prefix条件（runtime-iam-plan.jsonのsourceCondition）付きで付与。任意bucket読取りへ広げない。
+- 運用WIFは固定repo/owner、main、production-operations、workflow_dispatchを維持し、workflow_refに既存 `verify-production-operator.yml` と新規 `execute-production-operation.yml` の2本だけを列挙する。
+
+非公開の原資料・設定・対象者を圧縮した要求はGitHubのproduction-operations環境secretへ一時登録し、digestを手動実行に明示する。非公開要求のGit/ログ/artifact保存は禁止し、作業後secretとrunner一時ファイルを削除。長期鍵なし。既存Owner・請求先・配備SA・Dev権限・バックアップ設定を変更しない。etag付き差分更新と読戻しを必須とし、失敗時にOwner/Editorを付与して回避しない。
+
+## 2026-10-23 承認済み運用経路の追加
+
+オーナーが追加権限・運用経路整備とProd配備・初期化・正式投入・照合を承認。運用SAは既存の2DB条件付き業務読書き、指定2名のAuth作成／確認、配備結果の読取りに限定する。バックアップ・PITR・Auth退避は11/1まで保留。新workflowはmain・固定repo/owner・production-operations・手動起動だけ。既存read-only workflowと新実行workflowの2本だけをWIF条件へ列挙し、長期鍵を作らない。
+
+`.github/production-operation-entry.mjs`は圧縮した非公開要求をenvironment secretから受け、明示SHA256・実main SHA・固定target・操作allowlistを認証前に検証する。要求は最大1MiB展開、元secretは64KiB上限。原資料・個人情報をGit／ログ／artifactに残さず、一時ファイル・WIF資格情報を後処理する。secretは一連の作業完了後削除する。別runを並行dispatchせず、secret差替えは前run終了後だけ。バックアップ・復元・任意コマンドは新経路から実行不可。
+
+通常操作は既存production-operations CLIを呼び出す。Auth作成だけは閉鎖世代一致・固定2UID／2管理者roleを要求し、既存不一致を上書きしない。パスワード設定・確認メール送信・メール確認済みフラグの捏造は行わない。結果不明なら同じUIDとjournalを読取り、無条件再実行しない。publishは固定配備bundleを取得して既存全件照合を通しverificationにする。通常再開は既存のHS読取り確認と別approvalを維持する。
+
+検証分類はCI／権限・配備、包括7gateを選択。今回変わらないアプリ・型・build・Rules・連携・Functions／seed構文の成功証拠は10/22受入れ版から再利用し、追加入口・workflowの単体／拒否条件とgovernanceを更新する。実IAM反映と配備・投入成功は運用記録で別に判定する。
+
 ## 2026-10-23 本日実行の承認と初期設定の確定
 
 オーナーが本チャットでProd配備・初期化・正式投入を本日実施と指定し、この範囲の保留を解除。バックアップ・PITR・Auth退避の再開予定は11/1（日）で、本日は無効を維持する。10/29・30の現行仕様でのHS最終受入れ、11/2納品は維持する。日程指定だけで本日保護を設定したり、自動実行予約済みと扱わない。
