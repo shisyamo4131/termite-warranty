@@ -1,8 +1,8 @@
 <template>
   <section class="organization-management" aria-label="保証グループ・工務店・本支店管理">
-  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon item="settings" /><span>保証グループ・工務店・本支店管理</span></h1>
+  <h1 class="text-h5 mb-4 business-page-title"><BusinessNavigationIcon item="settings" /><span>保証グループ・工務店・本支店管理</span><v-tooltip location="bottom" max-width="520" open-on-click><template #activator="{ props: tooltipProps }"><v-btn v-bind="tooltipProps" icon="$info" variant="text" size="small" aria-label="保証グループ・工務店・本支店の注意事項" /></template><div class="text-body-2">接頭辞は保証グループ内で共通です。無効な工務店・本支店では新規物件の登録を停止しますが、HSは既存保証への対応を継続できます。<p class="mt-2">登録後の工務店の所属保証グループ、本支店の所属工務店は変更できません。</p></div></v-tooltip></h1>
   <div class="organization-layout"><aside class="organization-tree" aria-label="組織の階層"><h2 class="business-section-title">組織</h2><v-btn variant="text" :active="level==='groups'" :disabled="busy" @click="showGroups">すべての保証グループ</v-btn><v-list density="compact"><template v-for="group in groups.filter(row => includeInactive || row.enabled !== false)" :key="group.id"><v-list-item :title="group.name" :subtitle="group.enabled===false ? '無効' : undefined" :active="group.id===groupId && !companyId" :disabled="busy" @click="$emit('selectGroup',group.id)"><template #prepend><BusinessNavigationIcon item="organizationGroup" /></template></v-list-item><template v-if="group.id===groupId"><v-list-item v-for="company in companies.filter(row => row.defaultGroupId===group.id && (includeInactive || row.enabled!==false))" :key="company.id" class="organization-tree-company" :title="company.name" :subtitle="company.enabled===false ? '無効' : undefined" :active="company.id===companyId" :disabled="busy" @click="$emit('selectCompany',company.id)"><template #prepend><BusinessNavigationIcon item="organizationCompany" /></template></v-list-item></template></template></v-list></aside><div class="organization-list">
-  <nav class="d-flex flex-wrap align-center ga-2 mb-3" aria-label="現在の階層">
+  <nav ref="heading" tabindex="-1" class="d-flex flex-wrap align-center ga-2 mb-3" :aria-label="`現在の階層：${title}`">
     <v-btn v-if="level !== 'groups'" variant="text" size="small" :disabled="busy" @click="showGroups">保証グループ一覧</v-btn>
     <span v-else aria-current="page">保証グループ一覧</span>
     <template v-if="level !== 'groups'">
@@ -12,15 +12,6 @@
     </template>
     <template v-if="level === 'branches'"><span aria-hidden="true">›</span><span aria-current="page">{{ selectedCompany?.name || '工務店' }}</span></template>
   </nav>
-  <div class="d-flex flex-wrap justify-space-between align-center ga-3 mb-3">
-    <h2 ref="heading" tabindex="-1" class="text-h6 organization-heading">{{ title }}</h2>
-    <v-btn v-if="level === 'companies'" variant="outlined" :disabled="busy" @click="showGroups">← 保証グループ一覧</v-btn>
-    <v-btn v-if="level === 'branches'" variant="outlined" :disabled="busy" @click="showCompanies">← 工務店一覧</v-btn>
-  </div>
-  <p class="mb-4">登録後の工務店の所属保証グループ、本支店の所属工務店は変更できません。</p>
-  <v-alert type="info" class="mb-4">
-    接頭辞は保証グループ内で共通です。無効な工務店・本支店では新規物件の登録を停止しますが、HSは既存保証への対応を継続できます。
-  </v-alert>
   <div class="organization-controls"><slot name="refresh" /><v-checkbox v-model="includeInactive" label="無効を含む" hide-details /></div>
   <v-row>
     <v-col v-if="level === 'groups'" cols="12">
@@ -29,7 +20,7 @@
         <v-card-text>
           <v-text-field v-model="groupSearch" label="保証グループ名で絞り込み" clearable density="compact" />
           <p class="text-caption">{{ groupRows.length }}件{{ groupSearch ? '' : '（更新が新しい20件まで）' }}</p>
-          <v-table density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
+          <v-table ref="groupTable" density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
             <tr v-for="group in paged(groupRows, groupPage)" :key="group.id"><td>{{ group.name }}</td>
               <td>{{ group.enabled === false ? '無効／' : '' }}{{ group.prefix || '接頭辞なし' }}・{{ group.fiscalStartMonth }}月始まり</td>
               <td><div class="organization-actions"><v-btn size="small" variant="tonal" color="primary" :disabled="busy" :aria-label="`${group.name}の工務店を見る`" @click="$emit('selectGroup', group.id)">工務店を見る →</v-btn><v-btn size="small" variant="outlined" :disabled="busy" @click="$emit('edit', 'saveGroup', group)">{{ group.enabled === false ? '表示' : '編集' }}</v-btn><v-btn v-if="group.enabled === false" size="small" variant="outlined" :disabled="busy" @click="$emit('reenable', 'group', group)">有効化</v-btn></div></td>
@@ -49,7 +40,7 @@
             <v-alert v-if="selectedGroup.enabled === false" type="warning" class="mb-4">保証グループが無効のため、所属工務店での新規本登録は停止しています。</v-alert>
             <v-text-field v-model="companySearch" label="所属工務店名で絞り込み" clearable density="compact" />
             <p class="text-caption">{{ companyRows.length }}件／{{ selectedGroup.name }}</p>
-            <v-table density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
+            <v-table ref="companyTable" density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
               <tr v-for="company in paged(companyRows, companyPage)" :key="company.id"><td>{{ company.name }}</td><td>{{ company.enabled === false ? '無効（新規登録停止）' : '有効' }}</td>
                 <td><div class="organization-actions"><v-btn size="small" variant="tonal" color="primary" :disabled="busy" :aria-label="`${company.name}の本支店を見る`" @click="$emit('selectCompany', company.id)">本支店を見る →</v-btn><v-btn size="small" variant="outlined" :disabled="busy" @click="$emit('edit', 'saveCompany', company)">{{ company.enabled === false ? '表示' : '編集' }}</v-btn><v-btn v-if="company.enabled === false" size="small" variant="outlined" :disabled="busy" @click="$emit('reenable', 'company', company)">有効化</v-btn></div></td>
               </tr>
@@ -70,7 +61,7 @@
             <v-alert v-if="selectedCompany.enabled === false" type="warning" class="mb-4">工務店が無効のため、全本支店で新規登録を停止しています。</v-alert>
             <v-text-field v-model="branchSearch" label="所属本支店名で絞り込み" clearable density="compact" />
             <p class="text-caption">{{ branchRows.length }}件／{{ selectedCompany.name }}</p>
-            <v-table density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
+            <v-table ref="branchTable" density="compact" class="business-list-table" fixed-header><thead><tr><th>名称</th><th>状態・設定</th><th>操作</th></tr></thead><tbody>
               <tr v-for="branch in paged(branchRows, branchPage)" :key="branch.id"><td>{{ branch.branchCode ? `${branch.name}（${branch.branchCode}）` : branch.name }}</td><td>{{ branch.enabled === false ? '本支店を無効化中' : selectedCompany.enabled === false ? '工務店の無効化により停止中' : selectedGroup.enabled === false ? '保証グループの無効化により停止中' : '有効' }}</td>
                 <td><div class="organization-actions"><v-btn size="small" variant="outlined" :disabled="busy" @click="$emit('edit', 'saveBranch', branch)">{{ branch.enabled === false ? '表示' : '編集' }}</v-btn><v-btn v-if="branch.enabled === false" size="small" variant="outlined" :disabled="busy" @click="$emit('reenable', 'branch', branch)">有効化</v-btn></div></td>
               </tr>
@@ -98,6 +89,9 @@ const showCompanies = () => { if (!props.busy) emit('selectCompany', '') }
 const includeInactive=ref(false)
 const groupSearch = ref(''), companySearch = ref(''), branchSearch = ref('')
 const groupPage = ref(1), companyPage = ref(1), branchPage = ref(1)
+const groupTable=usePaginationScroll(groupPage)
+const companyTable=usePaginationScroll(companyPage)
+const branchTable=usePaginationScroll(branchPage)
 const selectedGroup = computed(() => props.groups.find(row => row.id === props.groupId))
 const selectedCompany = computed(() => props.companies.find(row => row.id === props.companyId && row.defaultGroupId === props.groupId))
 const match = (rows: Row[], term: string | null) => rows.filter(row => (includeInactive.value || row.enabled!==false) && row.name.includes((term || '').trim()))

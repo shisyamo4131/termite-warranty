@@ -1,9 +1,13 @@
 # HSC-040: 郵便番号データの定期自動更新
 
-- Status: Open; technical proposal only
+> 2026-10-20後続決定：オーナーがzipcloudのLocal実装・検証を承認。[ADR0050](../../decisions/0050-zipcloud-postal-lookup.md)により独自定期更新の採用検討を終了し、旧Local自動更新は非起動の復帰用資産とする。残るのはzipcloudの受入れ・配備判断と納品書への依存条件記載。以下は旧方式の記録。
+
+- Status: Resolved（2026-10-20、独自定期更新案をzipcloud利用へ置換）
 - Decision owner: Project owner
 - Raised: 2026-10-05
-- Evidence: オーナーは手動更新の土台を理解した上で、毎月の開発者メンテナンスを減らす定期自動更新を検討したいと指示。自動公開方式の採用・設定・実行は未承認。
+- Evidence: 2026-10-20、オーナーが推奨するLocal自動更新方式を採用し、実装・Local検証を指示。クラウド自動公開方式の採用・設定・実行は未承認。
+
+Localの決定は[ADR0049](../../decisions/0049-local-postal-auto-update.md)、手順・検証は[TR-009](../../design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)。以下の公開・IAM・通知・並行配備判断はDev／Prod向け残件であり、Localにそれらを導入しない。
 
 ## 現行と判断事項
 
@@ -15,4 +19,4 @@
 
 ## 状態
 
-自動ジョブ・スケジュール・IAM・公開設定は未実装/未変更。今回のアカウント競合・Read削減の完了条件と切り離す。手動運用は[TR-009](../../design/tr-009-japan-post-postal-data.md)を参照。
+Local起動時・24時間ごとの確認処理を実装。クラウド自動ジョブ・IAM・公開設定は未実装/未変更。手動運用は[TR-009](../../design/tr-009-japan-post-postal-data.md)を参照。

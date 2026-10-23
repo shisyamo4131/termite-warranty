@@ -1,5 +1,11 @@
 # バックアップ・全体復旧の操作手順
 
+## 2026-10-15 作成記録を含む保全（Local候補）
+
+新しいaccountCreationOperationsはAuthと同じ現在権限側の記録として保全し、復元先の過去記録を現在baselineで置き換える。baselineの取得/照合予算にも含め、旧baselineは再採取する。未完了UID lockまたはAuth/文書不整合は従来どおり再開不可。masterOperationReceiptsはマスタと同じ業務復旧時点に戻す。[内部契約](../design/meeting-prototype-2026-10-03.md#2026-10-15-保存結果と作成操作の契約local候補)。正式再投入はaccountCreationOperationsを保全、masterOperationReceiptsを旧マスタとともに計画対象にする。旧resetスクリプトは新rootを未分類として停止し、無断で流用しない。
+
+Auth新規発行の結果不明はaccount-mutation-recoveryのinspectでUID/期待操作ID/所属操作を確認する。実適用前に旧worker停止と復旧所有を照合し、作成復旧は一致した無効アカウントまでとする。Auth不存在/別メール/別所有では停止し、無断作成・削除・lock解除をしない。具体的な既存入口と境界は[設計](../design/account-concurrency-read-efficiency-2026-10-05.md)。バックアップ/PITR/Auth退避の実設定は依然リリース直前まで保留し、このLocal修正で有効化しない。
+
 ## Prodへの運用入口追加（2026-10-13、Localのみ）
 
 [Prod手順](production-bootstrap-review.md)のproduction-operations入口に、固定(default)復旧の保全／一時復元／検証／完全同期／HS読取確認／別了承再開を接続。配備CIと別の明示運用WIF、実project／DB、commit、操作・承認記録を必須とする。既存の実障害通知による自動着手承認はDev限定のままで、Prodへの実行権限へ拡張しない。

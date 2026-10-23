@@ -1,5 +1,134 @@
 # Operations
 
+## 2026-10-23 本日実行の承認と初期設定の確定
+
+オーナーが本チャットでProd配備・初期化・正式投入を本日実施と指定し、この範囲の保留を解除。バックアップ・PITR・Auth退避の再開予定は11/1（日）で、本日は無効を維持する。10/29・30の現行仕様でのHS最終受入れ、11/2納品は維持する。日程指定だけで本日保護を設定したり、自動実行予約済みと扱わない。
+
+Prod業務管理者はHS清水社長と開発者の2名。一般担当は初期導入時に作成しない。AIR Gmailの接続アカウントを確認し、清水氏の受信メール（2026-10-19、件名「RE: 開発環境における試行のお願い」）でアドレスを照合。開発者はオーナーが指定したAIRアドレス。実アドレス・認証情報は非公開入力で管理し、この文書へ転記しない。
+
+会社情報と3グループ請求先は現在判明している内容で確定する。Dev実像から取得した会社情報・HSC/SHS/UH請求先は正規化関数で検査成功（exit 0）。会社名は存在し、請求先は任意項目のみのため空欄でも必須不足ではない。未判明値を推測で補完しない。元見本の旧ローカル保存先は現存せず、再照合済みとは主張しない。
+
+本日11:46 JSTのIAM読取りで、prod-operatorは2DBのgetMetadata/get/listとproject読取りだけ。書込み／Auth操作権限がなく、WIFはmain上の読取り専用workflowだけを許可している。正式投入の実行経路には追加の権限・workflow整備が必要。Owner資格情報による直接書込みや長期鍵で迂回しない。従前の権限変更の事前確認境界を維持し、具体範囲を本人へ提示する。
+
+本番昇格PR #56を作成したが、先行索引READYと運用経路の確認前にmergeしない。実初期化・Auth作成・正式投入・設定変更は未実施。旧節の本日分の保留記述は本決定に置換するが、未実施の完了記録には読み替えない。
+
+## 2026-10-23 本番判断のための読取りと仕様固定
+
+オーナーが現行機能・過去データ取込み仕様を了承し、10/29・30の最終受入れで大幅仕様変更を受け入れないと指定。Dev／Prod一致を目標とするが、同時のProd配備・正式投入・保護保留を優先。今回クラウド書込み・Git変更・配備・データ変更なし。
+
+読取り helper `node tmp/oct23-read-production-readiness.mjs` はexit 0。要約 `tmp/oct23-production-readiness-summary.json` の取得時刻2026-10-23T02:24:54.637Z（11:24 JST）。個人情報を出力せず件数・入力有無・状態のみ。Dev442／Prod0、Dev会社名・代表者・肩書のみ入力、3グループ請求先は空、Dev有効スタッフ3名とAuth対応一致、Prod Auth0を確認。両環境21 Functions ACTIVE、日次予定0、PITR無効、自動保護false。Hosting公開はDev10/22・Prod10/15で、版一致は未達。
+
+Dev442件を10/23確定原資料計画と全業務項目比較して欠落0・追加0・差異0。作成／更新日時・初期取込み操作ID・監査担当者／日時は除外、履歴が初期取込み1件であることは別検査。正式投入日で再生成・再照合する。Cloud Owner・支払先は10/20・21既存確認記録を使用し今回再照会とは扱わない。[判断表・残件](runbooks/production-bootstrap-review.md#2026-10-23-確認済み事項と実行判断)。
+
+変更分類はdocumentation-only。実装・データ契約・ADR・ガバナンス・設定に変更なし。アプリ検証／build／配備はこの文書変更のゲート対象外。文書検証結果は今回の完了報告に記載する。既存の請求先関連3文書の未コミット変更は保持した。
+
+## 2026-10-23 保証上限の本人Dev受入れと本番準備
+
+オーナーの「今回のDev受入れ→PRでdev統合、その後の本番準備まで」を、直前のDev候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` の本人受入れ了承と統合指示として記録。対象はグループ上限・登録編集時適用・保存済み上限による延長と、既存442件不変。HSの最終受入れとは別で、10/29・30に実施、11/2納品と指定された。PR統合結果はGitHubのmerged状態で確定する。
+
+Dev run39755202067の全体successを再確認。723a7aeから今回候補まで製品・試験・実行設定の差分なし（記録文書のみ）。10/22の包括7gate・画面確認・配備照合を再利用し、アプリ試験／build／Dev再配備は繰り返さない。今回変更は文書のみで `./scripts/check-governance.ps1` と `git diff --check` は各exit 0、PRでは必須Verify development deploymentを適用する。新仕様・データ契約・ADR・ガバナンス変更なし。請求先関連3文書の未コミット差分は混入させない。
+
+本番準備：ローカルの確定原本と入力sourceSha256一致、442行、Dev会社情報／請求先の混入なしを確認（Python検査exit 0）。`node scripts/prepare-historical-intake.mjs --input tmp/oct21-reimport-input.json --date 2026-10-23 --output tmp/oct23-production-preparation-plan.json` はexit 0、errors=0。HSC99・SHS66・UH277、グループ3・工務店3・本支店17。独立Python検査もexit 0、UH住所＝契約No277件・住所あり442件・満了報告不要148期間・上限HSC30/SHS30/UH10、Dev会社情報なし。初回読取りの文字コードエラーは成功扱いせずUTF-8指定で再実行した。2026年度次番号はHSC100・SHS68・UH128。これは10/23基準のLocal予行計画であり、正式投入用の承認済み計画ではない。実行日・原本更新有無・対象実像の再照合を必要とする。原本・計画・実値はGit外。
+
+ProdのGitHub変数PRODUCTION_APP_DEPLOY_ENABLEDは読取りでtrue。保留はenable停止ではなく、mainへの製品統合／配備を実行しない境界で維持する。設定変更なし。後日のmain統合は自動配備を伴うため別途保留解除が必要。実Cloudの初期化・管理者設定・正式投入・保護設定は実行していない。具体的な順序と実行前入力は[本番準備](runbooks/production-bootstrap-review.md#2026-10-23-受入れ版の本番準備)を参照。
+
+## 2026-10-22 保証グループ上限の実装・Dev準備
+
+候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` をcommit/push済み。Dev3グループの補完と読戻しは各exit 0、UH10／HSC30／SHS30、残更新0。442物件のpropertiesDigestは前後とも `6a849d3d56ccffa7877322f038bdfa2fc247ce1e1b6b2c7464699c0ccf28c62c` で一致。既存物件の期間・満了日・上限は不変。[Dev配備run39755202067](https://github.com/shisyamo4131/termite-warranty/actions/runs/39755202067)はbuild/deployともsuccess。build18:24:44〜18:26:00 JST（76秒）、deploy18:26:03〜18:29:15（192秒）、開始〜終了4分31秒。本人受入れ・dev統合は未実施。
+
+配備後の独立読取りもexit 0。21 Functions ACTIVE・環境パラメータ不変・公開接続先一致、Hosting `sites/termite-warranty-dev/versions/25840f643f575e53`、PITR=false・日次予定0・backupAutomation=false。補完コマンドの再読取りもexit 0、残更新0・442物件hash一致。Dev実画面でUHグループ10年／HSC30年、新規UHの初期値10年・候補10年だけ、新規HSCの初期値20年・候補10／20／30年を確認し、保存せず閉じた。Devの物件登録・延長・採番・試験データ追加なし。
+
+受入れ確認：保証グループの最大保証期間、UH／HSC／SHSの物件選択肢、既存物件の期間・満了日・上限が不変であること。設定引下げ後も保存済みmaxYearsで延長し、次の物件編集は最新グループ上限を検証するケースはLocal連携試験で確認済み。実データで不要な延長操作をしない。残る工程は本人Dev受入れ→PRでdev統合、納品ロードマップのProd準備・保留解除判断・正式投入・保護実証・納品資料／HS最終確認。別件の請求先記録3文書の未コミット部分は保持。今回候補と結果記録を改修branchへpushし、mainとProdは変更しない。
+
+包括7gate：`npm test` は650成功・既存2skip、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1` は各独立exit 0。最終 `npm run test:rules` は206成功・427874ms・emulatorsStopped=true、exit 0（tmp/group-limit-rules-release.log）。Local画面でUH10年のみ、HSC10／20／30年、グループ20年保存・読戻し・10年復帰を確認。架空工務店・本支店各2件をLocal確認用に残し、物件・採番は作成していない。
+
+グループ設定はmaxWarrantyYears、物件の保存済みmaxYearsを延長判定に使う。既存物件の期間・満了日・上限の一括更新なし。変更クラスはUI・アプリロジック・データ契約／補完・配備の複合で、包括7gateを選定。Prod・正式投入・保護設定は保留。試験のグループマスタにも明示的な上限を設定し、欠落時の拒否は専用試験で確認する。
+
+初回単体試験は旧fixture欠落とsandbox内temp rename制限で失敗。fixture更新・許可された実行環境で解消。後続の単体試験とRules同時実行は試験stage lock競合を検出したため成功扱いにせず、以後は順次実行する。初回Rulesはsandbox内エミュレーター起動制限で停止し、権限を取得して隔離profileで再実行。方針修正前に開始したRulesは旧候補を参照して失敗したため、最終版の証拠には再利用しない。画面試験でwatchの参照初期化順序を修正し、最終コードで必要gateを再確認した。包括7gateの省略なし。追加focused回帰は登録されたtrigger pathに変更なし。仕様・要件・現行設計契約・補完手順・changelogを更新し、CI・IAM・Rules・索引・ガバナンスは変更していない。新ADRは追加せず、既存物件maxYearsの意味を維持する。
+
+
+## 2026-10-22 優先1の回答記録
+
+オーナーが日程案を採用し、①保険CSVは現行維持、②保証グループ別上限を初期納品へ含める、③帳票はHS担当者確認済みと回答。仕様・対象要件・HSC-036/043の決定とHSC-010/037の確認状況、納品ロードマップへ逐次反映。①の未確定と③の確認待ちは解消。②は採用済み・実装未完了として区別する。
+
+今回の変更は要件決定・確認報告の文書化のみ。アプリ・データ契約の実フィールド・環境・CI・ガバナンスは変更せず、アプリ試験は実施しない。文書検証はgovernanceとdiffを適用する。既存請求先関連3文書の変更は保持。commit/push、PR、Dev／Prod配備、正式投入、保護有効化は今回実施しない。
+
+## 2026-10-22 Dev受入れ・dev統合と納品日変更
+
+オーナーが本チャットで「Dev受入れ→PRでdevへの統合を進めてください」と指示。直前の提供対象060acb495fb8af9dba50cfbaf9c4ffa8d606704bの本人Dev受入れ了承として記録する。対象は満了後の保険操作、保証グループ＋引渡年月検索、住所必須化、過去取込みの満了期間自動不要化、保険満了案内／設定撤去、442件の限定再取込み。HS社長の正式利用開始了承とは区別する。
+
+配備run39589575814はsuccessをGitHubで再確認。再取込み時の同一版再配備・全件照合・normal16は下記10/21の正式記録を参照。受入れ版以後の差分は文書のみで、アプリ／実行設定は同一。既存包括7gate（647成功・2skip、205連携成功ほか各exit 0）を失効基準に従って再利用し、今回の文書はガバナンス・diff検査、統合は必須PR checkを適用する。追加配備・データ変更・保護有効化は行わない。既存の請求先関連3文書の未コミット部分は保持し今回のcommitから除外する。
+
+最終納品日は本人指定により2026-11-02へ変更。納品条件を緩和せず、利用開始日や保留解除を推定しない。優先順位と条件付き作業枠は[納品ロードマップ](roadmaps/2026-initial-delivery.md#2026-10-22-最終納品日と残作業)を参照。文書の `./scripts/check-governance.ps1` と `git diff --check` は各exit 0。コード・設定・データ形状は今回変更せず、追加のアプリ試験／再配備は省略。統合結果はPRのmerged状態とmerge commitで確定する。
+
+## 2026-10-21 保険満了案内廃止・物件限定再取込み
+
+Dev候補 `060acb495fb8af9dba50cfbaf9c4ffa8d606704b` の配備・再取込み・通常再開完了。本人受入れは次工程。[手動Dev run 39589575814](https://github.com/shisyamo4131/termite-warranty/actions/runs/39589575814)はbuild/deploy success。厳密復旧照合用の同一版再配備後、Hosting版は `sites/termite-warranty-dev/versions/e381400574161081`。21 Functions ACTIVE、接続先一致、既存環境パラメータ不変、PITR無効・日次予定0・backupAutomation=false。Prod・正式投入・保護設定は未変更。
+
+再取込み実績：`historical-intake.mjs apply --properties-only` の正式処理はexit 0・complete=true・442物件・置換対象736文書。独立読取りもexit 0でHSC99／SHS66／UH277、UH住所＝契約No277件、満了済み報告不要148期間、保持46文書の全hash一致、17採番一致、旧操作記録0、外部キー予約277を確認。2026年度の次番号はHSC100／SHS68／UH128。マスタ・スタッフ・会社情報・請求先・その他設定は保持、Authとの権限照合も正式処理で成功。原資料・実値・照合用原像はGit外。
+
+厳密照合の初回不一致は、RulesとFunctionsの43ファイルがWindows/CIの改行コード差（改行正規化後は全一致）、Hostingは通常generateと既存復旧用の固定buildId/時刻正規化の違いを確認。既存 `build:recovery-release` と既存の2DB配備構成で同じコードをDevへ再配備しexit 0。比較条件は緩和せず、CI・IAM・保護設定も変更しない。直後Hostingは全56件一致だが集計fileCount未反映で停止し、再配備せず読取りpreflightを再実行して全10項目pass（21ソース、Hosting56、索引25、除外33、両Rules）を確認した。読取りpreflightのexit 0だけでは合格とせず、checksの全passで判定した。
+
+実行順はenter→停止/原像確認→限定apply→独立全件照合→plan-intake→publish→reopen→observe。各正式コマンドexit 0。実行ID `historical-properties-20261021`、公開計画 `historical-properties-20261021-publish`。plan-intakeは全782文書verified、publishはverification15、reopenはnormal16、最終observeは両DB normal16一致・進行更新なし・Auth退避占有なし・運用占有なし。取込み承認参照 `owner-20261021-properties-only`、通常再開参照 `owner-20261021-dev-delivery-normal` は今回の本人による限定再取込みとDev提供の指示を記録したもの。本人の新候補受入れ完了とは扱わない。
+
+Dev画面の読取り確認：通常再開後、UH＋2018-07で18-001の1件を抽出。詳細で住所と契約Noの一致、前半2018-07-08〜2023-07-07の報告不要、後半2023-07-08〜2028-07-07の未報告を確認。保険満了案内メニューなし、アラート設定は保証満了2か月前だけを表示。実値は記録せず、画面確認で業務状態を更新していない。
+
+ログはGit外の `tmp/oct21-recovery-deploy.log`、`tmp/oct21-reimport-preflight-final2.json`、`tmp/oct21-reimport-apply.log`、`tmp/oct21-reimport-verify.json`、`tmp/oct21-reimport-plan-publication.json`、`tmp/oct21-reimport-publication.json`、`tmp/oct21-reimport-reopen.json`、`tmp/oct21-reimport-final-state.json`、`tmp/oct21-final-dev-check.json`。後続は今回候補の本人Dev受入れ、PRでdev統合、Prod反映判断、正式投入。バックアップ/PITR/Auth退避の保留を維持。
+
+Local包括7gate完了：`npm test` 647成功・既存2skip、`npm run test:rules` 205成功・400604ms・emulatorsStopped=true、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`は各exit 0。最終コード2a12abdに対する証拠。UIの保険用メニュー・設定削除をLocal実画面で確認。初回の試験は旧メニュー数／旧検索拒否理由の期待値と型の残存を修正。終了した初回試験の残存ロックは所有nonce・PID終了を確認して1ファイルだけ除去、最終は通常終了した。入力連動の追加回帰は対象path未変更。最終コードの関係する全gateを満たし、後続文書だけではアプリ証拠を失効させない。取込み元はAIR現Excelの確定hash一致、再構成442行の既存出典rowHash一致。Dev実行結果は本節冒頭。
+
+本人が1657f6bのDev受入れ完了を明示。今回のUI・アプリロジック・データ操作・配備の複合変更には包括7gateを選定。保険案内入口と設定だけを廃止し報告操作・保証案内を維持する。再取込みは本人がマスタ・アカウント・会社情報・請求先・その他設定の保持を明示承認。対象Dev(default)、制御recovery-control、Prod禁止。失敗時は停止状態を保持し同一計画・ownerで調査、結果不明時に再削除や通常再開をしない。旧版へのコード切戻しはrevert・再検証・承認済みDev配備で行う。データ差戻しが必要なら保持した非公開原像と承認範囲を確認する。Local検証および配備・再取込み結果は本節冒頭。
+
+## 2026-10-21 検索・住所必須・過去取込みのDev候補
+
+最終照合完了：19:36:22 JSTの読取りで3索引すべてREADYを確認。直後19:36:26の画面再試行ではcode 9が残ったが、独立した同条件のFirestore読取りで2件取得し、その後のDev画面でもUH＋2018-11が2件（18-003を含む、引渡日はいずれも11月）となった。Functionsログ19:37:17 JSTにpropertyList success／propertyWarranties 2件を確認。途中の再配備・設定追加・業務データ変更はなし。索引作成・利用反映待ちの間に発生したエラーとして観測結果を記録し、READY直後からの反映時間の内訳までは断定しない。
+
+Devでは新検索欄と初期20件、UH詳細の住所必須表示、前半／後半の報告不要ボタンを読取りで確認し、保存せず閉じた。Devの業務試験書込み・再取込みは未実施。本人の今回候補受入れは待ち。残作業は本人受入れ→PRでdev統合、保留解除後のProd反映判断と新仕様での初期計画再生成・正式投入。Prod配備・バックアップ・PITR・Auth退避は保留。初回10年の保証自体が満了した物件の一括取込み拒否は維持する。別件の請求先記録3文書の未コミット分は今回も保全する。
+
+候補 `1657f6bce406183f15423aff5f98fc75720bd5ee` をcommit/push（各exit 0）し、[Dev run 39584907468](https://github.com/shisyamo4131/termite-warranty/actions/runs/39584907468)を実行。buildは19:29:05〜19:29:57 JST（52秒）、deployは19:30:01〜19:32:46（165秒）、両jobの開始〜終了3分41秒、いずれもsuccess。公開照合はready=true、Functions21、publicEntry=true、protectionHeld=true、PITR=false、日次予定0、backupAutomation=false。
+
+配備後の新検索で500を検出。Functionsログの19:34:33 JSTはpropertyListのFirestore query失敗code 9、Firestore Admin APIの実読取りでは今回追加のgroupId＋handoverDate索引3本がCREATINGだった。CLIの索引配備成功は作成申請の完了で、READYの保証ではない。当時は再配備せずREADYと画面検索の成功を待った。CI成功だけで完了とは判定しなかった。既存の20件初期表示は成功。ログはGit管理外tmp/oct21-dev-deploy.log、tmp/oct21-dev-query-log.txt。
+
+オーナー承認範囲は3項目の改修、Local検証、Dev候補配備・照合。先行の「報告不要」操作の本人受入れは保持し、今回候補の本人受入れを先取りしない。Prod配備・正式投入・既存Dev再取込み・バックアップ／PITR／Auth退避は実施しない。
+
+変更：物件検索はgroupId一致＋handoverDateの月範囲、両条件必須、未指定は最新20件、閲覧範囲と更新順を維持。3索引を追加。住所は本登録で共通必須、下書き任意は維持、旧addressRequired=falseは無視し設定UIを撤去。UH取込みは元externalKeyを住所へ複製。新規CSV・初期計画のみ、取込基準日前に満了したpending期間を既存waive履歴形式で不要化し、当日満了・将来・報告済みを保持。CSV日付跨ぎは再プレビュー、初期計画は実行日本日付を照合し、再開はjournalを維持する。初期計画の仮監査値は実行者・実時刻へ置換する。
+
+分類はUI／application-logic／data-contract-schema-migration／project-guidance／deployの複合で包括7gateを選定。project-rulesの旧検索条件を承認済み条件へ更新し生成整合を確認。IAM・CI・保護設定は変更しない。仕様、検索・住所要件、現行設計契約、CSV設計、初期取込み手順、試行ロードマップ、changelogを反映。新しいデータ型・ADR・文書の追加はなく、既存の索引から参照可能。既存の履歴を消さず、切戻しは通常revert・再検証・承認されたDev再配備とする。戻した旧版は新規取込みの自動不要化を行わず、旧検索UIに戻る。
+
+Local画面：架空物件でグループだけの検索を拒否、HSC＋2018-07の抽出1件、条件クリアで初期表示、本登録物件の空住所の保存拒否を確認。実Dev業務データへの試験書込みは行わない。型検査・build・Functions syntax・seed syntax・ガバナンスはexit 0。単体最終は647成功・既存2skip、exit 0（tmp/oct21-unit-final.log）。対象CSV試験32成功、exit 0。初回の連携試験は旧検索／住所任意の期待値で失敗し修正。連携実行中の単体再実行では一時領域ロック競合が発生したため、その終了後に順次再実行して単体成功を確認。最終の `npm run test:rules` は205成功、Emulator正常終了、exit 0（374,805ms、tmp/oct21-rules-final.log）。参照Store試験も実行前に新しい検索条件へ更新して成功を確認。Dev配備・照合結果は本節冒頭の記録を参照。
+
+包括7gate：`npm test`、`npm run test:rules`、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`はいずれも独立exit 0。`git diff --check`・索引定義重複検査もexit 0。追加の入力連動回帰は対象path未変更。後続は文書更新のみで、アプリ／データ／試験の成功証拠を失効させない。
+
+受入れ項目：保証グループ＋引渡年月の一致、片方指定の拒否、クリア、保証番号欄撤去、UHを含む本登録の空住所拒否、取込みプレビューの契約No住所と報告不要期間数、既存満了後の手動不要／取消操作の維持。取込み実行・日付境界・監査・再送・全件棄却はLocal架空データで確認し、Devへ試験物件を追加する必要はない。
+
+## 2026-10-21 満了後保険操作・UH初期計画のDev候補
+
+本人受入れ：オーナーが同日本チャットで「『報告不要』の件はDev受入れ完了でOK」と明示。対象は上記候補の報告不要対応に限定し、検索軸変更・他の未実装要件の受入れへ拡張しない。検索軸変更が未実装との指摘を受け、次の改修優先事項として整理。今回の指示は残作業報告であり、追加実装・PR統合・配備は行っていない。
+
+Dev配備完了：候補 `c2c7a0e52e463e781101eab63735fe1c6e3046bc` をcommit／push（各exit 0）、dev controllerの手動配備を起動（exit 0）。[run 39577888288](https://github.com/shisyamo4131/termite-warranty/actions/runs/39577888288)はbuild／deployともsuccess。build 18:33:34〜18:34:56 JST（82秒）、deploy 18:35:00〜18:40:27（327秒）、両jobの開始〜終了は6分53秒。公開後 `ready=true,functionsActive=21,publicEntry=true,protectionHeld=true,pitr=false,dailySchedules=0,backupAutomation=false`。既存軽量手順どおり全ソースZIP／Hosting hash独立比較は行わない。
+
+Dev画面を再読込し、2018年10月→18-001→詳細の前半2018-07-08〜2023-07-07が未報告で「報告不要にする」有効を確認。Dev実データの保険状態は変更せず、更新操作はLocal画面と隔離連携試験で検証。Local画面では報告済み再表示と後半未報告維持まで確認（Git管理外のtmp/expired-insurance-local.png）。本人Dev業務受入れは待ち。受入れ完了後に通常PRでdev統合し、main／Prodへは進めない。今回候補の19ファイルをcommit済み、別件の請求先記録3文書は未コミットで保全。
+
+オーナーが満了後の報告不要・報告済みを許容、実報告判断は運用事項と確定し、UHのProd初期住所複製を承認して改修・Dev受入れまでを指示。通常のDev候補配備を行い、本人受入れ完了・dev統合は先取りしない。Prod配備・正式投入・保護設定は保留。
+
+変更：WarrantyLifecycleDetails／MeetingPrototypeの不要操作の期限条件と期限説明、Functionsの不要設定／取消の満了拒否を除去。HS権限・本登録状態・期間ID・理由・履歴・revision・receiptは維持。報告済みは既存の過去対象月の報告コマンドを維持し、期限を理由とした新規制限を追加しない。過去物件計画はUHだけ正規化externalKeyを住所へ複製し、原入力・他グループ住所・キー予約を保持。取込み時の自動不要化、全住所必須化、物件検索は今回未実装。仕様・保険／住所要件・HSC036・ADR0041・設計契約・試行ロードマップ・取込み手順・changelogを反映。保存スキーマ・IAM・CI・ガバナンスは不変。切戻しは改修差分を通常revertし再検証／Dev再配備する。既存の状態履歴は削除せず、取込み計画は旧digestを使わず再生成する。
+
+分類：UI＋application-logic＋data-contract-schema-migration、Dev配備のため包括7gateを選定。`npm test`643成功・既存2skip（exit 0）、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit 0。取込み／画面表示の対象試験12成功（exit 0）。`npm run test:rules`204成功・Emulator停止確認（exit 0、402,790ms）。`./scripts/check-governance.ps1`と`git diff --check`もexit 0。ログはGit管理外のtmp/expired-insurance-*。包括以外の入力連動回帰は対象path未変更。未実行を成功扱いにしない。
+
+Local画面：demo-termite-warrantyの架空物件で2018年10月指定→前半2018-07-08〜2023-07-07の不要設定→未報告一覧0件→不要取消→1件再表示→報告済み登録→0件を確認。不要理由・担当・日時を保持、後半は未報告のまま。テスト専用物件local-expired-insurance-checkと履歴はLocal受入れ用に残す（実採番消費なし）。最初のsandbox内LocalサーバーはChromeから接続不可で停止し、通常ローカル環境で起動し直して確認。Devの実保険状態を試験のために変更しない。
+
+## 2026-10-21 Dev保険未報告の再現とUH住所複製
+
+本人がDevでの症状確認と、Dev UH物件の住所へのお施主様契約No複製を指示。ChromeのDevで本人ログイン後、保険報告一覧に2018年10月を指定し1件抽出、UH18-001の詳細で前半2018-07-08〜2023-07-07は未報告かつ報告不要操作なし、後半2023-07-08〜2028-07-07は同操作ありを確認。読取りだけで保険報告・不要・取消操作は実行しない。画面の `period.expiryDate>=today` とFunctionsの `period.expiryDate < date` による拒否を確認した。検索年月は操作期限の基準日を変更しない。
+
+住所複製の事前読取り：Dev `termite-warranty-dev` の `(default)`、保証グループ `UH` は277件、externalKey欠落0、住所空欄277、既存非空住所0。`externalKey`を契約Noとしてそのまま複製し先頭ゼロを保持。取込み・通常保存の必須条件変更や保険状態変更を混在させない。
+
+Git管理外の `tmp/copy-uh-contract-address.mjs` で、Dev固定・対象277件・住所空欄・キー有効・revision正常・通常運用世代一致・運用占有なしを事前検査。全UHを再取得し事前像不変をtransaction内で検査後、277件のaddress、revision（+1）、updatedAtのみを原子的に更新した。再試行は1回に限定し、結果不明時は自動再実行しない。更新後の全443物件をメモリ上の事前像と比較し、対象以外は全文不変、対象は上記3項目以外不変を確認。別プロセスの読取りでも277件全件の住所＝externalKey、欠落0、非一致0を確認。採番、保証番号、外部キー予約、保険状態・履歴、グループ設定、Auth、Prodは変更なし。
+
+コマンド結果（各exit 0）：`node tmp/inspect-uh-address.mjs`（前後）、`node tmp/copy-uh-contract-address.mjs test`（正常1・拒否5ケース）、`node --check tmp/copy-uh-contract-address.mjs`、`node tmp/copy-uh-contract-address.mjs apply --dev-277-empty-addresses`。住所の戻しが必要なら、実行後の業務更新を再確認し、今回の対象を特定した補正を別途承認する。自動巻戻しや保護サービス設定は行っていない。実データ本文・カード情報・秘密値は文書へ転記しない。
+
+データ移行の検証として `npm test` は642成功・既存2skip、exit 0（`tmp/meeting-20261021-tests.log`）。初回はsandboxの一時Git／rename権限制約で失敗し、同じ試験の通常権限実行で解消した。Rulesは既存4387365の203成功証拠を再利用：今回はアプリ・Functions・Rules・データ形状・依存・試験環境を変更せず、既存address文字列と更新管理値のみを補正し失効条件に該当しない。新しい取込み状態・検索・必須制御の実装検証には流用しない。文書のみの仕様採用記録と現況を反映、governance・diff検査は最終差分で実施する。配備・正式投入・バックアップ・PITR・Auth退避は保留。
+
 ## 2026-10-21 保険報告説明資料のmain限定反映
 
 本人の指示によりmain `f221cba` 基点で10月19日のPDF3点（説明2頁・図解比較1頁・契約番号の提案3頁）とREADME・生成元2本をdev `fb1aca9` から同一内容で取り込む。HS回答・出典、HSC-036と索引の同項目、保険抽出仕様、10月17日確定事項、要望対応表、文書索引を関連文書として反映。未採用提案を確定仕様へ昇格させず、Devの受入れ記録とProd未反映を明示する。要望対応表の検証リンクは確認済みDev commitの運用記録へ固定し、無関係のアプリ・郵便番号対応やその記録は取り込まない。
@@ -17,6 +146,148 @@
 包括gateを選定し、変更で失効する単体／文書分類検証を実行。`npm test` 607成功・既存2skip、exit 0（`tmp/hs-guide-main-tests.log`）。初回はdev用試験の旧PDFパスがmainの対象にないため1件失敗し、今回の対象に限定して全試験再実行後に成功。型検査・build・Rules・Functions/seed構文は既存mainの成功証拠を再利用：app/src/functions/public、依存、Nuxt/TypeScript、Rules/索引、Firebase設定、workflow、governanceは基点mainと差分なし。文書の分類追加・試験・生成コードからこれらの入力は変更されず、policyの失効条件に該当しない。
 
 統合PDFの11ページ・空のパスワード欄・全ページ文字抽出と生成元3本の構文検査はbundled Pythonでexit 0。PDFはdev受入済み成果物と同一で、作成時の全ページ描画確認を再利用。governance／差分検査は最終状態で実行。業務仕様・データ契約・ADR・納品進捗の変更なし。通常PR revertで今回の文書と限定分類を差し戻せる。PR／Actionsを統合・配備省略の証拠とする。
+## 2026-10-21 Prod請求先切替・有料化の完了確認
+
+本人が請求先切替と有料化を実施し、同日本チャットで完了を報告。ChromeのGoogle Cloudコンソールを読取り確認した。開発者アカウントでProdのリンク先が「HS-TermiteWarranty」であることを確認し、HSアカウントへ切替後にも同請求先の管理画面に `termite-warranty-prod` が関連付けられていること、請求先一覧の状態が「アクティブ」であることを確認した。2026-10-20時点の開発者請求先維持・切替未実施の記録を、この完了記録で更新する。
+
+- HSアカウントで概要の「有料のアカウント」を再確認。有料化は本人の操作で、今回の確認作業では設定を変更していない。
+- クレジット画面を再読込し、アップグレード後のFree Trial枠が「利用可能」、残り100%・47,159円、開始2026年10月21日・終了2027年1月20日であることを確認。直前の「今後開始」表示から利用可能への反映が完了した。
+- 旧Free Trial枠は「期限切れ」、終了2026年10月21日。旧枠と新枠の残高を合算しない。無料クレジットの期限延長ではなく、残額の引継ぎである。
+- 支払方法は同日の先行読取りでメインのカード登録を確認。カード番号・有効期限・支払プロフィール情報は本書に保存しない。カード決済の実行・成功を検証したものではない。
+- 出典：本人の完了報告、およびGoogle CloudコンソールのProdリンク先、請求先一覧、概要、クレジット、お支払い方法の実画面。請求先の識別はHS-TermiteWarranty。確認操作は読取りのみ。
+
+残件：予算アラートは同日の確認時点で未設定。Prodのアプリ再配備・業務動作検証は今回行わず、正式投入・バックアップ・PITR・Auth退避も引き続き保留。請求先切替完了を、納品・業務受入れ・保護設定完了とは扱わない。今回の差分は運用記録・環境現況・ロードマップのMarkdownのみで、仕様・データ契約・ADR・アプリ・CI・ガバナンスは不変。文書のみの検証区分を適用し、差戻しは当該文書追記の取消で行う（クラウドの請求先を戻す操作ではない）。
+
+## 2026-10-21 統合ガイドと不要資料の整理・dev統合準備
+
+本人が統合PDF・資料整理をcommit／pushしPRでdevへ統合するよう承認。11ページの統合版は空のパスワード入力欄としおりを保持。元PDF2つと未送付の10月5日版スケジュールを削除し、関連README・索引を整理。再生成可能な確認画像24点はGit対象外のtmpから削除し、他の履歴・送付済み資料・生成元・撮影原画像・証跡を保持した。
+
+新しいガイド3ファイル・統合PDF・削除旧スケジュールの5パスのみを `scripts/lib/change-scope.mjs` の完全一致文書リストに追加。隣接未分類ファイルの拒否、アプリ混在時のproduct判定、旧PDF削除のdocumentation判定を回帰試験で確認。配備条件・workflowは変更しない。分類修正はCI変更として扱い、包括gateを選定する。`npm test` は642成功・既存2skip、exit 0（`tmp/hs-combined-guide-tests.log`）。入力に対応するdocumentation-routing回帰を含む。初回はsandboxの一時Git設定／renameの権限制約でexit 1だったため、同じ試験を制約外で再実行して解消した。
+
+型検査・build・Rules203成功・Functions/seed構文は4387365の成功証拠を再利用。現在のdevと当該版のapp/src/functions/public・依存・Nuxt/TypeScript・Rules/索引・Firebase設定・seedのGit差分なしを確認。今回も当該入力は変更せず、policyの失効条件に該当しない。PDFの全11ページ文字抽出、空のフォーム本体とwidget・appearance、生成元2本の構文検査はbundled Pythonでexit 0。作成時の全ページ描画・目視確認済みPDFを変更していない。governance／diffは最終差分で確認する。
+
+業務仕様・データ契約・Dev本人受入れの変更なし。main統合、Dev／Prod配備、正式投入、バックアップ・PITR・Auth退避は行わない。資料・分類修正の差戻しは通常のPR revertとする。統合結果はGitHub PRとActionsを正本に確認する。
+
+## 2026-10-20 HS請求先ガイドの文書統合
+
+本人が未コミットの請求先ガイド・PDF・関連文書をコミット／pushし、PRでdevへ統合するよう承認。対象は `deliverables/hs-cloud-billing-guide-2026-10-20/` のREADME、生成元、画像5枚と `output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf`、docs索引。PDF・画像は既存成果物を維持し、実登録・請求切替は行わない。画像にカード番号・認証情報がないことを確認。PDF全10ページの文字抽出と生成元の構文検査はbundled Pythonでexit 0（標準Pythonはpypdf未導入のため初回exit 1、新規インストールなし）。前回の全ページ描画・目視確認記録は生成元READMEに保持。
+
+現行CIでは未分類／製品扱いとなるため、`scripts/lib/change-scope.mjs`に確認済み8ファイルだけを完全一致で文書登録し、`test/documentation-changes.test.mjs`で文書判定、製品混在、隣接ファイルを自動許可しないことを検証。初回登録はCI技術変更を含む。`npm test` は641成功・既存2skip、exit 0（`tmp/hs-billing-guide-tests.log`）。同コマンドに入力該当のdocumentation-routing回帰を含む。包括gateは選定するが、型検査・build・Rules203成功・Functions/seed構文は4387365の成功証拠を再利用：アプリ・依存・Functions・Rules・永続化・実行環境は不変でpolicyの失効条件に該当しない。文書分類と文書生成元はアプリbuild／Functions／配備設定から参照されず、Hosting公開先は.output/public。governance／diff検査は最終差分で実行する。
+
+アプリ・業務仕様・データ契約・既存Dev受入れは変更なし。Dev／Prod配備は起動せず、main統合も行わない。バックアップ・PITR・Auth退避と請求切替は保留を維持。文書統合の差戻しは当該PRを通常revertする。
+
+
+## 2026-10-20 zipcloud受入れ・旧方式撤去とDev配備
+
+PR #49（dev向け）の初回チェックは画面証跡PNGが未分類で停止。`scripts/lib/change-scope.mjs`の既存完全一致リストへ今回の証跡3ファイルだけを追加し、`test/documentation-changes.test.mjs`で文書判定・製品混在・隣接未分類ファイル拒否を確認。画像は静的証跡でアプリや配備設定から参照されない。分類修正の差戻しはこの3エントリを戻す。包括gateを選択し、`npm test` 640成功・既存2skip、限定回帰15成功、各exit 0。型検査・build・Rules203成功・Functions/seed構文は受入れ版の証拠を再利用：変更は文書とCI分類・試験だけで、それぞれの失効条件となる製品・依存・実行環境・永続化・Functions入力は不変。governance/diffは最終更新後に再確認。main統合やProd配備は行わない。
+
+本人Dev受入れ完了（2026-10-20）：オーナーが「Dev 4387365の受入れ完了」と明示し、受入れ記録とPRによるdev統合を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。対象は上記切替・検索中ダイアログ・旧方式撤去を含む配備版。最新候補との差分は文書記録のみで、製品内容は同一。成功runとLocal検証の証拠を再利用し、文書検査とPR必須チェックを行う。Prod配備・main統合・保護設定変更は行わない。仕様／データ契約／実装／CIは今回変更せず、業務データ操作もなし。
+
+Dev配備完了：`codex/zipcloud-address-lookup` の `438736549b32a7e3356e62bc77c77f3047fbea0d` をpushし、[run 39409008651](https://github.com/shisyamo4131/termite-warranty/actions/runs/39409008651)をdev controllerから起動。build／deployの両job成功。Hosting54ファイル、Functions21件ACTIVE、公開入口／接続先確認成功。公開後checkは `ready=true, protectionHeld=true, pitr=false, dailySchedules=0, backupAutomation=false`。現行の軽量Dev手順どおり全ソースZIP／全Hosting hash比較は行っていない。旧住所JSONはビルド対象から除去済みで、通常Hosting releaseを公開した。Dev業務データのseed・初期化・補正・削除、Authユーザー操作、Prod配備は行っていない。
+
+`./scripts/check-governance.ps1`、`git diff --check` は候補commit前に各exit 0。commit／push／workflow起動は各exit 0、run完了はsuccessを読取り確認。本人Local受入れ・Dev受入れは完了。既存手順のPRでdevへ統合する。配備版と以後の文書記録commitを混同しない。別件の請求先ガイド・PDFとそのREADMEリンクは未コミットのまま保全。
+
+最終Local検証（旧方式撤去後）：`npm test` 639成功・既存2skip、exit 0（4,323ms）。前回662成功から旧方式専用23試験を削除。`npm run test:rules` 203成功、Emulator停止確認、exit 0（399,616ms）。`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs` は各exit 0。ログはGit対象外の `tmp/zipcloud-cleanup-{unit,rules,build,syntax}.log`。単体と連携の同時実行による2件の排他競合は、連携正常終了後の全単体再実行で解消。governance／差分チェックはコミット直前に確認する。UI・API・入力保持の受入れ済み挙動に追加変更はなく、削除対象だけを生成成果物でも確認した。
+
+本人が検索中ダイアログを含むLocal受入れ完了を宣言し、コミット・push・Dev配備、旧日本郵便方式の実装撤去を承認（task `01a133e7-092f-71f0-b5e7-43a8b7833ab9`）。Prod配備・dev統合後の本人Dev受入れを先取りしない。バックアップ・PITR・Auth退避は保留。請求先ガイド／PDFは今回のコミット対象外として保持する。
+
+削除対象：`public/postal-data/`の949ファイル、`scripts/postal-data.mjs`、`src/domain/hosted-postal-lookup.mjs`、`test/postal-data.test.mjs`。未コミットだったLocal自動更新module／状態UI／lib2ファイル／専用試験とGit管理外の`.local-postal/`も撤去。packageの更新コマンド・旧試験登録、試験内旧provider名も除去。共通`postal-lookup`と住所保存・移行処理は日本郵便データ配信機構ではないため維持。履歴文書・証跡は廃止注記付きで保持し、復帰はGit旧版から改修・検証する。
+
+Localの型検査、build、Functions構文、seed構文はexit 0。生成物に旧JSON／manifest参照／Local配信先なし、zipcloud URLありをNode assertで確認、exit 0。包括gateを選定し、全単体・隔離Emulator連携試験の最終結果は下記に記録する。単体の途中再実行で既存連携試験の排他lockと競合して2件失敗したため、強制解除せず連携試験終了後に再実行する。
+
+
+## 2026-10-20 住所検索中の入力遮断
+
+本人の追加指示により、検索中は閉じられないダイアログを表示して入力を遮断する。「入力済みの住所を保持しました」のVAlertだけを削除し、手入力保持・候補選択・取得失敗の案内は維持。応答・失敗・providerの8秒打切りで解除し、取消済みの旧応答では新しい検索のダイアログを閉じない。
+
+今回の変更：`app/components/PostalLookupDialog.vue`（共通表示）、`PropertyAddressFields.vue`、`MasterAddressFields.vue`、`BusinessContactFields.vue`（待機状態と解除）、`test/zipcloud-postal.test.mjs`、`test/property-warranty.test.mjs`。仕様・住所要件・ADR0050・TR009設計・CHANGELOGを更新。データ形式／権限／配備設定は不変で、データ契約・移行・新ADRは不要。既存未コミット差分を保持し、コミット・push・配備は未実施。バックアップ等は保留。
+
+検証分類：UI＋application-logic＋文書。`npm test` は662成功・既存2skip、exit 0（`tmp/postal-dialog-test.log`）。最初の試験は新しいBusinessContact用ハーネスのVue.versionと既存変数versionの衝突で1件失敗、ハーネス修正後に全件成功。`npm run typecheck` exit 0、`npm run build` exit 0（`tmp/postal-dialog-build.log`）。Rules203成功・Functions構文・seed構文は直前zipcloud検証のexit 0証拠を再利用：今回の差分はVue表示／待機状態・UI試験・文書のみで、policyのdomain／Functions／永続化／依存／試験環境の失効条件に該当しない。governanceとdiff最終チェックは完了報告に記録。
+
+Local実画面で検索中表示、Escape／文字入力後もフォームを保持、完了後の住所補完とダイアログ解除を確認。[画面](design/evidence/zipcloud-2026-10-20/loading-dialog.png)。3住所コンポーネントの失敗・取消・旧応答の待機状態は実scriptの自動試験で確認。ブラウザーで障害・時間切れを強制していない。フォームの保存・業務データ・採番の操作はなし。本人Local受入れは未実施。
+
+
+## 2026-10-20 zipcloud住所入力補助
+
+オーナーがzipcloud採用方向でLocal実装・検証、納品書への外部サービス依存条件の記録を指示。基点は主checkout dev `cc3b05f4448ecf6a31ad011306b4aefcda3473df` の既存未コミット差分。請求先ガイド／PDF等を保持し、コミット・push・Dev／Prod配備・外部設定変更は行わない。旧CSVのLocal自動更新についての下記記録より、本節と[ADR0050](decisions/0050-zipcloud-postal-lookup.md)を優先する。
+
+### 今回の差分・境界
+
+- 新規provider：`src/domain/zipcloud-postal-lookup.mjs`。固定HTTPS、JSON、8秒制限、Cookie／Refererなし、無効応答・1000件以上は失敗、永続キャッシュなし。APIキー・新依存packageなし。
+- 接続／保持：`app/components/MeetingPrototype.vue`、`BusinessContactFields.vue`、`MasterAddressFields.vue`、`PropertyAddressFields.vue`、`src/domain/postal-lookup.mjs`。自社情報／請求先を含む既存住所入力をzipcloudへ接続。空欄のみ補完、候補選択、建物名・既入力の保持、旧応答／候補の失効。
+- 試験：`test/zipcloud-postal.test.mjs`、`test/postal-lookup.test.mjs`、`test/property-warranty.test.mjs`、`test/company-settings-ui.test.mjs`、`package.json`。既入力がある試験は「自動上書き」を期待せず、明示クリア後の検索と途中編集／送信による取消を検証。
+- 起動：`nuxt.config.ts`から旧Local自動更新moduleを解除（HEADと同じ構成へ戻る）。Local状態UIの接続を除去。既存の未コミット旧module／UI／更新ツール、`.local-postal/`、同梱CSV生成物は復帰用に保全する。
+- 文書：仕様書、branches-and-addresses、delivery-and-technology、HSC-017／040と台帳、ADR0031／0049への後続決定注記とADR0050・索引、TR-009、技術／初期納品ロードマップ、docs索引、CHANGELOG、本節。HSC-040は方式決定済みへ移動。納品書の本文案をADR0050に保存し、正式文書化・説明・受領確認は残件。
+- 住所保存形式・DB・Rules・IAM・CI・バックアップ／PITR／Auth退避の変更なし。データ契約・移行資料の更新は不要。旧機構の削除整理は今回行わない。
+
+### 検証と実通信
+
+分類はdocumentation-only＋UI＋application-logic＋build/configの混在として包括7gateを選択。追加のdocumentation-routing／governance-toolsはトリガーパス未変更のため不要。
+
+- 実providerを公開郵便番号4件で照合するNode assert：1000001=単一、0790177=3候補、4520961=66候補、0000000=該当なし、exit 0。limit=1000を受理した観測であり、最大許容値／利用枠の保証ではない。
+- Localブラウザーで物件・工務店の3候補を表示し選択反映を確認（CORS含む）。物件の手入力住所・建物名保持、該当なし後の手入力も確認。[手入力保持の画面](design/evidence/zipcloud-2026-10-20/manual-preserved.png)。フォームは保存せず閉じ、業務文書・採番は操作していない。
+- 通信失敗は実サービスを故障させず、注入したネットワーク例外／HTTP失敗／JSON不正／APIエラー／時間切れで自動検証。実Vue scriptの候補選択・失敗案内・手入力・検索中編集・郵便番号変更・送信取消を検証。外部サービス障害時の実運用を経験した証拠とは区別する。
+- 初回包括試験は一時フォルダーのGit／rename権限制限と旧上書き仕様の試験3件で失敗（exit 1）。権限制限を外し、旧試験を保持方針へ更新後に成功。初回実通信はサンドボックスのネットワーク制限で失敗（exit 1）、公開コードのみを用いた通常権限の再試行で成功。実装上の外部安全制御は緩めていない。
+
+最終結果（上記変更後の未コミット作業ツリー）：
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `node --test test/postal-lookup.test.mjs test/zipcloud-postal.test.mjs test/property-warranty.test.mjs` | 99成功（自社情報接続変更前。自社情報を含む最終結果は次行） | 0 |
+| `npm test` | 661件中659成功・既存2skip、最終4,696ms | 0 |
+| `npm run typecheck` | 最終成功 | 0 |
+| `npm run build` | 最終静的生成成功。既存のチャンクサイズ等の警告あり | 0 |
+| `npm run test:rules` | 203成功・Emulator停止確認、405,432ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | 成功。文書最終追記後も再確認する | 0 |
+
+Rulesは既定の隔離プロファイル、`CI=true`、`METADATA_SERVER_DETECTION=none`、`XDG_CONFIG_HOME=tmp/firebase-config-notice`で実行。後続変更はBusinessContactFieldsのprovider参照と単体試験・文書のみで、Rules／永続化／domain／環境の失効入力は変えていないため成功結果を再利用する。型検査・build・単体試験は後続変更後に成功。最終governance／差分空白検査の終了コードは完了報告に記録する。
+
+開発側Local実装・検証は完了。`http://127.0.0.1:23600/`で本人が確認できる。本人のLocal受入れ、Dev／Prod配備、正式納品書の完成・説明・受領確認は未実施。バックアップ等は引き続き保留。
+
+## 2026-10-20 Local郵便番号自動更新
+
+オーナーの推奨案採用・実装とLocal検証指示に基づく。基点は主checkoutのdev `cc3b05f4448ecf6a31ad011306b4aefcda3473df`、下記の未コミット差分。既存のHS請求先ガイド・PDF・docs索引差分を保持。Git操作・配備・外部設定変更は未実施。
+
+### 変更範囲
+
+- 処理：`scripts/lib/local-postal.mjs`、`scripts/lib/local-postal-http.mjs`、`modules/local-postal.ts`、`scripts/postal-data.mjs`、`src/domain/hosted-postal-lookup.mjs`。
+- 接続・画面・試験：`.gitignore`、`nuxt.config.ts`、`package.json`、`app/components/LocalPostalStatus.vue`、`app/components/MeetingPrototype.vue`、`test/local-postal.test.mjs`。
+- 文書：`docs/specification.md`、`docs/requirements/branches-and-addresses.md`、HSC-017・HSC-040と確認事項索引、`docs/design/tr-009-japan-post-postal-data.md`、ADR0049と決定索引、`docs/roadmaps/technical-remediation.md`、`docs/README.md`、`CHANGELOG.md`、本記録。[画面証跡](design/evidence/local-postal-2026-10-20/dashboard.png)も保存。
+- データ契約・Firestore Rules・IAM・CI・クラウド設定は不変。アプリの住所保存形式や登録済み住所を変更しないため業務スキーマ・移行資料は更新対象外。
+
+### 実データ・Local画面の実証
+
+公式ページは2026-09-30更新分。原124,526行を正規化し124,525件（重複1行）。同梱2026-08-31版124,522件との差は追加3・削除0。全分割の件数・ハッシュを検査後、Git対象外の`.local-postal/`に反映。同梱ファイルは変更なし。
+
+現在の公式ZIPはローカルヘッダーに長さを持たない形式であり、旧処理が解凍失敗した。中央ディレクトリの長さ・CRCを検証する修正と回帰試験を追加。公式CSVの正規化重複も実測に基づき許容上限を明示した。失敗した2回とも参照先の切替なし。
+
+Local画面で基準日・確認日時・124,525件を表示。「再確認」→変更なし、「前の版へ戻す」→8月31日版・自動停止、「再確認」→9月30日版・再開を確認。物件新規入力で1000001→東京都千代田区千代田、住所の手修正後0000000→該当なしでも入力保持を確認し、保存・採番せず閉じた。業務レコードを試験用に作成・変更していない。
+
+Localを再起動して版保持を確認。さらにLocal専用確認日時を前月へ一時変更して起動時の当月未確認を再現し、ボタンやforce指定なしで公式取得・「変更なし」へ更新されることを検証。現在版・前版は維持され、確認日時は実時刻2026-10-20T08:17:34.176Zへ復帰。試験用日時は残っていない。24時間の実時間待機は行わず、月境界・翌日再試行は時刻を制御した試験で確認。
+
+### 完成検証
+
+影響分類は文書・UI・アプリ処理・Nuxt実行設定の和として包括7gateを選択。配備／クラウド操作は対象外。各コマンドの終了状態を個別に確認。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `node --test test/local-postal.test.mjs test/postal-data.test.mjs test/postal-lookup.test.mjs` | 38成功。異常入力・中断・プロセス終了後復帰・競合・HTTP境界・新版切替・既存入力保護 | 0 |
+| `npm test` | 651件中649成功・既存2skip | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 静的生成成功。既存のチャンクサイズ等の警告あり | 0 |
+| `npm run test:rules` | 203成功・試験Emulator停止確認、390,873ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+通常成果物の郵便manifestが同梱版とバイト一致し、Local保存先・専用配信先のディレクトリと公式ページ取得コードが静的JSへ混入しないことをNode assertで確認（exit 0）。公式取得・Local反映、起動時自動確認のassertもexit 0。governanceとdiffチェックの最終結果は本タスク完了報告に記録する。
+
+初回の限定試験はサンドボックスの一時ディレクトリrenameがEPERMとなり、通常権限で再試験成功。包括試験の初回は既存画面試験の動的読込みとimport.metaの置き場所が衝突し、Local判定を専用コンポーネントへ移して全件再試験成功。Rulesの初回は単体試験の排他ファイルと競合して開始前に停止し、所有試験の正常終了後に再実行成功。ロックの強制解除・検証省略は行っていない。
+
+### 残件・受入れ
+
+`http://127.0.0.1:23600/`の管理者ダッシュボードで本人がLocal受入れできる状態。操作手順・異常閾値・排他復旧は[TR-009](design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)。Dev／Prod自動公開、通知、公開競合制御はHSC-040の別段階。バックアップ・PITR・Auth退避保留は維持。PC／Local停止中は自動取得しない。過去の参照版は安全のため自動削除せず、容量整理は停止後に実施する。
 
 ## 2026-10-20 ProdのHSオーナー招待受諾
 
@@ -28,19 +299,190 @@ HSでプロジェクト概要のHosting公開履歴・Functions使用状況・Bl
 
 検証選定：クラウド権限変更として包括gateを選定し、アプリ・依存・Rules・実行主体・CI入力が不変のため直前の[PR #46](https://github.com/shisyamo4131/termite-warranty/pull/46)の成功証拠（Dev側のDev・Local本人受入れ記録）を再利用する。変更した人のアクセスは上記実コンソールで直接確認。リポジトリ差分は文書のみでgovernance／diffを最終確認する。業務仕様・データ契約・実装・CIは不変、管理方針を仕様／納品条件／ADR0032／手順／ロードマップに反映。この操作記録の後、本人が文書7件のコミット・push・両branchへのPR統合を承認。devには未昇格の製品差分があるため、同一文書差分をdev基点とmain基点の別PRで統合し、各baseとの文書限定判定で配備を省略する。PR／Actionsの結果を統合証拠とする。
 
+## 2026-10-20 Dev・Local本人受入れ完了
+
+PR #46の初回検証で説明PDF生成元の末尾空行、次の検証で新規PDFの分類未登録を検出。空行を除去し、`scripts/lib/change-scope.mjs` に今回の説明資料のREADME・生成元2・PDF3だけを文書として個別登録した。Hosting対象は `.output/public`、Functions対象は `functions` であり、説明資料は配備入力ではない。未登録PDFの拒否・未登録生成元の製品扱い・製品混在時の製品分類を維持。分類動作変更として包括7gateを選定し、失効した `npm test` は631成功・既存2skip・終了0、必須focused `node --test test/documentation-changes.test.mjs` は14成功・終了0。型検査・build・Rules203・Functions/seed構文は該当入力不変の上記成功証拠を再利用。governanceと差分チェックを再実行する。CI分類のみの追加でアプリの受入れは失効しない。差戻しは個別登録6件と対象試験を戻す。配備・権限・バックアップ設定は変更しない。
+
+オーナーがDev `62df6601a2491440ba078d69a6d4c284db1b923c` の受入れ完了を明示し、Local受入れも完了として記録すること、PRでdevへ統合することを承認した。対象は配備済みのHS確定改修・一覧／管理画面改善。受入れ対象からの後続差分は文書のみで、製品・設定・依存は同一。成功Dev run 39369177848と下記Local検証を再利用し、PR必須checkで仮統合との製品同一性を確認する。今回の本人受入れはHSの正式受入れを代替しない。バックアップ・PITR・Auth退避は引き続き保留。main統合・Prod配備は対象外。
+
+## 2026-10-20 月次検索横並びのDev候補
+
+Dev配備・照合完了：`62df6601a2491440ba078d69a6d4c284db1b923c`、[Actions 39369177848](https://github.com/shisyamo4131/termite-warranty/actions/runs/39369177848) success。build37秒、deploy job77秒、開始04:21:56–完了04:23:54 UTC（1分58秒）。CLI成功、公開入口・Dev接続先・ACTIVE 21 Functions・PITR無効・日次予定0・backupAutomation=falseを確認。文書整合／diffチェック各終了0。本人のDev／Local受入れは後続指示で完了（上記）。Prod未反映。
+
+`MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`clear-sky-theme.css` の表示変更。3画面の対象月補足削除、済みチェックを年月と検索の間へ移動、年月・グループ240px統一、保険報告の登録状態非表示・報告状態チップを説明上へ移動・期間列名短縮。UI／文書＋Dev配備として包括7gateを選定。仕様・テーマ・変更履歴を同期。データ契約・ADR・CI・権限は不変。切戻しは当該表示差分を戻した候補の通常配備。
+
+最終CSS修正後 `npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-inline-typecheck.log`、`tmp/monthly-inline-build.log`）。`node tmp/monthly-inline-check.mjs` は終了0：両部品のscript全文不変、実テンプレートのSSRで未報告・報告済み・要確認のチップが説明上、本登録は非表示と確認。比較初回は改行コード差で失敗し、改行正規化後に一致。Local実画面で3画面の項目順・対象月補足なし、年月とグループ幅240pxを実測。狭幅は折返し。保険報告の本登録限定は `src/domain/insurance-state.mjs` のactive以外除外処理を保持。単体630成功・既存2skip、Rules203成功、Functions／seed構文終了0は前節の成功証拠を再利用（処理・依存・各失効入力不変）。governance・diffは文書反映後に実行。
+
+オーナーは今回「Dev受入れを以てLocal受入れも完了」と指定。配備前の開発側技術確認と本人受入れを区別し、本人受入れはDev配備後まで未完了とする。Dev配備は明示承認済み。既存データ・Auth・採番を保持し、バックアップ等は保留、Prod反映・dev/main統合は行わない。
+
+## 2026-10-20 Local本人受入れ・Dev反映
+
+Dev配備完了：候補 `2996d15f9a47042d7b5a97839c1fdacd6a6bca50`、[Actions 39364904557](https://github.com/shisyamo4131/termite-warranty/actions/runs/39364904557) 全体success。build 03:33:21–03:34:15 UTC（54秒）、deploy job 03:34:18–03:35:32 UTC（74秒）、開始から完了まで2分11秒。Firebase CLIは成功し、変更のないFunctionsの再配備を省略。公開後checkはready=true、Functions ACTIVE 21、公開入口・Dev接続先一致、PITR=false、日次予定0、backupAutomation=false。全Functions ZIP／全Hosting hash照合は現行軽量Dev手順どおり行わない。既存データ・Authの初期化や更新処理は実行していない。受入れ先は https://termite-warranty-dev.web.app 。Dev本人受入れはこれから開始。governance・diffチェックも各終了0。未確定要望と保護設定保留を維持し、Prod配備・dev/main統合は行っていない。
+
+オーナーが一覧・管理画面のLocal受入れ完了を明示し、Dev配備を承認。対象は `codex/hs-trial-first-feedback` の確定HS改修と本日の一覧・管理画面改善。未確定のHS要望は実装せず、Dev既存データ・Auth・採番を保持する。バックアップ・PITR・Auth退避は保留。Prod反映・dev/main統合は含めない。
+
+配備用包括7gateを選定。最終アプリ状態の `npm test` は630成功・既存2skip・終了0（`tmp/dev-accepted-domain.log`）。`npm run typecheck` / `npm run build` は直前の `admin-help-*` ログの終了0を再利用し、その後アプリ入力変更なし。Rules203成功、Functions構文・seed構文終了0は下記「一覧操作のLocal改修」の証拠を再利用（Rules・Functions・domain・永続化・依存・実行環境の失効入力不変）。文書更新後のgovernance・diffチェックは再実行する。最新origin/devを候補が含むことを `git merge-base --is-ancestor origin/dev HEAD` 終了0で確認。配備完了とDev本人受入れは別判定とし、実行結果は成功確認後に追記する。
+
+## 2026-10-20 管理3画面の案内整理
+
+`WarrantyOrganizationManagement.vue` のパンくず下の見出し・戻るボタンを削除し、所属変更不可の説明を既存タイトル右ツールチップへ追加。階層移動時の既存フォーカス処理の対象をパンくずへ移した。`StaffAccountManagement.vue` の管理対象・パスワード案内をタイトル右の$infoツールチップへ移動。`MeetingPrototype.vue` のアラート設定説明だけを削除。権限・警告・入力・保存処理は維持。
+
+UI／文書分類。`npm run typecheck`、`npm run build` は各終了0（`tmp/admin-help-typecheck.log`、`tmp/admin-help-build.log`）。実Localで組織の階層移動・パンくずによる復帰・フォーカス、両情報ツールチップ全文、アラート設定の説明削除を確認。画面証跡は `tmp/local-organization-help-updated.png`、`tmp/local-staff-tooltip.png`、`tmp/local-alert-settings-no-note.png`。実データの作成・更新は行っていない。他技術gateは業務ロジック・データ・依存等の失効入力不変により既存成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しは今回の表示マークアップを復元。既存差分を保持し、未コミット・未push・Dev／Prod未配備。バックアップ等は保留。Localは確認用に継続。
+
+## 2026-10-20 組織管理の情報ツールチップ
+
+`WarrantyOrganizationManagement.vue` の接頭辞・無効状態の常設VAlertを、h1右の$infoツールチップへ全文移動。クリック／ホバー／フォーカス対応は保険報告と同じ。所属変更不可の説明・無効状態警告・操作制限・scriptは不変。Localでアイコン表示とクリックによる本文全文を確認（`tmp/local-organization-tooltip.png`）。`npm run typecheck`、`npm run build` は各終了0（`tmp/organization-tooltip-typecheck.log`、`tmp/organization-tooltip-build.log`）。UI／文書分類、他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しはツールチップを元のVAlertへ戻す。既存差分保持、未コミット・未push・Dev／Prod未配備。Local表示を継続。
+
+## 2026-10-20 設定画面の常設案内削除
+
+オーナー画像指示により `app/components/CompanySettings.vue` のWordテンプレート会社情報の常設VAlert1件だけを削除。保存・権限・入力警告・Word非自動更新仕様は不変。仕様・会社設定設計・変更履歴を同期。`npm run typecheck`、`npm run build` は各終了0（`tmp/company-notice-hide-typecheck.log`、`tmp/company-notice-hide-build.log`）。Local設定画面で案内なし・既存情報カードと編集ボタン表示を確認（`tmp/local-company-no-word-notice.png`）。UI／文書分類、他技術gateは失効入力不変の証拠を再利用。データ契約・ADR・ロードマップ判定・CI・ガバナンスは不変。差戻しは当該VAlertの復元。既存差分保持、未コミット・未push・未配備、保護保留。Local設定画面を確認用に残す。
+
+## 2026-10-20 一覧操作のLocal改修
+
+検索欄高さの統一：オーナー指定に従い、保険報告を基準に請求・保証書CSVをVRow/VColの2段構成へ変更。`WarrantyCertificateManagement.vue`、`MeetingPrototype.vue`、`clear-sky-theme.css` の共通余白クラスをmonthly-search-comfortableとし、上下8pxを共有。保険報告の寸法は不変。script全文・disabled式の変更なしを静的assertで確認（終了0）。実Localの画面幅935pxで保険報告・請求・保証書CSVそれぞれの検索カード高さ227.9375pxをDOM実測し一致。狭幅で項目が折り返すと高さは項目数に応じて増える。画面証跡 `tmp/local-monthly-matched-height.png`。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-search-height-typecheck.log`、`tmp/monthly-search-height-build.log`）。UI／文書分類、他技術gateは失効入力不変で再利用。仕様・テーマ・変更履歴を同期。差戻しは2段ラッパー・共通クラス名の復元。データ契約・ADR・ガバナンス・CIは不変。未コミット・未push・未配備、保護保留。Localは確認用に継続。
+
+件数・操作カード統一を採用してLocal反映：`MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`clear-sky-theme.css`。共通business-count-summaryで抽出／選択／今回更新対象を1行表示、要確認0件は非表示、狭幅は折返し。保険報告の全選択・CSV・報告済み・ページ番号を一覧カード内へ移動し、全選択ラベルも揃えた。共用Meeting表の内容ラッパーを追加し、月次以外にはpa-0で余白を維持。既存の検索変更・記録不足警告、選択禁止、読み取り専用制限は維持。
+
+検証：`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-unified-typecheck.log`、`tmp/monthly-unified-build.log`）。`node tmp/monthly-unified-check.mjs` は終了0：変更前後のscript全文と全disabled式が一致、実テンプレートのVue SSR描画で抽出2／選択1／更新1と要確認の有無を両部品で確認。UI／文書変更、他技術gateは失効入力不変の先行成功証拠を再利用。実Localで3画面の0件表示・要確認非表示・カード内配置を確認（`tmp/local-report-unified.png`、`tmp/local-billing-unified.png`、`tmp/local-certificate-unified.png`）。非空結果での実更新は行っていない。仕様・テーマ・要望状況・文書入口・変更履歴を同期。データ契約・ADR・ガバナンス・CI・依存は不変。差戻しは今回の件数マークアップ・表ラッパーと専用CSS。既存差分保持、未コミット・未push・未配備、保護設定保留。Localは保証書CSVを表示したまま残す。
+
+数量単位の統一：`WarrantyCertificateManagement.vue` の数量に続く「期間」を7箇所「件」へ変更（集計4・確認1・成功通知1・部分失敗通知1）。保証期間を意味する項目名は維持。集計式・選択制御・保存処理は不変。Localで請求・保証書CSVの集計が件表示になることを確認。更新操作は行わず通知はソース確認のみ。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-count-unit-typecheck.log`、`tmp/monthly-count-unit-build.log`）。UI文言／文書分類とし他技術gateは失効入力不変で成功証拠を再利用。仕様・テーマ・変更履歴を同期。差戻しは数量単位7箇所の復元。データ契約・ADR・ガバナンス・配備設定は不変。未コミット・未push・未配備。
+
+件数配置の当初検討（後続指示で採用、下記は提案時点）：保険報告はオーナー指示で独立した総件数表示を削除済み、全選択対象数と選択数・選択中未報告数は残る。請求・保証書は従来の3区分集計を保持しているため見た目が異なる。全選択対象数は選択不可行を除くため総行数とは異なる場合がある。推奨は3画面共通のコンパクトな1行で「抽出件数／選択件数／今回更新件数」を表示し、要確認件数は存在するときだけ示す方式。抽出量確認と誤更新予防を維持し、独立した大きな集計領域による縦領域消費を抑える。今回は提案のみで保険報告の表示追加やレイアウト統合は行わない。
+
+結果欄の適用条件表示も後続指示で削除：`WarrantyCertificateManagement.vue` の保証グループ／指定年月／対象月のp要素だけを削除し、請求・保証書CSV両方に適用。検索欄・条件変更警告・選択禁止・scriptは不変。Localの検索済み請求画面で削除を確認（`tmp/local-monthly-no-summary.png`）。`npm run typecheck`、`npm run build` は各終了0（`tmp/monthly-summary-hide-typecheck.log`、`tmp/monthly-summary-hide-build.log`）。UI／文書分類で他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。差戻しは当該p要素の復元。データ契約・ADR・ロードマップ判定・ガバナンス・配備設定は不変。既存差分を保持、未コミット・未push・Dev／Prod未配備、保護設定保留。
+
+後続指示で請求先補助表示を削除：`WarrantyCertificateManagement.vue` の検索欄の請求先p要素1件だけを削除。請求先マスタ・CSV・script・警告・選択禁止は不変。Localで保証グループ選択済みの請求一覧から表示が消えたことを確認（`tmp/local-billing-no-recipient.png`）。`npm run typecheck`・`npm run build` は各終了0（`tmp/billing-recipient-hide-typecheck.log`、`tmp/billing-recipient-hide-build.log`）。UI／文書分類で、他技術gateは失効入力不変の成功証拠を再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・ロードマップの完了判定・ガバナンス・配備設定は不変。差戻しは当該p要素の復元。既存差分保持、未コミット・未push・未配備。Local画面を継続。
+
+請求一覧・保証書CSVへ展開：`WarrantyCertificateManagement.vue` のテンプレートだけを変更。注意文の全文を情報ツールチップへ移動し、flex縦gap8px、済みチェックhide-details、請求先末尾余白0を適用。script全体と全disabled式が変更前と一致すること、条件変更・error/message・要確認表示の保持を静的assertで確認（終了0）。検索結果の集計と適用年月表示は今回の検索欄変更対象外として維持。差戻しは今回のテンプレート差分のみ戻す。
+
+`npm run typecheck`、`npm run build` は各終了0（ignored `tmp/monthly-layout-typecheck.log`、`tmp/monthly-layout-build.log`）。UI／文書変更のため他技術gateは失効入力不変の先行成功証拠を再利用。実Localの両画面でツールチップ全文、検索成功（0件）、年月変更の警告・元へ戻した後の解除を確認。非空結果や例外行の実操作は今回未実施。画面証跡は `tmp/local-certificate-compact.png`、`tmp/local-billing-compact.png`。保険報告本人受入れ済みを仕様・設計・要望状況へ記録し、変更履歴を同期。データ契約・ADR・CI・ガバナンス・依存は不変。
+
+Localだけに架空グループ `local-monthly-layout-demo`（架空レイアウト確認用）を未存在時のみ作成し、本人確認用に残した。確認済みdemoプロジェクト・127.0.0.1:28080に限定、既存データの上書き・業務文書作成・採番変更なし。初回sandbox接続は停止し、昇格実行で終了0（`tmp/monthly-layout-fixture.mjs`）。Localアプリ・Emulatorは継続し、請求一覧を開いて残す。既存作業ツリー差分を保持、今回も未コミット・未push・Dev／Prod未配備。バックアップ等は保留。
+
+常設注意文・AppBarの追加変更：`MeetingPrototype.vue` の「個別確認が必要な行は選択対象外です。」だけを削除し、review行のdisabled・全選択除外の式は静的assertで保持確認（終了0）。サーバー処理は未変更。狭幅メニューはVuetify同梱のMDI menu（$menu）、ログアウトの左は[公式MDI logout SVG](https://raw.githubusercontent.com/Templarian/MaterialDesign/master/svg/logout.svg)のpathを使用。読み上げ名・イベント処理・表示条件は維持。外部SVG読取りは初回自動承認で拒否されたが、project-rulesの公開資料取得の恒常承認を提示した再審査で許可され、読取り成功。依存追加なし。
+
+今回のUI完了検証：`npm run typecheck`、`npm run build` は各終了0（ignored `tmp/report-appbar-typecheck.log`、`tmp/report-appbar-build.log`）。Localブラウザーで常設文なし、両アイコンの描画、メニューを開く→保険報告一覧へ戻る操作を確認。ログアウト自体は実行せずログイン状態を保持。画面証跡 `tmp/local-report-appbar.png`。例外データでの実操作試験は今回未実施。既存の単体・Rules・Functions／seed構文は失効入力不変により再利用。仕様・テーマ・変更履歴を同期。データ契約・ADR・CI・権限・ガバナンスは不変。差戻しは今回の表示箇所のみ復元。未コミット・未push・未配備、保護設定保留。Local画面とサービスは本人確認用に継続。
+
+保険報告の追加4点：`MeetingPrototype.vue` と `clear-sky-theme.css` を変更し、欄直下の件数を非表示、再抽出注意は独立表示、報告済みチェックにhide-details、注意文はタイトル右のMDI information（Vuetify同梱$info）のツールチップへ移動。既存VRowのpropsはdense/noGuttersでcomfortableはないため、保険報告専用CSSで上下paddingを12→8px、rowの上下marginを-8pxに設定。横余白・入力メッセージを保持。他の一覧の件数は変更なし。差戻しはこの4点のテンプレート・専用CSSのみ復元する。
+
+今回の検証：`npm run typecheck`（`tmp/report-compact-typecheck.log`）、`npm run build`（`tmp/report-compact-build.log`）はそれぞれ終了0。実Localブラウザーで件数表示なし、情報アイコンのクリックで従前の説明全文が表示、年月変更で再抽出注意が表示、戻して抽出後に注意が消えることを確認。スクリーンショット `tmp/local-report-compact.png`。検索欄は常時表示。UI／文書変更として単体・Rules・Functions／seed構文は失効入力不変の先行成功証拠を再利用。仕様・テーマ・要望状況・変更履歴を更新。データ契約・ADR・ガバナンス・権限・CI・配備設定は不変。作業ツリーの既存差分を保持し、未コミット・未push・Dev／Prod未配備。保護設定保留。
+
+追加指示のLocal確認準備：`MeetingPrototype.vue` の検索欄直下の「指定年月／対象月」だけを削除。年月入力・欄内の対象月・再抽出注意は保持。今回の変更分類はUI／文書。`npm run typecheck`、`npm run build`、`./scripts/check-governance.ps1`、`git diff --check` は各終了0。下記の単体・Rules・Functions／seed構文は、それぞれのpolicy失効入力が変更されないため成功証拠を再利用。仕様・テーマ・要望台帳・入口・納品ロードマップ・変更履歴を同期。データ契約・ADR・CI・権限は変更なし。差戻しは当該表示1行の復元。
+
+Local Emulatorは停止状態から `npm run emulators:start` で起動。初回はsandbox内でHub起動に失敗し、昇格実行で起動成功。`npm run emulators:seed` は終了0、既存スクリプトの架空データ・デモアカウントのみ準備。`npm run dev` で `http://127.0.0.1:23600/` を起動し、アプリ内ブラウザーでログイン→保険報告一覧→対象抽出を確認。2026-10指定は0件。2026-11へ変更時の再抽出注意、2026-10へ戻した後の注意解除、重複表示なしを確認。表示用タブとLocalサービスを残した。画面証跡はignored `tmp/local-report-summary-hidden.png`。この確認は検索欄の表示・操作であり、非空結果の業務受入れではない。Dev／Prodへの配備、コミット・push、バックアップ等は行っていない。
+
+オーナー指示の①保険報告の入力・検索操作位置、③ページ付き一覧の縦スクロール復帰を実装。②検索欄省スペース化は3案を提示後、追加指示で折りたたみを不採用とし、保険報告の検索欄直下の適用条件の重複表示だけを非表示にした。作業ツリーにあった10月19日の資料・要望記録差分を保持。今回も未コミット・未push・未配備。保護設定保留を維持。
+
+変更した製品ファイル：`app/assets/clear-sky-theme.css`、`app/components/MeetingPrototype.vue`、`WarrantyCertificateManagement.vue`、`WarrantyOrganizationManagement.vue`、`StaffAccountManagement.vue`、`PropertyBulkImportDialog.vue`、`app/composables/usePaginationScroll.ts`。ページ番号が変化した後、当該VTableの縦位置を0にし、表先頭が隠れたスクロール親だけを必要分調整する。横位置、選択、検索、データ取得・保存は維持。物件・両満了案内・保険報告、請求／保証書、組織3階層、HS担当者、旧工務店担当者経路、一括取込みの各ページ付き表へ接続した。
+
+回帰試験：`test/pagination-scroll.test.mjs`を新設し、通常npm testで実行される`test/warranty-organization-ui.test.mjs`から読み込む。既存のコンポーネント評価環境3件（同組織試験、`property-bulk-import-ui.test.mjs`、`property-warranty.test.mjs`）に本物の共通処理を渡す。次／前ページ、同じページの再選択、描画後の実行、他表への非干渉、横位置、親スクロール、アンマウントを検証。
+
+影響分類は文書・UI・アプリ処理の和集合。最終製品差分に対するゲート：
+
+| コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 文書・生成整合成功 | 0 |
+| `git diff --check` | 空白差分検査成功 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm test` | 630成功、既存2skip | 0 |
+| `npm run test:rules` | 203成功、隔離Emulator停止を確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+単体試験の初回はsandboxの一時領域書込み制限、次は新規composableのテスト環境への注入不足で失敗。試験環境を修正して成功後、追加回帰の接続確認時に連携runnerの共有lockと競合したため、連携完了後の直列実行で全件成功を確認した。失敗結果を成功と流用していない。単体最終実測4.22秒、連携runner実測376.86秒（停止処理込み）。機能の遅延測定ではない。
+
+描画確認：ignored `tmp/hs-ui-browser.mjs` によるローカル隔離Vite＋Chrome試験（終了0）。実際の保険検索テンプレート断片・BusinessDateInput・Vuetify・共通CSSで、1280px幅の入力中央とボタン中央がともにy=101pxで一致。390px幅の折返しを目視。実際のWarrantyOrganizationManagementと架空45件で1→2→1の実クリック後に表先頭と行切替を確認。JavaScript例外0、favicon取得404は検証ページのアイコン未配置。試験ページ初期設定の不足によるタイムアウトは設定後の再実行で解消。データ・認証・外部環境へ接続しない部品試験であり、全画面のログイン後業務受入れやHS本人受入れの代替とはしない。
+
+3案の見本は736px／320pxで表示、条件変更パネルの入力・適用・閉じるを確認。共通の表示高さで比較できるようにし、保証グループを必要とする請求／保証書への切替も用意。採用候補はコンパクト常時表示（操作追加なし）、条件を折りたたむ（適用条件を残して一覧領域を広げる）、条件変更パネル（通常時は最小、変更時は表に重なる）。入力メッセージの保持・条件変更警告の維持が採用後の実装条件。測定前の削減pxや表示行数は保証しない。
+
+仕様0.1.133・テーマ設計・要望台帳・変更履歴・入口／納品ロードマップを更新。データ契約、ADR、ガバナンス、依存関係、CI、配備設定は不変。差戻しは今回の共通処理と8つの表接続、検索位置の変更を戻す。次はLocal業務画面の本人確認と、その他の省スペース配置の判断。Dev配備は別指示後。
+
+
+## 2026-10-17 HS試行1回目の確定改修
+
+対象は[仕様書0.1.132](specification.md#2026-10-17-hs試行1回目への返信で確定した改修)の2件。基準は実取得したdev `14c220251ee37961354a0252522c6d1691043dd4`、作業ブランチ `codex/hs-trial-first-feedback`。画面2ファイルと既存試験1ファイル、関連文書の差分。Local受入れ完了時点ではコミット・pushは未実施だったが、同日後続指示で改修ブランチへの保存を承認された。19日までの受付と5件の現在地を[HS試行対応状況](roadmaps/hs-trial-feedback.md)に整理。PR・Dev／Prod配備は今回の対象外。保護設定保留を維持する。
+
+Localブラウザー受入れ（2026-10-17）：専用demo Emulatorと `http://127.0.0.1:23600/` の架空2物件（支店あり／なし、初回申込日2026-08-01、引渡日2026-09-30）で確認。10月指定が9月対象になること、保険CSVが8列・2行で支店名のカンマを保持し、支店なしと保険申込が空欄になることを実ダウンロードで照合した。請求一覧は申込日2026-08-01、同じ物件の保証書一覧は引渡日2026-09-30を表示。実データ・実環境は使用していない。Localの初期fixtureの支店参照先を現行companyBranchesへ合わせた後に確認した。
+
+試験の影響分類は文書・UI・アプリ処理の和集合。追加した3件は実CSV出力処理の列順・引用符・未指定・参照不足／取得失敗／条件変更の拒否、および共通テンプレートの請求／保証書表示を検証する。
+
+| 検証コマンド | 結果 | 終了コード |
+| --- | --- | --- |
+| `npm test` | 627成功、2skip（ホストでsymlink fixtureを作れない既存試験）。追加3件を含む | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功、配備なし | 0 |
+| `npm run test:rules` | 203成功・失敗/skip 0、試験Emulator終了確認。全体384.040秒 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+最初の単体試験は制限環境で9失敗（617成功・3skip）、Emulator起動もポート準備に失敗したため、通常実行権限でやり直し。製品コードの追加変更なしで単体627成功・2skipとなった。追加試験作成時の期待値は既存CSVの全セル引用仕様に合わせて修正した。上表は修正後の製品・試験状態を対象とする。配備／権限／保存契約／スキーマ変更がないため、ADR・データ契約・配備設定は変更しない。ロールバックは今回の画面差分の差戻しで、データ移行は不要。残件はDev配備の指示とHS再確認、未確定3点の回答。
+
+変更ファイル：`app/components/MeetingPrototype.vue`、`app/components/WarrantyCertificateManagement.vue`、`test/insurance-period-display.test.mjs`、`docs/specification.md`、`docs/requirements/insurance-reporting.md`、`docs/design/monthly-queries.md`、`docs/requirements/source-materials.md`、`docs/requirements/house-solution-confirmations.md`とその`HSC-036-insurance-reporting-cycle.md`、`docs/roadmaps/2026-initial-delivery.md`、本書、`CHANGELOG.md`。Local改修時点では新規文書・ガバナンス変更はない。後続の受付整理で `docs/roadmaps/hs-trial-feedback.md` を追加し、`docs/README.md` と納品工程からリンクした。ガバナンス・実行設定は変更せず、文書整合検査と差分検査は終了コード0。既存の過去受入れ記録の7列表記は当時の証跡として保持。最終文書更新は製品・試験・依存関係を変更せず、上記の成功証拠を無効化しない。今回起動したLocalサーバー／Emulatorは受入れ後に停止し、4ポートの閉鎖を確認。ダウンロード待ちAPIはtimeoutしたが、18:38:37保存の実ファイルを別途読み取り照合しexit 0。Local受入れ完了であり、HS本人の受入れを代替しない。
+
 ## 2026-10-16 軽量Dev配備の切替実証
 
-オーナーは親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` で、非製品変更のPR統合・dev同期・新方式のDev配備実証を承認（「①は進めていいよ。」）。未統合commitをDevへ配備する能力の有効化を含む。Prod実配備、業務データ変更、新規資格情報・IAM・追加のセキュリティ設定変更は対象外。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持する。
+非製品変更のmain統合・dev同期・指定未統合commitのDev配備実証は完了。本人の限定した非更新画面確認も完了（範囲と回答は下記）。オーナー承認は親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` の「①は進めていいよ。」（未統合commit配備能力の有効化を含む）。Prod実配備、業務データ変更、新規資格情報/IAM/追加セキュリティ設定変更は行っていない。HS試行データ保持、バックアップ/PITR/Auth退避保留を維持した。
 
-03:51:09 UTCに切替前確認を開始。元のLocal差分を `d51c193` に保存し、既存記録 `d79e0c1` / `d372311` とともに元branchへ保全した。main `0e9cd63` 基点の導入branchへ当該26ファイルだけを移植。4文書の競合はmain既存本文と今回追記だけで解消。製品コード・依存・Rules・Firebase設定・Prod workflowの差分なし、機械分類はci、独立静的reviewでも混入なしを確認した。Prod workflow自体の起動は発生するが、非製品scopeによりverify/deployはskipする構成である。
+### 統合と実証結果
 
-03:57:17 UTC、旧自動Dev配備を止めるため既存 `DEVELOPMENT_BRANCH_DEPLOY_ENABLED` をfalseへ変更し読戻し済み。新方式をdevへ同期し進行中旧runがないことを確認後に復帰する。必須check・branch protection・environment branch制限は変更しない。main基点の包括検証は下記のとおり完了し、PR統合へ進む。
+- 元Local差分を `d51c193` に保存し、未push記録 `d79e0c1` / `d372311` と元branchで保全。main `0e9cd63` 基点へ非製品26ファイルだけを移植した。4文書の競合は各branchの既存本文を保持して新追記のみを適用。製品/依存/Rules/Firebase設定/Prod workflowの混入なしを機械分類と独立reviewで確認した。
+- [PR39](https://github.com/shisyamo4131/termite-warranty/pull/39)を04:01:49 UTCにmain `bb30f6a2` へ通常merge。[PR40](https://github.com/shisyamo4131/termite-warranty/pull/40)を04:05:08にdev `14bced8` へ同期。旧Dev起動flagは03:57:17にfalse、旧push trigger消失と旧進行/待機run不在を確認後、04:06:49にtrueへ復帰。必須check・strict最新base・管理者適用・PR保護・environment dev限定は維持した。
+- 初回[手動run38848940102](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848940102)は親controllerのtsconfigを候補buildが参照して失敗。Cloud認証前に停止しdeploy skip。buildのcontroller/とcandidate/を兄弟配置へ修正し、guard作業場所/cache lockと負例試験を追随させた。製品・権限・artifact対象は不変。
+- 修正[PR41](https://github.com/shisyamo4131/termite-warranty/pull/41)を04:11:52にmain `cdd8156d` へ統合。直接main→devの[PR42](https://github.com/shisyamo4131/termite-warranty/pull/42)はstrict最新baseを満たさず、mainへ未リリース製品を逆流させないため閉じた。dev基点の同期[PR43](https://github.com/shisyamo4131/termite-warranty/pull/43)を04:15:08にdev `5a363cd1` へ通常merge。今後もstrict条件を満たすdev基点同期branchを用いる。
+- 成功[手動run38849715854](https://github.com/shisyamo4131/termite-warranty/actions/runs/38849715854) attempt1：controller `5a363cd10c3a6e6503225e51b194aaa3f752851f`、候補 `6b2d2d2e9a86e1fedd9267978883f94ea4d3d72f`（当時未統合、devとの差は本記録のみ）。native artifactでHosting/Functions domainを渡し、Firebase CLI成功、21 Functions ACTIVE、公開HTML/接続先正常、PITR=false・日次予定0・automation=false・既存退避パラメータ保持を確認。CLIは変更なしのFunctionsを省略し、Hostingを公開、Rules/索引を確認・反映した。全source ZIP/Hosting全hash比較は実行していない。
+- main pushのProd app run [38848478815](https://github.com/shisyamo4131/termite-warranty/actions/runs/38848478815)と[38849368823](https://github.com/shisyamo4131/termite-warranty/actions/runs/38849368823)はscope成功・verify/deploy skip。保守run38848478876/38849368819もverify/publish skip。Prod実配備なし。dev同期push配備なし。
 
-導入候補 `01dcd43` のmain基点検証：`npm test` 606件中604pass/2skip/0fail（Windows symlink条件）、`npm run test:rules` 201pass/0fail、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1` はそれぞれexit0。focused `node --test test/documentation-changes.test.mjs` は13pass/exit0、`node --test test/governance-tools.test.mjs` は10pass/exit0。単体の初回2失敗はRules並行起動との共有一時lock競合であり、Rules停止後の単独再実行（03:59:37.093→03:59:41.597 UTC）で成功。Rules runnerは355775ms、log作成03:53:32→最終書込03:59:28 UTC（ファイル時刻参考）で停止まで完了。試験対象と生成物が異なるmain導入に必要な再検証であり、将来の通常Dev Actionsへ全試験を追加したものではない。最終記録のみの追記はコード試験を失効させず、governanceと差分checkを再確認する。
+### 検証とデータ保持
 
-ブラウザ操作は基盤のMXC/SystemDrive起動エラーで利用できず、画面受入れは未実施。HTTP成功を画面受入れと扱わない。切替後はログイン・一覧/詳細の非更新表示を本人確認事項とし、保存・発行・取込み・Auth操作を伴う業務試験は行わない。
+Localの各成功結果は個別exit0を確認した。main導入 `01dcd43` は包括7gateを実行：`npm test` 604pass/2skip、`npm run test:rules` 201pass、`npm run typecheck`、`npm run build`、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`、`./scripts/check-governance.ps1`。focused `node --test test/documentation-changes.test.mjs` 13pass、`node --test test/governance-tools.test.mjs` 10pass。単体初回2失敗はRules並行起動との一時lock競合であり、Rules停止後03:59:37.093→03:59:41.597 UTCの単独再実行で成功。Rules runner355775ms・Emulator停止済み（log作成03:53:32→最終書込03:59:28 UTCはファイル時刻参考）。
+
+配置修正後、mainは単体605pass/2skip、devは624pass/2skip、双方のbuild・routing13・governance・diff checkは各exit0。skipは既存Windows symlink条件。型検査・Rules・Functions/seed構文・governance focusedは入力不変の成功証拠をpolicyに従い再利用（dev Rules203は下記Local改修記録）。workflow/validator差分は独立review済み。最終候補は検証済み同期tree `90a24b2` から文書1件だけの差であり、governance/diffのみ再確認した。今回の初回導入・異なるmain製品基点・不具合修正に必要な検証を、将来の通常Dev Actionsの全試験反復と混同しない。
+
+既存CLI認証でDev(default)を読取り、本文保存なしで比較。04:05:33.678→04:19:19.939 UTCで782文書（物件442を含む）と内容hash `70a25f5ad639be7404b90843b0a22e7e7c4e6906bf89b5120afc7b77ff80de2b` が一致。runtime/accessも同一・normal、operator lockなし。補助読取りの前後各exit0。seed/補正/削除/Auth変更/業務更新試験なし。この比較はDB文書とruntimeの範囲であり、Auth全ユーザーやCloud全資源の完全差分証明ではない。
+
+### 工程別実測（UTC）
+
+開始終了はGitHub APIのrun/job/step時刻、Git merge時刻とLocal時計による。run作成→最初jobを初期待機、job間空白を引継ぎ待機として分離し、runner内部queueだけとは断定しない。秒表示の0秒は秒未満を意味し得る。並行工程は合算しない。
+
+| 工程 | 開始→終了 | 所要・待機 |
+| --- | --- | --- |
+| 導入準備・main基点検証・PR作成 | 03:51:09→04:00:38 | 9分29秒（初回導入、通常反復とは別） |
+| PR39 check | 04:00:41→04:01:13 | 32秒＝初期待機2秒＋job30秒 |
+| PR40同期check | 04:03:54→04:04:40 | 46秒＝初期待機3秒＋job43秒 |
+| 初回手動Dev失敗 | 04:07:07→04:07:56 | 49秒、初期待機3秒、build失敗、配備なし |
+| 原因調査・修正・PR同期・再起動 | 04:07:56→04:15:47 | 7分51秒。修正PR41は47秒、置換PR42は48秒、PR43は41秒（いずれも内数） |
+| 成功手動Dev全体 | 04:15:47→04:17:51 | 2分04秒 |
+| 同run build job | 04:15:51→04:16:39 | 48秒、開始前待機4秒 |
+| 候補依存導入（build側） | 04:16:01→04:16:19 | 18秒 |
+| Nuxt build | 04:16:19→04:16:33 | 14秒 |
+| Functions domain準備 / artifact upload | 04:16:33→04:16:33 / 04:16:33→04:16:35 | 0秒表示 / 2秒 |
+| 同run deploy job | 04:16:42→04:17:50 | 68秒、job間待機3秒 |
+| controller / 候補依存導入 | 04:16:51→04:17:04 / 04:17:05→04:17:16 | 13秒 / 11秒（依存導入合計42秒） |
+| artifact download / 候補再確認 | 04:17:16→04:17:18 / 04:17:18→04:17:19 | 2秒 / 1秒 |
+| 認証・predeploy | 04:17:19→04:17:22 | 3秒 |
+| Firebase CLI配備 | 04:17:22→04:17:45 | 23秒、Functions変更なしで省略 |
+| 配備後の限定確認 | 04:17:45→04:17:47 | 2秒 |
+| データ保持の後読取り | 04:18:17.642→04:19:19.977 | 62.335秒（前読取りの開始時刻は未測定） |
+| 最終記録・整合確認 | 04:19:00→本記録commitのcommitter時刻 | Git時刻を終端に算出。後読取りと約20秒重複 |
+| 人の画面受入れ待ち | 配備実証記録時は未完了、後続の本人回答で限定範囲を確認済み | 開始・終了時刻と待ち時間は未測定 |
+
+導入開始→データ保持確認は28分10.977秒。初回導入/失敗修正/複数PR/確認/待機を含むため通常1回の配備時間ではない。記録終了までの全体は03:51:09→本記録commitの時刻で算出し、最終報告へ記載する。
+
+PR38参考値はCI6分45秒、Dev5分15秒（CLI2分01秒・公開後照合1分17秒）、記録3分37秒、全体20分52秒。今回は軽量PRで全試験を実行せずLocal必要試験を先に実施し、buildをDev側へ移した。通常工程から専用JSON証明・全ZIP/Hosting hash照合・dev merge後配備が消える。一方、依存導入・build・CLI・人の受入れは残る。今回Functionsは省略、PR38は21件更新、queue/VM/cache/試験範囲/照合保証/初回導入条件が異なるため、差を因果的改善や削減率・将来所要時間として提示しない。
+
+### 本人の限定画面確認と残る範囲
+
+2026-10-16、親タスク `01a1186d-ebfa-70e3-9fa5-67accdb2202e` から本人回答「①大丈夫だよ。」を受領。依頼範囲は「Devでログイン、保証の一覧・検索・詳細、請求一覧が普段どおり表示されるかだけ、更新操作なしで確認」であり、この範囲を本人確認済みとして記録する。対象は上記の成功Dev配備run38849715854で公開した版。DD自身の画面検証ではなく、ブラウザ操作のMXC/SystemDrive基盤起動エラーを解消・再検証したものでもない。
+
+履歴、請求詳細、通常メニュー全体、ログアウト後の拒否は今回の回答による確認範囲に含めない。保存・発行・取込み・アカウント作成等の業務更新試験も実施していない。依頼された限定画面確認に残件はないが、HS正式受入れ・Prod昇格・保護開始は別工程であり、バックアップ/PITR/Auth退避の保留を維持する。
+
+今回の更新は受入れ記録と参照先の現在地だけ（documentation-only）。製品・仕様・データ契約・権限・配備手順・進捗配点は変更しない。文書整合の `./scripts/check-governance.ps1` と `git diff --check` の結果はPR／完了報告へ保存し、アプリ試験・build・配備を再実行しない。
 
 ## 2026-10-16 軽量Dev配備のLocal改修
+
+本節は切替前のLocal完了時点の記録。現在の統合・配備状態は上の切替実証節を優先する。
 
 本人採用の[ADR0048](decisions/0048-explicit-lightweight-development-deployment.md)に従って手動Dev/軽いPR/Prod接続を改修中。[切替手順](runbooks/application-deployment.md)を正本とする。必要Local試験と成功証拠再利用を維持し、証拠取り込み専用の全試験・JSONコメント・再実行、Dev通常配備の全ZIP/全Hosting hash照合を外す。既存Prod照合・復旧照合は維持。main統合・実Dev配備・Cloud設定/データ変更は未実施。
 
@@ -49,6 +491,92 @@ Local改修の最終コード差分に対して、以下のコマンドを個別
 独立静的reviewでPR edited trigger・依存導入の契約不一致と文書見出し8件を修正し、最終再確認で指摘なし。上記試験後の変更は文書見出し・検証記録のみで、policyの失効条件に従い成功済みコード試験を再利用する。最終 `./scripts/check-governance.ps1` と `git diff --check` は本記録反映後に実行し、結果を作業報告へ記載する。HEAD `d372311` 上の未commit差分が対象で、未push記録 `d79e0c1` / `d372311` は保全。製品機能・データ契約・既存Prod workflowは変更しておらず、納品進捗を加点しない。新しいGitHub Actionsの実行、main統合、実配備、画面受入れ、時間削減の実測は未実施で、別途承認後の切替確認事項とする。
 
 通常配備の証拠はLocalの必要コマンド/exit/対象差分・再利用理由、Actions run、本人受入れ範囲で足りる。記録のみでアプリの成功を失効させず、新台帳や索引へのhash/件数重複を作らない。以下の旧固定CI/全5照合/JSON comment経路は各時点の実績・旧制約であり、新Dev経路には適用しない。Prod/復旧の厳密照合とEvidence Validity and Retryは引き続き適用する。
+
+## 2026-10-15 納品前改修Local検証
+
+同日の追加承認により問題1・2・4・5と旧ポータル封鎖を実装。問題3の請求一覧説明修正も保持した。対象はprimary repositoryの`codex/billing-help-alignment`、基準HEAD `0e9cd63ec1a551bddd506829e87d072bf5175c9f`上の未commit差分。commit/push/PR/merge/配備、実データ棚卸し・補正、Auth/IAM/Billing/保護設定変更は未実施。現公開版には未反映。
+
+| 対象 | Local変更と確認する性質 |
+| --- | --- |
+| 問題1 | 物件要求の内容hash、protocol=2、旧receiptの未確認扱い、入力固定と同一要求再送、保存完了後は読取りだけ再試行 |
+| 問題2 | マスタ作成のtransaction receiptと返却ID保持、再送で重複作成・後続編集の巻戻しをしない |
+| 問題3 | 請求一覧の延長分説明を申込月基準へ修正。抽出処理・保証書基準は不変 |
+| 問題4 | HS新規アカウントの事前UID・作成journal・UID lock、無効状態からの段階的有効化、結果不明時に無条件削除せず保留・所有確認復旧 |
+| 問題5 | 引渡日実変更で当該期間の旧保証書発行記録を失効、訂正前の発行事実を履歴保存。A→B→Aで復活しない |
+| PORTAL-SEC-01 | 旧7 CallableをDB/Auth処理前に拒否し、旧work-itemのRules読書きを拒否。現行propertyPrototypeの会社/本支店経路は維持。恒久認可修正・再開判断は未完了 |
+| 復旧互換性 | 作成journalを現在権限baselineで保全し、マスタreceiptは業務復元点に従う。新baseline必須。旧resetは未知rootで停止する |
+
+独立調査・実装後の読取りレビューを実施。独立レビューで見つかった保存中の郵便番号検索遅延応答は、検証終了後・snapshot作成直前の検索キャンセルで対応。親が物件/工務店/本支店の参照接続と呼出し順を確認し、遅延resolved/ambiguous応答を含む対象89件は成功・exit 0。全バグの不存在を証明するものではない。ブラウザ実機操作、Cloud障害注入、実復元・実配備・HS受入れは未実施。
+
+影響分類はUI、application logic、data contract、effective permissionの和集合で包括7gateを選択。選択gate省略なし。Local実装・以下の検証は完了、統合・配備・実環境確認は未実施。実行ログはignoredのtmp/delivery-final-*.log、完了証拠の要約は本節に保持する。
+
+| command | 最終状態の結果 | exit |
+| --- | --- | --- |
+| `npm test` | 631件中628成功、fail/cancel 0、Windows symlink fixture 3skip | 0 |
+| `npm run typecheck` | 成功（住所検索修正後） | 0 |
+| `npm run build` | 成功（住所検索修正後） | 0 |
+| `npm run test:rules` | 203件成功、fail/skip 0、377478ms、隔離Emulator停止確認 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `./scripts/check-governance.ps1` | PowerShell7で成功、7分類・生成物/検証表整合 | 0 |
+
+途中失敗は隠さない。最初の単体/Emulator同時実行は共有stage lockとsandbox一時領域rename制約で失敗。以後直列化し、単体のTEMP/TMPだけworkspace内の専用一時領域へ指定した。Emulatorのsandbox内loopback起動はtimeoutとなり、承認されたLocal実行へ切り替えた。CI=trueでFirebase CLIのMOTD取得を抑制。旧fixtureが再送時に対象を再計算していた4件と、住所component ref不足の単体1件は、実装制約を弱めずfixtureを修正した。3skipを成功件数に含めず、OS権限変更もしない。npm実行版10.9.8とpackageManager指定11.19.1の差異もあるため、本人Local receipt／CI再利用の適格性は主張しない。
+
+詳細契約は[保存操作](design/meeting-prototype-2026-10-03.md)、[アカウント作成](design/account-concurrency-read-efficiency-2026-10-05.md)、[保証書](design/warranty-certificates.md)、[封鎖・再開条件](requirements/security-and-access.md)、[復旧手順](runbooks/backup-recovery.md)へ反映。採用仕様・納品順序・技術台帳・ADR0036・HSC-013・変更履歴を整合させる。新規文書なし、既存文書へのリンクで辿れる。governance生成物・検証policy・CI・依存関係は変更しない。
+
+最終検証入力の識別：変更/新規の非Markdown 30ファイルをpath昇順に並べ、各`path + NUL + raw bytes + NUL`を連結したSHA-256は`3677f68f6cd9f3c1ab057951d5ef01a824bad4cf84e8058cb33de17247916d57`。製品・テストのこれ以降の変更は該当gateを無効化する。正確な変更ファイルは以下（すべて未stage、追加2ファイルも未commit）。
+
+```text
+app/components/MeetingPrototype.vue
+app/components/StaffAccountManagement.vue
+app/components/WarrantyCertificateManagement.vue
+app/gateways/staffAccountGateway.ts
+firestore.rules
+functions/account-mutation-recovery.js
+functions/firestore-metrics.js
+functions/index.js
+functions/operation-input.js (new)
+functions/property-warranty.js
+functions/staff-account-creation.js (new)
+functions/staff-account-management.js
+scripts/lib/default-recovery.mjs
+scripts/lib/historical-intake-execution.mjs
+scripts/lib/recovery-controller.mjs
+test/account-mutation.test.mjs
+test/catalog-efficiency.test.mjs
+test/company-portal.test.mjs
+test/emulator/company-portal.test.mjs
+test/emulator/dashboard-insurance.test.mjs
+test/emulator/dashboard-migration.test.mjs
+test/emulator/default-recovery.test.mjs
+test/emulator/isolated-property-import.test.mjs
+test/emulator/property-warranty.test.mjs
+test/emulator/staff-account-management.test.mjs
+test/firestore-rules.test.mjs
+test/list-undo-ui.test.mjs
+test/postal-lookup.test.mjs
+test/property-warranty.test.mjs
+test/warranty-organization-ui.test.mjs
+CHANGELOG.md
+docs/decisions/0036-account-mutation-serialization.md
+docs/design/account-concurrency-read-efficiency-2026-10-05.md
+docs/design/meeting-prototype-2026-10-03.md
+docs/design/warranty-certificates.md
+docs/operations.md
+docs/requirements/delivery-and-technology.md
+docs/requirements/house-solution-confirmations.md
+docs/requirements/house-solution-confirmations/HSC-013-construction-company-submission.md
+docs/requirements/security-and-access.md
+docs/roadmaps/2026-initial-delivery.md
+docs/roadmaps/technical-remediation.md
+docs/runbooks/backup-recovery.md
+docs/runbooks/production-bootstrap-review.md
+docs/specification.md
+```
+
+配備前にFunctions/Rules/フロントの組合せと旧protocol拒否を確認する。旧アプリは再読込みが必要。差戻し時も新rootの保全を外した旧復旧ツールを使用しない。旧ポータル封鎖を解除するロールバックは禁止し、必要なら封鎖を維持した修正版を用意する。実配備と外部操作には別承認が必要。
+
+納品準備は、今は修正候補・復旧対象/責任/受入れ条件・連絡経路の整理、HS試行結果後は請求CSVの保証グループ単位と通常業務の実務確認、指摘修正後のDev受入れ、リリース直前はHS Google/Billing/既存Prod引継ぎ・原資料投入・保護設定・照合・引渡しとする。Dev試行データは保持しProdへ複製しない。日程は条件付き目標、実施済み・確約とはしない。
 
 ## 2026-10-15 検証フローのmain統合と非配備測定
 

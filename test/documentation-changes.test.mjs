@@ -31,6 +31,14 @@ test('existing classification treats delivery controllers as CI, unknown changes
  for(const [p,k] of [['app/a.vue','product'],['functions/a.js','product'],['scripts/development-candidate.mjs','ci'],['scripts/development-deployment.mjs','ci'],['test/a.mjs','test'],['docs/a.md','documentation']])assert.equal(classifyDiff(raw(p)),k)
  for(const p of ['unknown.file','docs/../app/a.vue'])assert.throws(()=>classifyDiff(raw(p)))
 })
+test('reviewed insurance guide files are documents but adjacent unknown files remain blocked',()=>{
+ const paths=['deliverables/insurance-report-guide-2026-10-19/README.md','deliverables/insurance-report-guide-2026-10-19/build_pdf.py','deliverables/insurance-report-guide-2026-10-19/build_alternatives.py','output/pdf/保険報告CSV_住所と契約番号を分ける理由_2026-10-19.pdf','output/pdf/保険報告一覧_今回分と過去未報告分_図解比較版_2026-10-19.pdf','output/pdf/保険報告一覧_抽出方法のご案内_2026-10-19.pdf']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('app/a.vue')),'product')
+ assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed.pdf')))
+ assert.equal(classifyDiff(raw('deliverables/insurance-report-guide-2026-10-19/unreviewed.py')),'product')
+})
 test('record-only and technical changes preserve product; application or unknown changes do not',()=>{
  for(const paths of ['','docs/operations.md\0','test/a.mjs\0.github/workflows/a.yml\0'])assert.equal(sameProduct(a,b,()=>paths),true)
  for(const paths of ['app/a.vue\0','package-lock.json\0','unknown\0','functions/a.js\0'])assert.equal(sameProduct(a,b,()=>paths),false)
@@ -136,8 +144,17 @@ test('real Git compares accepted product through record commits and rejects merg
  }finally{if(dirname(resolve(root))!==temporaryRoot)throw Error('Unexpected fixture cleanup path.');rmSync(root,{recursive:true,force:true})}
 })
 
+test('reviewed postal screenshots are documents without admitting adjacent assets',()=>{
+ const paths=['docs/design/evidence/local-postal-2026-10-20/dashboard.png', 'docs/design/evidence/zipcloud-2026-10-20/loading-dialog.png', 'docs/design/evidence/zipcloud-2026-10-20/manual-preserved.png']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('app/a.vue')),'product')
+ assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/other.png')))
+ assert.throws(()=>classifyDiff(raw('docs/design/evidence/zipcloud-2026-10-20/loading-dialog.js')))
+})
+
 test('reviewed HS billing guide is documentation with adjacent and mixed changes guarded',()=>{
- const paths=['deliverables/hs-cloud-billing-guide-2026-10-20/README.md', 'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/02-menu.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/03-linked.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/04-billing-list.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/05-trial-step1.png']
+ const paths=['deliverables/hs-cloud-billing-guide-2026-10-20/README.md', 'deliverables/hs-cloud-billing-guide-2026-10-20/build_pdf.py', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/01-home.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/02-menu.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/03-linked.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/04-billing-list.png', 'deliverables/hs-cloud-billing-guide-2026-10-20/screenshots/05-trial-step1.png', 'output/pdf/HS_GoogleCloud_請求先とカードの登録手順.pdf']
  for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
  assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
  assert.equal(classifyDiff(raw(paths[0])+raw('app/a.vue')),'product')

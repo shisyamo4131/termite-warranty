@@ -1,6 +1,8 @@
 # Dev／Prod 環境設定・権限仕様
 
-2026-10-16採用：[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)。development環境はdev限定のまま、dev controllerから確認済み未統合commitへ明示配備する。branch protection・必須check名・secret/IAM・ProdのWIF/照合は維持。Local改修段階で実設定・Cloud状態は変更していない。以下の起動方式と現在地は旧経路の記録。[切替手順](../runbooks/application-deployment.md)。
+2026-10-21請求先現況：Prodの請求先はHS-TermiteWarrantyへ切替済み。本人の切替・有料化後、コンソールでProdの関連付け、請求先の「アクティブ」、概要の「有料のアカウント」を確認。無料クレジットは47,159円・残り100%・「利用可能」、期限2027年1月20日。詳細と確認範囲は[運用記録](../operations.md#2026-10-21-prod請求先切替有料化の完了確認)。今回の作業では環境設定を変更せず、配備・正式投入・バックアップ・PITR・Auth退避の保留を維持する。以下の旧請求先に関する記載は各時点の記録。
+
+2026-10-16採用：[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)。development環境はdev限定のまま、dev controllerから確認済み未統合commitへ明示配備する。branch protection・必須check名・secret/IAM・ProdのWIF/照合は維持。main/dev切替とDev実証は完了。既存Dev起動flagを停止・復帰し、PR保護/環境制限/資格情報/IAMは変更していない。[実績](../operations.md#2026-10-16-軽量dev配備の切替実証)。以下の起動方式と現在地は旧経路の記録。[切替手順](../runbooks/application-deployment.md)。
 
 2026-10-15検証フロー：[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)をPR35でmainへ統合済み。非製品変更はmain向け1PR、製品はdev→mainを維持する。branch保護・必須check名・environment許可branch・IAM・secret・Cloud設定は変更していない。dev未同期・実配備未実証であり、以下の実設定/実証結果を更新したものではない。
 

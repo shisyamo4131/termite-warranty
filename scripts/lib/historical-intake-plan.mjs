@@ -1,7 +1,8 @@
+import {assertGroupWarrantyLimit} from '../../src/domain/group-warranty-limit.mjs'
 import {createHash} from 'node:crypto'
 import {normalizeProperty,coveragePeriods,initialInsurance,fiscalYear,initialGroups} from '../../src/domain/property-warranty.mjs'
 import {normalizeExternalKey} from '../../src/domain/external-key.mjs'
-import {materializeInsuranceState,insuranceProjection,validateInsuranceState} from '../../src/domain/insurance-state.mjs'
+import {materializeInsuranceState,insuranceProjection,validateInsuranceState,waiveExpiredImportedPeriods} from '../../src/domain/insurance-state.mjs'
 import {insuranceNoticeProjection} from '../../src/domain/insurance-notice-query.mjs'
 import {monthlyQueryProjection} from '../../src/domain/monthly-query.mjs'
 import {assertInsuranceCapacity} from '../../src/domain/insurance-capacity.mjs'
@@ -23,7 +24,7 @@ export function prepareHistoricalIntake(input,{today}={}) {
   fiscalYear(today,1)
   if(JSON.stringify(input.expectedRows)!==JSON.stringify({HSC:99,SHS:66,UH:277}))fail('REVIEWED_ROW_COUNTS')
   for(const key of ['H-01','H-02','S-01','S-02','S-03','U-01','excludedNumbers'])if(!nonempty(input.decisions?.[key]))fail('DECISION_EVIDENCE')
-  const groups=initialGroups.map(g=>({...g,enabled:true,externalKeyRequired:g.id==='UH',externalKeyLabel:g.id==='UH'?'お施主様契約No':'外部キー',addressRequired:g.id!=='UH',insulationMaterialsRequired:g.id!=='UH'}))
+  const groups=initialGroups.map(g=>({...g,enabled:true,externalKeyRequired:g.id==='UH',externalKeyLabel:g.id==='UH'?'お施主様契約No':'外部キー',addressRequired:true,insulationMaterialsRequired:g.id!=='UH'}))
   const documents=[],errors=[],numbers=new Set(),externalKeys=new Set(),sourceRows=new Set(),counters=new Map(),companies=new Map(),branches=new Map(),codes=new Set()
   const add=(collection,id,data)=>documents.push({path:`${collection}/${id}`,data})
   for(const g of groups){const {id,...data}=g;add('warrantyGroups',id,data)}
@@ -55,13 +56,16 @@ export function prepareHistoricalIntake(input,{today}={}) {
     if(!match||numbers.has(row.warrantyNumber)||!Number.isSafeInteger(Number(match[2]))||Number(match[2])<1)fail('WARRANTY_NUMBER')
     numbers.add(row.warrantyNumber)
     const numberYear=2000+Number(match[1]),sequence=Number(match[2]),counterId=group.id+'_'+numberYear
-    const fields=normalizeProperty(row.fields,true,group)
+    const externalKey=normalizeExternalKey(row.externalKey??'')
+    // The approved UH intake maps the source contract number to the normal address field.
+    // Preserve the original key for duplicate detection and never mutate the source row.
+    const fields=normalizeProperty(group.id==='UH'?{...row.fields,address:externalKey}:row.fields,true,group)
+    assertGroupWarrantyLimit(group,fields.maxYears)
     if(fields.applicationDate<'2000-01-01'||fields.applicationDate>='2100-01-01')fail('NUMBER_CENTURY_REQUIRES_REVIEW')
     const applicationYear=fiscalYear(fields.applicationDate,group.fiscalStartMonth)
     if(numberYear!==applicationYear)yearDifferences.push({group:group.id,row:row.sourceRow,applicationYear,numberYear})
     counters.set(counterId,Math.max(counters.get(counterId)??0,sequence))
-    const externalKey=normalizeExternalKey(row.externalKey??'')
-    if(group.id==='UH'&&(!/^\d{4}-\d{7}$/.test(externalKey)||fields.maxYears!==10))fail('UH_CONSTRAINT')
+    if(group.id==='UH'&&(!/^\d{4}-\d{7}$/.test(externalKey)))fail('UH_CONSTRAINT')
     if(group.externalKeyRequired&&!externalKey||externalKey&&externalKeys.has(externalKey))fail('EXTERNAL_KEY')
     if(externalKey)externalKeys.add(externalKey)
     const id='historical-'+intakeHash(group.id+'\0'+row.warrantyNumber).slice(0,40)
@@ -70,6 +74,7 @@ export function prepareHistoricalIntake(input,{today}={}) {
     const source={workbookId:input.workbookId,sourceSha256:input.sourceSha256,transformVersion:input.transformVersion,sheet:group.id,row:row.sourceRow,rowHash:intakeHash(row)}
     let value={...fields,constructionCompanyId:company.id,branchId:branch.id,groupId:group.id,groupName:group.name,fiscalYear:applicationYear,warrantyNumber:row.warrantyNumber,externalKey,status:'active',years:10,periods,startDate:fields.handoverDate,expiryDate:periods[0].expiryDate,...initialInsurance(fields.handoverDate),warrantyNotified:false,insuranceEvents:[],insuranceHistoryIncomplete:false,billingItems:[{id:'initial',...periods[0],state:'billed'}],certificateItems:[{id:'initial',...periods[0],issued:true}],history:[],revision:1,historicalIntakeSource:source}
     value=materializeInsuranceState(value,{newRegistration:true})
+    value=waiveExpiredImportedPeriods(value,{today,actorUid:'historical-intake-plan',actorName:'初期取込み計画（実行時に置換）',at:new Date(`${today}T00:00:00+09:00`).toISOString()})
     Object.assign(value,insuranceProjection(value),monthlyQueryProjection(value),insuranceNoticeProjection(value))
     if(validateInsuranceState(value,{today}).length)fail('INSURANCE_STATE')
     assertInsuranceCapacity(value,{documentPath:'propertyWarranties/'+id,today})

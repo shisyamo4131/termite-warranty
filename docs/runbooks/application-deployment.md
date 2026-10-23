@@ -1,6 +1,22 @@
 # Dev／Prod 通常アプリの配備手順
 
-[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の承認済みLocal改修。リモート切替・新経路の実配備は未実証。旧経路の実績とPR38本人確認は[operations](../operations.md)を参照する。
+## 2026-10-22 保証グループ上限の導入
+
+承認済みDev導入に限り、アプリ配備の前に既存3グループへmaxWarrantyYearsを補完する。UH10、HSC／SHS30。通常の設定変更では既存物件を検査しない。この補完処理も上限超過の物件を修正せず、物件全体の要約hashは不変照合にだけ使う。保証期間・満了日・採番・履歴を更新しない。
+
+1. `node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev` を読取り実行。対象3グループの識別情報、欠落項目、442物件（実数が変われば理由確認）、beforeDigestとpropertiesDigestを確認する。認証情報や物件本文を出力しない。
+2. 実補完が承認済みであることを確認し、`node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev --apply <確認済みbeforeDigest>` を実行する。normal状態、同一原像、既存値の競合なしをtransactionで確認し、欠落項目だけ更新する。
+3. 同じ読取りコマンドでupdatesが0、propertiesDigestが実行前と一致することを確認する。結果不明時は読取りを先に行い、blind retryやデータ巻戻しをしない。
+4. 包括Local検証済み候補を以下の明示Dev配備経路で配備し、公開・Functions・保護保留と画面を照合する。Devでは確認用の物件登録・延長・採番を実行しない。
+
+Local用は`FIRESTORE_EMULATOR_HOST=127.0.0.1:28080`とdemo-termite-warrantyを使う。実行器はProdを拒否する。Prodへの補完・正式投入は別途保留解除後に対象を具体化する。アプリ切戻しでは補完項目を保持し、既存物件を巻き戻さない。
+
+
+## 2026-10-21 検索索引を追加した候補の照合
+
+Firebase CLIの索引配備成功と、検索可能なREADYは別段階。今回のDev候補ではCI成功後も3索引がCREATINGで、新検索が一時的にcode 9／500になった。索引を追加した場合は管理APIで対象索引のREADYを確認し、実画面の同条件検索成功まで確認する。READY直後にも一時的に失敗した観測があるため、READY表示だけで業務確認を省略しない。状態を読取り、結果不明の再配備や索引再作成を行わない。Prod導入の際は、旧アプリと互換な追加索引を先行して作成・READY確認したうえで新アプリを公開する順序を準備する。今回、Prod設定・CI自動処理は変更していない。[実績](../operations.md#2026-10-21-検索住所必須過去取込みのdev候補)。
+
+[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の採用済み配備手順。main/dev切替と新経路のDev実証は完了、本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。旧経路の実績とPR38本人確認は[operations](../operations.md)を参照する。
 
 ## 1. 対象と承認境界
 
@@ -67,7 +83,7 @@ Prod固有build、成功buildの固定bundle/digest受渡し、main限定WIF、p
 
 1. ローカル記録d79e0c1/d372311を保持し、owned diffをreviewする。現checkoutはdev製品を含むため、そのままmain向けPRへ流さない。
 2. 承認後、配備制御と関連文書/試験だけをmain基点の通常PRとして統合する。旧製品差分を混ぜない。これはCI変更なのでProd公開を起動しない。既存保護checkを迂回しない。
-3. main→devの製品不変な同期PRを軽いcheckで統合する。受信側で旧dev自動配備が消えていることを確認する。この同期でDev配備は起きない。
+3. strict最新baseを満たすため、dev基点の同期branchでmainをmergeし、製品不変を確認した同期PRを軽いcheckでdevへ統合する。main側へdev製品を逆流させない。受信側で旧dev自動配備が消えていることを確認する。この同期でDev配備は起きない。
 4. default branch登録、dev controller、environment dev限定、enable、進行中runなしを読戻す。新secret/IAM/保護変更が必要なら具体対象を報告し実行前承認を得る。
 5. 別途承認された候補を手動Dev配備し、run・実画面・データ保持範囲・実測を記録する。未実証をCI成功で埋めない。
 

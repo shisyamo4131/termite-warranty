@@ -8,10 +8,10 @@ import { pendingWarrantyCandidates, warrantyNoticeOrder } from '../functions/war
 import { propertyListFilter } from '../functions/property-list-filter.js'
 
 test('property list accepts only bounded or explicit business query shapes',()=>{
-  for(const f of [undefined,{}, {warrantyNumber:' X '},{alertKind:'warranty',notification:'pending'},{alertKind:'insurance'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
-  for(const f of [null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
+  for(const f of [undefined,{}, {groupId:' G ',handoverMonth:'2026-10'},{alertKind:'warranty',notification:'pending'},{reportMonth:'2026-10',includeDone:true},{billingMonth:'2026-10',warrantyNumber:'X'}]) assert.ok(propertyListFilter('list',f))
+  for(const f of [{alertKind:'insurance'},null,[],true,'x',{search:''},{companyId:'C'},{alertKind:'warranty'},{alertKind:'warranty',notification:'all'},{alertKind:'warranty',notification:'done'},{alertKind:'insurance',warrantyNumber:''},{reportMonth:''},{reportMonth:202610},{reportMonth:'2026-13'},{reportMonth:'2026-10',billingMonth:'2026-10'},{billingMonth:'2026-10',includeDone:false},{reportMonth:'2026-10',includeDone:'false'},{warrantyNumber:null},{from:'2026-10-01'}]) assert.throws(()=>propertyListFilter('list',f),{code:'invalid-argument'})
   assert.throws(()=>propertyListFilter('propertyList',{reportMonth:'2026-10'}),{code:'invalid-argument'})
-  const original={warrantyNumber:' X '};assert.deepEqual(propertyListFilter('propertyList',original),{warrantyNumber:'X'});assert.equal(original.warrantyNumber,' X ')
+  const original={groupId:' G ',handoverMonth:'2026-10'};assert.deepEqual(propertyListFilter('propertyList',original),{groupId:'G',handoverMonth:'2026-10'});assert.equal(original.groupId,' G ')
 })
 
 test('warranty notice candidates keep starting conditions and reject migration changes without fallback', async t => {
@@ -279,9 +279,9 @@ test('calendar-month alerts include boundary and overdue, excluding unknown date
   assert.equal(expiryAlertEligible({status:'active'},'insurance','2027-05-01'),false)
   assert.equal(insuranceExpiryDate('2026-10-01'),'2031-09-30')
   assert.equal(insuranceExpiryDate(''),'')
-  assert.deepEqual(normalizeAlertSettings(),{warrantyMonths:2,insuranceMonths:2})
+  assert.deepEqual(normalizeAlertSettings(),{warrantyMonths:2})
   assert.throws(()=>normalizeAlertSettings({warrantyMonths:0}))
-  assert.throws(()=>normalizeAlertSettings({insuranceMonths:1.5}))
+  assert.deepEqual(normalizeAlertSettings({insuranceMonths:1.5}),{warrantyMonths:2})
   assert.equal(matchesProperty({handoverDate:''},{handoverMissing:'yes'}),true)
   assert.equal(matchesProperty({handoverDate:'2026-10-01'},{handoverMissing:'yes'}),false)
 })
@@ -349,14 +349,28 @@ async function propertyAddressViewForTest(provider) {
   const source=readFileSync(new URL('../app/components/PropertyAddressFields.vue',import.meta.url),'utf8')
     .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm,'')
   const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
-  const form=vue.ref({postalCode:'1000001',address:'手入力住所',buildingName:'別建物'})
+  const form=vue.ref({postalCode:'1000001',address:'',buildingName:'別建物'})
   const props=vue.reactive({postalLookupProvider:provider,validateRequired:true})
   let unmount
   const view=new Function('defineProps','defineModel','ref','watch','onBeforeUnmount','defineExpose','createPostalLookupCoordinator','propertyAddress','requiredRule','lengthRule','postalRule',
-    compiled+'\nreturn {handlePostalBlur,applyCandidate,candidateOptions,lookupMessage};')(
+    compiled+'\nreturn {handlePostalBlur,cancelPostalLookup,applyCandidate,candidateOptions,lookupMessage};')(
     ()=>props,()=>form,vue.ref,vue.watch,fn=>unmount=fn,()=>{},postal.createPostalLookupCoordinator,propertyAddress,rules.requiredRule,rules.lengthRule,rules.postalRule)
   return {...view,form,props,unmount}
 }
+
+test('property submission cancellation prevents delayed lookup from changing the frozen address', async () => {
+  let resolve
+  const view=await propertyAddressViewForTest({lookup:()=>new Promise(done=>resolve=done)})
+  const lookup=view.handlePostalBlur()
+  view.cancelPostalLookup()
+  const sent=JSON.parse(JSON.stringify(view.form.value))
+  resolve({status:'resolved',address:{prefecture:'遅延結果',municipality:'更新されない住所'}})
+  await lookup
+  assert.deepEqual(JSON.parse(JSON.stringify(view.form.value)),sent)
+  assert.deepEqual(view.candidateOptions.value,[])
+  assert.equal(view.lookupMessage.value,null)
+  view.unmount()
+})
 
 test('single address postal lookup preserves manual edits and invalidates stale candidates', async () => {
   let resolve
@@ -368,24 +382,30 @@ test('single address postal lookup preserves manual edits and invalidates stale 
   resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
   await pending
   assert.equal(view.form.value.address,'手入力住所')
+  await view.handlePostalBlur()
+  assert.equal(view.form.value.address,'手入力住所')
+  assert.equal(view.lookupMessage.value, null)
+  view.form.value.address=''
   const fresh=view.handlePostalBlur()
   resolve({status:'resolved',address:{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'架空町'}})
   await fresh
   assert.equal(view.form.value.address,'東京都架空市架空町')
   assert.equal(view.form.value.buildingName,'別建物')
+  view.form.value.address=''
   const ambiguous=view.handlePostalBlur()
   resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
   await ambiguous
-  assert.equal(view.form.value.address,'東京都架空市架空町')
+  assert.equal(view.form.value.address,'')
   const oldCandidate=view.candidateOptions.value[0]
   view.form.value.postalCode='1000002'
   view.applyCandidate(oldCandidate)
-  assert.equal(view.form.value.address,'東京都架空市架空町')
+  assert.equal(view.form.value.address,'')
   const second=view.handlePostalBlur()
   resolve({status:'ambiguous',address:{prefecture:'東京都',municipality:'架空市'},candidates:[{prefecture:'東京都',municipality:'架空市',streetTownAndNumber:'候補町'}]})
   await second
   view.applyCandidate(view.candidateOptions.value[0])
   assert.equal(view.form.value.address,'東京都架空市候補町')
+  view.form.value.address=''
   const replaced=view.handlePostalBlur()
   view.form.value={postalCode:'1000002',address:'別物件住所',buildingName:''}
   resolve({status:'resolved',address:{prefecture:'古い県',municipality:'古い市'}})
@@ -398,7 +418,7 @@ test('single address postal lookup failure retains address and allows a later re
   let fail=true
   const view=await propertyAddressViewForTest({lookup:async()=>{if(fail)throw new Error('offline');return {status:'resolved',address:{prefecture:'架空県',municipality:'架空市',streetTownAndNumber:'架空町'}}}})
   await view.handlePostalBlur()
-  assert.equal(view.form.value.address,'手入力住所')
+  assert.equal(view.form.value.address,'')
   assert.equal(view.lookupMessage.value.type,'error')
   fail=false
   await view.handlePostalBlur()
@@ -435,7 +455,15 @@ test('prefix separator is automatic and preserves distinct trailing hyphens',()=
 })
 
 
-async function prototypeViewForTest(invoke,sendMail=async()=>{}){
+async function prototypeViewForTest(invoke,sendMail=async()=>{},options={}){
+  const suppliedInvoke=invoke
+  // Legacy fixtures model successful writes without transport envelopes. Explicit
+  // malformed-response tests opt out; supplied statuses/IDs are never overwritten.
+  invoke=async data=>{
+    const value=await suppliedInvoke(data)
+    const mutation=['save','register','extend','undoExtend','cancel','restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','undoCertificate','billPeriods','waiveInsurance','undoInsuranceWaiver','saveCompany','saveBranch','saveGroup'].includes(data.action)
+    return mutation && options.completeMutationResults!==false ? {id:data.id || 'fixture-created-master',operationStatus:'completed',...value} : value
+  }
   const {readFile}=await import('node:fs/promises')
   const ts=(await import('typescript')).default
   const vue=await import('vue')
@@ -452,10 +480,10 @@ async function prototypeViewForTest(invoke,sendMail=async()=>{}){
   references.name=(kind,id)=>references[kind].value.find(row=>row.id===id)?.name || id
   vue.watch(fixtureProfile,()=>references.reset(),{flush:'sync'})
   const companyProfileDependencies={useCompanyProfile:()=>({reset:()=>{}}),...(await import('../src/domain/company-settings.mjs'))}
-  const notifications=[];const env={useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',hostedPostalLookupProvider:{}}
+  const notifications=[];const env={...(await import('../src/domain/group-warranty-limit.mjs')),...(await import('../app/composables/usePaginationScroll.ts')),useDashboardStore:()=>({reset:()=>{},markStale:()=>{}}),useDisplay:()=>({mdAndUp:vue.ref(true)}),useReferenceStore:()=>references,...(await import('../src/domain/reference-store-request.mjs')),...(await import('../src/domain/branch-code.mjs')),...(await import('../app/utils/recoveryClient.ts')),sendPasswordResetEmail:sendMail,window:{location:{origin:"http://fictional.invalid"}},nextInsuranceReportLabel,notifications,useAppSnackbar:()=>({showValidationError:()=>notifications.push("validation"),showSnackbar:(...args)=>notifications.push(args)}),...(await import('../src/domain/property-warranty.mjs')),...(await import('../src/domain/external-key.mjs')),...(await import('../src/domain/property-field-requirements.mjs')),...inputRules,nextTick:vue.nextTick,ref:vue.ref,reactive:vue.reactive,computed:vue.computed,watch:vue.watch,onMounted:()=>{},onUnmounted:()=>{},...(await import('../src/domain/reference-fetch-cache.mjs')),useNuxtApp:()=>({$firebase:{functions:{},auth:{}}}),useSession:()=>({profile:fixtureProfile,logout:()=>{}}),httpsCallable:()=>async data=>({data:await invoke(data)}),japanDate:()=> '2026-10-04',coveragePeriods,normalizeWarrantyPrefix:()=>'',zipcloudPostalLookupProvider:{}}
   const code=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.None}}).outputText
   Object.assign(env,companyProfileDependencies,{selectedMonthToBasisMonth})
-  return new Function(...Object.keys(env),code+';return {rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
+  return new Function(...Object.keys(env),code+';return {propertyId,pendingProperty,pendingSetting,retryProperty,retrySetting,setting,settingAction,openSetting,requestId,frozenPayload,rowKey,loadedReportMonth,businessNavigation,managementNavigation,navigate,drawerOpen,recoveryReadOnly,references,groups,propertyKeySettings,propertyRequirements,externalKeyRule,referenceCache,loadCatalog,profile,rows,reportKey,reportDirty,clearFilter,selectedKeys,selectedRows,reportConfirm,markReports,accountCreated,searchForm,loadRows,appliedPropertyFilters,removePropertyFilter,current,maxYearsRule,maxYearsOptions,historyFields,tab,filter,fetchRows,insuranceRenewalLabel,companies,branches,dialogCompanies,dialogBranches,propertyDialog,form,notifications,catalogBusy,catalogError,busy,resetDialogCatalog,fetchCompanyOptions,choosePropertyCompany,selectPropertyCompany,confirmRegistration,confirmWarnings,registrationWarnings,openRegistrationConfirmation,propertyForm,settingForm,accountForm,errors,run,settingDialog,accountDialog,confirmation,saveSetting,saveProperty,openProperty,createAccount};')(...Object.values(env))
 }
 
 test('property editor discards the former name field before saving legacy documents',async()=>{
@@ -617,7 +645,7 @@ test('insurance report sends only basis month and completion filter; renewal lab
 
 test('saving a draft closes the dialog and delivers completion via snackbar',async()=>{
  const v=await prototypeViewForTest(async data=>data.action==='detail' ? {id:'test',name:'架空',status:'draft'} : {rows:[],limited:false})
- v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})}
+ v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})}
  await v.saveProperty('save')
  assert.deepEqual(v.notifications,[['保存しました。','success']])
  assert.equal(v.propertyDialog.value,false);assert.equal(v.errors.page,'');assert.equal(v.errors.property,'')
@@ -626,10 +654,10 @@ test('saving a draft closes the dialog and delivers completion via snackbar',asy
 
 test('after thirty-year extension UI disallows a twenty-year cap and history labels are explicit',async()=>{
  const v=await prototypeViewForTest(async()=>({}))
- v.current.value={years:30,maxYears:30}
+ v.groups.value=[{id:'limit',maxWarrantyYears:30}];v.current.value={years:30,maxYears:30,warrantyNumber:'fixture',groupId:'limit'}
  assert.equal(v.maxYearsOptions.value[0].props.disabled,true)
  assert.notEqual(v.maxYearsRule(20),true);assert.equal(v.maxYearsRule(30),true)
- v.current.value={years:20,maxYears:30};assert.equal(v.maxYearsRule(20),true)
+ v.current.value={years:20,maxYears:30,warrantyNumber:'fixture',groupId:'limit'};assert.equal(v.maxYearsRule(20),true)
  assert.deepEqual(v.historyFields.filter(f=>['applicationDate','handoverDate','expiryDate'].includes(f.key)).map(f=>f.label),['申込日','引渡日','保証満了日'])
 })
 
@@ -690,30 +718,33 @@ test('warranty alerts always request pending notices despite hidden filters',asy
  for(const notification of ['pending','done','all']){v.filter.notification=notification;await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'warranty',notification:'pending'})}
 })
 
-test('insurance alerts ignore hidden filters and warranty notification state',async()=>{
- const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false,companies:[],branches:[],groups:[]}})
- v.tab.value='insuranceAlerts';await new Promise(r=>setImmediate(r));
- Object.assign(v.filter,{notification:'done',search:'hidden',fiscalYear:'2026',companyId:'hidden'});await v.fetchRows();assert.deepEqual(calls.at(-1).filter,{alertKind:'insurance'})
+test('retired insurance notices are absent from navigation and settings',async()=>{
+ const {readFile}=await import('node:fs/promises')
+ const source=await readFile(new URL('../app/components/MeetingPrototype.vue',import.meta.url),'utf8')
+ assert.equal(source.includes('insuranceAlerts'),false)
+ assert.equal(source.includes('alertSettings.insuranceMonths'),false)
+ assert.ok(source.includes("title:'保証満了案内'"))
+ assert.ok(source.includes("title:'保険報告用一覧'"))
 })
 
 test('failed draft save keeps the dialog and entered values',async()=>{
- const v=await prototypeViewForTest(async()=>{throw new Error('save failed')});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.form.value.name='架空入力';await v.saveProperty('save');assert.equal(v.propertyDialog.value,true);assert.equal(v.form.value.name,'架空入力');assert.equal(v.notifications.length,0)
+ const v=await prototypeViewForTest(async()=>{throw new Error('save failed')});v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.form.value.name='架空入力';await v.saveProperty('save');assert.equal(v.propertyDialog.value,true);assert.equal(v.form.value.name,'架空入力');assert.equal(v.notifications.length,0)
 })
 test('successful registration closes both dialogs; active edit remains open',async()=>{
- for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
+ for(const action of ['register','save']){const v=await prototypeViewForTest(async data=>data.action==='detail'?{id:'test',status:'active'}:{rows:[],limited:false});v.propertyId.value='test';v.propertyDialog.value=true;v.propertyForm.value={validate:async()=>({valid:true})};v.confirmRegistration.value=true;v.confirmation.value=action==='register'?'register':'';await v.saveProperty(action);assert.equal(v.propertyDialog.value,action==='save');assert.equal(v.confirmation.value,'')}
 })
 
 test('property search submits only the exact number, clears the applied number, and blocks invalid input',async()=>{
- const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001';v.filter.search='ignored';v.filter.fiscalYear='2026';await v.loadRows();assert.equal(calls.at(-1).action,'propertyList');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:'QA-26-001'});assert.deepEqual(v.appliedPropertyFilters.value,[{key:'warrantyNumber',label:'保証番号：QA-26-001'}]);await v.removePropertyFilter('warrantyNumber');assert.deepEqual(calls.at(-1).filter,{warrantyNumber:''});assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(calls.length,before)
+ const calls=[];const v=await prototypeViewForTest(async data=>{calls.push(data);return {rows:[],limited:false}});v.tab.value='properties';v.searchForm.value={validate:async()=>({valid:true})};v.filter.groupId='G';v.filter.handoverMonth='2026-10';v.filter.search='ignored';v.filter.fiscalYear='2026';await v.loadRows();assert.equal(calls.at(-1).action,'propertyList');assert.deepEqual(calls.at(-1).filter,{groupId:'G',handoverMonth:'2026-10'});assert.deepEqual(v.appliedPropertyFilters.value,[{key:'propertySearch',label:'G ／ 引渡年月：2026-10'}]);await v.removePropertyFilter('warrantyNumber');assert.deepEqual(calls.at(-1).filter,{groupId:'',handoverMonth:''});assert.equal(v.appliedPropertyFilters.value.length,0);v.searchForm.value={validate:async()=>({valid:false})};const before=calls.length;await v.loadRows();assert.equal(calls.length,before)
 })
 
 test('pending list results keep submitted filters and busy clear cannot erase them',async()=>{
  let resolve;const v=await prototypeViewForTest(()=>new Promise(r=>{resolve=r}))
- v.searchForm.value={validate:async()=>({valid:true})};v.filter.warrantyNumber='QA-26-001'
+ v.searchForm.value={validate:async()=>({valid:true})};v.filter.groupId='G';v.filter.handoverMonth='2026-10'
  const pending=v.loadRows();await new Promise(r=>setImmediate(r))
- await v.clearFilter();assert.equal(v.filter.warrantyNumber,'QA-26-001')
- v.filter.warrantyNumber='QA-26-002';resolve({rows:[{id:'tokyo'}],limited:false});await pending
- assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'保証番号：QA-26-001');assert.equal(v.reportDirty.value,true)
+ await v.clearFilter();assert.equal(v.filter.handoverMonth,'2026-10')
+ v.filter.handoverMonth='2026-11';resolve({rows:[{id:'tokyo'}],limited:false});await pending
+ assert.equal(v.rows.value[0].id,'tokyo');assert.equal(v.appliedPropertyFilters.value[0].label,'G ／ 引渡年月：2026-10');assert.equal(v.reportDirty.value,true)
 })
 
 test('account creation sends setup mail despite list refresh failure and prevents duplicate creation',async()=>{
@@ -766,15 +797,15 @@ test('ambiguous report commit never reselects a refreshed next interval or chang
 test('group field requirements default safely and apply equally to formal manual registration',async()=>{
  const {propertyFieldRequirements}=await import('../src/domain/property-field-requirements.mjs');
  assert.deepEqual(propertyFieldRequirements({name:'HSC'}),{addressRequired:true,insulationMaterialsRequired:true});
- assert.deepEqual(propertyFieldRequirements({name:'UH'}),{addressRequired:false,insulationMaterialsRequired:false});
- assert.throws(()=>propertyFieldRequirements({addressRequired:'false'}));assert.throws(()=>propertyFieldRequirements({insulationMaterialsRequired:null}));
+ assert.deepEqual(propertyFieldRequirements({name:'UH'}),{addressRequired:true,insulationMaterialsRequired:false});
+ assert.equal(propertyFieldRequirements({addressRequired:false}).addressRequired,true);assert.throws(()=>propertyFieldRequirements({insulationMaterialsRequired:null}));
  const input={name:'架空物件',buildingArea:100,applicationDate:'2026-10-01',handoverDate:'2026-10-02',address:'',foundationInsulation:true,insulationMaterials:''};
- assert.throws(()=>normalizeProperty(input,true));assert.equal(normalizeProperty(input,true,{name:'UH'}).address,'');
- assert.throws(()=>normalizeProperty(input,true,{addressRequired:false,insulationMaterialsRequired:true}),/資材/);
+ assert.throws(()=>normalizeProperty(input,true));assert.throws(()=>normalizeProperty(input,true,{name:'UH'}),/住所/);
+ assert.throws(()=>normalizeProperty({...input,address:'架空住所'},true,{addressRequired:false,insulationMaterialsRequired:true}),/資材/);
  assert.throws(()=>normalizeProperty({...input,insulationMaterials:'架空資材'},true,{addressRequired:true,insulationMaterialsRequired:false}),/住所/);
  const view=await prototypeViewForTest(async()=>({}));view.groups.value=[{id:'old',name:'UH'},{id:'new',name:'HSC'}];view.dialogCompanies.value=[{id:'c',defaultGroupId:'new'}];view.form.value={constructionCompanyId:'c'};
  assert.equal(view.propertyKeySettings.value.required,false);assert.equal(view.propertyRequirements.value.addressRequired,true);
- view.current.value={warrantyNumber:'issued',groupId:'old'};assert.equal(view.propertyKeySettings.value.required,true);assert.equal(view.propertyRequirements.value.addressRequired,false);
+ view.current.value={warrantyNumber:'issued',groupId:'old'};assert.equal(view.propertyKeySettings.value.required,true);assert.equal(view.propertyRequirements.value.addressRequired,true);
 });
 
 
@@ -889,7 +920,7 @@ test('certificate CSV preserves quoting, imported period identity and calendar b
 
 test('business navigation preserves role and recovery boundaries and blocks busy navigation',async()=>{
   const ui=await prototypeViewForTest(async()=>({}))
-  assert.equal(ui.businessNavigation.value.length,7)
+  assert.equal(ui.businessNavigation.value.length,6)
   assert.deepEqual(ui.managementNavigation.value.map(x=>x.value),['companySettings','settings','staff','alertSettings','recovery'])
   ui.busy.value=true
   ui.navigate('report')
@@ -945,4 +976,152 @@ test('extension billing follows its application date through projections, CSV, u
   const legacy={...row,history:[{kind:'extend',requestId:'e1',before:{years:10},date:'2036-08-31'}]}
   assert.equal(warrantyTransactions(legacy)[1].extensionApplicationDateMissing,true)
   assert.equal(warrantyTransactions(legacy)[1].billingDate,'2036-10-01')
+})
+
+test('property unknown-result retry freezes payload and completed refresh failure never resends the write',async()=>{
+  const calls=[],row={id:'retry-property',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+  let failWrite=true,failDetail=false
+  const view=await prototypeViewForTest(async data=>{
+    calls.push(structuredClone(data))
+    if(data.action==='save'){if(failWrite){failWrite=false;throw Error('response lost')}failDetail=true;return {id:row.id,operationStatus:'completed'}}
+    if(data.action==='detail'){if(failDetail){failDetail=false;throw Error('detail unavailable')}return row}
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+  await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value.phase,'unknown')
+  const original=calls.find(call=>call.action==='save')
+  assert.equal(original.operationProtocol,2)
+  view.form.value.name='Changed after response lost'
+  await view.saveProperty('save')
+  const writes=calls.filter(call=>call.action==='save')
+  assert.deepEqual(writes[1],original)
+  assert.equal(view.pendingProperty.value.phase,'completed')
+  await view.retryProperty()
+  assert.equal(calls.filter(call=>call.action==='save').length,2)
+  assert.equal(view.pendingProperty.value,null)
+  assert.equal(view.notifications.at(-1)[1],'success')
+})
+
+test('legacy property receipt is a warning and explicit rejection releases the frozen operation',async()=>{
+  const row={id:'legacy-operation',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+  let reject=true
+  const view=await prototypeViewForTest(async data=>{
+    if(data.action==='detail')return row
+    if(data.action==='save'){
+      if(reject)throw Object.assign(Error('validation rejected'),{details:{operationOutcome:'rejected'}})
+      return {id:row.id,operationStatus:'legacy-unverified'}
+    }
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+  const firstId=view.requestId.value
+  await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value,null);assert.notEqual(view.requestId.value,firstId)
+  reject=false;await view.saveProperty('save')
+  assert.equal(view.pendingProperty.value,null)
+  assert.equal(view.notifications.at(-1)[1],'warning')
+  assert.equal(view.propertyDialog.value,true)
+})
+
+test('new master retry preserves request and returned ID across a catalog-only failure',async()=>{
+  const calls=[];let writeFailure=true,catalogFailure=true
+  const view=await prototypeViewForTest(async data=>{
+    calls.push(structuredClone(data))
+    if(data.action==='saveCompany'){
+      if(writeFailure){writeFailure=false;throw Error('response lost')}
+      return {id:'created-company',operationStatus:'completed'}
+    }
+    if(data.action==='alertSettings' && catalogFailure){catalogFailure=false;throw Error('catalog unavailable')}
+    return {companies:[],branches:[],groups:[],rows:[]}
+  })
+  view.openSetting('saveCompany');view.setting.value.name='Original company'
+  view.settingForm.value={validate:async()=>({valid:true})}
+  await view.saveSetting()
+  const first=calls.find(call=>call.action==='saveCompany')
+  assert.ok(first.requestId);assert.equal(view.pendingSetting.value.phase,'unknown')
+  view.setting.value.name='Changed company'
+  await view.saveSetting()
+  assert.deepEqual(calls.filter(call=>call.action==='saveCompany')[1],first)
+  assert.equal(view.setting.value.id,'created-company')
+  assert.equal(view.pendingSetting.value.phase,'completed')
+  await view.retrySetting()
+  assert.equal(calls.filter(call=>call.action==='saveCompany').length,2)
+  assert.equal(view.pendingSetting.value,null);assert.equal(view.settingDialog.value,false)
+})
+
+test('operation fingerprints bind business input while ignoring runtime envelopes and key order',async()=>{
+  const {inputHash,propertyInputHash,masterInputHash}=await import('../functions/operation-input.js')
+  assert.equal(inputHash({b:2,a:1}),inputHash({a:1,b:2}))
+  assert.notEqual(inputHash({a:undefined}),inputHash({a:null}))
+  assert.notEqual(inputHash({a:'1'}),inputHash({a:1}))
+  const base={action:'save',id:'property',revision:1,reason:'',fields:{name:'Original',address:'Address',handoverDate:'2026-10-01'}}
+  const hash=propertyInputHash(base)
+  assert.equal(hash,propertyInputHash({...base,requestId:'transport-id',runtimeGeneration:8,runtimeProtocol:2,operationProtocol:2,unused:'ignored',fields:{...base.fields,serverProjection:'ignored'}}))
+  for(const patch of [{action:'register'},{revision:2},{reason:'changed'},{fields:{...base.fields,name:'Original '}},{fields:{...base.fields,handoverDate:'2026-10-02'}},{confirmDates:true}])assert.notEqual(hash,propertyInputHash({...base,...patch}))
+  for(const [action,fields] of Object.entries({extend:{extensionApplicationDate:'2036-09-01'},undoExtend:{targetRequestId:'old'},cancel:{confirmCancellation:true},notify:{notified:true},report:{month:'2026-10',reportTarget:{warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2031-09-30'}},undoReport:{targetReportId:'report'},waiveInsurance:{insurancePeriodId:'period'},undoInsuranceWaiver:{insurancePeriodId:'period'},bill:{warrantyPeriodId:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'},issueCertificate:{month:'2026-10',periods:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'}]},billPeriods:{groupId:'group',month:'2026-10',periods:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'}]}})){
+    const command={action,id:'property',revision:1,...fields},fingerprint=propertyInputHash(command)
+    for(const key of Object.keys(fields))assert.notEqual(fingerprint,propertyInputHash({...command,[key]:undefined}),`${action}/${key}`)
+  }
+  for(const [action,field] of [['saveCompany','defaultGroupId'],['saveBranch','branchCode'],['saveGroup','prefix']]){
+    const command={action,name:'Master',[field]:'original'}
+    assert.equal(masterInputHash(command),masterInputHash({...command,requestId:'request',runtimeGeneration:8,operationProtocol:2}))
+    assert.notEqual(masterInputHash(command),masterInputHash({...command,[field]:'changed'}))
+    assert.notEqual(masterInputHash(command),masterInputHash({...command,name:'Master '}))
+  }
+})
+
+test('malformed mutation responses keep the original submission unknown without follow-up reads',async()=>{
+  for(const response of [undefined,{}, {id:'response-property'}, {id:'response-property',operationStatus:'unexpected'}, {id:'bad/path',operationStatus:'completed'}, {id:'different-property',operationStatus:'completed'}]){
+    const calls=[],row={id:'response-property',name:'Original',status:'draft',revision:1,address:'Fictional address',constructionCompanyId:'C',branchId:'B'}
+    const view=await prototypeViewForTest(async data=>{calls.push(data);if(data.action==='detail')return row;if(data.action==='save')return response;return {companies:[],branches:[],groups:[],rows:[]}},undefined,{completeMutationResults:false})
+    await view.openProperty(row.id);view.propertyForm.value={validate:async()=>({valid:true})}
+    calls.length=0
+    await view.saveProperty('save')
+    assert.equal(view.pendingProperty.value.phase,'unknown')
+    assert.deepEqual(calls.map(call=>call.action),['save'])
+    assert.equal(view.notifications.length,0)
+    const original=calls[0];await view.retryProperty()
+    assert.deepEqual(calls[1],original)
+  }
+  for(const response of [undefined,{}, {id:'new-master'}, {id:'new-master',operationStatus:'unexpected'}, {id:'bad/path',operationStatus:'completed'}]){
+    const calls=[]
+    const view=await prototypeViewForTest(async data=>{calls.push(data);return response},undefined,{completeMutationResults:false})
+    view.openSetting('saveCompany');view.setting.value.name='Original company';view.settingForm.value={validate:async()=>({valid:true})}
+    await view.saveSetting()
+    assert.equal(view.pendingSetting.value.phase,'unknown')
+    assert.equal(view.setting.value.id,undefined)
+    assert.deepEqual(calls.map(call=>call.action),['saveCompany'])
+    assert.equal(view.notifications.length,0)
+  }
+  const calls=[]
+  const existing=await prototypeViewForTest(async data=>{calls.push(data);return {id:'other-master',operationStatus:'completed'}},undefined,{completeMutationResults:false})
+  existing.openSetting('saveCompany',{id:'expected-master',name:'Existing'});existing.settingForm.value={validate:async()=>({valid:true})}
+  await existing.saveSetting()
+  assert.equal(existing.pendingSetting.value.phase,'unknown')
+  assert.equal(existing.setting.value.id,'expected-master')
+  assert.deepEqual(calls.map(call=>call.action),['saveCompany'])
+})
+
+
+test('group limit is explicit, name-independent, and never mutates existing periods',async()=>{
+ const {groupWarrantyLimit,assertGroupWarrantyLimit}=await import('../src/domain/group-warranty-limit.mjs')
+ for(const value of [undefined,null,0,15,'30'])assert.throws(()=>groupWarrantyLimit({maxWarrantyYears:value}),/未設定|不正/)
+ assert.equal(assertGroupWarrantyLimit({name:'名称変更済み',maxWarrantyYears:10},10),10)
+ assert.throws(()=>assertGroupWarrantyLimit({name:'UH',maxWarrantyYears:10},20),/10年/)
+ assert.equal(assertGroupWarrantyLimit({name:'UH',maxWarrantyYears:30},30),30)
+ const v=await prototypeViewForTest(async()=>({}));v.groups.value=[{id:'g',maxWarrantyYears:10}];v.current.value={warrantyNumber:'issued',groupId:'g',years:10,maxYears:10}
+ assert.deepEqual(v.maxYearsOptions.value.map(x=>x.value),[10]);assert.notEqual(v.maxYearsRule(20),true)
+})
+
+test('group limit supplement validates identity and conflicts without changing properties',async()=>{
+ const {planGroupWarrantyLimits}=await import('../scripts/lib/group-warranty-limit-migration.mjs')
+ const group={id:'g',name:'架空',prefix:'X',fiscalStartMonth:1},assignment={...group,maxWarrantyYears:20}
+ const image={groups:[group],companies:[{id:'c',defaultGroupId:'g'}],properties:[{id:'p',constructionCompanyId:'c',years:10,maxYears:20,expiryDate:'2036-10-01'}]}
+ const before=structuredClone(image),plan=planGroupWarrantyLimits(image,[assignment]);assert.deepEqual(plan.updates,[{id:'g',maxWarrantyYears:20}]);assert.deepEqual(image,before)
+ assert.equal(planGroupWarrantyLimits(image,[{...assignment,maxWarrantyYears:10}]).updates[0].maxWarrantyYears,10)
+ assert.throws(()=>planGroupWarrantyLimits(image,[{...assignment,name:'違う名称'}]),/IDENTITY/)
+ assert.throws(()=>planGroupWarrantyLimits(image,[]),/未設定/)
+ image.groups[0].maxWarrantyYears=20;assert.equal(planGroupWarrantyLimits(image,[assignment]).updates.length,0)
+ assert.throws(()=>planGroupWarrantyLimits(image,[{...assignment,maxWarrantyYears:30}]),/LIMIT_CONFLICT/)
 })

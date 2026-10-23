@@ -4,9 +4,9 @@ import { propertyFieldRequirements } from './property-field-requirements.mjs'
 import { activeInsuranceWaivers, insuranceNoticeExpiry, periodReportSelection } from './insurance-state.mjs'
 
 export const initialGroups = [
-  { id: 'HSC', name: 'HSC', prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
-  { id: 'SHS', name: 'SHS', prefix: 'SHS', fiscalStartMonth: 4, template: 'sample' },
-  { id: 'UH', name: 'UH', prefix: '', fiscalStartMonth: 1, template: 'sample', externalKeyRequired: true, externalKeyLabel: 'お施主様契約No' },
+  { id: 'HSC', name: 'HSC', maxWarrantyYears: 30, prefix: 'HSC', fiscalStartMonth: 1, template: 'sample' },
+  { id: 'SHS', name: 'SHS', maxWarrantyYears: 30, prefix: 'SHS', fiscalStartMonth: 4, template: 'sample' },
+  { id: 'UH', name: 'UH', maxWarrantyYears: 10, prefix: '', fiscalStartMonth: 1, template: 'sample', externalKeyRequired: true, externalKeyLabel: 'お施主様契約No' },
 ]
 export function japanDate(now = new Date()) { return new Date(now.getTime() + 9 * 3600000).toISOString().slice(0, 10) }
 export function fiscalYear(date, startMonth) {
@@ -75,6 +75,7 @@ export function matchesProperty(row, filter = {}) {
   if (filter.companyId && row.constructionCompanyId !== filter.companyId) return false
   if (filter.branchId && row.branchId !== filter.branchId) return false
   if (filter.groupId && row.groupId !== filter.groupId) return false
+  if (filter.handoverMonth && row.handoverDate?.slice(0,7) !== filter.handoverMonth) return false
   if (filter.fiscalYear && String(row.fiscalYear) !== String(filter.fiscalYear)) return false
   if (filter.status && row.status !== filter.status) return false
   for (const [key, from, to] of [['applicationDate','applicationFrom','applicationTo'],['handoverDate','handoverFrom','handoverTo']]) {
@@ -252,7 +253,7 @@ export function insuranceExpiryDate(startDate) {
 }
 export function normalizeAlertSettings(input = {}) {
   const result = {}
-  for (const key of ['warrantyMonths', 'insuranceMonths']) {
+  for (const key of ['warrantyMonths']) {
     const value = Number(input[key] ?? 2)
     if (!Number.isInteger(value) || value < 1 || value > 12) throw new Error('案内時期は1〜12か月前で指定してください。')
     result[key] = value

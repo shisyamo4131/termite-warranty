@@ -1,8 +1,34 @@
 # Technical Remediation Backlog
 
-## 2026-10-16 Dev配備の軽量化（Local改修中）
+2026-10-20現在：zipcloud切替・旧方式撤去のLocal受入れ完了。`4387365` をDevへ配備しrun 39409008651の公開後照合まで成功。本人がDev `4387365` の受入れ完了とPRによるdev統合を承認。詳細は[運用記録](../operations.md#2026-10-20-zipcloud受入れ旧方式撤去とdev配備)。Prod・保護設定は保留。
 
-[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。現時点は未切替、性能改善は未実測。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+## 2026-10-20 zipcloud切替
+
+[ADR0050](../decisions/0050-zipcloud-postal-lookup.md)を現行方針とし、旧Local自動更新の起動接続を外す。Local実装・開発側検証完了。[実績](../operations.md#2026-10-20-zipcloud住所入力補助)：単体659成功・2skip、Rules203成功、実ブラウザーの候補選択・手入力保持、実サービスの66候補取得。本人受入れ・Dev／Prod配備・納品書完成を残件とする。
+
+## 2026-10-20 Local郵便番号自動更新
+
+採用範囲は[ADR0049](../decisions/0049-local-postal-auto-update.md)。実装と開発側Local検証まで完了、Dev／Prod公開は対象外。完了条件は月次取得・検証・正常版維持・再起動・画面切替の回帰、実公式データでのLocal反映、通常成果物へのLocalデータ混入なし、包括7gate。[結果](../operations.md#2026-10-20-local郵便番号自動更新)。本人のLocal受入れ・Git統合・配備は未実施。初期納品全体の進捗率・納期・保護保留は変更しない。
+
+## 2026-10-16 Dev配備の軽量化（切替・実証済み）
+
+[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)を採用。手動Dev controller、受入れ後の軽いdev PR、Local記録参照、Prod接続を同じ変更で整合する。完了条件は包括7gate/該当focused回帰・独立review・切替操作報告。main統合/実配備前に親へ報告する。Local実装・独立review・包括試験の結果は[運用記録](../operations.md#2026-10-16-軽量dev配備のlocal改修)に集約。main/dev切替・未統合候補Dev実証・データ保持比較を完了。[実測・本人の限定画面確認・残る範囲](../operations.md#2026-10-16-軽量dev配備の切替実証)。性能改善の因果は未証明。HS試行データとd79e0c1/d372311を保持し、既存の納品進捗・日程は変更しない。
+
+## 2026-10-15 納品前レビューで採用した追加改修
+
+オーナーの同日指示に基づくLocal候補を実装し、独立レビュー・対象回帰・包括7gateを確認した（単体はWindows symlink 3skip）。[実測と制約](../operations.md#2026-10-15-納品前改修local検証)。未commit・未配備であり、Devの業務再確認・HS受入れは未実施。既存納品進捗の加点なし。納品順序は[初期納品ロードマップ](2026-initial-delivery.md)を参照する。
+
+| レビュー項目 | 採用した修正と境界 | 完了条件 |
+| --- | --- | --- |
+| 問題1：保存結果不明時の再送 | 結果不明の要求を固定し、保存結果確認と次の編集を分ける。同じ要求IDで内容の違う保存を成功扱いにしない | 保存成功後の応答／再取得失敗、入力変更、同一内容再送、競合を確認し、失われた変更を保存成功と表示しない |
+| 問題2：マスタ新規作成の重複 | サーバー専用masterOperationReceiptsにactor・requestId・action・要求hash・resultIdを作成transactionで保存。UIは返却IDを即時保持し、再取得失敗を分離。再送で他担当者の後続編集を書き戻さない | 応答欠落／再取得失敗後も作成は1件、同じID・異なる内容を拒否、他担当編集後の再送で値不変、receipt非公開 |
+| 問題4：HSアカウント作成のAuth／Firestore不整合 | サーバー専用accountCreationOperationsへ事前UID・入力・状態を永続化し、既存UID lockを併用。disabled Authとenabled:false profileを準備し、照合後にAuth有効化、最後のtransactionでprofile有効化・receipt・lock解除。結果不明を保留し無条件削除しない | 各段階の失敗／応答欠落／再送／競合、所有者と旧worker停止確認を伴う復旧、両側の整合前に利用可能としないこと、内部記録の非公開を確認 |
+| 問題5：引渡日往復訂正で保証書発行済みが復活 | 実際の日付変更で対象期間IDの旧発行記録を日付不一致分も含め同じtransactionで未発行化し、旧発行事実を履歴保存。日付不変の編集は維持 | A→B→A、旧日付記録、再発行・取消・競合・再送、期間／CSV／投影の整合。[詳細契約](../design/warranty-certificates.md)。既存往復訂正なしとの本人明示により実データ棚卸し・補正なし |
+| PORTAL-SEC-01：初期対象外経路の封鎖 | 旧ポータルへの直接到達も閉じる。恒久認可修正とは分離 | 初期対象外経路の拒否確認。将来の会社／本支店境界、所属不明旧記録拒否、全経路の許可／拒否試験と再開判断は[HSC-013](../requirements/house-solution-confirmations/HSC-013-construction-company-submission.md)の必須残件として維持 |
+
+新しい操作記録の保存・保全／復旧契約と復旧手順は関連設計・運用へ反映した。通常業務データ、Auth、環境設定の実変更をこの台帳だけで実施しない。問題3の請求用一覧の説明文修正は上記の状態管理改修とは別の小変更として扱う。
 
 2026-10-15：改修→検証→配備→記録の往復削減を[ADR0047](../decisions/0047-single-verification-and-nonproduct-pr.md)と[PR35](https://github.com/shisyamo4131/termite-warranty/pull/35)でmainへ統合済み。Prod昇格前の機能試験工程を除き、必要な技術確認をDev側/試験・CI変更へ戻す。包括検証・独立reviewを完了し、追加承認された文書単独・本人Local再利用の非配備測定を進める。測定の完了条件は実経路の終端結果・時間・操作数・未実証条件の区別で、結果は測定PR/Actionsと[運用記録](../operations.md)へ集約する。Localのruntime差異・既存2skip・本人証言は未充足であり、成功再利用は未実証。dev同期・実配備は別承認。HS試行は現行公開版で並行し、製品の完成率・日程は変更しない。
 

@@ -1,11 +1,19 @@
 # Documentation Map
 
-- [保険報告の説明・図解比較・契約番号の提案資料](../deliverables/insurance-report-guide-2026-10-19/README.md)：10月19日PDF3点と生成元。未採用提案と現行仕様を区別する。[HS試行対応表](roadmaps/hs-trial-feedback.md)・[判断記録](requirements/house-solution-confirmations/HSC-036-insurance-reporting-cycle.md)。文書のみmain反映、対応アプリのProd反映は保留。
+2026-10-22：最終納品日は**11月2日**。[最新の納品残作業・条件付き作業枠](roadmaps/2026-initial-delivery.md#2026-10-22-最終納品日と残作業)を優先する。以下の共有スケジュールPDFは旧日程資料で、改訂・差替えは未実施。
 
-- [HS本番環境管理アカウント・請求先登録の統合ガイド](../deliverables/hs-prod-account-2026-10-21/README.md)：11ページ、パスワードは空の入力欄。10月23日の請求先切替用で、納品書とは別紙。
-- [請求先登録ガイドの生成元・撮影原画像](../deliverables/hs-cloud-billing-guide-2026-10-20/README.md)：単独PDFは統合版へ置換。
+- [HS本番環境管理アカウント連絡票](../deliverables/hs-prod-account-2026-10-21/README.md)：10月23日の請求先切替用。パスワードは空の入力欄。納品書とは別紙。
 
-2026-10-16採用：[明示起動の軽量Dev配備](decisions/0048-explicit-lightweight-development-deployment.md)。Local実装・検証を進行中、main統合・dev同期・実配備は未実施。[現行の改修手順](runbooks/application-deployment.md)を優先し、以下の日付付き現在地は各時点の記録として読む。
+- [zipcloud住所入力補助・納品書への記載事項](decisions/0050-zipcloud-postal-lookup.md)：現行のLocal切替方針。旧CSV／Local自動更新の説明より優先。配備・正式納品書は後発。
+
+- 【廃止済み・判断履歴】[Local郵便番号自動更新](design/tr-009-japan-post-postal-data.md#local自動更新2026-10-20)：月次確認、正常版維持、状態表示・再確認・旧版復帰。[決定](decisions/0049-local-postal-auto-update.md)。Dev／Prod自動公開は対象外。
+
+- [HS向けGoogle Cloud請求先・カード登録ガイド](../deliverables/hs-cloud-billing-guide-2026-10-20/README.md)：実画面5枚と入力説明図のPDF。登録とProdへの関連付け、後日のカード差替えを分離。実登録は未実施。
+
+- [HS試行の改修要望・対応状況](roadmaps/hs-trial-feedback.md)：10月19日まで受付。8件の要望と回答を整理。10月20日は位置合わせ・ページ切替をLocal改修、追加指示で折りたたみを不採用とし、保険報告の適用条件の重複表示を非表示。3月次画面の件数をコンパクト行へ揃え、操作ボタンも一覧カード内へ統一。Dev配備・保護設定は保留。
+- [保険報告用一覧の図解・生成元](../deliverables/insurance-report-guide-2026-10-19/README.md)：前月以前の未報告と前月限定の違いを説明。
+
+2026-10-16採用：[明示起動の軽量Dev配備](decisions/0048-explicit-lightweight-development-deployment.md)。main統合・dev同期・未統合候補のDev実証を完了。本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](operations.md#2026-10-16-軽量dev配備の切替実証)。[現行の改修手順](runbooks/application-deployment.md)を優先し、以下の日付付き現在地は各時点の記録として読む。
 
 検証・統合フローは[ADR0047](decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](runbooks/application-deployment.md)。PR35でmainへ統合済み、dev未同期・実配備未実証。以下の2段階PR・期限付き再利用は旧方式の説明。現在値と非配備測定の範囲は[運用記録](operations.md)を参照。
 

@@ -18,22 +18,27 @@ import {insuranceReportKind,billingRows,initialInsurance} from '../../src/domain
 import {measureFirestoreOperation,observedFirestore} from '../../functions/firestore-metrics.js'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort))throw new Error('Emulator required')
 // Existing scenarios use the supported client format; protocol rejection has dedicated tests.
-const operationPayload=input=>input.action==='reenableMaster'?input:{operationProtocol:1,...input}
+const operationPayload=input=>input.action==='reenableMaster'?input:{operationProtocol:2,...input}
 const propertyPrototypeOperation=(auth,db,input,uid)=>propertyOperation(auth,db,operationPayload(input),uid)
 const propertyBulkImportOperation=(db,input,uid)=>bulkOperation(db,{operationProtocol:1,...input},uid)
-const fixedCallable=(functions,name)=>{const invoke=runtimeCallable(functions,name);return input=>invoke(operationPayload(input))}
+const fixedCallable=(functions,name)=>{const invoke=runtimeCallable(functions,name);return input=>invoke(name==='propertyBulkImport'?{operationProtocol:1,...input}:operationPayload(input))}
 const app=initializeApp({projectId:'demo-termite-warranty-test'},'property-test'),db=getFirestore(app),auth=getAuth(app)
+const inferredScenarioInputs=new Map()
 const call=async(action,data={},uid='meeting-hs')=>{
-  // Preserve legacy scenario billing months with explicit fixture application dates.
-  // Missing-date rejection is exercised through propertyPrototypeOperation directly below.
-  if(action==='extend' && !Object.hasOwn(data,'extensionApplicationDate')) {
-    const row=(await db.doc('propertyWarranties/'+data.id).get()).data()
-    data={...data,extensionApplicationDate:coveragePeriods(row.handoverDate,Math.min(30,row.years+10)).at(-1).startDate}
-  }
-  // Old scenario helpers explicitly construct the new confirmation payload.
-  if (['report','undoReport'].includes(action)) {
-    const row=(await db.doc('propertyWarranties/'+data.id).get()).data()
-    data={...data,...(action==='report' ? {reportTarget:insuranceReportTarget(row,data.month)} : {targetReportId:latestInsuranceReport(row)?.requestId})}
+  // Supply only omitted legacy-fixture fields, once per logical request. Replays
+  // must use the original target/date even after the committed operation changes
+  // stored state. Cache the pending read too, so parallel retries cannot diverge.
+  // Explicit fields (including undefined or a deliberately changed target) pass
+  // through unchanged and remain subject to the production hash/validation.
+  const inferredField={extend:'extensionApplicationDate',report:'reportTarget',undoReport:'targetReportId'}[action]
+  if(inferredField && !Object.hasOwn(data,inferredField)) {
+    const key=JSON.stringify([uid,action,data.id,data.requestId])
+    if(!inferredScenarioInputs.has(key)) inferredScenarioInputs.set(key,(async()=>{
+      const row=(await db.doc('propertyWarranties/'+data.id).get()).data()
+      return action==='extend' ? coveragePeriods(row.handoverDate,Math.min(30,row.years+10)).at(-1).startDate
+        : action==='report' ? insuranceReportTarget(row,data.month) : latestInsuranceReport(row)?.requestId
+    })())
+    data={...data,[inferredField]:structuredClone(await inferredScenarioInputs.get(key))}
   }
   return propertyPrototypeOperation(auth,db,{action,...data},uid)
 }
@@ -99,7 +104,7 @@ test('group billing recipient survives legacy saves and status changes while por
   await target.doc('constructionCompanyAccounts/portal').set({enabled:true,role:'construction_company',scope:'company',constructionCompanyId:'fictional'})
   await target.doc('constructionCompanies/fictional').set({name:'架空工務店',defaultGroupId:'fixture'})
   const invoke=(input,uid='staff')=>propertyPrototypeOperation(auth,target,input,uid)
-  const group={action:'saveGroup',id:'fixture',name:'架空保証',prefix:'BILLTEST',fiscalStartMonth:1}
+  const group={action:'saveGroup',id:'fixture',name:'架空保証',prefix:'BILLTEST',maxWarrantyYears:30,fiscalStartMonth:1}
   await invoke({...group,billingRecipient:{name:'架空請求先',department:'経理',email:'billing@example.invalid'}})
   const read=async()=>(await target.doc('warrantyGroups/fixture').get()).data()
   const original=(await read()).billingRecipient
@@ -326,7 +331,7 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   const target=getFirestore(app,'test-import-excel-dates')
   for(const root of await target.listCollections())await target.recursiveDelete(root)
   await target.doc('staffAccounts/excel-admin').set({enabled:true,role:'house_solution_administrator'})
-  await target.doc('warrantyGroups/U').set({name:'UH',prefix:'',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
+  await target.doc('warrantyGroups/U').set({name:'UH',maxWarrantyYears:10,prefix:'',fiscalStartMonth:1,enabled:true,externalKeyRequired:true,addressRequired:false,insulationMaterialsRequired:false})
   await target.doc('constructionCompanies/C').set({name:'架空Excel検証会社',defaultGroupId:'U',enabled:true})
   await propertyPrototypeOperation(auth,target,{action:'saveBranch',id:'B',name:'架空支店',constructionCompanyId:'C',branchCode:'0001'},'excel-admin')
   const dates=[['2018/4/1','2018/6/30'],['2018/9/1','2018/11/30'],['2018/10/1','2018/12/30']]
@@ -353,6 +358,9 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
   const confirm={...base,action:'commit',confirmed:true,previewHash:preview.previewHash}
   const result=await propertyBulkImportOperation(target,confirm,'excel-admin')
   assert.equal(result.count,3)
+  const imported=(await target.collection('propertyWarranties').get()).docs.map(doc=>doc.data())
+  for(const row of imported){assert.equal(row.address,row.externalKey);assert.deepEqual(row.insurancePeriods.map(period=>period.state),['waived','pending']);assert.equal(row.insuranceWaiverEvents[0].actorUid,'excel-admin');assert.match(row.insuranceWaiverEvents[0].reason,/満了/)}
+
   for(let index=0;index<result.ids.length;index++) {
     const property=(await target.doc('propertyWarranties/'+result.ids[index]).get()).data()
     const source=(await target.doc('propertyImportSources/'+result.ids[index]).get()).data()
@@ -360,7 +368,7 @@ test('Excel CSV dates preview and persist as ISO while source dates and atomic r
     assert.equal(property.handoverDate,preview.rows[index].handoverDate)
     assert.equal(property.startDate,property.handoverDate)
     assert.equal(property.fiscalYear,2018)
-    assert.equal(property.address,'');assert.equal(property.insulationMaterials,'')
+    assert.equal(property.address,property.externalKey);assert.equal(property.insulationMaterials,'')
     assert.equal(source.values['申込日'],dates[index][0]);assert.equal(source.values['引渡日'],dates[index][1])
   }
   assert.equal((await target.doc('warrantyCounters/U_2018').get()).data().lastValue,3)
@@ -397,19 +405,19 @@ test('warranty alert list excludes capped periods and preserves notification and
   } finally {for(const key of keys)await db.doc('propertyWarranties/'+key).delete()}
 })
 
-test('property list finds an older exact number, rejects partial numbers and keeps company/branch scope',async()=>{
-  const keys=Array.from({length:25},(_,i)=>`exact-search-${i}`)
+test('property search requires group and month, includes all matches and preserves tenant scope',async()=>{
+  const keys=Array.from({length:25},(_,i)=>`group-month-${i}`)
   try {
-    for(const [i,key] of keys.entries()) await db.doc(`propertyWarranties/${key}`).set({name:'架空検索物件',warrantyNumber:`QA-26-${i}`,constructionCompanyId:'meeting-co',branchId:'meeting-branch',updatedAt:new Date(2000,0,i+1),status:'active'})
+    for(const [i,key] of keys.entries()) await db.doc(`propertyWarranties/${key}`).set({name:'架空検索物件',groupId:'search-group',handoverDate:`2018-12-${String(i+1).padStart(2,'0')}`,constructionCompanyId:'meeting-co',branchId:'meeting-branch',updatedAt:new Date(2000,0,i+1),status:'active'})
     assert.equal((await call('propertyList')).limited,true)
     assert.ok((await call('propertyList')).rows.length<=20)
-    const result=await call('propertyList',{filter:{warrantyNumber:' QA-26-0 '}})
-    assert.deepEqual(result.rows.map(r=>r.id),[keys[0]])
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'26-0'}})).rows.length,0)
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-head')).rows.length,1)
-    assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},'meeting-branch-user')).rows.length,1)
-    for(const uid of ['meeting-otherbranch','meeting-otherco']) assert.equal((await call('propertyList',{filter:{warrantyNumber:'QA-26-0'}},uid)).rows.length,0)
-    await assert.rejects(call('propertyList',{filter:{search:'架空'}}),e=>e.code==='invalid-argument')
+    const filter={groupId:'search-group',handoverMonth:'2018-12'}
+    const result=await call('propertyList',{filter})
+    assert.equal(result.limited,false);assert.deepEqual(result.rows.map(r=>r.id),[...keys].reverse())
+    for(const uid of ['meeting-head','meeting-branch-user'])assert.equal((await call('propertyList',{filter},uid)).rows.length,25)
+    for(const uid of ['meeting-otherbranch','meeting-otherco'])assert.equal((await call('propertyList',{filter},uid)).rows.length,0)
+    for(const invalid of [{groupId:'search-group'},{handoverMonth:'2018-12'},{warrantyNumber:'QA-26-0'}, {...filter,handoverMonth:'2018-13'}])await assert.rejects(call('propertyList',{filter:invalid}),e=>e.code==='invalid-argument')
+    for(const mismatch of [{...filter,handoverMonth:'2019-01'},{...filter,handoverMonth:'2018-11'},{...filter,groupId:'other'}])assert.deepEqual((await call('propertyList',{filter:mismatch})).rows,[])
   } finally { for(const key of keys) await db.doc(`propertyWarranties/${key}`).delete() }
 })
 
@@ -593,18 +601,18 @@ test('application date editable before registration, drives fiscal year, and is 
   await call('save',command(row.id,3,{fields:legacyClient}))
   row=await call('detail',{id:row.id});assert.equal(row.applicationDate,'2026-03-31');assert.equal(row.warrantyNumber,number)
   assert.equal(row.handoverDate,'2026-09-30')
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:number}})).rows[0].id,row.id)
+  assert.equal((await call('propertyList',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.find(value=>value.id===row.id).id,row.id)
   await assert.rejects(call('list',{filter:{from:'2026-09-01',to:'2026-09-30'}}),e=>e.code==='invalid-argument')
   await call('cancel',command(row.id,4,{reason:'架空確認'}))
   assert.equal((await call('detail',{id:row.id})).status,'cancelled')
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:number}})).rows[0].status,'cancelled')
+  assert.equal((await call('propertyList',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.find(value=>value.id===row.id).status,'cancelled')
 })
 
 test('group identity locked before numbering, disable blocks new use but retains existing coverage',async()=>{
-  const group={name:'架空検証グループ',prefix:'TEST-',fiscalStartMonth:1,enabled:true}
-  const {id:groupId}=await call('saveGroup',group)
+  const group={name:'架空検証グループ',prefix:'TEST-',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true}
+  const {id:groupId}=await call('saveGroup',{...group,requestId:crypto.randomUUID()})
   await assert.rejects(call('saveGroup',{...group,id:groupId,prefix:'OTHER-'}),e=>e.code==='failed-precondition')
-  await assert.rejects(call('saveGroup',{...group,id:groupId,fiscalStartMonth:4}),e=>e.code==='failed-precondition')
+  await assert.rejects(call('saveGroup',{...group,id:groupId,maxWarrantyYears:30,fiscalStartMonth:4}),e=>e.code==='failed-precondition')
   await seedScenarioGroup(groupId)
   await call('register',command('meeting-disabled-group-existing',0))
   const original=await call('detail',{id:'meeting-disabled-group-existing'})
@@ -612,14 +620,14 @@ test('group identity locked before numbering, disable blocks new use but retains
   await call('saveGroup',{...group,id:groupId,enabled:false})
   await assert.rejects(call('register',command('meeting-disabled-group-new',0)),e=>e.code==='failed-precondition')
   assert.equal((await db.doc('propertyWarranties/meeting-disabled-group-new').get()).exists,false)
-  await assert.rejects(call('saveBranch',{name:'架空追加支店',constructionCompanyId:'meeting-co',groupId}),e=>e.code==='invalid-argument')
-  await assert.rejects(call('saveCompany',{name:'架空追加会社',defaultGroupId:groupId,address:{postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1'}}),e=>e.code==='failed-precondition')
+  await assert.rejects(call('saveBranch',{requestId:crypto.randomUUID(),name:'架空追加支店',constructionCompanyId:'meeting-co',groupId}),e=>e.code==='invalid-argument')
+  await assert.rejects(call('saveCompany',{requestId:crypto.randomUUID(),name:'架空追加会社',defaultGroupId:groupId,address:{postalCode:'1000001',prefecture:'東京都',municipality:'千代田区',streetTownAndNumber:'1'}}),e=>e.code==='failed-precondition')
   await call('saveBranch',{id:'meeting-branch',name:'架空支店訂正',constructionCompanyId:'meeting-co'})
   await call('extend',command(original.id,1))
   const extended=await call('detail',{id:original.id})
   assert.equal(extended.years,20);assert.equal(extended.warrantyNumber,original.warrantyNumber)
   assert.equal((await db.doc('warrantyGroups/'+groupId).get()).data().enabled,false)
-  await assert.rejects(call('saveGroup',{...group,name:'重複グループ'}),e=>e.code==='already-exists')
+  await assert.rejects(call('saveGroup',{...group,requestId:crypto.randomUUID(),name:'重複グループ'}),e=>e.code==='already-exists')
   await call('reenableMaster',{kind:'group',id:groupId})
   await call('register',command('meeting-reenabled-group',0))
   assert.match((await call('detail',{id:'meeting-reenabled-group'})).warrantyNumber,/-002$/)
@@ -655,7 +663,7 @@ test('company and branch disable stop only new registrations; reenable preserves
   assert.equal(extended.groupId,original.groupId)
   assert.equal(extended.warrantyNumber,original.warrantyNumber)
   assert.equal(extended.years,20)
-  assert.equal((await call('propertyList',{filter:{warrantyNumber:original.warrantyNumber}})).rows[0].id,original.id)
+  assert.equal((await call('propertyList',{filter:{groupId:original.groupId,handoverMonth:original.handoverDate.slice(0,7)}})).rows.find(value=>value.id===original.id).id,original.id)
   await assert.rejects(saveCompany(co,'SHS',true),/先に有効化/)
   await call('reenableMaster',{kind:'company',id:co})
   assert.equal((await db.doc(`companyBranches/${branch}`).get()).data().enabled,false)
@@ -683,7 +691,7 @@ test('legacy catalog refuses hierarchy requests while portal reference store pre
 })
 
 test('annual counters reset at fiscal boundary and old global counters require migration',async()=>{
-  const {id:g}=await call('saveGroup',{name:'年度検証',prefix:'YEAR-',fiscalStartMonth:4})
+  const {id:g}=await call('saveGroup',{requestId:crypto.randomUUID(),name:'年度検証',prefix:'YEAR-',maxWarrantyYears:30,fiscalStartMonth:4})
   await seedScenarioGroup(g)
   for(const [key,date,num] of [['march','2026-03-31','YEAR--25-001'],['april','2026-04-01','YEAR--26-001'],['next','2026-04-02','YEAR--26-002']]){
     await call('register',command(`year-${key}`,0,{fields:{...fields,applicationDate:date}}))
@@ -704,6 +712,8 @@ test('report/export separation, renewal, replay, undo snapshot, sticky handover 
   await assert.rejects(call('report',{...command(key,1),month:'2026-10'},'meeting-branch-user'),e=>e.code==='permission-denied')
   const first={...command(key,1),month:'2026-10'}
   await call('report',first);await call('report',first)
+  await assert.rejects(call('report',{...first,month:'2026-11'}),{code:'failed-precondition'})
+  await assert.rejects(call('report',{...first,reportTarget:{warrantyPeriodId:'initial',startDate:'2026-10-02',expiryDate:'2031-09-30'}}),{code:'failed-precondition'})
   row=await call('detail',{id:key});assert.equal(row.revision,2);assert.equal(row.insuranceExpiryDate,'2031-09-30')
   assert.equal(row.insuranceReported,true)
   await assert.rejects(call('save',command(key,2,{fields:{...fields,handoverDate:'2026-10-02'},confirmDates:true})),/報告済み/)
@@ -735,14 +745,14 @@ test('same name and address need no confirmation; owner/affiliation/insulation c
   const row=await call('detail',{id:'warning-property'})
   assert.equal(row.history.at(-1).before.name,fields.name)
   assert.equal(row.history.at(-1).before.ownerTelephone,'')
-  assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber}})).rows.length,1)
-  assert.equal((await call('list',{filter:{warrantyNumber:row.warrantyNumber.slice(-3)}})).rows.length,0)
+  assert.ok((await call('list',{filter:{groupId:row.groupId,handoverMonth:row.handoverDate.slice(0,7)}})).rows.some(value=>value.id===row.id))
+  await assert.rejects(call('list',{filter:{warrantyNumber:row.warrantyNumber}}),e=>e.code==='invalid-argument')
 })
 
 test('alert settings are admin-only; branch account creation retains ownership restrictions',async()=>{
   await assert.rejects(call('saveAlertSettings',{settings:{warrantyMonths:1,insuranceMonths:3}},'meeting-branch-user'),e=>e.code==='permission-denied')
   await call('saveAlertSettings',{settings:{warrantyMonths:1,insuranceMonths:3}})
-  assert.deepEqual(await call('alertSettings'),{warrantyMonths:1,insuranceMonths:3})
+  assert.deepEqual(await call('alertSettings'),{warrantyMonths:1})
   await assert.rejects(call('saveAlertSettings',{settings:{warrantyMonths:13}}))
   const created=await call('createAccount',{constructionCompanyId:'meeting-co',branchId:'meeting-branch',scope:'branch',displayName:'架空担当',email:'new-branch@example.invalid'})
   const view=await call('list',{},created.uid)
@@ -766,7 +776,7 @@ test('HTTP Callable preserves account authentication and latest registration pay
     await assert.rejects(bulk({action:'status',requestId:'no-receipt'}),e=>e.code==='functions/unauthenticated')
     await signInWithEmailAndPassword(login,'meeting-callable@example.invalid','Demo-only-password-123')
     for(const [kind,collection,record] of [
-      ['group','warrantyGroups',{name:'HTTP状態確認',prefix:'HTTPSTATE',fiscalStartMonth:1}],
+      ['group','warrantyGroups',{name:'HTTP状態確認',prefix:'HTTPSTATE',maxWarrantyYears:30,fiscalStartMonth:1}],
       ['company','constructionCompanies',{name:'HTTP会社',defaultGroupId:'HSC'}],
       ['branch','companyBranches',{name:'HTTP本支店',constructionCompanyId:'meeting-co',branchCode:'http-state-code'}],
     ]){
@@ -806,7 +816,7 @@ test('HTTP Callable preserves account authentication and latest registration pay
 
 
 test('formal registration requires explicit confirmation even with no warnings; rejection does not allocate a number',async()=>{
-  const group=(await call('saveGroup',{name:'確認必須検証',prefix:'ACK',fiscalStartMonth:1})).id
+  const group=(await call('saveGroup',{requestId:crypto.randomUUID(),name:'確認必須検証',prefix:'ACK',maxWarrantyYears:30,fiscalStartMonth:1})).id
   await saveCompany('ack-company',group)
   await call('saveBranch',{id:'ack-head',name:'本店',constructionCompanyId:'ack-company'})
   const data={...fields,name:'確認必須の架空物件',constructionCompanyId:'ack-company',branchId:'ack-head',applicationDate:'2026-10-01',handoverDate:'2026-10-01'}
@@ -822,29 +832,29 @@ test('formal registration requires explicit confirmation even with no warnings; 
 })
 
 test('company optional postal and branch address round trip, blank legacy branch, invalid postal rejected',async()=>{
-  const co=(await call('saveCompany',{name:'住所検証工務店',defaultGroupId:'HSC',address:{...companyAddress,postalCode:''}})).id
+  const co=(await call('saveCompany',{requestId:crypto.randomUUID(),name:'住所検証工務店',defaultGroupId:'HSC',address:{...companyAddress,postalCode:''}})).id
   assert.equal((await db.doc(`constructionCompanies/${co}`).get()).data().address.postalCode,'')
-  const branch=(await call('saveBranch',{name:'住所検証支店',constructionCompanyId:co,address:{...companyAddress,postalCode:'',buildingName:'架空ビル'}})).id
+  const branch=(await call('saveBranch',{requestId:crypto.randomUUID(),name:'住所検証支店',constructionCompanyId:co,address:{...companyAddress,postalCode:'',buildingName:'架空ビル'}})).id
   assert.equal((await db.doc(`companyBranches/${branch}`).get()).data().address.buildingName,'架空ビル')
   await call('saveBranch',{id:branch,name:'住所検証支店',constructionCompanyId:co,address:{...companyAddress,postalCode:'100-0001'}})
   assert.equal((await db.doc(`companyBranches/${branch}`).get()).data().address.postalCode,'1000001')
   await call('saveBranch',{id:'legacy-address-branch',name:'住所なし旧支店',constructionCompanyId:co})
   assert.equal((await db.doc('companyBranches/legacy-address-branch').get()).data().address.postalCode,'')
-  for(const action of ['saveCompany','saveBranch'])await assert.rejects(call(action,{name:'不正郵便番号',defaultGroupId:'HSC',constructionCompanyId:co,address:{...companyAddress,postalCode:'123'}}),/7桁/)
-  await assert.rejects(call('saveCompany',{name:'住所欠落',defaultGroupId:'HSC',address:{postalCode:''}}),/住所/)
+  for(const action of ['saveCompany','saveBranch'])await assert.rejects(call(action,{requestId:crypto.randomUUID(),name:'不正郵便番号',defaultGroupId:'HSC',constructionCompanyId:co,address:{...companyAddress,postalCode:'123'}}),/7桁/)
+  await assert.rejects(call('saveCompany',{requestId:crypto.randomUUID(),name:'住所欠落',defaultGroupId:'HSC',address:{postalCode:''}}),/住所/)
 })
 
 test('trailing dash prefixes stay distinct and immutable without rewriting issued numbers',async()=>{
-  await db.doc('warrantyGroups/legacy-dash').set({name:'旧接頭辞',prefix:'LEGACY-',fiscalStartMonth:1,enabled:true})
+  await db.doc('warrantyGroups/legacy-dash').set({name:'旧接頭辞',prefix:'LEGACY-',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true})
   const issued=db.doc('propertyWarranties/legacy-issued-number')
   await issued.set({warrantyNumber:'LEGACY-26-099',groupId:'legacy-dash'})
   const original=(await issued.get()).data()
-  await call('saveGroup',{id:'legacy-dash',name:'旧接頭辞編集',prefix:'LEGACY-',fiscalStartMonth:1})
+  await call('saveGroup',{id:'legacy-dash',name:'旧接頭辞編集',prefix:'LEGACY-',maxWarrantyYears:30,fiscalStartMonth:1})
   assert.equal((await db.doc('warrantyGroups/legacy-dash').get()).data().prefix,'LEGACY-')
-  await call('saveGroup',{name:'別接頭辞',prefix:'LEGACY',fiscalStartMonth:1})
-  await assert.rejects(call('saveGroup',{name:'重複',prefix:'LEGACY-',fiscalStartMonth:1}),e=>e.code==='already-exists')
-  await assert.rejects(call('saveGroup',{id:'legacy-dash',name:'末尾削除',prefix:'LEGACY',fiscalStartMonth:1}),e=>e.code==='failed-precondition')
-  await assert.rejects(call('saveGroup',{id:'legacy-dash',name:'改変',prefix:'OTHER',fiscalStartMonth:1}),e=>e.code==='failed-precondition')
+  await call('saveGroup',{requestId:crypto.randomUUID(),name:'別接頭辞',prefix:'LEGACY',maxWarrantyYears:30,fiscalStartMonth:1})
+  await assert.rejects(call('saveGroup',{requestId:crypto.randomUUID(),name:'重複',prefix:'LEGACY-',maxWarrantyYears:30,fiscalStartMonth:1}),e=>e.code==='already-exists')
+  await assert.rejects(call('saveGroup',{id:'legacy-dash',name:'末尾削除',prefix:'LEGACY',maxWarrantyYears:30,fiscalStartMonth:1}),e=>e.code==='failed-precondition')
+  await assert.rejects(call('saveGroup',{id:'legacy-dash',name:'改変',prefix:'OTHER',maxWarrantyYears:30,fiscalStartMonth:1}),e=>e.code==='failed-precondition')
   await saveCompany('legacy-dash-co','legacy-dash')
   await call('saveBranch',{id:'legacy-dash-head',name:'本店',constructionCompanyId:'legacy-dash-co'})
   await call('register',command('legacy-dash-property',0,{fields:{...fields,constructionCompanyId:'legacy-dash-co',branchId:'legacy-dash-head'}}))
@@ -861,7 +871,7 @@ test('list rejects legacy scans before property reads and scopes pending notices
   for(const [uid,company,scope,branchId] of [['head','C','company',''],['a','C','branch','A'],['b','C','branch','B'],['other','D','company',''],['missing','C','branch',''],['bad','bad/path','company',''],['disabled','C','company','']])setup.set(target.doc('constructionCompanyAccounts/'+uid),{enabled:uid!=='disabled',role:'construction_company',scope,constructionCompanyId:company,branchId})
   for(const company of ['C','D'])setup.set(target.doc('constructionCompanies/'+company),{name:'架空'+company})
   for(const branch of ['A','B'])setup.set(target.doc('companyBranches/'+branch),{name:'架空'+branch,constructionCompanyId:'C'})
-  const base={name:'架空案内対象',status:'active',constructionCompanyId:'C',branchId:'A',years:10,maxYears:20,handoverDate:'2016-10-01',expiryDate:'2026-09-30',warrantyNotified:false,warrantyNoticePending:true,updatedAt:Timestamp.now(),warrantyNumber:'EXACT-OLD'}
+  const base={name:'架空案内対象',status:'active',constructionCompanyId:'C',branchId:'A',years:10,maxYears:20,handoverDate:'2016-10-01',expiryDate:'2026-09-30',warrantyNotified:false,warrantyNoticePending:true,updatedAt:Timestamp.now(),warrantyNumber:'EXACT-OLD',groupId:'search-old'}
   setup.set(target.doc('propertyWarranties/a'),base)
   setup.set(target.doc('propertyWarranties/b'),{...base,branchId:'B',warrantyNumber:'B'})
   setup.set(target.doc('propertyWarranties/d'),{...base,constructionCompanyId:'D',branchId:'',warrantyNumber:'D'})
@@ -880,16 +890,16 @@ test('list rejects legacy scans before property reads and scopes pending notices
     assert.equal(record.rows.some(r=>r.collection==='propertyWarranties'),false)
   }
   for(const uid of ['missing','bad','disabled']) {await assert.rejects(invoke(uid,pending),e=>e.code==='permission-denied');assert.equal(reads(),0)}
-  await assert.rejects(invoke('head',{alertKind:'insurance'}),e=>e.code==='permission-denied')
+  await assert.rejects(invoke('head',{alertKind:'insurance'}),e=>e.code==='invalid-argument')
   const batch=target.batch()
-  for(let i=0;i<30;i++)for(const company of ['C','D'])batch.set(target.doc(`propertyWarranties/unrelated-${company}-${i}`),{...base,constructionCompanyId:company,warrantyNoticePending:false,warrantyNotified:true,warrantyNumber:`UNRELATED-${company}-${i}`})
+  for(let i=0;i<30;i++)for(const company of ['C','D'])batch.set(target.doc(`propertyWarranties/unrelated-${company}-${i}`),{...base,constructionCompanyId:company,warrantyNoticePending:false,warrantyNotified:true,warrantyNumber:`UNRELATED-${company}-${i}`,groupId:'unrelated'})
   const { warrantyNoticePending: _pending, ...withoutProjection } = base
   batch.set(target.doc('propertyWarranties/missing-projection'),withoutProjection)
   await batch.commit()
   assert.deepEqual((await invoke('a',pending)).rows.map(r=>r.id),['a']);assert.equal(reads(),1)
   assert.equal((await invoke('head',{})).rows.length,20)
-  assert.deepEqual((await invoke('a',{warrantyNumber:' EXACT-OLD '},'propertyList')).rows.map(r=>r.id).sort(),['a','missing-projection'])
-  assert.deepEqual((await invoke('a',{warrantyNumber:'B'},'propertyList')).rows,[])
+  assert.deepEqual((await invoke('a',{groupId:'search-old',handoverMonth:'2016-10'},'propertyList')).rows.map(r=>r.id).sort(),['a','missing-projection'])
+  assert.deepEqual((await invoke('a',{groupId:'absent',handoverMonth:'2016-10'},'propertyList')).rows,[])
   assert.equal((await target.doc('propertyWarranties/missing-projection').get()).data().warrantyNoticePending,undefined)
   const many=target.batch();for(let i=0;i<21;i++)many.set(target.doc('propertyWarranties/pending-'+i),{...base,warrantyNumber:'P'+i});await many.commit()
   assert.equal((await invoke('a',pending)).rows.length,22);assert.equal(reads(),22)
@@ -900,7 +910,7 @@ test('list rejects legacy scans before property reads and scopes pending notices
 test('branch reservations serialize independent creates and reactivation without company scans',async()=>{
   const target=getFirestore(app,'test-branch-reservation-race')
   await target.doc('staffAccounts/meeting-hs').set({enabled:true,role:'house_solution_administrator'})
-  await target.doc('warrantyGroups/G').set({name:'架空',externalKeyRequired:false})
+  await target.doc('warrantyGroups/G').set({name:'架空',maxWarrantyYears:30,externalKeyRequired:false})
   await target.doc('constructionCompanies/C').set({name:'架空',defaultGroupId:'G'})
   const otherApp=initializeApp({projectId:'demo-termite-warranty-test'},'branch-concurrency-client')
   const other=getFirestore(otherApp,'test-branch-reservation-race')
@@ -970,7 +980,7 @@ test('equal prefix concurrent creates use transactional query isolation with exi
           const value=target[key];return typeof value==='function'?value.bind(target):value
         }})
       }
-      const results=await Promise.allSettled([db,other].map((client,i)=>propertyPrototypeOperation(auth,wrapped(client),{action:'saveGroup',id:ids[i],name:'架空同時登録',prefix,fiscalStartMonth:1},'meeting-hs')))
+      const results=await Promise.allSettled([db,other].map((client,i)=>propertyPrototypeOperation(auth,wrapped(client),{action:'saveGroup',id:ids[i],name:'架空同時登録',prefix,maxWarrantyYears:30,fiscalStartMonth:1},'meeting-hs')))
       assert.equal(arrived,2)
       assert.equal(results.filter(r=>r.status==='fulfilled').length,1,JSON.stringify(results))
       assert.equal(results.find(r=>r.status==='rejected')?.reason.code,'already-exists')
@@ -978,13 +988,13 @@ test('equal prefix concurrent creates use transactional query isolation with exi
       assert.equal(saved.size,1);assert.ok(ids.includes(saved.docs[0].id))
       assert.ok(observed.includes(0));assert.ok(observed.includes(1))
     }
-    const results=await Promise.allSettled(['DISTINCT-A','DISTINCT-B'].map(prefix=>call('saveGroup',{name:'別接頭辞同時登録',prefix,fiscalStartMonth:1})))
+    const results=await Promise.allSettled(['DISTINCT-A','DISTINCT-B'].map(prefix=>call('saveGroup',{requestId:crypto.randomUUID(),name:'別接頭辞同時登録',prefix,maxWarrantyYears:30,fiscalStartMonth:1})))
     assert.ok(results.every(r=>r.status==='fulfilled'))
   } finally {await deleteApp(otherApp)}
 })
 
 test('group equality reads exclude self, detect duplicates and retain last-write-wins and disabled occupancy',async()=>{
-  const input={id:'prefix-equality',name:'接頭辞照合',prefix:'EQUALITY',fiscalStartMonth:1}
+  const input={id:'prefix-equality',name:'接頭辞照合',prefix:'EQUALITY',maxWarrantyYears:30,fiscalStartMonth:1}
   await call('saveGroup',input)
   const sizes=[]
   const measured=new Proxy(db,{get(target,key){
@@ -996,13 +1006,13 @@ test('group equality reads exclude self, detect duplicates and retain last-write
   }})
   const edit=name=>propertyPrototypeOperation(auth,measured,{action:'saveGroup',...input,name},'meeting-hs')
   await edit('先の保存')
-  const batch=db.batch();for(let i=0;i<30;i++)batch.set(db.doc(`warrantyGroups/unrelated-prefix-${i}`),{name:'対象外',prefix:`UNRELATED${i}`,fiscalStartMonth:1});await batch.commit()
+  const batch=db.batch();for(let i=0;i<30;i++)batch.set(db.doc(`warrantyGroups/unrelated-prefix-${i}`),{name:'対象外',prefix:`UNRELATED${i}`,maxWarrantyYears:30,fiscalStartMonth:1});await batch.commit()
   await edit('後の保存')
   assert.deepEqual(sizes,[1,1]);assert.equal((await db.doc('warrantyGroups/'+input.id).get()).data().name,'後の保存')
   const edits=await Promise.allSettled(['同時編集A','同時編集B'].map(name=>edit(name)))
   assert.ok(edits.every(r=>r.status==='fulfilled'))
   assert.ok(['同時編集A','同時編集B'].includes((await db.doc('warrantyGroups/'+input.id).get()).data().name))
-  await assert.rejects(call('saveGroup',{name:'空接頭辞重複',prefix:'',fiscalStartMonth:1}),e=>e.code==='already-exists')
+  await assert.rejects(call('saveGroup',{requestId:crypto.randomUUID(),name:'空接頭辞重複',prefix:'',maxWarrantyYears:30,fiscalStartMonth:1}),e=>e.code==='already-exists')
   await call('saveGroup',{...input,enabled:false})
   await assert.rejects(call('saveGroup',{...input,id:'prefix-other'}),e=>e.code==='already-exists')
   await call('reenableMaster',{kind:'group',id:input.id})
@@ -1097,7 +1107,7 @@ test('certificate month queries, migration, period issuance and concurrent updat
   await target.doc('staffAccounts/cert-hs').set({role:'house_solution_administrator',enabled:true})
   await target.doc('constructionCompanyAccounts/cert-portal').set({role:'construction_company',enabled:true,scope:'company',constructionCompanyId:'meeting-co'})
   const invoke=(action,data={},uid='cert-hs')=>propertyPrototypeOperation(auth,observedFirestore(target),{action,groupId:'cert-group',...data},uid)
-  await target.doc('warrantyGroups/cert-group').set({name:'試験グループ',enabled:true,prefix:'CERT',fiscalStartMonth:1})
+  await target.doc('warrantyGroups/cert-group').set({name:'試験グループ',enabled:true,prefix:'CERT',maxWarrantyYears:30,fiscalStartMonth:1})
   await target.doc('constructionCompanies/meeting-co').set({name:'架空工務店',defaultGroupId:'cert-group',enabled:true})
   await target.doc('companyBranches/meeting-branch').set({name:'架空支店',constructionCompanyId:'meeting-co',enabled:true})
   const fixtures=[]
@@ -1307,16 +1317,132 @@ test('extension command requires its application date and accepts late dates wit
 test('prefix indexed length boundary rejects overflow without writes and preserves reactivation',async()=>{
  for(const length of [1498,1499]){
   const prefix='L'.repeat(length),id='prefix-boundary-'+length
-  await call('saveGroup',{id,name:'架空長さ境界',prefix,fiscalStartMonth:1})
-  await assert.rejects(call('saveGroup',{id:id+'-duplicate',name:'架空重複',prefix,fiscalStartMonth:1}),{code:'already-exists'})
-  await call('saveGroup',{id,name:'架空長さ境界',prefix,fiscalStartMonth:1,enabled:false})
+  await call('saveGroup',{id,name:'架空長さ境界',prefix,maxWarrantyYears:30,fiscalStartMonth:1})
+  await assert.rejects(call('saveGroup',{id:id+'-duplicate',name:'架空重複',prefix,maxWarrantyYears:30,fiscalStartMonth:1}),{code:'already-exists'})
+  await call('saveGroup',{id,name:'架空長さ境界',prefix,maxWarrantyYears:30,fiscalStartMonth:1,enabled:false})
   await call('reenableMaster',{kind:'group',id})
   assert.equal((await db.doc('warrantyGroups/'+id).get()).data().enabled,true)
  }
- await assert.rejects(call('saveGroup',{id:'prefix-overflow-new',name:'架空超過',prefix:'L'.repeat(1500),fiscalStartMonth:1}),{code:'invalid-argument'})
+ await assert.rejects(call('saveGroup',{id:'prefix-overflow-new',name:'架空超過',prefix:'L'.repeat(1500),maxWarrantyYears:30,fiscalStartMonth:1}),{code:'invalid-argument'})
  assert.equal((await db.doc('warrantyGroups/prefix-overflow-new').get()).exists,false)
- const ref=db.doc('warrantyGroups/prefix-overflow-legacy'),before={name:'架空超過既存',prefix:'Z'.repeat(1500),enabled:false,fiscalStartMonth:1}
+ const ref=db.doc('warrantyGroups/prefix-overflow-legacy'),before={name:'架空超過既存',prefix:'Z'.repeat(1500),enabled:false,maxWarrantyYears:30,fiscalStartMonth:1}
  await ref.set(before)
  await assert.rejects(call('reenableMaster',{kind:'group',id:ref.id}),{code:'failed-precondition'})
  assert.deepEqual((await ref.get()).data(),before)
+})
+
+test('property replay binds submitted content and legacy evidence never claims a verified save',async()=>{
+  const key='replay-contract-property'
+  const payload={action:'save',...command(key,0,{fields:{...fields,name:'Replay draft',handoverDate:'',constructionCompanyId:'replay-contract-company',branchId:'replay-contract-branch'}})}
+  await db.doc('warrantyGroups/replay-contract-group').set({name:'Replay group',prefix:'REPLAY',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true,externalKeyRequired:false})
+  await db.doc('constructionCompanies/replay-contract-company').set({name:'Replay company',defaultGroupId:'replay-contract-group',enabled:true})
+  await db.doc('companyBranches/replay-contract-branch').set({name:'Replay branch',constructionCompanyId:'replay-contract-company',enabled:true})
+  await assert.rejects(propertyOperation(auth,db,{...payload,operationProtocol:1},'meeting-hs'),{code:'failed-precondition'})
+  assert.equal((await db.doc('propertyWarranties/'+key).get()).exists,false)
+  const first=await propertyPrototypeOperation(auth,db,payload,'meeting-hs')
+  assert.equal(first.operationStatus,'completed')
+  const before=(await db.doc('propertyWarranties/'+key).get()).data()
+  assert.equal((await propertyPrototypeOperation(auth,db,payload,'meeting-hs')).operationStatus,'completed')
+  await assert.rejects(propertyPrototypeOperation(auth,db,{...payload,fields:{...payload.fields,name:'Changed after lost response'}},'meeting-hs'),{code:'failed-precondition'})
+  assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),before)
+  const receiptRef=db.doc(`propertyOperationReceipts/${key}_${payload.requestId}`)
+  const legacy={uid:'meeting-hs',action:'save',propertyId:key,createdAt:Timestamp.now()}
+  await receiptRef.set(legacy)
+  assert.equal((await propertyPrototypeOperation(auth,db,payload,'meeting-hs')).operationStatus,'legacy-unverified')
+  assert.deepEqual((await receiptRef.get()).data(),legacy)
+  assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),before)
+  await receiptRef.delete()
+  assert.equal((await propertyPrototypeOperation(auth,db,payload,'meeting-hs')).operationStatus,'legacy-unverified')
+  assert.equal((await receiptRef.get()).exists,false)
+  assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),before)
+})
+
+test('master creation retries return one identity without undoing later edits or disable',async()=>{
+  const groupId='master-create-replay-group'
+  await db.doc('warrantyGroups/'+groupId).set({name:'Replay masters',prefix:'MREPLAY',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true,externalKeyRequired:false})
+  const company={name:'Replay new company',defaultGroupId:groupId,address:companyAddress}
+  await assert.rejects(call('saveCompany',company),{code:'invalid-argument'})
+  const request={...company,requestId:crypto.randomUUID()}
+  const results=await Promise.all([call('saveCompany',request),call('saveCompany',request)])
+  assert.equal(results[0].id,results[1].id)
+  const ref=db.doc('constructionCompanies/'+results[0].id)
+  await call('saveCompany',{...company,id:ref.id,name:'Later staff edit',enabled:false})
+  const later=(await ref.get()).data()
+  assert.equal((await call('saveCompany',request)).id,ref.id)
+  assert.deepEqual((await ref.get()).data(),later)
+  await assert.rejects(call('saveCompany',{...request,name:'Different request content'}),{code:'failed-precondition'})
+  const matches=await db.collection('constructionCompanies').where('defaultGroupId','==',groupId).get()
+  assert.equal(matches.size,1)
+  const branchRequest={name:'Code-free branch',constructionCompanyId:ref.id,branchCode:'',requestId:crypto.randomUUID()}
+  const branch=await call('saveBranch',branchRequest)
+  const branchRef=db.doc('companyBranches/'+branch.id)
+  await branchRef.update({name:'Later branch edit',enabled:false})
+  const branchLater=(await branchRef.get()).data()
+  assert.equal((await call('saveBranch',branchRequest)).id,branch.id)
+  assert.deepEqual((await branchRef.get()).data(),branchLater)
+})
+
+test('handover correction invalidates issued certificates permanently across an A-B-A cycle',async()=>{
+  const key='certificate-date-cycle',groupId='certificate-date-group',companyId='certificate-date-company',branchId='certificate-date-branch'
+  await db.doc('warrantyGroups/'+groupId).set({name:'Date group',prefix:'DATECYCLE',maxWarrantyYears:30,fiscalStartMonth:1,enabled:true,externalKeyRequired:false})
+  await db.doc('constructionCompanies/'+companyId).set({name:'Date company',defaultGroupId:groupId,enabled:true})
+  await db.doc('companyBranches/'+branchId).set({name:'Date branch',constructionCompanyId:companyId,enabled:true})
+  const value={...fields,constructionCompanyId:companyId,branchId}
+  await call('register',command(key,0,{fields:value}))
+  await call('issueCertificate',{id:key,revision:1,requestId:crypto.randomUUID(),month:'2026-10',periods:[{id:'initial',startDate:'2026-10-01',expiryDate:'2036-09-30'}]})
+  const ref=db.doc('propertyWarranties/'+key)
+  const issued=(await ref.get()).data().certificateItems
+  await call('save',command(key,2,{fields:{...value,notes:'No date change'}}))
+  assert.deepEqual((await ref.get()).data().certificateItems,issued)
+  await call('save',command(key,3,{fields:{...value,handoverDate:'2026-10-02'},confirmDates:true}))
+  const corrected=(await ref.get()).data()
+  assert.deepEqual(corrected.history.at(-1).before.certificateItems,issued)
+  assert.deepEqual(corrected.history.at(-1).invalidatedCertificatePeriodIds,['initial'])
+  const {certificatePeriods}=await import('../../src/domain/warranty-certificate.mjs')
+  assert.equal(certificatePeriods(corrected)[0].certificateIssued,false)
+  await call('save',command(key,4,{fields:value,confirmDates:true}))
+  const returned=(await ref.get()).data()
+  assert.equal(certificatePeriods(returned)[0].certificateIssued,false)
+  assert.deepEqual(returned.history.find(event=>event.invalidatedCertificatePeriodIds?.includes('initial')).before.certificateItems,issued)
+})
+
+
+test('configured group caps cover draft, registration, edits, extension snapshot and setting changes with unchanged periods',async()=>{
+ const target=getFirestore(app,'group-limit-test')
+ await target.doc('staffAccounts/hs').set({enabled:true,role:'house_solution_administrator'})
+ await target.doc('constructionCompanies/c').set({name:'架空',defaultGroupId:'g'})
+ await target.doc('companyBranches/b').set({name:'架空支店',constructionCompanyId:'c'})
+ const invoke=input=>propertyPrototypeOperation(auth,target,input,'hs')
+ const group={action:'saveGroup',id:'g',name:'架空10年',prefix:'LIMIT',fiscalStartMonth:1,maxWarrantyYears:10}
+ await invoke(group)
+ const f={...fields,constructionCompanyId:'c',branchId:'b',maxYears:20}
+ const save=(action,id,revision,extra={})=>invoke({action,id,revision,fields:f,requestId:crypto.randomUUID(),confirmRegistration:true,confirmWarnings:true,...extra})
+ for(const action of ['save','register'])await assert.rejects(save(action,'p',0),/10年/)
+ assert.equal((await target.doc('propertyWarranties/p').get()).exists,false)
+ await save('register','p',0,{fields:{...f,maxYears:10}})
+ const before=(await target.doc('propertyWarranties/p').get()).data()
+ await invoke({...group,name:'改称済み'})
+ await assert.rejects(save('save','p',before.revision),/10年/)
+ await assert.rejects(invoke({action:'extend',id:'p',revision:before.revision,requestId:crypto.randomUUID(),extensionApplicationDate:'2026-10-22'}),/延長できません/)
+ assert.deepEqual((await target.doc('propertyWarranties/p').get()).data(),before)
+ await invoke({...group,name:'改称済み',maxWarrantyYears:30})
+ assert.deepEqual((await target.doc('propertyWarranties/p').get()).data(),before)
+ await save('save','p',before.revision,{fields:{...f,maxYears:30}})
+ await invoke({...group,name:'改称済み',maxWarrantyYears:10})
+ const saved=(await target.doc('propertyWarranties/p').get()).data()
+ await invoke({action:'extend',id:'p',revision:saved.revision,requestId:crypto.randomUUID(),extensionApplicationDate:'2036-10-01'})
+ const extended=(await target.doc('propertyWarranties/p').get()).data();assert.equal(extended.years,20)
+ await assert.rejects(save('save','p',extended.revision,{fields:{...f,maxYears:20}}),/10年/)
+ assert.deepEqual((await target.doc('propertyWarranties/p').get()).data(),extended)
+ await target.doc('warrantyGroups/g').update({maxWarrantyYears:FieldValue.delete()})
+ const current=(await target.doc('propertyWarranties/p').get()).data()
+ await assert.rejects(save('save','p',current.revision,{fields:{...f,maxYears:30}}),/未設定/)
+ const {supplementGroupWarrantyLimits}=await import('../../scripts/lib/group-warranty-limit-migration.mjs')
+ const assignments=[{id:'g',name:'改称済み',prefix:'LIMIT',fiscalStartMonth:1,maxWarrantyYears:30}]
+ const plan=await supplementGroupWarrantyLimits(target,assignments)
+ await assert.rejects(supplementGroupWarrantyLimits(target,assignments,{apply:true,expectedDigest:'stale'}),/INPUT_CHANGED/)
+ await supplementGroupWarrantyLimits(target,assignments,{apply:true,expectedDigest:plan.beforeDigest})
+ const after=await supplementGroupWarrantyLimits(target,assignments)
+ assert.equal(after.updates.length,0);assert.equal(after.propertiesDigest,plan.propertiesDigest)
+ assert.deepEqual((await target.doc('propertyWarranties/p').get()).data(),current)
 })

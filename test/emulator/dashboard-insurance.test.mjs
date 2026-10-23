@@ -32,7 +32,7 @@ async function fixture(t) {
   batch.set(db.doc('prototypeSettings/alerts'),{warrantyMonths:2,insuranceMonths:2})
   batch.set(db.doc('_recovery/access'),{protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:'test-fixed-control'})
   await batch.commit()
-  const invoke=(action,input={},uid='hs')=>propertyPrototypeOperation(auth,db,{operationProtocol:1,runtimeGeneration:1,action,...input},uid)
+  const invoke=(action,input={},uid='hs')=>propertyPrototypeOperation(auth,db,{operationProtocol:2,runtimeGeneration:1,action,...input},uid)
   const get=async id=>(await db.doc('propertyWarranties/'+id).get()).data()
   const mutate=async(action,id,extra={},uid='hs')=>{const result=await invoke(action,{id,revision:(await get(id)).revision,requestId:randomUUID(),...extra},uid);assert.equal(insuranceNoticeProjectionMatches(await get(id)),true);return result}
   return {db,invoke,get,mutate}
@@ -171,7 +171,7 @@ test('notice queries omit missing search fields without rescue, writes or unrela
   const before=await Promise.all(missingIds.map(async id=>(await db.doc('propertyWarranties/'+id).get()).data()))
   for(const count of [0,30]){
     for(let i=0;i<count;i++)await put(db,'unrelated-'+i,property('2046-10-01'))
-    for(const [filter,expected] of [[{alertKind:'warranty',notification:'pending'},'warranty-valid'],[{alertKind:'insurance'},'insurance-valid']]){
+    for(const [filter,expected] of [[{alertKind:'warranty',notification:'pending'},'warranty-valid']]){
       const probe=propertyReadProbe(db)
       const result=await propertyPrototypeOperation(auth,probe.db,{action:'list',filter,omitReferenceLabels:true},'hs')
       assert.deepEqual(result.rows.map(row=>row.id),[expected])
@@ -236,7 +236,10 @@ test('waiver changes only the chosen period, requires reason, preserves history 
   assert.equal(saved.revision,2)
   assert.deepEqual(validateInsuranceState(saved),[])
   assert.equal((await invoke('dashboard')).counts.insurancePending,1)
-  await invoke('waiveInsurance',{...request,operationProtocol:undefined})
+  await assert.rejects(invoke('waiveInsurance',{...request,operationProtocol:undefined}),{code:'failed-precondition'})
+  await assert.rejects(invoke('waiveInsurance',{...request,operationProtocol:1}),{code:'failed-precondition'})
+  assert.deepEqual(await get('future'),saved)
+  await invoke('waiveInsurance',{...request,operationProtocol:2})
   assert.deepEqual(await get('future'),saved)
   await mutate('undoInsuranceWaiver','future',{insurancePeriodId:future.id})
   const undone=await get('future')
@@ -278,7 +281,7 @@ test('report must be undone before waiver; report cancellation retains another p
   assert.deepEqual(final.insuranceWaiverEvents[0],saved.insuranceWaiverEvents[0])
 })
 
-test('period-end date allows cancellation but next Japanese day rejects both setting and cancellation',async t=>{
+test('period-end date and next Japanese day allow waiver and cancellation without losing history',async t=>{
   const {db,get,mutate}=await fixture(t)
   await put(db,'last-day',property('2021-10-11'))
   await put(db,'locked',property('2021-10-11'))
@@ -289,9 +292,30 @@ test('period-end date allows cancellation but next Japanese day rejects both set
   await mutate('waiveInsurance','locked',{insurancePeriodId:period.id,reason:'満了当日'})
   const preserved=await get('locked')
   t.mock.timers.setTime(new Date('2026-10-10T15:00:00.000Z').getTime())
-  await assert.rejects(mutate('undoInsuranceWaiver','locked',{insurancePeriodId:period.id}),e=>e.code==='failed-precondition')
-  await assert.rejects(mutate('waiveInsurance','last-day',{insurancePeriodId:period.id,reason:'翌日'}),e=>e.code==='failed-precondition')
-  assert.deepEqual(await get('locked'),preserved)
+  await mutate('undoInsuranceWaiver','locked',{insurancePeriodId:period.id})
+  await mutate('waiveInsurance','last-day',{insurancePeriodId:period.id,reason:'翌日'})
+  assert.equal((await get('locked')).insurancePeriods[0].state,'pending')
+  assert.deepEqual((await get('locked')).insuranceWaiverEvents[0],preserved.insuranceWaiverEvents[0])
+  assert.equal((await get('last-day')).insurancePeriods[0].state,'waived')
+})
+
+test('2018 historical first half can be waived or reported and disappears from its monthly pending list',async t=>{
+  const {db,invoke,get,mutate}=await fixture(t)
+  await put(db,'historical',property('2018-07-08'))
+  const initial=await get('historical'),period=initial.insurancePeriods[0]
+  const list=()=>invoke('list',{filter:{reportMonth:'2018-10'},omitReferenceLabels:true})
+  assert.deepEqual((await list()).rows.map(row=>row.id),['historical'])
+  await mutate('waiveInsurance','historical',{insurancePeriodId:period.id,reason:'過去の満了期間'})
+  assert.deepEqual((await list()).rows,[])
+  await mutate('undoInsuranceWaiver','historical',{insurancePeriodId:period.id})
+  assert.deepEqual((await list()).rows.map(row=>row.id),['historical'])
+  await mutate('report','historical',{month:'2018-10',reportTarget:insuranceReportTarget(await get('historical'),'2018-10')})
+  assert.equal((await get('historical')).insurancePeriods[0].state,'reported')
+  assert.deepEqual((await list()).rows,[])
+  await assert.rejects(mutate('waiveInsurance','historical',{insurancePeriodId:period.id,reason:'直接上書き'}),e=>e.code==='failed-precondition')
+  await mutate('undoReport','historical',{targetReportId:latestInsuranceReport(await get('historical')).requestId})
+  assert.equal((await get('historical')).insurancePeriods[0].state,'pending')
+  assert.deepEqual((await get('historical')).periods,initial.periods)
 })
 
 test('old operation format and stale revision cannot change confirmed state',async t=>{
@@ -331,19 +355,6 @@ test('undoing an earlier waiver restores its monthly target even after a future 
   assert.equal((await invoke('dashboard')).counts.insurancePending,1)
 })
 
-test('insurance notice skips a waived middle period and excludes initial unreported properties',async t=>{
-  const {db,invoke}=await fixture(t)
-  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
-  let extended=property('2026-10-01',{years:20,periods:coveragePeriods('2026-10-01',20),expiryDate:'2046-09-30',maxYears:30,history:[{kind:'register',requestId:'fictional-register',date:'2026-10-01'},{kind:'extend',requestId:'fictional-extension',date:'2036-10-01',before:{years:10}}]})
-  extended=waived(reported(extended,0),1)
-  await put(db,'skip-middle',extended)
-  await put(db,'initial-only',property('2026-10-01'))
-  const list=()=>invoke('list',{filter:{alertKind:'insurance'},omitReferenceLabels:true})
-  t.mock.timers.setTime(new Date('2031-08-01T03:00:00.000Z').getTime())
-  assert.deepEqual((await list()).rows,[])
-  t.mock.timers.setTime(new Date('2036-08-01T03:00:00.000Z').getTime())
-  assert.deepEqual((await list()).rows.map(r=>r.id),['skip-middle'])
-})
 
 test('one aggregate failure rejects the complete dashboard response without automatic retry',async t=>{
   const {db}=await fixture(t)
@@ -393,35 +404,6 @@ test('unknown cancelled insurance cannot be restored and unpublished legacy unre
 })
 
 
-test('insurance notice query preserves full response and reduces property reads, with legacy and missing timestamp compatibility',async t=>{
-  const {db,invoke}=await fixture(t)
-  for(let i=0;i<24;i++)await put(db,`notice-${i}`,reported(property('2021-10-01',{updatedAt:new Timestamp(1000,i)}),0))
-  await put(db,'first-unreported',property('2021-10-01'))
-  await put(db,'future',reported(property('2026-10-01'),0))
-  await put(db,'all-reported',reported(reported(property('2021-10-01'),0),1))
-  await put(db,'waived',waived(reported(property('2021-10-01'),0),1))
-  await put(db,'null',reported(property('2021-10-01',{updatedAt:null}),0))
-  const missing=reported(property('2021-10-01'),0);delete missing.updatedAt;await put(db,'missing',missing)
-  const legacy={status:'active',handoverDate:'2021-10-01',updatedAt:Timestamp.fromMillis(1000)}
-  await db.doc('propertyWarranties/legacy').set({...legacy,...insuranceNoticeProjection(legacy)})
-  const input={action:'list',filter:{alertKind:'insurance'},omitReferenceLabels:true}
-  const unready=propertyReadProbe(db)
-  await assert.rejects(propertyPrototypeOperation(auth,unready.db,input,'hs'),{code:'failed-precondition'})
-  assert.deepEqual(unready.reads,[])
-  const old=propertyReadProbe(db)
-  await assert.rejects(propertyPrototypeOperation(auth,old.db,{...input,filter:{...input.filter,status:'active'}},'hs'),{code:'invalid-argument'})
-  assert.deepEqual(old.reads,[])
-  const baseline={rows:(await db.collection('propertyWarranties').orderBy('updatedAt','desc').orderBy('__name__','desc').get()).docs.map(d=>withInsuranceDefaults({...d.data(),id:d.id})).filter(r=>expiryAlertEligible(r,'insurance',today,2)),limited:false}
-  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
-  const measured=propertyReadProbe(db),result=await propertyPrototypeOperation(auth,measured.db,input,'hs')
-  assert.deepEqual(measured.reads,[27]);assert.equal(result.rows.length,26);assert.deepEqual(result,baseline)
-  assert.equal(result.rows.at(-1).id,'null')
-  const extra=propertyReadProbe(db);await assert.rejects(propertyPrototypeOperation(auth,extra.db,{...input,filter:{alertKind:'insurance',status:'active'}},'hs'),{code:'invalid-argument'});assert.deepEqual(extra.reads,[])
-  await assert.rejects(invoke('list',{filter:input.filter},'company'),e=>e.code==='permission-denied')
-  assert.deepEqual((await invoke('list',{filter:input.filter,omitReferenceLabels:true},'general')),baseline)
-  const changing=propertyReadProbe(db,async count=>{if(count===1)await db.doc('prototypeSettings/insuranceNoticeQueries').update({version:0})})
-  await assert.rejects(propertyPrototypeOperation(auth,changing.db,input,'hs'),{code:'failed-precondition'});assert.deepEqual(changing.reads,[27])
-})
 
 test('insurance notice projection follows waiver, undo, cancellation and restoration in the business transaction',async t=>{
   const {db,get,mutate}=await fixture(t)
@@ -436,16 +418,12 @@ test('insurance notice projection follows waiver, undo, cancellation and restora
 })
 
 
-test('insurance candidate query uses starting settings and Japanese date and propagates query failures',async t=>{
-  const {db}=await fixture(t)
-  await put(db,'near-insurance',reported(property('2021-10-01'),0))
-  await put(db,'later-insurance',reported(property('2022-01-01'),0))
-  await db.doc('prototypeSettings/insuranceNoticeQueries').set({version:1,generation:1,operationId:'notice-ready'})
-  const input={action:'list',filter:{alertKind:'insurance'},omitReferenceLabels:true}
-  const changed=propertyReadProbe(db,async count=>{if(count===1)await db.doc('prototypeSettings/alerts').update({insuranceMonths:12})})
-  assert.equal((await propertyPrototypeOperation(auth,changed.db,input,'hs')).rows.length,1);assert.deepEqual(changed.reads,[1])
-  const dateChanged=propertyReadProbe(db,async count=>{if(count===1)t.mock.timers.setTime(new Date('2026-10-10T15:00:00Z').getTime())})
-  assert.equal((await propertyPrototypeOperation(auth,dateChanged.db,input,'hs')).rows.length,2);assert.deepEqual(dateChanged.reads,[2])
-  const failed=propertyReadProbe(db,async()=>{throw Error('fictional query failure')})
-  await assert.rejects(propertyPrototypeOperation(auth,failed.db,input,'hs'),/fictional query failure/)
+
+test('retired insurance notice requests fail before reading properties for every role',async t=>{
+ const {db}=await fixture(t)
+ for(const uid of ['hs','general','company']) {
+  const probe=propertyReadProbe(db)
+  await assert.rejects(propertyPrototypeOperation(auth,probe.db,{action:'list',filter:{alertKind:'insurance'}},uid),{code:'invalid-argument'})
+  assert.deepEqual(probe.reads,[])
+ }
 })

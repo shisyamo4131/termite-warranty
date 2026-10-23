@@ -14,3 +14,5 @@ export function insuranceNoticeExpiry(row:Record<string,any>):string
 export function confirmedInsuranceReportRows(row:Record<string,any>):Array<Record<string,any>>
 export function insuranceReportedQueryProjection(row:Record<string,any>):{insuranceReportedQueryVersion:number;insuranceReportedQueryMonths:string[]}
 export function insuranceMonthlyRows(rows:Array<Record<string,any>>,month:string,options?:{includeDone?:boolean}):{rows:Array<Record<string,any>>;unclassifiedCount:number}
+
+export function waiveExpiredImportedPeriods(row:Record<string,any>,options:{today:string;actorUid:string;actorName:string;at:string}):Record<string,any>

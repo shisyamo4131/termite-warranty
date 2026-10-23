@@ -1,5 +1,6 @@
 import { FieldValue } from 'firebase-admin/firestore'
 import { randomUUID } from 'node:crypto'
+import { recoverStaffCreation } from './staff-account-creation.js'
 
 const fail = message => { throw new Error(message) }
 const validate = uid => { if (typeof uid !== 'string' || !/^[\w-]{1,128}$/.test(uid)) fail('Explicit valid UID required.') }
@@ -8,15 +9,16 @@ export async function inspectAccountMutation(auth, db, uid) {
   const lock = (await db.doc(`accountMutationLocks/${uid}`).get()).data()
   if (!lock) return { uid, locked: false }
   if (!['staffAccounts', 'constructionCompanyAccounts'].some(collection => lock.targetPath === `${collection}/${uid}`)) fail('Unexpected account target; manual review required.')
-  const [target, user] = await Promise.all([db.doc(lock.targetPath).get(), auth.getUser(uid)])
+  const [target, user] = await Promise.all([db.doc(lock.targetPath).get(), auth.getUser(uid).catch(error => { if (error?.code === 'auth/user-not-found') return null; throw error })])
   const value = target.data()
-  return { uid, locked: true, operationId: lock.operationId, recoveryOwner: lock.recoveryOwner ?? null, kind: lock.kind, status: lock.status, documentExists: target.exists, documentEnabled: value?.enabled === true, authDisabled: user.disabled === true, profileMatches: user.email === value?.email && (user.displayName ?? '') === (value?.displayName ?? value?.companyName ?? '') }
+  return { uid, locked: true, operationId: lock.operationId, recoveryOwner: lock.recoveryOwner ?? null, kind: lock.kind, status: lock.status, documentExists: target.exists, documentEnabled: value?.enabled === true, authExists: user !== null, authDisabled: user?.disabled === true, profileMatches: !!user && user.email === value?.email && (user.displayName ?? '') === (value?.displayName ?? value?.companyName ?? '') }
 }
 
 export async function recoverAccountMutation(auth, db, { uid, expectedOperationId, workerStopped, expectedRecoveryOwner, recoveryWorkerStopped = false }) {
   validate(uid)
   if (!workerStopped || typeof expectedOperationId !== 'string' || !expectedOperationId) fail('Expected operation ID and confirmed old-worker quiescence required.')
   const lockRef = db.doc(`accountMutationLocks/${uid}`)
+  if ((await lockRef.get()).data()?.kind === 'create') return recoverStaffCreation(auth, db, { uid, expectedOperationId, workerStopped, expectedRecoveryOwner, recoveryWorkerStopped })
   const recoveryOwner = randomUUID()
   const { target, targetPath } = await db.runTransaction(async tx => {
     const initial = (await tx.get(lockRef)).data()

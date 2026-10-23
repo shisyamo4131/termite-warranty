@@ -1,4 +1,4 @@
-export const initialGroups: Array<{id:string;name:string;prefix:string;fiscalStartMonth:number;template:string;externalKeyRequired?:boolean;externalKeyLabel?:string}>
+export const initialGroups: Array<{id:string;name:string;maxWarrantyYears:number;prefix:string;fiscalStartMonth:number;template:string;externalKeyRequired?:boolean;externalKeyLabel?:string}>
 export function japanDate(now?:Date):string
 export function fiscalYear(date:string,startMonth:number):number
 export function normalizeWarrantyPrefix(value:unknown):string
@@ -14,7 +14,7 @@ export function csvCell(value:unknown):string
 export function alertStartDate(expiryDate:string,months?:number):string
 export function expiryAlertEligible(row:Record<string,any>,kind:string,today?:string,months?:number):boolean
 export function insuranceExpiryDate(startDate:string):string
-export function normalizeAlertSettings(input?:Record<string,unknown>):{warrantyMonths:number;insuranceMonths:number}
+export function normalizeAlertSettings(input?:Record<string,unknown>):{warrantyMonths:number}
 export function initialInsurance(date:string):Record<string,any>
 export function initialInsurancePeriodAt(row:Record<string,any>,referenceDate:string):Record<string,any>|null
 export function insuranceReportKind(row:Record<string,any>,month:string,today?:string):string

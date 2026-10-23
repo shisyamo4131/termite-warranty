@@ -64,7 +64,7 @@ function observedDb(){
 }
 
 test('HS reference opt-in skips label reads for list, detail and export source while preserving old clients',async()=>{
-  for(const [action,input] of [['list',{}],['propertyList',{}],['detail',{id:'property'}],['list',{filter:{warrantyNumber:'HSC-26-001'}}]]) {
+  for(const [action,input] of [['list',{}],['propertyList',{}],['detail',{id:'property'}],['list',{filter:{groupId:'own',handoverMonth:'2026-10'}}]]) {
     const observation=observedDb()
     const result=await call(action,{...input,omitReferenceLabels:true},'hs',observation.target)
     const row=action==='detail'?result:result.rows[0]

@@ -98,7 +98,7 @@ test('normal business save between conversion and publication survives readiness
   const result=await migrateDashboard(db,control,{...options,beforePublish:async()=>{
     const converted=(await ref.get()).data()
     assert.equal(converted.revision,4)
-    await propertyPrototypeOperation({},db,{action:'notify',operationProtocol:1,id:ref.id,revision:converted.revision,requestId:'fictional-notify-before-publication',notified:true},'migration-hs')
+    await propertyPrototypeOperation({},db,{action:'notify',operationProtocol:2,id:ref.id,revision:converted.revision,requestId:'fictional-notify-before-publication',notified:true},'migration-hs')
     businessSaved=(await ref.get()).data()
     assert.equal(businessSaved.revision,5)
     assert.equal(businessSaved.warrantyNotified,true)
@@ -120,7 +120,7 @@ test('conversion rereads latest business save after its enumeration snapshot ins
     if(key==='runTransaction')return async callback=>{
       // First transaction closes readiness; second processes the already enumerated property.
       if(++transactionNumber===2) {
-        await propertyPrototypeOperation({},db,{action:'notify',operationProtocol:1,id:ref.id,revision:3,requestId:'fictional-notify-after-enumeration',notified:true},'migration-hs')
+        await propertyPrototypeOperation({},db,{action:'notify',operationProtocol:2,id:ref.id,revision:3,requestId:'fictional-notify-after-enumeration',notified:true},'migration-hs')
         businessSaved=(await ref.get()).data()
       }
       return target.runTransaction(callback)

@@ -29,6 +29,6 @@ export function normalizeBillingRecipient(input = {}) { return normalize(input, 
 
 // Explicit public contract: new private fields must never leak through the portal catalog.
 export function portalWarrantyGroup(group, id) {
-  const keys = ['name','prefix','fiscalStartMonth','template','enabled','externalKeyRequired','externalKeyLabel','addressRequired','insulationMaterialsRequired']
+  const keys = ['maxWarrantyYears','name','prefix','fiscalStartMonth','template','enabled','externalKeyRequired','externalKeyLabel','addressRequired','insulationMaterialsRequired']
   return { ...Object.fromEntries(keys.filter(key => group[key] !== undefined).map(key => [key, group[key]])), id }
 }

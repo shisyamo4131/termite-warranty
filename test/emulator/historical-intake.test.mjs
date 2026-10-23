@@ -1,3 +1,4 @@
+import {mock} from 'node:test'
 import test,{after} from 'node:test'
 import assert from 'node:assert/strict'
 import {initializeApp,deleteApp} from 'firebase-admin/app'
@@ -13,7 +14,8 @@ import {captureIntakeSettings} from '../../scripts/lib/historical-intake-setting
 import {initializeProductionData,bindProductionAdministrator} from '../../scripts/lib/production-bootstrap-data.mjs'
 if(process.env.FIRESTORE_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.firestorePort)||process.env.FIREBASE_AUTH_EMULATOR_HOST!==localRuntimeHost(LOCAL_RUNTIME.authPort))throw Error('Fictional emulator required')
 const app=initializeApp({projectId:'demo-termite-warranty-test'},'historical-intake-tests'),db=getFirestore(app),control=getFirestore(app,'test-historical-control'),auth=getAuth(app)
-after(()=>deleteApp(app))
+after(()=>{mock.restoreAll();return deleteApp(app)})
+mock.method(Timestamp,'now',()=>Timestamp.fromDate(new Date('2026-10-10T01:00:00.000Z')))
 const state={protocol:2,generation:21,phase:'recovering',databaseId:'(default)',controlDatabaseId:'test-historical-control'}
 const today='2026-10-10',input=historicalFixture(),planHash=prepareHistoricalIntake(input,{today}).planDigest
 test('empty Prod bootstrap semantics: partial initial state resumes closed, existing business refuses and admin binding retains Auth',async()=>{
@@ -155,3 +157,50 @@ test('new or changed known business data after interrupted deletion is preserved
     assert.equal((await db.doc(path).get()).data().mustRetain,true)
   }
 })
+
+ test('intake refuses stale dates and writes expired-period waiver with actual operator audit',async()=>{
+   const options=await fixture(),changed=structuredClone(input)
+   changed.rows[0].fields.handoverDate='2018-07-08'
+   const stale='2026-10-09'
+   await assert.rejects(executeHistoricalIntake(db,control,auth,changed,{...options,today:stale,planHash:prepareHistoricalIntake(changed,{today:stale}).planDigest}))
+   assert.equal((await db.doc('propertyWarranties/old-fixture').get()).exists,true)
+   const retry=await fixture(),plan=prepareHistoricalIntake(changed,{today})
+   await executeHistoricalIntake(db,control,auth,changed,{...retry,planHash:plan.planDigest})
+   const path=plan.documents.find(doc=>doc.path.startsWith('propertyWarranties/')).path
+   const row=(await db.doc(path).get()).data(),receipt=(await db.doc('_recovery/historicalIntake').get()).data()
+   assert.deepEqual(row.insurancePeriods.map(period=>period.state),['waived','pending'])
+   assert.equal(row.insuranceWaiverEvents[0].actorUid,'intake-developer')
+   assert.equal(row.insuranceWaiverEvents[0].at,receipt.startedAt.toDate().toISOString())
+ })
+
+ test('property-only reimport preserves masters settings and accounts and resumes exact scope',async()=>{
+   const options=await fixture()
+   await executeHistoricalIntake(db,control,auth,input,options)
+   await db.doc('warrantyGroups/HSC').update({name:'架空・保持する変更',customField:'retain'})
+   await db.doc('prototypeSettings/alerts').set({warrantyMonths:7})
+   await db.doc('propertyOperationReceipts/old').set({propertyId:'old-fixture'})
+   const before=await documentImage(db),next={...input,preservedBusinessSettings:captureIntakeSettings(before)}
+   const opts={...options,operationId:'fictional-properties-only',propertiesOnly:true,planHash:prepareHistoricalIntake(next,{today}).planDigest,inventoryHash:(await inspectHistoricalTarget(db,control,auth)).inventoryHash}
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,{...opts,afterCommit:async kind=>{if(kind==='delete')throw Error('interrupted')}}))
+   const owner=(await control.doc('recovery/operatorLock').get()).data().owner
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,{...opts,propertiesOnly:false,resumeOwner:owner,previousWorkerEnded:true}))
+   await executeHistoricalIntake(db,control,auth,next,{...opts,resumeOwner:owner,previousWorkerEnded:true})
+   const after=await documentImage(db)
+   for(const [path,row] of before)if(!['propertyWarranties','propertyOperationReceipts','externalKeyReservations','warrantyCounters'].includes(path.split('/')[0]))assert.equal(after.get(path)?.hash,row.hash,path)
+   assert.equal((await db.doc('propertyOperationReceipts/old').get()).exists,false)
+   assert.equal((await db.collection('propertyWarranties').get()).size,442)
+   await verifyCompletedHistoricalIntake(db,control,auth,opts)
+ })
+
+ test('property-only reset refuses incompatible retained fiscal settings or group caps before deleting properties',async()=>{
+  for(const change of [{fiscalStartMonth:12},{maxWarrantyYears:10}]){
+   const options=await fixture()
+   await executeHistoricalIntake(db,control,auth,input,options)
+   await db.doc('warrantyGroups/HSC').update(change)
+   const before=await documentImage(db),next={...input,preservedBusinessSettings:captureIntakeSettings(before)}
+   const opts={...options,operationId:'fictional-retained-conflict',propertiesOnly:true,planHash:prepareHistoricalIntake(next,{today}).planDigest,inventoryHash:(await inspectHistoricalTarget(db,control,auth)).inventoryHash}
+   await assert.rejects(executeHistoricalIntake(db,control,auth,next,opts))
+   const after=await documentImage(db)
+   for(const [path,row] of before)assert.equal(after.get(path)?.hash,row.hash,path)
+  }
+ })

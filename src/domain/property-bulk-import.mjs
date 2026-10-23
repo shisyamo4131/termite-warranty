@@ -1,3 +1,4 @@
+import { assertGroupWarrantyLimit } from './group-warranty-limit.mjs'
 import { normalizeProperty } from './property-warranty.mjs'
 import { calculateExpiryDate } from './warranty.mjs'
 import { normalizeExternalKey } from './external-key.mjs'
@@ -6,7 +7,7 @@ import { normalizeBranchCode } from './branch-code.mjs'
 export const BULK_IMPORT_MAX_ROWS = 300
 export const BULK_IMPORT_MAX_BYTES = 1024 * 1024
 const CSV_FIELDS = Object.freeze(['外部キー', '支店コード', '物件名', '施主電話番号', '郵便番号', '住所', '建物名', '建築面積', '断熱材あり', '資材名', '申込日', '引渡日', '最長保証期間', '備考'])
-const REQUIRED_FIELDS = new Set(['外部キー', '支店コード', '物件名', '建築面積', '断熱材あり', '申込日', '引渡日', '最長保証期間'])
+const REQUIRED_FIELDS = new Set(['外部キー', '支店コード', '物件名', '住所', '建築面積', '断熱材あり', '申込日', '引渡日', '最長保証期間'])
 export const CSV_TEMPLATE_HEADERS = Object.freeze(CSV_FIELDS.map(name => (name === '支店コード' ? '本支店コード' : name) + (REQUIRED_FIELDS.has(name) ? '（＊）' : '')))
 const quote = value => `"${String(value).replaceAll('"', '""')}"`
 export function createBulkImportTemplate() { return '\uFEFF' + CSV_TEMPLATE_HEADERS.map(quote).join(',') + '\r\n' }
@@ -36,7 +37,7 @@ export function parseBulkImportCsv(csv) {
   if (value || cells.length || closed) { cell(); records.push({ line: startLine, cells }) }
   const header = records.shift()?.cells
   // Keep sourceValues keys and raw-file digests stable for previously issued CSVs/receipts.
-  if (!header || header.length !== CSV_TEMPLATE_HEADERS.length || header.some((name, i) => name !== CSV_TEMPLATE_HEADERS[i] && !(CSV_FIELDS[i] === '支店コード' && name === '支店コード（＊）'))) throw new Error('見出しがテンプレートと一致しません。共通CSVテンプレートを利用してください。')
+  if (!header || header.length !== CSV_TEMPLATE_HEADERS.length || header.some((name, i) => name !== CSV_TEMPLATE_HEADERS[i] && !(CSV_FIELDS[i] === '支店コード' && name === '支店コード（＊）') && !(CSV_FIELDS[i] === '住所' && name === '住所'))) throw new Error('見出しがテンプレートと一致しません。共通CSVテンプレートを利用してください。')
   const businessRows = records.filter(row => row.cells.some(value => value.trim()))
   if (!businessRows.length) throw new Error('取込対象がありません。')
   if (businessRows.length > BULK_IMPORT_MAX_ROWS) throw new Error(`取込対象は${BULK_IMPORT_MAX_ROWS}件以内にしてください。`)
@@ -65,11 +66,11 @@ function prepareRow(record, group) {
   }
   if (!/^(10|20|30)$/.test(v['最長保証期間'])) throw new Error('最長保証期間は10・20・30を入力してください。')
   const years = 10, maxYears = Number(v['最長保証期間'])
-  if (isUh && maxYears !== 10) throw new Error('UHの最長保証期間は10年です。')
+  assertGroupWarrantyLimit(group, maxYears)
   if (!['あり', 'なし'].includes(v['断熱材あり'])) throw new Error('断熱材ありは「あり」または「なし」を入力してください。')
   const foundationInsulation = v['断熱材あり'] === 'あり'
   if (v['建築面積'] && !/^\d+(?:\.\d{1,2})?$/.test(v['建築面積'])) throw new Error('建築面積は正の数・小数2桁までで入力してください。')
-  const fields = normalizeProperty({ name: v['物件名'], ownerTelephone: v['施主電話番号'], postalCode: v['郵便番号'], address: v['住所'], buildingName: v['建物名'], applicationDate, handoverDate, maxYears, buildingArea: v['建築面積'], foundationInsulation, insulationMaterials: v['資材名'], notes: v['備考'] }, true, group)
+  const fields = normalizeProperty({ name: v['物件名'], ownerTelephone: v['施主電話番号'], postalCode: v['郵便番号'], address: isUh ? externalKey : v['住所'], buildingName: v['建物名'], applicationDate, handoverDate, maxYears, buildingArea: v['建築面積'], foundationInsulation, insulationMaterials: v['資材名'], notes: v['備考'] }, true, group)
   if (fields.ownerTelephone && !/^[0-9-]+$/.test(fields.ownerTelephone)) throw new Error('施主電話番号は半角数字とハイフンのみ入力してください。')
   return { line: record.line, externalKey, branchCode, years, fields, sourceValues: { ...v, '支店コード': branchCode } }
 }

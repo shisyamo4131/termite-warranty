@@ -85,109 +85,49 @@ after(async () => {
   await deleteAdminApp(adminApp)
 })
 
-test('administrator issues one account per construction company without setting its password', async () => {
-  await signIn('portal-admin@example.invalid')
-  const result = await call('createConstructionCompanyAccount', { constructionCompanyId: 'company-2', email: 'company-2@example.invalid' })
-  const user = await adminAuth.getUser(result.uid)
-  assert.equal(user.email, 'company-2@example.invalid')
-  assert.equal(user.passwordHash, undefined)
-  assert.equal((await adminDb.doc(`constructionCompanyAccounts/${result.uid}`).get()).data()?.constructionCompanyId, 'company-2')
-  await assert.rejects(
-    call('createConstructionCompanyAccount', { constructionCompanyId: 'company-2', email: 'other@example.invalid' }),
-    error => error?.code === 'functions/already-exists',
-  )
-})
+const snapshotState = async () => {
+  const documents = []
+  const visit = async collection => {
+    const snapshot = await collection.get()
+    for (const document of snapshot.docs) {
+      documents.push([document.ref.path, document.data()])
+      for (const child of await document.ref.listCollections()) await visit(child)
+    }
+  }
+  for (const collection of await adminDb.listCollections()) await visit(collection)
+  documents.sort(([a], [b]) => a.localeCompare(b))
+  const users = []
+  let pageToken
+  do {
+    const page = await adminAuth.listUsers(1000, pageToken)
+    users.push(...page.users.map(user => user.toJSON()))
+    pageToken = page.pageToken
+  } while (pageToken)
+  users.sort((a, b) => a.uid.localeCompare(b.uid))
+  return { documents, users }
+}
 
-test('renewal task stays one-to-one with its case and approval adds the selected warranty atomically', async () => {
-  await signIn('portal-admin@example.invalid')
-  await call('createRenewalWorkItem', { caseId: 'case-1' })
-  await assert.rejects(call('createRenewalWorkItem', { caseId: 'case-1' }), error => error?.code === 'functions/already-exists')
-  await signOut(auth)
-
-  await signIn('portal-company@example.invalid')
-  await call('updateCompanyCaseWorkItem', {
-    id: 'case-1', expectedRevision: 1, submit: true,
-    response: {
-      contactName: '更改担当者', requestedPeriodYears: 5,
-      renewalDecision: 'renew', warrantyStartDate: '2026-09-03', notes: null,
-    },
+for (const actor of ['administrator', 'company', 'anonymous']) {
+  test(`all seven legacy portal Callables reject ${actor} without database or Auth mutations`, async () => {
+    if (auth.currentUser) await signOut(auth)
+    if (actor !== 'anonymous') await signIn(actor === 'administrator' ? 'portal-admin@example.invalid' : 'portal-company@example.invalid')
+    await adminDb.doc('constructionCompanyCaseWorkItems/case-1').set({
+      caseId: 'case-1', constructionCompanyId: 'company-1', branchId: 'branch-1',
+      kind: 'new_case', status: 'submitted', revision: 1, response: newCaseResponse,
+    })
+    const commands = [
+      ['createConstructionCompanyAccount', { constructionCompanyId: 'company-2', email: 'closed-portal@example.invalid' }],
+      ['setConstructionCompanyAccountEnabled', { uid: companyUid, enabled: false }],
+      ['createRenewalWorkItem', { caseId: 'case-1' }],
+      ['createNewCaseWorkItem', { response: newCaseResponse, submit: true }],
+      ['updateCompanyCaseWorkItem', { id: 'case-1', expectedRevision: 1, response: newCaseResponse, submit: true }],
+      ['withdrawNewCaseWorkItem', { id: 'case-1', expectedRevision: 1, reason: 'Synthetic withdrawal' }],
+      ['reviewCompanyCaseWorkItem', { id: 'case-1', expectedRevision: 1, action: 'approve', branchId: 'branch-1', warrantyServiceId: 'service-5' }],
+    ]
+    const before = await snapshotState()
+    for (const [name, input] of commands) {
+      await assert.rejects(call(name, input), error => error?.code === (actor === 'anonymous' ? 'functions/unauthenticated' : 'functions/permission-denied'), name)
+      assert.deepEqual(await snapshotState(), before, `${name} changed persisted state`)
+    }
   })
-  await signOut(auth)
-
-  await signIn('portal-admin@example.invalid')
-  await call('reviewCompanyCaseWorkItem', {
-    id: 'case-1', expectedRevision: 2, action: 'approve', warrantyServiceId: 'service-5', reviewComment: '',
-  })
-  const [workItem, warranties, caseSnapshot] = await Promise.all([
-    adminDb.doc('constructionCompanyCaseWorkItems/case-1').get(),
-    adminDb.collection('cases/case-1/appliedWarranties').get(),
-    adminDb.doc('cases/case-1').get(),
-  ])
-  assert.equal(workItem.data()?.status, 'approved')
-  assert.equal(workItem.data()?.response?.contactEmail, 'portal-company@example.invalid')
-  assert.equal(warranties.size, 2)
-  assert.equal(caseSnapshot.data()?.listProjection?.appliedWarranties?.length, 2)
-  assert.equal((await adminDb.collection('notificationOutbox').get()).size, 3)
-})
-
-test('new-case approval creates the case and its approved work item can be reused for renewal', async () => {
-  await signIn('portal-company@example.invalid')
-  const submitted = await call('createNewCaseWorkItem', { response: newCaseResponse, submit: true })
-  const pending = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
-  assert.equal(pending.data()?.caseId, submitted.id)
-  assert.equal(pending.data()?.status, 'submitted')
-  await signOut(auth)
-
-  await signIn('portal-admin@example.invalid')
-  await call('reviewCompanyCaseWorkItem', {
-    id: submitted.id, expectedRevision: 1, action: 'approve', branchId: 'branch-1', warrantyServiceId: 'service-5',
-  })
-  const [createdCase, approvedItem, createdProperties] = await Promise.all([
-    adminDb.doc(`cases/${submitted.id}`).get(), adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get(),
-    adminDb.collection('properties').where('name', '==', '申請物件').get(),
-  ])
-  assert.equal(createdCase.exists, true)
-  assert.equal(createdCase.data()?.constructionCompanyId, 'company-1')
-  assert.equal(createdCase.data()?.caseNumber, '000002')
-  assert.equal(approvedItem.data()?.status, 'approved')
-  assert.equal(approvedItem.data()?.caseNumber, '000002')
-  assert.equal(approvedItem.data()?.response?.contactEmail, 'portal-company@example.invalid')
-  assert.equal(createdProperties.docs[0]?.data()?.buildingAreaSquareMeters, 92.75)
-
-  await call('createRenewalWorkItem', { caseId: submitted.id })
-  const renewalItem = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
-  assert.equal(renewalItem.data()?.kind, 'renewal')
-  assert.equal(renewalItem.data()?.status, 'awaiting_response')
-  assert.equal(renewalItem.data()?.caseNumber, '000002')
-  assert.equal(renewalItem.data()?.revision, 3)
-  assert.equal(renewalItem.data()?.response, null)
-  assert.equal(renewalItem.data()?.reviewComment, null)
-})
-
-test('a construction-company account cannot update another company work item', async () => {
-  await adminDb.doc('constructionCompanyCaseWorkItems/other-company-case').set({
-    caseId: 'other-company-case', kind: 'renewal', constructionCompanyId: 'company-2', status: 'awaiting_response', revision: 1,
-  })
-  await signIn('portal-company@example.invalid')
-  await assert.rejects(call('updateCompanyCaseWorkItem', {
-    id: 'other-company-case', expectedRevision: 1, submit: true,
-    response: { contactName: '担当', requestedPeriodYears: 5, renewalDecision: 'renew', warrantyStartDate: '2026-09-03', notes: null },
-  }), error => error?.code === 'functions/not-found')
-})
-
-test('a construction company can withdraw its unapproved new case without deleting its audit record', async () => {
-  await signIn('portal-company@example.invalid')
-  const submitted = await call('createNewCaseWorkItem', { response: newCaseResponse, submit: true })
-  const result = await call('withdrawNewCaseWorkItem', { id: submitted.id, expectedRevision: 1, reason: '入力内容を見直すため' })
-  assert.equal(result.status, 'withdrawn')
-  const snapshot = await adminDb.doc(`constructionCompanyCaseWorkItems/${submitted.id}`).get()
-  assert.equal(snapshot.exists, true)
-  assert.equal(snapshot.data()?.status, 'withdrawn')
-  assert.equal(snapshot.data()?.withdrawalReason, '入力内容を見直すため')
-  assert.equal(snapshot.data()?.revision, 2)
-  assert.equal((await adminDb.collection('notificationOutbox').get()).size, 2)
-  await assert.rejects(
-    call('updateCompanyCaseWorkItem', { id: submitted.id, expectedRevision: 2, response: newCaseResponse, submit: true }),
-    error => error?.code === 'functions/failed-precondition',
-  )
-})
+}

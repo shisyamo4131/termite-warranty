@@ -5,7 +5,6 @@
       <h2 class="business-section-title mb-0">自社情報</h2>
       <v-btn v-if="store.value.value && store.canEdit()" color="primary" variant="flat" :disabled="working" @click="edit">編集</v-btn>
     </div>
-    <v-alert type="info" class="mb-4">Wordテンプレートに直接記載した会社情報は自動更新されません。変更後はWordの記載も確認してください。</v-alert>
     <v-alert v-if="error" type="error" class="mb-4">{{ error }}<v-btn v-if="!editing" variant="text" :disabled="working" @click="load(true)">再取得</v-btn></v-alert>
     <v-progress-linear v-if="working" indeterminate class="mb-4" />
     <div v-if="store.value.value" class="company-settings-grid">

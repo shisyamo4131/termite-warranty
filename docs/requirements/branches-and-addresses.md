@@ -1,5 +1,23 @@
 # Branches and Addresses
 
+## 2026-10-21 全グループ住所必須化の実装
+
+通常の本登録・本登録済み編集と取込みでは住所必須。下書きの未入力許容は維持する。旧addressRequired=falseは制御に使わず、設定スイッチを撤去。資材名の条件は維持。共通CSVと初期計画のUHではexternalKeyを住所へ複製し、元キーを保持する。非UHの空住所は拒否。既存データを一括書換えする処理は行わない。以下の必須化未実装という記録は当時の状態。
+
+## 2026-10-21 UH初期投入の実装範囲
+
+UHの過去物件計画生成でexternalKeyを住所へ複製することを確定。入力原資料と元キーを保持し、CSVは通常の住所列を使用する。全グループ住所必須化は引き続き別の未実装残件。Devの既存277件補正と、今後のProd計画生成を区別する。
+
+2026-10-21採用：物件住所を全グループ共通で必須とし、グループ別の住所必須／任意設定を廃止する（資材名設定は維持）。UHの取込み住所はお施主様契約Noとし、externalKeyも維持する。保険CSVは住所をそのまま出力し、専用契約No列・UH専用分岐を追加しない。通常入力・取込みの必須制御は未改修。本人承認による既存Dev UH277件の住所複製は完了。[仕様](../specification.md#2026-10-21-打合せ決定過去保険期間物件検索住所)、[実績](../operations.md#2026-10-21-dev保険未報告の再現とuh住所複製)。過去の「番号を住所に保存しない」案・グループ別任意化は今回の採用方針で置換する。住所欄を使う他の帳票・画面にも契約Noが表示されるため、後続改修の確認対象とする。
+
+2026-10-20後続決定：本人Local受入れ完了。zipcloudへの切替をコミット・pushしてDevへ配備する承認を受領。旧日本郵便CSV方式のJSON同梱データ、Hosting provider、CSV更新ツール、Local自動更新module／UI／専用試験／Local保存データを削除する。以下の旧実装・保全方針は過去の記録。復帰が必要な場合はGitの旧版から通常の改修・検証を行う。Prod配備とバックアップ・PITR・Auth退避は対象外。
+
+2026-10-20追加承認：住所API検索中は「住所を検索中…」の閉じられないモーダルダイアログで画面入力を遮断し、応答・失敗・8秒タイムアウトで解除する。入力済み住所の保持は維持し、その保持を知らせるVAlertは表示しない。該当なし・取得失敗の案内と複数候補の選択は維持する。Localのみ、配備は後発。
+
+## 2026-10-20 zipcloud採用
+
+住所検索の現行方針は[ADR0050](../decisions/0050-zipcloud-postal-lookup.md)。旧CSV同梱・Local自動更新に代えてzipcloudへ接続し、Localで検証する。入力済み住所は上書きせず、再検索には住所欄を空にする。複数候補は利用者が選択、建物名は保持、失敗・該当なしは手入力と通常保存を継続。保存形式は変更しない。Dev／Prod配備と正式納品書は後発。下のCSV方向は過去の決定。
+
 > 2026-10-08現在：本支店必須・条件付きコード必須・無効編集禁止・所属固定・共有Store②・計測・組織階層画面はDev反映済み。以下の日時付き準備記録より[最新実装・検証記録](../operations.md)を優先する。保証書専用CSVは未完了。
 
 ## 2026-10-08 本支店コードの条件付き必須化
@@ -120,8 +138,8 @@ The selected postal-data direction covers property, homeowner, and construction-
 ## Confirmed Postal-Code Data Direction
 
 - Use Japan Post's official nationwide 「住所の郵便番号（1レコード1行、UTF-8形式）」 CSV. Transform it for search, split by postal-code leading digits or an equivalent bounded shard key, and serve it from Firebase Hosting on the same origin.
-- Provide an initial-release manual update command and monthly update check. Record source/basis date, last-check date, generation date, schema version, shard/count/checksum manifest data, and warn administrators when the last check is at least 60 days old. Automatic updates are future scope.
-- No runtime external API, API key, billing, quota, App Check, or Google attribution is required. The provider-neutral foundation may remain reusable, but CSV transformation, publication, and freshness operations are not implemented yet.
+- Retain the manual update command and monthly update check. Record source/basis date, last-check date, generation date, schema version, shard/count/checksum manifest data, and warn administrators when the last check is at least 60 days old. On 2026-10-20, Local automatic checks and validated version switching were adopted in [ADR0049](../decisions/0049-local-postal-auto-update.md). Cloud automatic publication remains future scope.
+- No address-lookup external API, API key, billing, quota, App Check, or Google attribution is required. CSV transformation and same-origin lookup are implemented; Local updates fetch the official download separately from individual address searches. Current validation is recorded in [TR-009](../design/tr-009-japan-post-postal-data.md).
 
 When one postal code has multiple matching town-area records, the staff member selects a candidate. The lookup populates prefecture, municipality, and the town-area portion of the existing street/town-and-number field; the staff member enters or corrects chome and lot number in that same field, plus the separate building-name field.
 

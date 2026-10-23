@@ -1,3 +1,5 @@
+import './pagination-scroll.test.mjs'
+import { usePaginationScroll } from '../app/composables/usePaginationScroll.ts'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { readFileSync } from 'node:fs'
@@ -14,7 +16,7 @@ function view() {
   const events = [], scope = vue.effectScope()
   const source = readFileSync(new URL('../app/components/WarrantyOrganizationManagement.vue', import.meta.url), 'utf8').match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1]
   const code = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
-  const env = { ...vue, defineProps: () => props, defineEmits: () => (...args) => {
+  const env = { usePaginationScroll, ...vue, defineProps: () => props, defineEmits: () => (...args) => {
     events.push(args)
     if (args[0] === 'selectGroup') { props.groupId = args[1]; props.companyId = '' }
     if (args[0] === 'selectCompany') props.companyId = args[1]
@@ -73,9 +75,14 @@ test('removed rows clamp the current page and disabled rows remain opt-in', asyn
 test('editing retains hierarchy while new group/company saves advance to their children', async () => {
   const source = readFileSync(new URL('../app/components/MeetingPrototype.vue', import.meta.url), 'utf8')
   const body = source.slice(source.indexOf('async function saveSetting()'), source.indexOf('const accountDialog=', source.indexOf('async function saveSetting()')))
+  const script=source.split('<script setup lang="ts">')[1].split('</script>')[0]
+  const parsed=ts.createSourceFile('MeetingPrototype.ts',script,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS)
+  const assertion=parsed.statements.find(node=>ts.isFunctionDeclaration(node)&&node.name?.text==='assertSubmissionResult')?.getText(parsed)
+  assert.ok(assertion,'production mutation response validation must be present')
+  const code=ts.transpileModule(assertion+'\n'+body,{compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
   for (const action of ['saveGroup', 'saveCompany', 'saveBranch']) for (const existing of [true, false]) {
-    const env = { settingReadOnly: vue.ref(false), settingForm: vue.ref(null), validate: async () => true, run: async fn => fn(), call: async () => ({ id: 'created' }), settingAction: vue.ref(action), setting: vue.ref({ ...(existing ? { id: 'edited' } : {}), defaultGroupId: 'g1' }), referenceCache: { clear() {} }, selectedGroupId: vue.ref('g1'), selectedCompanyId: vue.ref(''), loadCatalog: async () => {}, settingDialog: vue.ref(true), showSnackbar() {} }
-    const save = new Function(...Object.keys(env), body + '; return saveSetting;')(...Object.values(env))
+    const env = { companyAddressFields:vue.ref(null),branchAddressFields:vue.ref(null),pendingSetting:vue.ref(null),busy:vue.ref(false),frozenPayload:value=>structuredClone(value),crypto:globalThis.crypto,settingReadOnly: vue.ref(false), settingForm: vue.ref(null), validate: async () => true, run: async fn => fn(), call: async () => ({ id: existing?'edited':'created',operationStatus:'completed' }), settingAction: vue.ref(action), setting: vue.ref({ ...(existing ? { id: 'edited' } : {}), defaultGroupId: 'g1' }), referenceCache: { clear() {} }, selectedGroupId: vue.ref('g1'), selectedCompanyId: vue.ref(''), loadCatalog: async () => {}, settingDialog: vue.ref(true), showSnackbar() {} }
+    const save = new Function(...Object.keys(env), code + '; return saveSetting;')(...Object.values(env))
     await save()
     assert.equal(env.selectedGroupId.value, !existing && action === 'saveGroup' ? 'created' : 'g1')
     assert.equal(env.selectedCompanyId.value, !existing && action === 'saveCompany' ? 'created' : '')

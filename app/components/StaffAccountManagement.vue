@@ -2,7 +2,7 @@
   <section>
     <div class="d-flex align-center justify-space-between ga-4 mb-6">
       <div>
-        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span></h1>
+        <h1 class="text-h4 mb-2 business-page-title"><BusinessNavigationIcon item="staff" /><span>担当者アカウント管理</span><v-tooltip v-if="canManage" location="bottom" max-width="520" open-on-click><template #activator="{ props: tooltipProps }"><v-btn v-bind="tooltipProps" icon="$info" variant="text" size="small" aria-label="担当者アカウント管理の注意事項" /></template><div class="text-body-2">{{ targetDescription }}。パスワードは本人が設定・再設定します。</div></v-tooltip></h1>
         <p class="text-body-2 text-medium-emphasis mb-0">ハウスソリューション側の担当者アカウントを発行・編集・無効化します。</p>
       </div>
       <v-btn variant="flat" v-if="canManage" color="primary" @click="openCreate">新規発行</v-btn>
@@ -13,25 +13,23 @@
     </v-alert>
     <v-card v-else>
       <v-card-text>
-        <v-alert type="info" class="mb-4">
-          {{ targetDescription }}。パスワードは本人が設定・再設定します。
-        </v-alert>
         <v-alert v-if="loadError" type="error" class="mb-4">{{ loadError }}</v-alert>
-        <v-table>
+        <v-table ref="listTable">
           <thead><tr><th>表示名</th><th>メールアドレス</th><th>権限</th><th>状態</th><th>操作</th></tr></thead>
           <tbody>
             <tr v-for="account in visibleAccounts" :key="account.uid">
               <td>{{ account.displayName }}</td>
               <td>{{ account.email }}</td>
               <td>{{ roleLabel(account.role) }}</td>
-              <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.enabled ? '有効' : '無効' }}</v-chip></td>
+              <td><v-chip :color="account.enabled ? 'success' : 'error'" size="small">{{ account.creationPending ? '発行確認中' : account.enabled ? '有効' : '無効' }}</v-chip></td>
               <td>
-                <v-btn v-if="account.enabled" size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
+                <v-btn v-if="account.enabled && !account.creationPending" size="small" variant="outlined" @click="openEdit(account)">編集</v-btn>
                 <v-btn
                   size="small"
                   variant="outlined"
                   :color="account.enabled ? 'error' : 'success'"
                   :loading="busyId === account.uid"
+                  :disabled="account.creationPending"
                   @click="toggle(account)"
                 >{{ account.enabled ? '無効化' : '再有効化' }}</v-btn>
               </td>
@@ -54,8 +52,8 @@
         <v-alert v-if="!editingUid" type="info" class="mb-4">
           発行後、入力したメールアドレスへパスワード設定メールを送信します。
         </v-alert>
-        <h2 class="business-section-title">担当者情報</h2><v-text-field v-model="form.displayName" :rules="requiredRules" label="表示名" required />
-        <v-text-field v-model="form.email" :rules="[requiredRule,emailRule]" label="メールアドレス" type="email" required />
+        <h2 class="business-section-title">担当者情報</h2><v-text-field v-model="form.displayName" :disabled="!editingUid && !!creationDraft" :rules="requiredRules" label="表示名" required />
+        <v-text-field v-model="form.email" :disabled="!editingUid && !!creationDraft" :rules="[requiredRule,emailRule]" label="メールアドレス" type="email" required />
         <h2 class="business-section-title">権限</h2><div class="text-caption">付与する権限: {{ roleLabel(targetRole) }}</div>
       </v-form></v-card-text>
       <v-card-actions class="flex-wrap">
@@ -85,7 +83,10 @@ const saving = ref(false)
 const busyId = ref('')
 const dialogOpen = ref(false)
 const editingUid = ref('')
+const creationRequestId = ref('')
+const creationDraft = ref<{ email: string; displayName: string } | null>(null)
 const page = ref(1)
+const listTable=usePaginationScroll(page)
 const form = reactive({ displayName: '', email: '' })
 
 const canManage = computed(() => profile.value?.accountType === 'staff'
@@ -116,7 +117,8 @@ const load = async () => {
 const openCreate = () => {
   saveError.value='';
   editingUid.value = ''
-  Object.assign(form, { displayName: '', email: '' })
+  if (!creationRequestId.value) creationRequestId.value = crypto.randomUUID()
+  Object.assign(form, creationDraft.value ?? { displayName: '', email: '' })
   dialogOpen.value = true
 }
 const openEdit = (account: StaffAccountRow) => {
@@ -137,10 +139,13 @@ const save = async () => {
       await gateway.update({ uid: editingUid.value, ...form })
       showSnackbar('担当者アカウントを更新しました。', 'success')
     } else {
-      const created = await gateway.create(form)
+      creationDraft.value ??= { ...form }
+      const created = await gateway.create({ ...creationDraft.value, requestId: creationRequestId.value })
+      creationRequestId.value = ''
+      creationDraft.value = null
       try {
-        await gateway.sendPasswordSetupEmail(created.email)
-        showSnackbar('担当者アカウントを発行し、パスワード設定メールを送信しました。', 'success')
+        if (!created.replayed) await gateway.sendPasswordSetupEmail(created.email)
+        showSnackbar(created.replayed ? '発行済みアカウントを確認しました。設定メールが届いていない場合はログイン画面から再送してください。' : '担当者アカウントを発行し、パスワード設定メールを送信しました。', 'success')
       } catch {
         showSnackbar('アカウントは発行しましたが、パスワード設定メールを送信できませんでした。ログイン画面から再送してください。', 'warning')
       }
@@ -148,6 +153,10 @@ const save = async () => {
     dialogOpen.value = false
     await load()
   } catch (error) {
+    if (!editingUid.value && error && typeof error === 'object' && 'code' in error && ['functions/already-exists', 'functions/invalid-argument'].includes(String(error.code))) {
+      creationRequestId.value = crypto.randomUUID()
+      creationDraft.value = null
+    }
     saveError.value=error instanceof Error ? error.message : '担当者アカウントを保存できませんでした。'
   } finally {
     saving.value = false

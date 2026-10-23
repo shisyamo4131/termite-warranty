@@ -82,3 +82,4 @@ test('restore submission with unknown outcome retains journal and exclusion; onl
   assert.equal(rows.has(target.control+'/recovery/operatorLock'),false)
 })
 import './production-operator-probe.test.mjs'
+import './production-operation-entry.test.mjs'

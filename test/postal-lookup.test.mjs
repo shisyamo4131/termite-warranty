@@ -260,3 +260,39 @@ test('shared address component retains manual entry and cancels stale lookups', 
   assert.match(addressSource, /watch\([\s\S]*props\.lookupSubject[\s\S]*props\.postalLookupProvider[\s\S]*cancelPostalLookup\(\)[\s\S]*flush: 'sync'/)
   assert.doesNotMatch(addressSource, /fetch\(|https?:|google|firebase|credential|secret/i)
 })
+
+
+test('master address lookup cancelled at submission cannot change displayed or sent values', async () => {
+  const vue = await import('vue')
+  const ts = (await import('typescript')).default
+  const rules = await import('../src/domain/input-rules.mjs')
+  const source = (await readFile(new URL('../app/components/MasterAddressFields.vue', import.meta.url), 'utf8'))
+    .match(/<script setup lang="ts">([\s\S]*?)<\/script>/)[1].replace(/^import .*$/gm, '')
+  const code = ts.transpileModule(source, {compilerOptions:{target:ts.ScriptTarget.ES2022}}).outputText
+  const pending = deferred(), form = vue.ref(createAddress({ prefecture: '', municipality: '', streetTownAndNumber: '' }))
+  const props = {lookupSubject:'constructionCompany',postalLookupProvider:{lookup:()=>pending.promise}}
+  const env = {...vue,...rules,createPostalLookupCoordinator,defineProps:()=>props,defineModel:()=>form,defineExpose:()=>{},onBeforeUnmount:()=>{}}
+  const scope = vue.effectScope()
+  const view = scope.run(()=>new Function(...Object.keys(env), code+';return {handlePostalBlur,cancelPostalLookup,candidateOptions,lookupMessage};')(...Object.values(env)))
+  try {
+    const lookup = view.handlePostalBlur()
+    view.cancelPostalLookup()
+    const sent = structuredClone(vue.toRaw(form.value))
+    pending.resolve({status:'ambiguous',address:{prefecture:'遅延結果'},candidates:[{municipality:'遅延候補'}]})
+    await lookup
+    assert.deepEqual(vue.toRaw(form.value), sent)
+    assert.deepEqual(view.candidateOptions.value, [])
+    assert.equal(view.lookupMessage.value, null)
+  } finally { scope.stop() }
+})
+
+test('business save cancels property and master lookup after validation before freezing payload', async () => {
+  const source = await readFile(new URL('../app/components/MeetingPrototype.vue', import.meta.url), 'utf8')
+  assert.match(source, /<PropertyAddressFields ref="propertyAddressFields"/)
+  assert.match(source, /<MasterAddressFields ref="companyAddressFields"/)
+  assert.match(source, /<MasterAddressFields ref="branchAddressFields"/)
+  const propertySave = source.slice(source.indexOf('async function saveProperty('), source.indexOf('async function retryProperty('))
+  assert.match(propertySave, /await validateProperty[\s\S]*propertyAddressFields\.value\?\.cancelPostalLookup\(\)[\s\S]*payload:frozenPayload/)
+  const masterSave = source.slice(source.indexOf('async function saveSetting('), source.indexOf('async function retrySetting('))
+  assert.match(masterSave, /await validate\(settingForm\.value\)[\s\S]*companyAddressFields\.value\?\.cancelPostalLookup\(\);branchAddressFields\.value\?\.cancelPostalLookup\(\)[\s\S]*payload:frozenPayload/)
+})

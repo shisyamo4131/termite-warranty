@@ -1,0 +1,64 @@
+name: Execute approved production operation
+on:
+  workflow_dispatch:
+    inputs:
+      request_digest:
+        description: SHA256 of the approved private request
+        required: true
+        type: string
+      artifact_id:
+        description: Fixed production bundle artifact ID, only for publication
+        required: false
+        type: string
+      artifact_run:
+        description: Source run of the fixed artifact
+        required: false
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: production-operations
+  cancel-in-progress: false
+jobs:
+  operate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: production-operations
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REQUEST_DIGEST: ${{ inputs.request_digest }}
+      PRODUCTION_OPERATION_REQUEST: ${{ secrets.PRODUCTION_OPERATION_REQUEST }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npx --yes npm@11.19.1 ci
+      - run: node .github/production-operation-entry.mjs admit
+      - uses: actions/download-artifact@v8
+        if: inputs.artifact_id != ''
+        with:
+          artifact-ids: ${{ inputs.artifact_id }}
+          run-id: ${{ inputs.artifact_run }}
+          github-token: ${{ github.token }}
+          digest-mismatch: error
+          path: .production-release
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: termite-warranty-prod
+          workload_identity_provider: projects/988295873733/locations/global/workloadIdentityPools/github-production-operations/providers/github
+          service_account: prod-operator@termite-warranty-prod.iam.gserviceaccount.com
+          cleanup_credentials: true
+      - run: node .github/production-operation-entry.mjs execute
+      - name: Remove private request
+        if: always()
+        run: Remove-Item -LiteralPath .production-operation-private.json -Force -ErrorAction SilentlyContinue

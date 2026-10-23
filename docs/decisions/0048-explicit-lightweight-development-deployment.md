@@ -1,6 +1,6 @@
 # 0048 明示起動の軽量Dev配備と受入れ後のPR統合
 
-- Status: Accepted; Local implementation, remote cutover and deployment not yet proven
+- Status: Accepted; main/dev cutover and explicit Dev deployment verified; limited read-only owner screen confirmation recorded (scope in operations)
 - Date: 2026-10-16
 - Approval: 親タスク01a1186d-ebfa-70e3-9fa5-67accdb2202eから伝達された本人「①は推奨案を採用する。作業開始。なお、HS側のDev受入れ検証期間中だが、そこは気にしなくてよい。」。dev統合PR維持、dev固定controllerから未統合候補への明示配備、Prod保護維持を採用。実装・必要検証まで実行し、main統合/実配備前に報告する。
 - Supersedes: [0047](0047-single-verification-and-nonproduct-pr.md)の日常Dev/証拠取り込み経路。過去の実績は取り消さない。
@@ -19,10 +19,10 @@ Devは全Functions ZIP/Hosting全ファイルhash照合を外し、対象・保�
 
 ## 移行・検証・切戻し
 
-[配備手順](../runbooks/application-deployment.md)を正本とする。導入自体は包括7gate＋focused回帰＋独立review。default main登録後、製品不変のmain→dev同期を行う。旧自動配備を復活させる切戻しには外部効果の承認が必要。現段階はLocal差分であり、main統合・GitHub設定・実配備は未実施。
+[配備手順](../runbooks/application-deployment.md)を正本とする。導入自体は包括7gate＋focused回帰＋独立review。default main登録後、製品不変のmain→dev同期を行う。旧自動配備を復活させる切戻しには外部効果の承認が必要。2026-10-16の追加承認でmain/dev切替とDev実証を完了した。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。画面受入れは未実施。
 
 HS試行データを保持し、試行期間を待機理由にしない。バックアップ/PITR/Auth退避の保留、Prod実配備/業務機能/データ変更の対象外を維持する。
 
 ## 効果の限界
 
-PR38実測はCI6分45秒、Dev workflow5分15秒（CLI2分01秒、照合1分17秒）、記録3分37秒、全体20分52秒。build・依存導入・配備・人の受入れは残る。buildはPRから手動Devへ移動する。照合時間の全部が消えるわけではない。旧実測にはキュー/配備範囲差があり改善因果を証明しない。新経路の削減率・所要時間は未計測。
+PR38実測はCI6分45秒、Dev workflow5分15秒（CLI2分01秒、照合1分17秒）、記録3分37秒、全体20分52秒。build・依存導入・配備・人の受入れは残る。buildはPRから手動Devへ移動する。照合時間の全部が消えるわけではない。旧実測にはキュー/配備範囲差があり改善因果を証明しない。新経路の初回実測は[運用記録](../operations.md#2026-10-16-軽量dev配備の切替実証)に記載。同条件の削減率や将来所要時間は未検証。
