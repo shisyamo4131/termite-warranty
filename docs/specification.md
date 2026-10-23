@@ -1,5 +1,9 @@
 # termite-warranty Specification
 
+## 2026-10-23 最終受入れ工程
+
+HS最終受入れ確認は10月29・30日、最終納品は11月2日とオーナーが指定。今回のDev受入れ・dev統合とHS最終受入れは区別する。Prod配備・正式投入・バックアップ等は引き続き保留。[納品要件](requirements/delivery-and-technology.md)、[工程](roadmaps/2026-initial-delivery.md)を参照。
+
 ## 2026-10-22 保証グループ上限の保存時適用
 
 オーナーが設計・実装・データ補完・Local検証・Dev配備を承認。`warrantyGroups.maxWarrantyYears`を数値10／20／30で設定し、初期値はUH10、HSC／SHS30。名称による保証年数の判定は廃止する。未設定・不正値は30年へ推測補完せず登録・編集・取込みを拒否する。

@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-10-23 保証上限の本人Dev受入れと本番準備
+
+オーナーの「今回のDev受入れ→PRでdev統合、その後の本番準備まで」を、直前のDev候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` の本人受入れ了承と統合指示として記録。対象はグループ上限・登録編集時適用・保存済み上限による延長と、既存442件不変。HSの最終受入れとは別で、10/29・30に実施、11/2納品と指定された。PR統合結果はGitHubのmerged状態で確定する。
+
+Dev run39755202067の全体successを再確認。723a7aeから今回候補まで製品・試験・実行設定の差分なし（記録文書のみ）。10/22の包括7gate・画面確認・配備照合を再利用し、アプリ試験／build／Dev再配備は繰り返さない。今回変更は文書のみで `./scripts/check-governance.ps1` と `git diff --check` は各exit 0、PRでは必須Verify development deploymentを適用する。新仕様・データ契約・ADR・ガバナンス変更なし。請求先関連3文書の未コミット差分は混入させない。
+
+本番準備：ローカルの確定原本と入力sourceSha256一致、442行、Dev会社情報／請求先の混入なしを確認（Python検査exit 0）。`node scripts/prepare-historical-intake.mjs --input tmp/oct21-reimport-input.json --date 2026-10-23 --output tmp/oct23-production-preparation-plan.json` はexit 0、errors=0。HSC99・SHS66・UH277、グループ3・工務店3・本支店17。独立Python検査もexit 0、UH住所＝契約No277件・住所あり442件・満了報告不要148期間・上限HSC30/SHS30/UH10、Dev会社情報なし。初回読取りの文字コードエラーは成功扱いせずUTF-8指定で再実行した。2026年度次番号はHSC100・SHS68・UH128。これは10/23基準のLocal予行計画であり、正式投入用の承認済み計画ではない。実行日・原本更新有無・対象実像の再照合を必要とする。原本・計画・実値はGit外。
+
+ProdのGitHub変数PRODUCTION_APP_DEPLOY_ENABLEDは読取りでtrue。保留はenable停止ではなく、mainへの製品統合／配備を実行しない境界で維持する。設定変更なし。後日のmain統合は自動配備を伴うため別途保留解除が必要。実Cloudの初期化・管理者設定・正式投入・保護設定は実行していない。具体的な順序と実行前入力は[本番準備](runbooks/production-bootstrap-review.md#2026-10-23-受入れ版の本番準備)を参照。
+
 ## 2026-10-22 保証グループ上限の実装・Dev準備
 
 候補 `723a7ae43cbbed63f21e6ab8a3d1a8f07f3e20cd` をcommit/push済み。Dev3グループの補完と読戻しは各exit 0、UH10／HSC30／SHS30、残更新0。442物件のpropertiesDigestは前後とも `6a849d3d56ccffa7877322f038bdfa2fc247ce1e1b6b2c7464699c0ccf28c62c` で一致。既存物件の期間・満了日・上限は不変。[Dev配備run39755202067](https://github.com/shisyamo4131/termite-warranty/actions/runs/39755202067)はbuild/deployともsuccess。build18:24:44〜18:26:00 JST（76秒）、deploy18:26:03〜18:29:15（192秒）、開始〜終了4分31秒。本人受入れ・dev統合は未実施。
