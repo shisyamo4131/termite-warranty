@@ -1,5 +1,21 @@
 # Operations
 
+## 2026-10-23 Prod配備成功・正式投入は追加IAMの停止中
+
+本人が追加権限・運用経路と配備／初期化／正式投入／照合を承認。新規運用経路はPR #58でdevへ統合（d3e9a5009dbc00ddc1a5661b0448578f7a25d8e8）。受入れ版の製品入力は不変。全単体 `npm test` 655成功・既存2skip、exit 0（tmp/oct23-prod-operation-tests.log）。新入口4試験は通常回帰へ組込み。governanceとdiff各exit 0。包括7gateを選び、失効しない型・build・連携・Functions/seed構文は10/22受入れ版の成功証拠を再利用。CI初回の末尾空行違反は修正し、最終run39892778428成功。
+
+不足索引3本を既存Prodへ先行作成、10/23 12:09 JSTに全25本READY・不足0を確認（既存22本不変）。PR #56の必須CI成功後に通常mergeし、main `54c87af7a0d593e7d5e27feb7fac99076aec6aeb` の自動配備run **39893549512** が成功。2DB Rules・索引READY・Functions21本/ソース21件・Hosting56ファイルの全5照合pass。Hostingの集計は2回目の観測で期待／一覧／集計56一致。資格情報後処理も成功。公開版 `sites/termite-warranty-prod/versions/3360556a3394c341`、公開12:18:29 JST。
+
+配備run全体は12:10:08〜12:19:42（9分34秒）。分類46秒、Prod成果物作成・検証2分27秒、公開job6分13秒（待ち時間等は全体との差）。Firebase配備完了12:18:30、全5照合完了12:19:36。業務上のHS受入れ成功を意味しない。
+
+受入れ済みDev723a7aeとmain54c87afの全製品入力digestは共に `97f1747b51d2a3b0b7c195c5e57062ae4da4045eb063297197b10e15be4e8420`。機能／実行設定の版は一致。配備後12:20 JST読取りではDev442件・Prod0件、Prod Auth／staff0・会社情報／グループなし。Dev442件と本日計画は業務項目すべて一致、欠落／追加／差異0。両環境21 Functions ACTIVE、日次予定0・PITR無効・自動処理false。Devデータと権限は変更していない。
+
+正式投入計画は `node scripts/prepare-historical-intake.mjs --input tmp/oct21-reimport-input.json --date 2026-10-23 --output tmp/oct23-production-final-plan.json` exit 0、442件・errors0、planDigest `19a2bc35257dd47170c85bd1a988daf2f3a607451110fbefde9b111bfae86b5f`。実投入は未実施。IAM変更scriptのplan呼出しが自動承認レビューで拒否（具体権限・条件・副作用の承認不足との理由）。変更処理を含まないGET専用読取りへ分離して計画を確認したが、実権限変更は行っていない。[具体承認対象](runbooks/production-bootstrap-review.md#2026-10-23-追加iamの具体承認対象)。停止は迂回しない。
+
+固定成果物：artifact12475354807、manifest SHA256 `71cf49d8ffc024dee448657ac7e90760b72da622df821a4ccee278ee7752587a`。ダウンロード済みmanifestはCI内digestと一致。GitHub artifact期限10/24 12:13:20 JST。保存済みローカルbundleはtmp/oct23-production-release。既存保守基準providerはa377bd20176a2ac5を維持。投入が終わるまでmainを固定し、文書だけの追加main統合で公開計画のrevisionを不用意に変えない。
+
+残作業：具体IAM承認後の反映・読戻し、非公開要求の一時secret登録、閉鎖初期化、指定2名Auth作成／管理者登録、442件投入・全件照合、verificationへの読取公開。その後HSの読取り確認と設定作業再開の了承、会社／請求先設定・ログイン／帳票確認。Auth作成だけではパスワード設定・本人ログイン・HS受入れ完了とはしない。バックアップ・PITR・Auth退避は11/1まで保留。一般担当は作成しない。
+
 ## 2026-10-23 本日実行の承認と初期設定の確定
 
 オーナーが本チャットでProd配備・初期化・正式投入を本日実施と指定し、この範囲の保留を解除。バックアップ・PITR・Auth退避の再開予定は11/1（日）で、本日は無効を維持する。10/29・30の現行仕様でのHS最終受入れ、11/2納品は維持する。日程指定だけで本日保護を設定したり、自動実行予約済みと扱わない。
