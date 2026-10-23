@@ -129,6 +129,23 @@ Git管理外の `tmp/copy-uh-contract-address.mjs` で、Dev固定・対象277�
 
 データ移行の検証として `npm test` は642成功・既存2skip、exit 0（`tmp/meeting-20261021-tests.log`）。初回はsandboxの一時Git／rename権限制約で失敗し、同じ試験の通常権限実行で解消した。Rulesは既存4387365の203成功証拠を再利用：今回はアプリ・Functions・Rules・データ形状・依存・試験環境を変更せず、既存address文字列と更新管理値のみを補正し失効条件に該当しない。新しい取込み状態・検索・必須制御の実装検証には流用しない。文書のみの仕様採用記録と現況を反映、governance・diff検査は最終差分で実施する。配備・正式投入・バックアップ・PITR・Auth退避は保留。
 
+## 2026-10-21 保険報告説明資料のmain限定反映
+
+本人の指示によりmain `f221cba` 基点で10月19日のPDF3点（説明2頁・図解比較1頁・契約番号の提案3頁）とREADME・生成元2本をdev `fb1aca9` から同一内容で取り込む。HS回答・出典、HSC-036と索引の同項目、保険抽出仕様、10月17日確定事項、要望対応表、文書索引を関連文書として反映。未採用提案を確定仕様へ昇格させず、Devの受入れ記録とProd未反映を明示する。要望対応表の検証リンクは確認済みDev commitの運用記録へ固定し、無関係のアプリ・郵便番号対応やその記録は取り込まない。
+
+確認済みPDF／生成元等6パスだけをCI文書リストに追加し、アプリ混在と隣接未分類の拒否を試験。分類変更を含むため包括gateを選定。`npm test` 608成功・既存2skip、exit 0（`tmp/insurance-guides-main-tests.log`）。PDF3点全6ページの文字抽出、Python生成元2本の構文、6ファイルのdev blob一致はexit 0。PDF変更なしのため既存の全ページ描画・目視確認を再利用。governance／diffは最終差分で確認する。
+
+型検査・build・Rules・Functions/seed構文は既存main成功証拠を再利用：アプリ、Functions、依存、Rules、配備設定、実行環境の入力を変更せず、それぞれの失効条件に該当しない。説明・既決記録の反映でデータ契約・ADR・納品進捗の変更はない。main更新後は分類成功とverify／deployの省略をActionsで確認する。配備・正式投入・バックアップ・PITR・Auth退避は保留。差戻しは当該文書と限定分類追加の通常PR revert。統合証拠はPR／Actionsとする。
+
+## 2026-10-21 統合PDF・資料整理のmain限定反映
+
+本人が今回の文書変更だけをmainへPR統合するよう承認。dev全体は統合せず、main `6c762aa` を基点にdev `fb1aca9` の統合ガイド・関連README・再生成用Python3本／撮影原画像5枚と、10月5日版スケジュール削除を限定反映する。mainには旧請求先PDF自体が存在しないため、旧PDFを追加してから削除する操作は行わない。索引と本記録はmainに必要な部分だけ追記する。
+
+文書を配備入力と誤判定しないため、確認済み12パスだけを既存の完全一致文書リストへ登録し、回帰試験2件を追加。PR全体はci分類であり、アプリ・workflow・配備起動条件は変更しない。mainのpush処理は分類確認だけを行い、kind=productを要求するbuild／deployは省略されることを統合後に確認する。今回の許可はmain文書統合のみで、Dev／Prod配備・正式投入・バックアップ・PITR・Auth退避は保留。
+
+包括gateを選定し、変更で失効する単体／文書分類検証を実行。`npm test` 607成功・既存2skip、exit 0（`tmp/hs-guide-main-tests.log`）。初回はdev用試験の旧PDFパスがmainの対象にないため1件失敗し、今回の対象に限定して全試験再実行後に成功。型検査・build・Rules・Functions/seed構文は既存mainの成功証拠を再利用：app/src/functions/public、依存、Nuxt/TypeScript、Rules/索引、Firebase設定、workflow、governanceは基点mainと差分なし。文書の分類追加・試験・生成コードからこれらの入力は変更されず、policyの失効条件に該当しない。
+
+統合PDFの11ページ・空のパスワード欄・全ページ文字抽出と生成元3本の構文検査はbundled Pythonでexit 0。PDFはdev受入済み成果物と同一で、作成時の全ページ描画確認を再利用。governance／差分検査は最終状態で実行。業務仕様・データ契約・ADR・納品進捗の変更なし。通常PR revertで今回の文書と限定分類を差し戻せる。PR／Actionsを統合・配備省略の証拠とする。
 ## 2026-10-21 Prod請求先切替・有料化の完了確認
 
 本人が請求先切替と有料化を実施し、同日本チャットで完了を報告。ChromeのGoogle Cloudコンソールを読取り確認した。開発者アカウントでProdのリンク先が「HS-TermiteWarranty」であることを確認し、HSアカウントへ切替後にも同請求先の管理画面に `termite-warranty-prod` が関連付けられていること、請求先一覧の状態が「アクティブ」であることを確認した。2026-10-20時点の開発者請求先維持・切替未実施の記録を、この完了記録で更新する。
