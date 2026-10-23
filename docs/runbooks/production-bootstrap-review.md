@@ -1,5 +1,15 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-10-23 承認済み運用経路の追加
+
+オーナーが追加権限・運用経路整備とProd配備・初期化・正式投入・照合を承認。運用SAは既存の2DB条件付き業務読書き、指定2名のAuth作成／確認、配備結果の読取りに限定する。バックアップ・PITR・Auth退避は11/1まで保留。新workflowはmain・固定repo/owner・production-operations・手動起動だけ。既存read-only workflowと新実行workflowの2本だけをWIF条件へ列挙し、長期鍵を作らない。
+
+`.github/production-operation-entry.mjs`は圧縮した非公開要求をenvironment secretから受け、明示SHA256・実main SHA・固定target・操作allowlistを認証前に検証する。要求は最大1MiB展開、元secretは64KiB上限。原資料・個人情報をGit／ログ／artifactに残さず、一時ファイル・WIF資格情報を後処理する。secretは一連の作業完了後削除する。別runを並行dispatchせず、secret差替えは前run終了後だけ。バックアップ・復元・任意コマンドは新経路から実行不可。
+
+通常操作は既存production-operations CLIを呼び出す。Auth作成だけは閉鎖世代一致・固定2UID／2管理者roleを要求し、既存不一致を上書きしない。パスワード設定・確認メール送信・メール確認済みフラグの捏造は行わない。結果不明なら同じUIDとjournalを読取り、無条件再実行しない。publishは固定配備bundleを取得して既存全件照合を通しverificationにする。通常再開は既存のHS読取り確認と別approvalを維持する。
+
+検証分類はCI／権限・配備、包括7gateを選択。今回変わらないアプリ・型・build・Rules・連携・Functions／seed構文の成功証拠は10/22受入れ版から再利用し、追加入口・workflowの単体／拒否条件とgovernanceを更新する。実IAM反映と配備・投入成功は運用記録で別に判定する。
+
 ## 2026-10-23 本日実行の承認と初期設定の確定
 
 オーナーが本チャットでProd配備・初期化・正式投入を本日実施と指定し、この範囲の保留を解除。バックアップ・PITR・Auth退避の再開予定は11/1（日）で、本日は無効を維持する。10/29・30の現行仕様でのHS最終受入れ、11/2納品は維持する。日程指定だけで本日保護を設定したり、自動実行予約済みと扱わない。
