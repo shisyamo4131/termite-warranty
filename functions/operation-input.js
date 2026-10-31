@@ -21,6 +21,7 @@ export function propertyInputHash(input) {
     undoCertificate: ['warrantyPeriodId', 'startDate', 'expiryDate'],
   }
   const command = { ...common, ...select(input, fields[input.action] ?? []) }
+  if (['save','register'].includes(input.action) && input.creationEpoch !== undefined) command.creationEpoch = input.creationEpoch
   if (command.fields) command.fields = select(command.fields, ['name','ownerName','ownerTelephone','postalCode','buildingName','handoverDate','applicationDate','notes','insulationMaterials','address','buildingArea','maxYears','foundationInsulation','constructionCompanyId','branchId','externalKey'])
   if (command.reportTarget) command.reportTarget = select(command.reportTarget, ['warrantyPeriodId','startDate','expiryDate'])
   if (Array.isArray(command.periods)) command.periods = command.periods.map(period => select(period, ['id','startDate','expiryDate']))

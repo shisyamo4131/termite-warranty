@@ -1,5 +1,30 @@
 # Operations
 
+## 2026-10-31 下書き削除のLocal検証・Dev導入
+
+オーナー承認範囲：下書き削除の実装・Local検証・Dev配備と照合。Prod配備なし。一括取込み入力問題はHS元ファイル待ち。実データ削除、工務店ポータルの公開再開、IAM変更、保護設定の実行は含めない。[保存契約](design/meeting-prototype-2026-10-03.md#2026-10-31-下書きの物理削除)、[判断](decisions/0051-draft-physical-deletion.md)、[操作説明](requirements/user-explanation-items.md#2026-10-31-下書きを削除する)を参照。
+
+変更分類はUI・業務ロジック・データ契約・配備の複合。包括7gateを選択、省略なし。Functionsの追加やIAM／Rules／CI設定変更なし。既存データの一括移行なし。別件の納品書・運用資料等の未コミット差分は保持し、今回のcommit対象から除外する。
+
+Local画面：専用Emulator demo-termite-warrantyで、架空下書き→削除確認→一覧1件から0件、同じ外部キーで新規画面から下書き保存→再削除を確認。採番なし。テスト専用工務店・本店はLocal用に保持する。既存Devデータは変更せず、更新／競合試験は隔離Emulatorで行う。
+
+Local最終検証（候補ブランチ codex/draft-deletion-oct31、下記の実装差分に対して実施）：
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `./scripts/check-governance.ps1` | 成功（文書追記後に再確認） | 0 |
+| `npm test` | 655成功・2skip（既存の非対象試験） | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 207成功・停止処理成功、447154ms | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+| `node tmp/draft-local-check.mjs` | Local試験2物件・receipt・キー予約残存なし、採番0件 | 0 |
+
+初回の単体試験はWindows sandboxの一時ファイル操作制限、連携起動はport待機失敗で再実行。途中の単体試験は連携runnerの共用lockと競合したため、連携終了後に再実行。連携試験の初回は旧下書きhistoryを前提とした期待値と、先行試験で無効化されたfixtureの流用を修正した。最終結果は上表のみ採用。権限範囲・二重削除・保存／本登録競合・古い保存の再送拒否・外部キーの新規登録と一括取込みへの再利用を隔離DBで検証済み。既存の権限／配備guard／保護保留条件は変更なし。
+
+Dev配備はこれから実行。本人Dev受入れとPR統合、Prod反映は別途。
+
 ## 2026-10-23 実績文書のdev／main統合・日程PDF更新
 
 構築・正式投入・照合・表示名修正の文書3件を8f42748でcommit/pushし、PR59でdev7db1f19、PR60でmain117e1c0へ通常merge。必須Verify development deploymentは各成功（49秒／50秒）。製品digest・検証入力digestとも統合前後不変。main run39906861668成功、保守配備run39906861654はskipped。配備jobの省略を完了報告で確認する。下記作業時点の未commit／未push記述は、この統合で解消した。
