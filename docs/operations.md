@@ -23,7 +23,11 @@ Local最終検証（候補ブランチ codex/draft-deletion-oct31、下記の実
 
 初回の単体試験はWindows sandboxの一時ファイル操作制限、連携起動はport待機失敗で再実行。途中の単体試験は連携runnerの共用lockと競合したため、連携終了後に再実行。連携試験の初回は旧下書きhistoryを前提とした期待値と、先行試験で無効化されたfixtureの流用を修正した。最終結果は上表のみ採用。権限範囲・二重削除・保存／本登録競合・古い保存の再送拒否・外部キーの新規登録と一括取込みへの再利用を隔離DBで検証済み。既存の権限／配備guard／保護保留条件は変更なし。
 
-Dev配備はこれから実行。本人Dev受入れとPR統合、Prod反映は別途。
+Dev配備完了：`c3868714f21692ed0c61b56b69d326aa2b80bdba`を[run 41191367059](https://github.com/shisyamo4131/termite-warranty/actions/runs/41191367059)で明示配備。build・deploy・公開後check全成功、`gh run watch --exit-status`もexit0。2026-10-31 19:10 JSTに公開照合：Functions21件ACTIVE、Hosting公開入口・Dev接続先一致、PITR=false／日次schedule0／backupAutomation=false。通常Dev手順どおり全ソースarchive・全Hosting hash照合は対象外。
+
+Dev画面を再読込みし、既存下書きの削除ボタン有効・確認文（復元不可、履歴なし、キー再利用）を確認して実行せず戻る。本登録済み物件は「変更を保存」が表示され、削除ボタン0件。既存下書き1行を一覧で再確認。更新・削除・採番はLocalだけで実施し、Devでは一切実行していない。
+
+残作業：本人がDev c386871の削除確認画面を受入れ→PRでdev統合。Prod配備は未承認・未実行。HS一括取込みの元ファイル待ち、蓄積データ全般の物理削除ルールは後発。バックアップ・PITR・Auth退避は11/1まで保留を維持。配備結果の追記は文書のみで、製品／検証入力不変のため成功したLocalゲートを再利用し、文書検査だけ再実行する。
 
 ## 2026-10-23 実績文書のdev／main統合・日程PDF更新
 

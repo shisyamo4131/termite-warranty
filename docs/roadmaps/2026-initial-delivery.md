@@ -2,7 +2,7 @@
 
 ## 2026-10-31 新規入力の確認と下書き削除方針
 
-一括取込みはHSの使用元ファイル待ちで、原因未確定。下書き削除は工務店側も既存操作範囲内で可能、復元なし、外部キー再利用可、業務履歴・削除記録不要とオーナーが確定。[確定要件](../requirements/case-warranties.md#2026-10-31-下書きの削除方針確定)。実装・Local検証・Dev配備を実施中。本人Dev受入れ・PR統合・Prod反映は残る。一般データの物理削除ルールは[HSC-001](../requirements/house-solution-confirmations/HSC-001-data-retention-policy.md)で後発管理。11/1の保護・11/2納品予定を本記録だけで変更しない。
+一括取込みはHSの使用元ファイル待ちで、原因未確定。下書き削除は工務店側も既存操作範囲内で可能、復元なし、外部キー再利用可、業務履歴・削除記録不要とオーナーが確定。[確定要件](../requirements/case-warranties.md#2026-10-31-下書きの削除方針確定)。実装・Local包括検証・Dev c386871配備／読取り照合完了（[run](https://github.com/shisyamo4131/termite-warranty/actions/runs/41191367059)、[運用記録](../operations.md#2026-10-31-下書き削除のlocal検証dev導入)）。本人Dev受入れ・PR統合・Prod反映は残る。一般データの物理削除ルールは[HSC-001](../requirements/house-solution-confirmations/HSC-001-data-retention-policy.md)で後発管理。11/1の保護・11/2納品予定を本記録だけで変更しない。
 
 ## 2026-10-23 実績文書統合と日程PDF改訂
 
