@@ -40,5 +40,5 @@
     "delete",
     "Dev permissions"
   ],
-  "executionStatus": "Owner rejected custom-role TESTING permissions. Notification implementation remains blocked pending a supported setup path. Exact-job role remains applied. Recipient change to HS was conditional, not required by the permission warning."
+  "executionStatus": "Owner rejected custom-role TESTING permissions; that role was not created. Notification channel and policy were created through explicitly approved HS Owner UI. A single non-sensitive synthetic test log was sent through the separately approved project Owner; Gmail receipt was verified at 2026-11-01T13:25:28+09:00. Temporary Cloud Shell CLI credentials were revoked and the empty credential list verified. Exact-job role remains applied. Recipient remains the originally designated developer address."
 }

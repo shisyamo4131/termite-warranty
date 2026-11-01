@@ -4,6 +4,20 @@
 
 ### 保護基盤の成功とAuth退避経路の整備
 
+Prod run41273187909は13:35:15 JSTに成功（分類24秒、成果物検証2分44秒、配備・照合4分15秒）。default/control Rules・索引・21 Functions/21 source archive・Hosting56ファイル/2回観測の全5照合に成功した。初回ジョブ起動run41273697796は13:38:07 JSTに拒否終了（exit1）。Scheduler画面の直近実行は10:00:03のまま。Cloud Runのroot URL末尾slashなしに対しSchedulerはslash付きだったため、追加ガードの文字列比較で起動前に拒否した。根拠は両管理画面の実URLと実装比較。再送せずobserveで排他を確認する。
+
+修正候補：確認済みHTTPS rootの末尾slash有無だけを同一とし、別host・path・query・fragment・userinfo・port等の差は拒否する。重点11試験、単体全件668成功・既存2skip、各exit0。包括7gate選定、アプリ/Functions/Rules/依存/build設定が不変な5gateの本日成功証拠を再利用。IAM・実サービス設定・送信先は変更しない。候補のDev配備／PR統合後に初回起動を行う。
+
+通知到達確認（11/1 13:25 JST）：本人の指定により、通常のAIR参照とは別に、今回の通知先Gmailを接続profileで確認して試験通知だけを検索・読取りした。Google Cloud Alertingから13:25:28 JSTにINBOXへ到達。件名のProd recovery backup failure、対象project／service、revision_name=notification-testが試験と一致。試験ログ13:25:11から約17秒。CLI資格はrevoke成功後にauth listが空であることまで確認。Cloud内の通知設定・ログ受付・実メール受信を別々に実証した。
+
+到達後、既存PRODUCTION_RECOVERY_PARAMETERS_JSONに自動取得true、確認済みprivate bucket、recovery/hashConfigurationEvidence、確認済みpolicy参照を設定・読戻した。PR #70をmaine4f8c72へ通常mergeし、Prod run41273187909が実行中。自動取得パラメータの実配備、初回Auth退避・読戻し、初回DB READYはまだ成功扱いにしない。通知は1時間に1通の制限があるため、この試験直後の実失敗は追加メールだけに依存せず専用運用読取りで確認する。
+
+追加現在地（11/1）：固定ジョブ起動経路のDev run41272377704は成功（build47秒、配備照合74秒）。必須CI成功後にPR #69をdev3d7fa36へ通常mergeした。main向けPR #70も必須CI成功、未merge。通知到達の証拠を得て自動取得パラメータを確定してから本番統合する。読取りrun41272492603は13:18:54 JSTに日次予定1・backups0・policyVerified=trueで成功。実行後に一時要求secretを削除し、環境secret一覧が空であることを確認した。
+
+通知試験：本人がSDKの再認証と試験後のCLI資格解除を具体的に追加承認し、上記の自動承認レビュー停止は解消。自身のOwnerで非機密JSONログを1件だけ送信し、Cloud ShellのCreated log entry.と、policy画面の13:25:11 JSTの試験ログを確認した。実障害を発生させず、notificationTest=trueと試験専用revisionを使用。続いて同Cloud Shellでgcloud auth revokeを実行し、資格解除成功を確認。メール実受信は本人確認待ちで、ログ受付だけでは通知合格・自動取得開始とはしない。
+
+HS本人不在でCloud Shell本人確認ができないため、本人は自身のOwnerによる秘密を含まない試験log1件の送信だけを追加承認。Owner側のCloud Shellは起動したがCLI認証が未設定で、読取りも実行できなかった。Google Cloud SDKの通常再ログインを開始したところ、自動承認レビューがCloud Platform等の広いOAuth scopeとoffline accessを通知試験承認の範囲外として拒否。再認証・試験後のCloud Shell内CLI資格情報解除の判断待ち。試験log未送信、実メール到達未確認、自動取得未開始。今回のOwner例外を他の設定・IAM・データ操作へ拡大しない。
+
 追加候補：`backup-job-run`は固定Scheduler 1件だけをGET／runし、Cloud Runの専用SA・自動退避パラメータ・URI一致・保護基盤・正常世代を確認。既存排他と永続journalを使い、重複要求と結果不明時の再送を拒否する。成功出力は起動受付だけであり、Auth読戻し・初回READYの成功とは区別する。Local重点32試験、`npm test`667成功・既存2skip、各exit0。包括7gateを選定し型/build/Rules207/Functions構文/seed構文は本日成功証拠を再利用（app/functions/domain/依存/Rules/build設定は不変）。新試験のtimeout擬似値の参照誤りを修正し再実行済み。実ジョブ起動は未実施。
 
 Auth保全候補c7ae06f（dev履歴取込みa0edb9e）のDev run41270196562は12:41:51–12:43:37 JSTに成功（build46秒、配備照合53秒）。PR #67をdev9b26b12へ、PR #68をmainaa934bfへ必須CI成功後に通常merge。Prod run41270446982は12:45:42–12:52:32 JSTに成功（分類23秒、成果物検証2分9秒、配備照合4分10秒）。Auth保全の専用run41270893259は同mainで成功し、12:54:48 JSTにhashConfigurationVerified=trueを確認（exit0）。SCRYPT設定を固定private bucketへ上書き禁止保存し、generationを指定して読戻した。秘密値はrunner内とCloud保存先だけで扱った。これはAuthユーザー一覧の実退避ではない。業務アプリの機能変更・業務データ操作は今回含まない。 最終読取りrun41271045566は12:57:40 JSTにschedules=1、backups=0、policyVerified=true、firestoreBackupStatus=missingを返しexit0。日次予定の設定は成功、初回READYは未取得。全run終了後に一時PRODUCTION_OPERATION_REQUESTを削除し、production-operationsのsecret一覧が空であることを確認した。
