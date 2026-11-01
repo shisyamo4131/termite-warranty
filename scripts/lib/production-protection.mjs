@@ -40,7 +40,7 @@ export function productionProtectionProvider({target:t,request,provider}){
   return {inspect,configure}
 }
 export async function configureProductionProtection(o,{database,protection}){
-  const kind=o.command==='auth-protection-configure'?'production-auth-protection':'production-protection-foundation'
+  const kind=o.command==='backup-job-run'?'production-backup-job':o.command==='auth-protection-configure'?'production-auth-protection':'production-protection-foundation'
   const control=database(o.target.control),runtime=control.doc('recovery/runtime'),lock=control.doc('recovery/operatorLock'),journal=control.doc(`productionProtection/${o.operation}`)
   const marker=fixedRuntimeState((await database('(default)').doc('_recovery/access').get()).data())
   if(marker.phase!=='normal'||marker.generation!==o.generation||marker.controlDatabaseId!==o.target.control)refuse()

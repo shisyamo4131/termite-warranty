@@ -16,6 +16,8 @@ test('production dispatch binds approved content, main and identity before crede
  assert.equal(admit(env,...payload({...base,command:'protection-configure',generation:1,operation:'fictional-protect',approval:'fictional-approval'})).command,'protection-configure')
  assert.equal(admit(env,...payload({...base,command:'auth-protection-configure',generation:1,operation:'fictional-hash',approval:'fictional-approval'})).command,'auth-protection-configure')
  assert.equal(admit(env,...payload({...base,command:'backups'})).command,'backups')
+ assert.equal(admit(env,...payload({...base,command:'backup-job-run',generation:1,operation:'fictional-job-run',approval:'fictional-approval'})).command,'backup-job-run')
+ assert.throws(()=>admit(env,...payload({...base,command:'backup-job-run',generation:1,operation:'fictional-job-run',approval:'fictional-approval',job:'foreign'})))
  assert.equal(admit(env,...payload({...base,command:'auth-inspect',bucket:`${target.project}-auth-backups-${target.projectNumber}`})).command,'auth-inspect')
  assert.throws(()=>admit(env,...payload({...base,command:'auth-inspect',bucket:'foreign-private-bucket'})))
  for(const command of ['protection-configure','restore','configure-backups'])assert.throws(()=>admit(env,...payload({...base,command})))
