@@ -40,6 +40,7 @@ export function productionProtectionProvider({target:t,request,provider}){
   return {inspect,configure}
 }
 export async function configureProductionProtection(o,{database,protection}){
+  const kind=o.command==='auth-protection-configure'?'production-auth-protection':'production-protection-foundation'
   const control=database(o.target.control),runtime=control.doc('recovery/runtime'),lock=control.doc('recovery/operatorLock'),journal=control.doc(`productionProtection/${o.operation}`)
   const marker=fixedRuntimeState((await database('(default)').doc('_recovery/access').get()).data())
   if(marker.phase!=='normal'||marker.generation!==o.generation||marker.controlDatabaseId!==o.target.control)refuse()
@@ -52,7 +53,7 @@ export async function configureProductionProtection(o,{database,protection}){
     await control.runTransaction(async tx=>{
       const [state,held,prior]=await Promise.all([tx.get(runtime),tx.get(lock),tx.get(journal)])
       const h=held.data(),j=prior.data()
-      if(!sameFixedEpoch(marker,fixedRuntimeState(state.data()))||h?.kind!=='production-protection-foundation'||h?.owner!==o.resumeOwner||j?.owner!==o.resumeOwner||j?.status!=='started'||['operationId','generation','approval','revision'].some(k=>h[k]!==j[k]||j[k]!==({operationId:o.operation,...o})[k]))refuse()
+      if(!sameFixedEpoch(marker,fixedRuntimeState(state.data()))||h?.kind!==kind||h?.owner!==o.resumeOwner||j?.owner!==o.resumeOwner||j?.status!=='started'||['operationId','generation','approval','revision'].some(k=>h[k]!==j[k]||j[k]!==({operationId:o.operation,...o})[k]))refuse()
       tx.update(journal,{status:'verified'});tx.delete(lock)
     })
     return inspected
@@ -62,7 +63,7 @@ export async function configureProductionProtection(o,{database,protection}){
     const [state,held,prior,exporting,ops]=await Promise.all([tx.get(runtime),tx.get(lock),tx.get(journal),tx.get(control.doc('recovery/authExportLock')),tx.get(control.collection('recoveryOperations').limit(1))])
     if(!sameFixedEpoch(marker,fixedRuntimeState(state.data()))||held.exists||prior.exists||exporting.exists||ops.size)refuse()
     const entry={owner,operationId:o.operation,generation:o.generation,approval:o.approval,revision:o.revision,status:'started'}
-    tx.create(lock,{...entry,kind:'production-protection-foundation'});tx.create(journal,entry)
+    tx.create(lock,{...entry,kind});tx.create(journal,entry)
   })
   // Retain journal/lock on ANY uncertain result, including an asynchronous PITR
   // update not yet visible. Read-only inspection remains available; no retry.

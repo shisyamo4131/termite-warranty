@@ -1,10 +1,10 @@
 # Backup and Recovery Implementation
 
-## 2026-11-01 正常稼働中の保護基盤専用経路（Local候補）
+## 2026-11-01 正常稼働中の保護基盤専用経路
 
-オーナーが専用運用経路の先行整備を選択。既存main限定WIF入口に、固定Prodの日次30日・PITR・非公開Auth bucketだけを扱う処理を追加する。[操作条件・権限案](../runbooks/production-bootstrap-review.md#2026-11-01-専用経路による保護基盤設定local候補)。復旧の保守必須条件は変更せず、追加IAM・Cloud実行は未実施。
+オーナーが専用運用経路の先行整備を選択。既存main限定WIF入口に、固定Prodの日次30日・PITR・非公開Auth bucketだけを扱う処理を追加する。[操作条件・権限案](../runbooks/production-bootstrap-review.md#2026-11-01-専用経路による保護基盤設定local候補)。復旧の保守必須条件は変更せず、基盤設定は専用経路で成功。Auth用7ロールも本人承認後に付与済み。Auth実退避・通知・復元実証は未完了。
 
-制御DBに`productionProtection/{operation}`を追加し、owner・operationId・generation・approval・revision・status(started/verified)を保持する。`recovery/operatorLock`のkindは`production-protection-foundation`。業務スキーマ・runtime phaseは変更しない。成功時はjournalをverifiedとして自分のlockだけを削除する。不明時は両方を残し、設定完成済みかつ停止した前worker・元識別子の照合による後処理だけを認める。未完成への自動再送はしない。リセット・復旧ツールへ未知のcontrol collectionを無断で削除する拡張をしない。
+制御DBに`productionProtection/{operation}`を追加し、owner・operationId・generation・approval・revision・status(started/verified)を保持する。`recovery/operatorLock`のkindは基盤設定が`production-protection-foundation`、Auth hash設定保全が`production-auth-protection`。後者は固定private bucketへcreate-only保存・generation固定読戻し後、`recovery/hashConfigurationEvidence`へbucket/object/generation/operationだけをcreateする。秘密値はcontrolへ保存しない。業務スキーマ・runtime phaseは変更しない。成功時はjournalをverifiedとして自分のlockだけを削除する。不明時は両方を残し、設定完成済みかつ停止した前worker・元識別子の照合による後処理だけを認める。未完成への自動再送はしない。リセット・復旧ツールへ未知のcontrol collectionを無断で削除する拡張をしない。
 
 ## Prod運用のLocal実装（2026-10-13後続）
 

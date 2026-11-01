@@ -1,5 +1,5 @@
 {
-  "status": "proposed-not-applied",
+  "status": "applied-2026-11-01-bucket-create-binding-removed",
   "project": "termite-warranty-prod",
   "serviceAccount": "prod-operator@termite-warranty-prod.iam.gserviceaccount.com",
   "roles": [
