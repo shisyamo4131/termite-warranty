@@ -6,7 +6,7 @@ import { measureFirestoreOperation, observedFirestore } from './firestore-metric
 import { reportClientMetrics } from './client-metrics.js'
 import { createAuthDiagnosticReceiver } from './auth-diagnostics.js'
 import { setGlobalOptions } from 'firebase-functions/v2'
-import { assertApprovedPrototypeRuntime } from './local-runtime.js'
+import { assertApprovedPrototypeRuntime, localBulkImportValidationOnly } from './local-runtime.js'
 import { runtimeIdentity } from './production-identities.js'
 import { withRecovery, recoveryRuntimeOperation, recoveryStatusOperation } from './recovery-runtime.js'
 import { PROPERTY_READ_ACTIONS } from './domain/recovery.mjs'
@@ -37,7 +37,14 @@ export const reportAuthDiagnostics = nativeOnCall({ maxInstances: 2, timeoutSeco
 
 export const propertyBulkImport = onCall('propertyBulkImport', { timeoutSeconds: 300 }, async request => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'ログインしてください。')
-  try { return await withRecovery(request, request.data?.action === 'commit', db => propertyBulkImportOperation(db, request.data, request.auth.uid)) }
+  // Reject before recovery admission or any database operation, including receipt replay.
+  if (request.data?.action === 'commit' && localBulkImportValidationOnly()) {
+    throw new HttpsError('failed-precondition', 'Localは一括取込みの検証専用です。DB登録を一時停止しています。', { safeToDiscard: true })
+  }
+  try {
+    const result = await withRecovery(request, request.data?.action === 'commit', db => propertyBulkImportOperation(db, request.data, request.auth.uid))
+    return request.data?.action === 'preview' && localBulkImportValidationOnly() ? { ...result, validationOnly: true } : result
+  }
   catch (error) {
     if (error instanceof HttpsError) throw error
     console.error('propertyBulkImport failed', { code:error?.code })

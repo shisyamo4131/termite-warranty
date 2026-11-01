@@ -120,6 +120,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     return settings
   }
   if (action === 'catalog') return catalog(db, a, input)
+  if (action === 'creationContext') return {creationEpoch:(await db.doc('prototypeSettings/propertyCreation').get()).data()?.epoch ?? 0}
   if (action === 'certificateList' || action === 'billingList') {
     if (!a.staff) fail('permission-denied', 'HS担当者のみ出力できます。')
     if (!validMonth(input.month)) fail('invalid-argument', '対象年月を指定してください。')
@@ -359,7 +360,7 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     } catch (error) { if (error instanceof AccountMutationError) fail(error.code, error.message); throw error }
     return { ok: true }
   }
-  if (!['waiveInsurance','undoInsuranceWaiver','save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
+  if (!['deleteDraft','waiveInsurance','undoInsuranceWaiver','save', 'register', 'extend', 'undoExtend', 'cancel', 'restore','notify','report','undoReport','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action)) fail('invalid-argument', '操作を確認してください。')
   if (['waiveInsurance','undoInsuranceWaiver','notify','report','undoReport','undoExtend','bill','undoBill','confirmUnbilled','issueCertificate','billPeriods','undoCertificate'].includes(action) && !a.staff) fail('permission-denied', 'HS担当者のみ操作できます。')
   const ref = db.doc(`propertyWarranties/${id(input.id)}`)
   const requestId = id(input.requestId)
@@ -374,6 +375,31 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     const snapshot = await tx.get(ref)
     let old = snapshot.data()
     if (old) owner(a, old)
+    // No deletion journal or tombstone. A non-identifying generation prevents
+    // delayed first-save requests from recreating a physically deleted draft.
+    if (action === 'deleteDraft') {
+      knownUncommitted = true
+      if (!old) return {id:ref.id,operationStatus:'completed',absent:true}
+      if (old.status !== 'draft' || old.warrantyNumber || old.years || old.receivedRecordId || old.periods?.length || old.insuranceEvents?.length || old.insuranceWaiverEvents?.length || old.billingItems?.length || old.certificateItems?.length) fail('failed-precondition','未採番の下書きだけ削除できます。')
+      if (old.revision !== input.revision) fail('aborted','他の操作で更新されました。一覧から開き直してください。')
+      const generationRef = db.doc('prototypeSettings/propertyCreation')
+      const generation = (await tx.get(generationRef)).data()?.epoch ?? 0
+      if (!Number.isSafeInteger(generation) || generation < 0 || generation >= Number.MAX_SAFE_INTEGER) fail('failed-precondition','新規作成の受付状態を開発側へ確認してください。')
+      const receipts = await tx.get(db.collection('propertyOperationReceipts').where('propertyId','==',ref.id).limit(451))
+      if (receipts.size > 450) fail('failed-precondition','関連情報が多いため開発側へ確認してください。')
+      const keyRef = old.externalKey ? db.doc('externalKeyReservations/'+createHash('sha256').update(old.externalKey).digest('hex')) : null
+      const reservation = keyRef ? (await tx.get(keyRef)).data() : null
+      if (keyRef && (!reservation || reservation.propertyId !== ref.id || reservation.externalKey !== old.externalKey)) fail('failed-precondition','外部キーの管理情報を開発側へ確認してください。')
+      if (keyRef) {
+        const matching = await tx.get(db.collection('propertyWarranties').where('externalKey','==',old.externalKey).limit(2))
+        if (matching.docs.some(row=>row.id !== ref.id)) fail('failed-precondition','外部キーの重複を開発側へ確認してください。')
+      }
+      tx.set(generationRef,{epoch:generation+1})
+      for (const item of receipts.docs) tx.delete(item.ref)
+      if (keyRef) tx.delete(keyRef)
+      tx.delete(ref)
+      return {id:ref.id,operationStatus:'completed',absent:true}
+    }
     const receipt = (await tx.get(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`))).data()
     if (receipt) {
       if (receipt.uid !== uid || receipt.action !== action) fail('failed-precondition','操作識別子を再利用できません。')
@@ -383,6 +409,10 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
     }
     if (old?.history?.some(event => event.requestId === requestId)) return { id: ref.id, operationStatus:'legacy-unverified' }
     knownUncommitted = true
+    if (!old && ['save','register'].includes(action)) {
+      const epoch = (await tx.get(db.doc('prototypeSettings/propertyCreation'))).data()?.epoch ?? 0
+      if (!Number.isSafeInteger(epoch) || epoch < 0 || (input.creationEpoch ?? 0) !== epoch) fail('failed-precondition','新規作成の受付状態が変わりました。画面を開き直してください。')
+    }
     const insuranceReady = (await tx.get(db.doc('prototypeSettings/insuranceStates'))).data()?.version === 1
     if (['waiveInsurance','undoInsuranceWaiver','report','undoReport'].includes(action) && !insuranceReady) fail('failed-precondition','保険業務の準備中です。開発側へ確認してください。')
     if ((old?.revision ?? 0) !== Number(input.revision ?? 0)) fail('aborted', '他の操作で更新されました。一覧から開き直してください。')
@@ -599,11 +629,12 @@ export async function propertyPrototypeOperation(auth, db, input, uid) {
         next.status = 'cancelled'
       }
     }
-    const before = old ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
+    const before = old && old.status !== 'draft' ? { applicationDate: old.applicationDate ?? '', handoverDate: old.handoverDate, startDate: old.startDate ?? '', expiryDate: old.expiryDate ?? '', maxYears: old.maxYears, years: old.years, warrantyNotified: old.warrantyNotified ?? false, name: old.name, ownerTelephone:old.ownerTelephone ?? '', status: old.status, periods: old.periods ?? [] } : null
     const changedCertificateDates = old?.status === 'active' && old.handoverDate !== next.handoverDate
     if (changedCertificateDates) before.certificateItems = old.certificateItems ?? []
     const invalidatedCertificatePeriodIds = changedCertificateDates ? [...new Set((old.certificateItems ?? []).filter(item => item.issued === true && certificatePeriods(old).some(period => period.id === item.id)).map(item => item.id))] : []
-    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.history ?? []), { kind: action, requestId, date, ...(changedCertificateDates ? {invalidatedCertificatePeriodIds} : {}), at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'extend' ? normalizeExtensionApplication(input) : {}), ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
+    if (!['notify','waiveInsurance','undoInsuranceWaiver'].includes(action)) next.history = [...(old?.status === 'draft' ? [] : old?.history ?? []), { kind: action, requestId, date, ...(changedCertificateDates ? {invalidatedCertificatePeriodIds} : {}), at: now.toDate().toISOString(), actorUid: uid, actorName: a.displayName ?? '', ...(action === 'extend' ? normalizeExtensionApplication(input) : {}), ...(action === 'undoExtend' ? {targetRequestId: input.targetRequestId} : {}), ...(operationTarget ? {target:operationTarget} : {}), reason: String(input.reason ?? ''), before }]
+    if (next.status === 'draft') delete next.history
     // Separate receipts provide replay safety without introducing a business report/notice history.
     if (newKeyReservation) tx.create(newKeyReservation.ref,newKeyReservation.value)
     tx.set(db.doc(`propertyOperationReceipts/${ref.id}_${requestId}`),{uid,action,propertyId:ref.id,requestHashVersion:1,requestHash,createdAt:now})

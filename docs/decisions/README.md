@@ -1,5 +1,7 @@
 # Architecture and Product Decisions
 
+- [0051: 履歴を残さない下書き削除](0051-draft-physical-deletion.md)：物理削除と旧保存の復活防止。
+
 - [0050: zipcloud住所入力補助](0050-zipcloud-postal-lookup.md)：現行検索経路。納品書への依存条件を含む。
 
 - [0049: Local郵便番号データの自動更新](0049-local-postal-auto-update.md)
