@@ -1,5 +1,11 @@
 # 2026 Initial-Delivery Roadmap
 
+## 2026-11-01 下書き削除・一括取込みのDev更新
+
+本人Local受入れ完了。ca5ad00を[run 41265015505](https://github.com/shisyamo4131/termite-warranty/actions/runs/41265015505)でDevへ配備し、21 Functions ACTIVE・公開先・保護保留を照合済み。[試験・配備結果](../design/property-bulk-import.md#2026-11-01-local受入れdev配備候補)。Excelの日付書式残存・CSV保存時の年欠落は運用で対応することを確定、元ファイル待ちは解消。Dev本人確認とPRでdev統合、承認後のmain統合／Prod反映は残る。
+
+11/2納品前の優先順：①今回修正のDev確認・PR統合とProd反映／読取り照合（Prodは現在保留）、②11/1予定のDev／Prod保護設定・初回取得・通知・隔離復元検証（未実施）、③納品書・運用資料へ実績とExcel運用を反映し最終版／署名欄を確定。11/2当日はHS管理者パスワード設定・Prodログイン、管理用Googleアカウントのメール受信設定・到達確認、資料引渡し・社長署名・利用開始。HS最終受入れ自体は10/30完了の扱いを維持。未確定の対応時間・復旧目標・契約条件はAriLabo確認事項として明示する。正式投入済み442件をDev試験データで置き換えない。
+
 ## 2026-10-31 新規入力の確認と下書き削除方針
 
 一括取込みはHSの使用元ファイル待ちで、原因未確定。下書き削除は工務店側も既存操作範囲内で可能、復元なし、外部キー再利用可、業務履歴・削除記録不要とオーナーが確定。[確定要件](../requirements/case-warranties.md#2026-10-31-下書きの削除方針確定)。実装・Local包括検証・Dev c386871配備／読取り照合完了（[run](https://github.com/shisyamo4131/termite-warranty/actions/runs/41191367059)、[運用記録](../operations.md#2026-10-31-下書き削除のlocal検証dev導入)）。本人Dev受入れ・PR統合・Prod反映は残る。一般データの物理削除ルールは[HSC-001](../requirements/house-solution-confirmations/HSC-001-data-retention-policy.md)で後発管理。11/1の保護・11/2納品予定を本記録だけで変更しない。

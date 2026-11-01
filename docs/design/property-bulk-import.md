@@ -2,6 +2,8 @@
 
 ## 2026-11-01 Local受入れ・Dev配備候補
 
+配備結果：候補`ca5ad006a2635ff41bf00e222edd78e41df81fb2`を[run 41265015505](https://github.com/shisyamo4131/termite-warranty/actions/runs/41265015505)でDevへ配備し、run／build／deploy／check全成功、watch終了0。11:23:43〜11:27:06 JST（全体3分23秒）、build50秒、deploy job2分26秒。11:27:03の読取り照合はFunctions21件ACTIVE、公開入口・Dev接続先一致、PITR=false・日次0・自動保護false。追加の公開JS読取りで一括取込み・下書き削除の存在、削除した2表示の不存在をassertしexit0。実DB登録・削除・採番は実行しない。全Functions archive／全Hosting hash比較は通常Dev手順に従い省略。本人のDev受入れ・PR統合は未実施、Prod未反映。今回の記録追記は文書のみで、製品不変のため再配備せず文書検査だけ実行する。
+
 本人が下書き削除と今回の取込み画面をLocal受入れ完了とし、commit／push／Dev配備・照合を承認。Prod配備は未承認のまま。既存下書き削除commit c386871と記録9530764を含むcodex/draft-deletion-oct31上の追加差分を配備対象にする。最新dev ef6b52aを含むことを確認。別件の納品資料・保護準備文書はcommitに含めない。
 
 包括7gate選定：`npm test`は最終製品差分で657成功・2skip、`node scripts/check-functions-syntax.mjs`、`node --check scripts/seed-emulator.mjs`は各exit0で再実行。`npm run typecheck`と`npm run build`は「報告不要にする期間」列削除後の直前成功（各exit0）を再利用。`npm run test:rules`は11/1の207成功・停止成功（exit0、425236ms）を再利用：以後の変更はUI表示・文書・手動Local専用スイッチ解除であり、隔離試験・クラウドの業務判定／保存・依存・Rulesは不変。Localスイッチと画面の直接試験15件も成功。ガバナンス検査は記録更新後に再実行する。CI／IAM／スキーマの追加変更なし、実データ更新検証なし。
