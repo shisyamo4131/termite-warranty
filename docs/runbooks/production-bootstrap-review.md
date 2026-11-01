@@ -1,8 +1,36 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-11-01 納品資料統合と再配備の準備
+
+追加指示：日次DB初回生成・日次backupからの隔離復元を継続し、保護記録・納品PDFをcommit/push、PRでdev/mainへ統合して両環境の配備を終える。初回日次backupは現時点の再読取りでも0件。PITR成功を日次backup成功に読み替えず、生成待ちのまま独立した資料・配備作業を先行する。
+
+新規納品PDF2件はCIでunknownとして拒否されるため、`scripts/lib/change-scope.mjs`に当該2パスだけを文書登録。未審査PDFは拒否、アプリ混在はproduct、PDFのみでは製品digest不変を回帰検証した。重点 `node --test test/documentation-changes.test.mjs` は19成功・exit0、`npm test` は669成功・既存2skip・exit0。分類はCI/配備と文書で包括7gateを選定。型/build/Rules207/Functions構文/seed構文は本日の同一実装の既存成功証拠を再利用：app/functions/src/domain/依存/Rules/Emulator/seed/build設定は変更なし。ガバナンスとdiff検査はcommit直前に再実行する。
+
+今回に限り本人が実配備も指示しているため、Devは既存の明示配備workflowで資料込み候補を配備し、Prodはmain更新前の同一製品版c629c94の成功runを再実行して全5照合する。続く資料/CIのみのPR統合は既存ルールどおり配備を省略し、統合後の製品不変を確認する。配備を強制するためのダミー製品変更や、恒久的な自動配備条件の緩和は行わない。Dev保護保留、Prod保護有効、業務データ保持を維持する。以下の未commit等は各作業時点の記録で、統合・配備の実績は完了後に追記する。
+
+11/1追加指示：以降の対話的Prod操作は本人のOwnerアカウントを使用する。[実行主体の変更と維持する境界](backup-recovery.md#2026-11-01-prod操作主体の変更)。以下の専用経路による初回実行停止を受けた方針変更であり、既存CI／定期実行SAの自動処理は維持する。
+
+Owner切替後：13:58:25 JSTに管理画面から既存backup monitorを1回起動。13:58:29 JSTにAuth 2件の非公開保存完了、制御DBのauthBackup=successを確認。本人の追加承認を受けたSDK再認証後、Cloud Shell内だけでgenerationを指定した保存objectの読戻し、現在のAuth 2件のUID・メール・無効状態・存在するpassword hash/saltの一致、保存SCRYPT設定と現設定の一致を確認した（authReadback=pass、hashConfiguration=pass）。秘密値・アカウント本文をLocal/Git/ログへ出していない。SDKユーザー認証のIdentity Toolkit読取りは利用project未指定で403となったが、公式のx-goog-user-projectを対象Prodに指定して成功。権限追加はしていない。
+
+同読取りでnormal・generation3・DB backup0。監視全体のfailedはAuth失敗とは区別する。PITRは11/1 12:00 JSTを対象に、Ownerで東京の別DB pitr-verify-20261101へcloneを1回要求。本番DBは上書きしていない。14:03:42.341開始、14:21:17.561 SUCCESSFUL（約17分35秒）。完了直後の読取りエラー後、読取り可能を確認して再照合し、全784文書の相対パス・全fieldsが同一時点の元DBと一致、PITR_CHECK_EXIT=0。内訳は物件保証442、外部キー予約277、採番17、本支店17、本支店コード予約11、設定9、工務店3、保証グループ3、担当者2、復旧情報3。照合hashはc78275d3406ffbded7d12811cdf8ccd9c1d1e097b2188e10aa3a6d8f25ad0d0b。隔離DBのRulesは全クライアントread/write=falseを画面確認した。
+
+途中の読取り待機はCtrl+Cでexit130となったが、Google側のcloneはキャンセル／再送していない。後続の完了読取りはRESTORE_STATUS_EXIT=0。初回DBバックアップのREADYと日次backupからの復元は未検証であり、PITR検証とは区別する。
+
+本人の実行直前承認後、検証用pitr-verify-20261101だけを管理画面から削除。削除済み・本番(default)とrecovery-control保持・normal/generation3をAPI照合しFINAL_PROTECTION_EXIT=0。終了前のAuth再読戻しも2件・hash設定一致、AUTH_FINAL_READ_EXIT=0（DB backupは引き続き0）。今回のSDK資格をrevokeしREVOKE_EXIT=0、続くauth listは空・AUTH_LIST_EXIT=0。認証用タブを閉じ、clipboardを空にした。業務停止・本番上書き・Auth importは実施していない。
+
+納品書3ページ・運用ガイド2ページの確認用PDFを11/1実績と11/2必須作業で更新。生成元全文のPDF内存在確認・全ページ目視・ガバナンス・diff検査を実施する。今回の追記は実行記録と文書のみで、アプリ/Functions/Rules/依存/build設定は不変。コード包括検証は本日の同一実装の成功証拠を維持し、Cloud操作の成功をLocal試験で代替しない。文書は未commit・未pushであり、統合済みとは扱わない。
+
 ## 2026-11-01 専用運用経路の統合・保護基盤設定
 
 ### 保護基盤の成功とAuth退避経路の整備
+
+最新確認：末尾slash修正はPR #71／#72でdev／mainへ統合済み。main c629c94のProd run41274379201は成功し、13:52:28 JSTにdefault/control Rules・索引READY・21 Functions/21 source archive・Hosting56ファイル/2回観測の全5項目がpassとなった。
+
+停止後の読取りrun41274723505は13:54:26 JSTにnormal・generation3・activeOperations0・operatorBlocked=falseを返し成功。全運用処理終了後に一時PRODUCTION_OPERATION_REQUESTを削除し、production-operationsのsecret一覧が空であることを確認した。現在の記録追記は文書のみで未commit。ガバナンス検査とdiff検査を行い、アプリ・実設定変更の検証へ読み替えない。
+
+初回ジョブrun41274414883は13:49:15 JSTにexit1で停止。Scheduler画面の最終実行は10:00:03のままで、Auth実退避の成功証拠は得られていない。先行の末尾slash差は実装上の拒否要因だったが、それだけで今回の停止原因が解消したとは判定しない。公開ログは理由を伏せた共通エラーであり、正確な停止段階は未特定。要求を再送せず、読取りobserveで正常世代と残存ロックを照合する。通知到達は下記Gmail実読取りで確認済みであり、利用者へ再確認を依頼する必要はない。
+
+以下の日付・時刻付き段落は作業時点の記録。現在地はこの先頭の確認結果を優先する。初回DB READY、Auth実退避・読戻し、隔離backup/PITR復元は未完了。Dev保護設定は変更していない。
 
 Prod run41273187909は13:35:15 JSTに成功（分類24秒、成果物検証2分44秒、配備・照合4分15秒）。default/control Rules・索引・21 Functions/21 source archive・Hosting56ファイル/2回観測の全5照合に成功した。初回ジョブ起動run41273697796は13:38:07 JSTに拒否終了（exit1）。Scheduler画面の直近実行は10:00:03のまま。Cloud Runのroot URL末尾slashなしに対しSchedulerはslash付きだったため、追加ガードの文字列比較で起動前に拒否した。根拠は両管理画面の実URLと実装比較。再送せずobserveで排他を確認する。
 
