@@ -10,6 +10,7 @@ import {mkdtemp,writeFile,rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {spawnSync} from 'node:child_process'
+import './production-protection.test.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',site:'fictional-site',appId:'1:123456:web:aaaa',control:'recovery-control',serviceAccount:'deploy@fictional-prod.iam.gserviceaccount.com',audience:'//iam.googleapis.com/projects/123456/locations/global/workloadIdentityPools/fictional/providers/github',repositoryId:'123',ownerId:'456'}
 const base={target,operatorIdentity:{audience:target.audience,serviceAccount:'operator@fictional-prod.iam.gserviceaccount.com'},revision:'a'.repeat(40)},write={...base,generation:1,operation:'fictional-operation',approval:'fictional-approval'}
 test('Prod operator rejects ambient/foreign targets, malformed commands and unbound execution evidence',()=>{

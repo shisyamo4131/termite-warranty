@@ -1,0 +1,30 @@
+{
+  "status": "proposed-not-applied",
+  "project": "termite-warranty-prod",
+  "serviceAccount": "prod-operator@termite-warranty-prod.iam.gserviceaccount.com",
+  "roles": [
+    {
+      "roleId": "prodProtectionDatabase",
+      "permissions": ["datastore.backupSchedules.list", "datastore.backupSchedules.create", "datastore.databases.update"],
+      "condition": {"title": "ProductionDefaultProtection", "expression": "resource.name == 'projects/termite-warranty-prod/databases/(default)'"}
+    },
+    {
+      "roleId": "prodProtectionBucketRead",
+      "permissions": ["storage.buckets.get", "storage.buckets.getIamPolicy"],
+      "condition": {"title": "ProductionAuthBucketRead", "expression": "resource.name == 'projects/_/buckets/termite-warranty-prod-auth-backups-988295873733'"}
+    },
+    {
+      "roleId": "prodProtectionBucketCreate",
+      "permissions": ["storage.buckets.create"],
+      "condition": null,
+      "removeBindingAfterVerifiedCreation": true
+    }
+  ],
+  "preserveExistingBindings": true,
+  "requireEtagAndReadback": true,
+  "changeWif": false,
+  "createKeys": false,
+  "businessDataWrites": false,
+  "authDataWrites": false,
+  "newIamWritePermission": false
+}
