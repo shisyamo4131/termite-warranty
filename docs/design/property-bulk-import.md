@@ -2,6 +2,8 @@
 
 ## 2026-11-01 Local受入れ・Dev配備候補
 
+本人Dev受入れ：11/1、本チャットでDev ca5ad00の受入れ完了を明示。受入れ対象は下書き削除・一括取込み画面変更。dev／mainへのPR統合・Prod配備／照合、その後の当日予定の保護設定・検証を承認。追加IAM等は具体差分を確認する。記録commit09579b7から受入れ記録までは文書のみで、受入れ版の製品差分はない。
+
 配備結果：候補`ca5ad006a2635ff41bf00e222edd78e41df81fb2`を[run 41265015505](https://github.com/shisyamo4131/termite-warranty/actions/runs/41265015505)でDevへ配備し、run／build／deploy／check全成功、watch終了0。11:23:43〜11:27:06 JST（全体3分23秒）、build50秒、deploy job2分26秒。11:27:03の読取り照合はFunctions21件ACTIVE、公開入口・Dev接続先一致、PITR=false・日次0・自動保護false。追加の公開JS読取りで一括取込み・下書き削除の存在、削除した2表示の不存在をassertしexit0。実DB登録・削除・採番は実行しない。全Functions archive／全Hosting hash比較は通常Dev手順に従い省略。本人のDev受入れ・PR統合は未実施、Prod未反映。今回の記録追記は文書のみで、製品不変のため再配備せず文書検査だけ実行する。
 
 本人が下書き削除と今回の取込み画面をLocal受入れ完了とし、commit／push／Dev配備・照合を承認。Prod配備は未承認のまま。既存下書き削除commit c386871と記録9530764を含むcodex/draft-deletion-oct31上の追加差分を配備対象にする。最新dev ef6b52aを含むことを確認。別件の納品資料・保護準備文書はcommitに含めない。
