@@ -1,5 +1,11 @@
 # Backup and Recovery Implementation
 
+## 2026-11-01 正常稼働中の保護基盤専用経路（Local候補）
+
+オーナーが専用運用経路の先行整備を選択。既存main限定WIF入口に、固定Prodの日次30日・PITR・非公開Auth bucketだけを扱う処理を追加する。[操作条件・権限案](../runbooks/production-bootstrap-review.md#2026-11-01-専用経路による保護基盤設定local候補)。復旧の保守必須条件は変更せず、追加IAM・Cloud実行は未実施。
+
+制御DBに`productionProtection/{operation}`を追加し、owner・operationId・generation・approval・revision・status(started/verified)を保持する。`recovery/operatorLock`のkindは`production-protection-foundation`。業務スキーマ・runtime phaseは変更しない。成功時はjournalをverifiedとして自分のlockだけを削除する。不明時は両方を残し、設定完成済みかつ停止した前worker・元識別子の照合による後処理だけを認める。未完成への自動再送はしない。リセット・復旧ツールへ未知のcontrol collectionを無断で削除する拡張をしない。
+
 ## Prod運用のLocal実装（2026-10-13後続）
 
 明示target／別運用WIF／commitを検査するproduction-operationsを追加。既存固定(default) controller／providerを再利用し、復元先を業務(default)・controlから分離。復元journalは送信前にownerと排他を原子的に保存し、結果不明の再送を拒否、照合済みLRO終端で解除する。日次30日／PITR・Auth読戻し・bucket project一致を追加。実Auth import制限、復旧時点了承と再開了承の分離は維持。Cloud実証は未実施。

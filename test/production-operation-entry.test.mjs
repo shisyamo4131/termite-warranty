@@ -12,6 +12,9 @@ const base={target,operatorIdentity:{audience:operatorTarget.audience,serviceAcc
 function payload(o){const b=Buffer.from(JSON.stringify(o));return[gzipSync(b).toString('base64'),createHash('sha256').update(b).digest('hex')]}
 test('production dispatch binds approved content, main and identity before credentials',()=>{
  assert.equal(admit(env,...payload(base)).command,'observe')
+ assert.equal(admit(env,...payload({...base,command:'protection-inspect'})).command,'protection-inspect')
+ assert.equal(admit(env,...payload({...base,command:'protection-configure',generation:1,operation:'fictional-protect',approval:'fictional-approval'})).command,'protection-configure')
+ for(const command of ['protection-configure','restore','configure-backups'])assert.throws(()=>admit(env,...payload({...base,command})))
  for(const patch of [{GITHUB_REF:'refs/heads/dev'},{GITHUB_REPOSITORY_ID:'wrong'},{GITHUB_EVENT_NAME:'push'},{GITHUB_WORKFLOW_REF:operatorTarget.workflowRef},{FIRESTORE_EMULATOR_HOST:'localhost:1'},{FIREBASE_TOKEN:'token'}])assert.throws(()=>admit({...env,...patch},...payload(base)))
  for(const patch of [{revision:'b'.repeat(40)},{command:'configure-backups'},{target:{...target,project:'termite-warranty-dev'}},{operatorIdentity:{...base.operatorIdentity,serviceAccount:target.serviceAccount}}])assert.throws(()=>admit(env,...payload({...base,...patch})))
  assert.throws(()=>admit(env,payload(base)[0],'b'.repeat(64)))
