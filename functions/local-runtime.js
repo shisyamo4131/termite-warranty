@@ -19,6 +19,12 @@ export function isLocalPrototypeRuntime(env = process.env) {
     || isIsolatedTestEnvironment(env))
 }
 
+// Temporary manual Local CSV verification. Never alter deployed or isolated-test behavior.
+export function localBulkImportValidationOnly(env = process.env) {
+  return env.TERMITE_LOCAL_IMPORT_VALIDATION_ONLY === 'true'
+    && !env.TERMITE_TEST_RUN && isLocalPrototypeRuntime(env)
+}
+
 export function assertLocalPrototypeRuntime(env = process.env) {
   if (!isLocalPrototypeRuntime(env)) {
     throw new Error('This prototype function may run only against the local demo-termite-warranty emulator.')

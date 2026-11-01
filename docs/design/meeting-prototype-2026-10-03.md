@@ -386,3 +386,38 @@ SDK直接set/updateはruntimeGeneration:正整数／runtimeProtocol:2／runtimeN
 Private controlの`defaultRecoveryPlans/{id}`はsource／target／controlId／generation／revision／approval／authorizationHash／sourceHash／beforeHash／expectedHash／manifestHash／status／件数。itemsはpath／set-delete／before-after hash／updateTime／型付きJSON文字列、preimageは全対象前像。Auth hash／署名秘密は含めない。BのrecoveryVerificationsはtypedHashを追加し、旧hashだけの証拠は新Cへ無効。
 
 Default private `_recovery/apply`にplanId／generation／owner、`_recovery/apply/plans/{id}/batches/{item}`にplanId／after／completedAt、`_recovery/publication`にplanId／approval／phase／generation／revision／expectedHash。ブラウザ読書は拒否。業務同期から_recovery/controlを除外し、現在のプロフィール／bindings／番号予約とカウンター上限を保全する。[型・保持・実行境界](default-database-recovery.md#2026-10-06-固定default方式のlocal実装状況)参照。
+
+## 2026-10-31 Excel編集CSVの日付調査・修正準備（実装変更なし）
+
+対象は共通14列テンプレートの「申込日」「引渡日」。HSが使用した元CSVは未受領であり、HS事象の原因は未確定。今回の確認はコード・架空CSV文字列・隔離エミュレーターによるもので、実際のExcel操作による保存往復試験ではない。
+
+### 確認した現状
+
+- テンプレートはUTF-8 BOM付きの見出しのみのCSV。Excelセルの日付表示形式を指定する情報は含まれない。
+- `YYYY/M/D` と `YYYY-MM-DD` は既に受理し、保存・プレビューを `YYYY-MM-DD` に統一。受信時の元値も保持する。
+- `10月1日`、`10/1`、`2026年10月1日`、`26/10/1`、`2026-10-1`、シリアル値、時刻付き、実在しない日付は拒否する。前二者から年を復元することはできない。現行の入力仕様に沿った拒否であり、直ちに誤変換の不具合とは断定しない。
+- Microsoft公式説明ではCSVはセルに表示されている文字・値を保存する。そのためExcelの表示形式により年がCSVに残らない可能性がある。Excelが入力時に想定外の年を補った場合も、完成した正しい年月日文字列だけから利用者の意図は判断できない。
+- ファイル読取りはUTF-8限定。文字コード不一致は日付問題とは分けて確認する。画面はUTF-8指定を表示しているが、日付列のExcel表示形式を具体的に案内していない。
+
+一次資料: [Microsoft・CSV保存時に維持される情報](https://support.microsoft.com/en-us/excel/excel-formatting-and-features-that-are-not-transferred-to-other-file-formats)。実装: `src/domain/property-bulk-import.mjs`、`app/components/PropertyBulkImportDialog.vue`。
+
+### 元ファイル受領後の確認手順
+
+1. 使用したCSVを変更せず保全し、見出し・文字コード・該当行の申込日／引渡日の生文字列と表示エラーを照合する。個人情報はリポジトリやログへ転記しない。
+2. CSVで年が欠落している場合は編集元Excelも確認し、セル値・表示形式・保存形式を区別する。CSVをExcelで開き直した表示だけを原値の根拠にしない。
+3. 個人情報を除いた同形式の架空データで、テンプレート→Excel編集→CSV UTF-8保存→プレビュー→Local登録の往復を再現する。年月日・閏日・年跨ぎ・過去日・時刻・空欄・不正日・文字コードを確認する。
+4. 拒否が形式によるものか、日付順序／保証期間など別の業務条件によるものか区別する。1件不正時の全件不登録、行と項目が分かるエラー、原値保持も確認する。
+
+### 修正候補（未採用・未実装）
+
+- 最小案: テンプレート利用時の案内に「申込日・引渡日は4桁年を含む yyyy/mm/dd、保存はCSV UTF-8」を明記し、エラーにも修正例を示す。年が消えたCSVは元Excelから再保存する。
+- 受領値に応じ、年が明示された日本語年月日やゼロ埋めなしハイフン形式の追加対応を検討する。年欠落・二桁年・シリアル値を推測で補完せず、時刻も黙って切り捨てない。
+- Excel編集をより確実に支援する必要があれば、日付書式を設定できるxlsxテンプレート／取込みを別案として比較する。1900／1904日付方式や数式等の検証が増えるため、今回の調査だけでは採用しない。
+- 変更前に現行仕様との差と影響を提示し、承認後に対象テスト・影響範囲の検証を実施する。今回アプリ・API・データ契約・配備設定は変更しない。
+
+### 今回の検証結果
+
+- `node --test test/property-bulk-import.test.mjs`: 33成功、終了0。
+- 架空CSVによる10形式×申込日／引渡日の20組診断: 期待どおり、終了0。最初の診断はエラー項目をmessageではなくfieldに求めた診断側の誤りで終了1。期待値を実際のエラー契約に合わせて全20組を再実行した。
+- `npm run test:rules:focused -- excel-dates`: 1成功、終了0。プレビュー・ISO保存・元値保持・不正入力時の全件拒否を確認し、隔離エミュレーター終了も確認。初回は待受け起動に失敗して終了1、許可された実行環境で再実行して成功した。
+- 文書のみの変更であり、アプリ全体build／包括試験・配備は今回の完了gate対象外。実装変更時は検証方針に従って再選定する。Dev／Prodの業務データを変更していない。

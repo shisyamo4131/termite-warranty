@@ -29,6 +29,17 @@ function prepareView(view,csv='fictional CSV content') {
 }
 const settle=()=>new Promise(resolve=>setImmediate(resolve))
 
+test('Local validation-only preview blocks registration without creating pending state',async()=>{
+  const storage=storageForTest(),calls=[]
+  const view=viewForTest(storage,async payload=>{calls.push(payload)})
+  prepareView(view)
+  view.preview.value.validationOnly=true
+  await view.commitFile()
+  assert.deepEqual(calls,[])
+  assert.equal(storage.map.size,0)
+  assert.equal(view.result.value,null)
+})
+
 test('pending identity stores no source rows, binds scope, and refuses an unrelated overwrite',async()=>{
   const storage=storageForTest(),csvHash=await pending.hashImportCsv('fictional CSV')
   const identity={requestId:'fictional-execution',groupId:'fictional-group',companyId:'fictional-company',format:'common',csvHash,previewHash:'a'.repeat(64),csv:'must never persist',rows:[{address:'must never persist'}]}
