@@ -30,6 +30,21 @@ test('backup submission is journaled once, checks runtime configuration and does
   const f=jobContext();f.unknown=true;await assert.rejects(()=>runProductionBackupJob(o,f));assert.equal(f.rows.has('recovery/operatorLock'),true)
   await assert.rejects(()=>runProductionBackupJob(o,f));assert.equal(f.calls.length,1)
 })
+test('backup target permits only the root slash difference and rejects changed destinations before writes',async()=>{
+  const o={...request,command:'backup-job-run'}
+  for(const slash of [false,true]){
+    const c=jobContext();if(slash)c.service.uri+='/';else c.job.httpTarget.uri+='/'
+    assert.deepEqual(await runProductionBackupJob(o,c),{jobSubmitted:true});assert.deepEqual(c.calls,['run'])
+  }
+  for(const suffix of ['//','/other','/?x=1','/#part','/../','?x=1','#part']){
+    const c=jobContext();c.job.httpTarget.uri+=suffix
+    await assert.rejects(()=>runProductionBackupJob(o,c));assert.equal(c.calls.length,0);assert.equal(c.writes.length,0)
+  }
+  for(const uri of ['http://fictional.example.invalid/','https://fictional.example.invalid.evil/','https://user@fictional.example.invalid/','https://fictional.example.invalid:443/']){
+    const c=jobContext();c.job.httpTarget.uri=uri
+    await assert.rejects(()=>runProductionBackupJob(o,c));assert.equal(c.calls.length,0);assert.equal(c.writes.length,0)
+  }
+})
 function providerFixture(){
   const writes=[],s={db:{name:'projects/fictional-prod/databases/(default)',type:'FIRESTORE_NATIVE',locationId:'asia-northeast1',pointInTimeRecoveryEnablement:'POINT_IN_TIME_RECOVERY_DISABLED'},schedules:[],bucket:null,policy:{bindings:[]}}
   const provider={describe:async()=>s.db,schedules:async()=>s.schedules,configure:async()=>{writes.push('configure');s.db.pointInTimeRecoveryEnablement='POINT_IN_TIME_RECOVERY_ENABLED';s.schedules=[{dailyRecurrence:{},retention:'2592000s'}]}}
