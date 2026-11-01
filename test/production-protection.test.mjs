@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {productionProtectionProvider,protectionBucketSpec,protectionRequestAllowed,configureProductionProtection} from '../scripts/lib/production-protection.mjs'
+import {authProtectionRequestAllowed,preserveProductionAuthConfiguration} from '../scripts/lib/production-auth-protection.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',control:'recovery-control'}
 const request={target,generation:1,operation:'fictional-protect',approval:'fictional-approval',revision:'a'.repeat(40)}
 const ready={foundationReady:true,pitrEnabled:true,dailySchedules:1,privateBucket:true}
@@ -30,7 +31,7 @@ function context(){
   const state={protocol:2,phase:'normal',generation:1,databaseId:'(default)',controlDatabaseId:target.control}
   const rows=new Map([['recovery/runtime',state]]),marker=structuredClone(state),writes=[],calls=[]
   const snap=key=>({exists:rows.has(key),data:()=>rows.get(key)})
-  const control={doc:path=>({path}),collection:()=>({limit:()=>({query:true})}),runTransaction:async fn=>{
+  const control={doc:path=>({path,get:async()=>snap(path),create:async value=>{assert.ok(!rows.has(path));rows.set(path,value);writes.push(path)}}),collection:()=>({limit:()=>({query:true})}),runTransaction:async fn=>{
     const changes=[],tx={get:async ref=>ref.query?{size:0}:snap(ref.path),create:(ref,v)=>{assert.ok(!rows.has(ref.path));changes.push(['create',ref.path,v])},update:(ref,v)=>changes.push(['update',ref.path,v]),delete:ref=>changes.push(['delete',ref.path])}
     await fn(tx);for(const [kind,key,value] of changes){writes.push(key);if(kind==='delete')rows.delete(key);else rows.set(key,kind==='update'?{...rows.get(key),...value}:value)}
   }}
@@ -59,4 +60,39 @@ test('unknown provider outcome retains journal and lock; explicit stopped-worker
   c.protection.inspect=async()=>({...ready,foundationReady:false});await assert.rejects(()=>configureProductionProtection(resume,c))
   c.protection.inspect=async()=>ready;assert.deepEqual(await configureProductionProtection(resume,c),ready)
   assert.equal(c.calls.length,1);assert.equal(c.rows.has('recovery/operatorLock'),false)
+})
+
+const config={schemaVersion:1,project:target.project,hashConfig:{algorithm:'SCRYPT',signerKey:Buffer.from('fictional-key').toString('base64'),saltSeparator:'',rounds:8,memoryCost:14}}
+function authContext(){
+  const c=context(),object=`hash-configuration/${request.operation}.json`,bucket=protectionBucketSpec(target).name
+  let stored
+  c.request=async(url,method='GET',body)=>{
+    if(url.startsWith('https://identitytoolkit.googleapis.com/'))return {name:`projects/${target.project}/config`,signIn:{hashConfig:config.hashConfig}}
+    assert.equal(method,'POST');c.calls.push('upload');assert.equal(stored,undefined);stored=JSON.stringify(body)
+    return {bucket,name:object,generation:'1'}
+  }
+  c.requestRaw=async url=>url.includes('alt=media')?{ok:true,arrayBuffer:async()=>Buffer.from(stored)}:{ok:true,json:async()=>({generation:'1',size:String(Buffer.byteLength(stored))})}
+  return c
+}
+test('Auth configuration request scope rejects other objects, overwrite, IAM and Auth changes',()=>{
+  const root=`https://storage.googleapis.com/upload/storage/v1/b/${protectionBucketSpec(target).name}/o`,url=root+`?uploadType=media&name=${encodeURIComponent('hash-configuration/'+request.operation+'.json')}&ifGenerationMatch=0`
+  assert.equal(authProtectionRequestAllowed(url,'POST',target,request.operation,config),true)
+  for(const other of [url.replace('ifGenerationMatch=0','ifGenerationMatch=1'),url.replace('hash-configuration','auth'),url+'&x=1'])assert.equal(authProtectionRequestAllowed(other,'POST',target,request.operation,config),false)
+  assert.equal(authProtectionRequestAllowed(url,'DELETE',target,request.operation),false)
+  assert.equal(authProtectionRequestAllowed(url,'POST',target,request.operation,{...config,extra:'no'}),false)
+})
+test('Auth configuration preserves a generation-pinned private copy and leaves business/Auth untouched',async()=>{
+  const c=authContext(),o={...request,command:'auth-protection-configure'}
+  assert.deepEqual(await preserveProductionAuthConfiguration(o,c),{hashConfigurationVerified:true})
+  assert.equal(c.rows.get('recovery/hashConfigurationEvidence').generation,'1')
+  assert.deepEqual(c.calls,['upload']);assert.equal(c.rows.has('recovery/operatorLock'),false)
+  assert.ok(c.writes.every(k=>['recovery/hashConfigurationEvidence','recovery/operatorLock',`productionProtection/${o.operation}`].includes(k)))
+  await assert.rejects(()=>preserveProductionAuthConfiguration(o,c));assert.deepEqual(c.calls,['upload'])
+})
+test('Auth malformed source, foreign evidence and in-flight export prevent upload; unknown outcome retains lock',async()=>{
+  for(const mutate of [c=>c.request=async()=>({name:'foreign'}),c=>c.rows.set('recovery/hashConfigurationEvidence',{object:'foreign'}),c=>c.rows.set('recovery/authExportLock',{owner:'busy'})]){
+    const c=authContext();mutate(c);await assert.rejects(()=>preserveProductionAuthConfiguration({...request,command:'auth-protection-configure'},c));assert.equal(c.calls.length,0)
+  }
+  const c=authContext(),original=c.request;c.request=async(...args)=>{if(args[1]==='POST')throw Error('unknown');return original(...args)}
+  await assert.rejects(()=>preserveProductionAuthConfiguration({...request,command:'auth-protection-configure'},c));assert.equal(c.rows.get('recovery/operatorLock').kind,'production-auth-protection')
 })

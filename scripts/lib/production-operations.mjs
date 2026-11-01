@@ -6,6 +6,7 @@ import {scanDatabase} from './recovery-controller.mjs'
 import {randomUUID} from 'node:crypto'
 import {backupHealth} from '../../src/domain/backup-health.mjs'
 import {configureProductionProtection} from './production-protection.mjs'
+import {preserveProductionAuthConfiguration} from './production-auth-protection.mjs'
 const refuse=()=>{throw Error('Production operation refused or interrupted; inspect private evidence before retrying.')}
 const commandKeys={
   observe:[],initialize:[],administrator:['generation','operation','approval','administrator','resumeOwner','workerStopped'],
@@ -13,6 +14,7 @@ const commandKeys={
   preflight:['generation','bundle','digest','providerVersion'],backups:[],'auth-inspect':['bucket'],
   'configure-backups':['generation','operation','approval'],
   'protection-inspect':[],'protection-configure':['generation','operation','approval','resumeOwner','workerStopped'],
+  'auth-protection-configure':['generation','operation','approval','resumeOwner','workerStopped'],
   enter:['generation','operation','approval'],baseline:['generation','operation','approval'],
   restore:['generation','operation','approval','targetDatabase','backup','snapshotTime'],
   'restore-status':['generation','operation','approval','targetDatabase','restoreOperation','workerStopped'],
@@ -47,7 +49,7 @@ export function productionOperation(value){
   if(o.command==='intake-apply'&&(!o.input||typeof o.input!=='object'||!/^\d{4}-\d{2}-\d{2}$/.test(o.today??'')||!/^[-\w]{1,128}$/.test(o.actorUid??'')))refuse()
   if(o.resumeOwner!==undefined&&(!o.workerStopped||!/^[-\w]{8,80}$/.test(o.resumeOwner))||o.workerStopped!==undefined&&o.workerStopped!==true)refuse()
   if(['resume','recover-operator'].includes(o.command)&&!o.resumeOwner)refuse()
-  if(o.command==='protection-configure'&&Boolean(o.resumeOwner)!==Boolean(o.workerStopped))refuse()
+  if(['protection-configure','auth-protection-configure'].includes(o.command)&&Boolean(o.resumeOwner)!==Boolean(o.workerStopped))refuse()
   if(o.command==='recovery-worker-resume'&&(!o.workerStopped||Boolean(o.resumeOwner)!==Boolean(o.recoveryWorkerStopped)||o.recoveryWorkerStopped!==undefined&&o.recoveryWorkerStopped!==true))refuse()
   if(commandKeys[o.command].includes('bundle')&&(typeof o.bundle!=='string'||!o.bundle||!new RegExp(`^sites/${target.site}/versions/[-a-zA-Z0-9]+$`).test(o.providerVersion??'')))refuse()
   if(o.command==='auth-inspect'&&(!/^[a-z0-9][a-z0-9.-]{1,220}[a-z0-9]$/.test(o.bucket??'')||o.bucket==='termite-warranty-dev-recovery-auth'))refuse()
@@ -60,6 +62,7 @@ export async function dispatchProductionOperation(o,c){
   if(!o.readOnly)await c.assertRules()
   if(o.command==='protection-inspect')return c.protection.inspect()
   if(o.command==='protection-configure')return configureProductionProtection(o,c)
+  if(o.command==='auth-protection-configure')return preserveProductionAuthConfiguration(o,c)
   if(o.command==='observe')return fixed.status()
   if(o.command==='initialize')return initializeProductionData({database,controlId:o.target.control,factory:fixed})
   if(o.command==='administrator')return bindProductionAdministrator({database,auth,controlId:o.target.control,...o,input:o.administrator})
