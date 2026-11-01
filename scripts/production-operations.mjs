@@ -19,6 +19,7 @@ import {readPrivateAuthObject,authImportOptions,loadAuthAuthority,missingAuthPla
 import {assertPrivateAuthBucket} from '../src/domain/backup-health.mjs'
 import {productionProtectionProvider,protectionRequestAllowed} from './lib/production-protection.mjs'
 import {authProtectionRequestAllowed} from './lib/production-auth-protection.mjs'
+import {backupJobRequestAllowed} from './lib/production-backup-job.mjs'
 
 async function main(){
   const [mode,path,confirmation]=process.argv.slice(2)
@@ -42,7 +43,8 @@ async function main(){
       o.command==='restore'&&method==='POST'&&!u.search&&[resource+'/databases:restore',resource+'/databases:clone'].includes(u.pathname))
     const foundation=['protection-inspect','protection-configure'].includes(o.command)&&protectionRequestAllowed(url,method,target,mode==='execute',body)
     const authProtection=o.command==='auth-protection-configure'&&(protectionRequestAllowed(url,method,target,false)||authProtectionRequestAllowed(url,method,target,o.operation,body))
-    if(u.protocol!=='https:'||u.username||u.password||u.hash||!(method==='GET'&&(productionReadAllowed(url,target)||bucketRead)||providerWrite||foundation||authProtection))throw Error('Unapproved request.')
+    const backupJob=o.command==='backup-job-run'&&mode==='execute'&&(protectionRequestAllowed(url,method,target,false)||backupJobRequestAllowed(url,method,target,body))
+    if(u.protocol!=='https:'||u.username||u.password||u.hash||!(method==='GET'&&(productionReadAllowed(url,target)||bucketRead)||providerWrite||foundation||authProtection||backupJob))throw Error('Unapproved request.')
     return fetch(url,{method,headers:{Authorization:`Bearer ${(await credentials.credential.getAccessToken()).access_token}`,'Content-Type':'application/json'},redirect:'error',signal:AbortSignal.timeout(60000),...(body?{body:JSON.stringify(body)}:{})})
   }
   const request=async(url,method,body)=>{const response=await requestRaw(url,method,body);if(!response.ok){const error=Error('Provider request failed.');error.status=response.status;throw error}const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>4*1024*1024)throw Error('Read budget exceeded.');chunks.push(Buffer.from(chunk))}return JSON.parse(Buffer.concat(chunks).toString())}
@@ -76,6 +78,7 @@ async function main(){
     for(const key of ['phase','generation','initialized','administratorBound','maintenanceRetained','complete','properties','documents','restoreSubmitted','restoreDone','accounts','missing','preserved','deleteCount','inventoryHash','authorizationHash','accountHash','count','hash','status'])if(['boolean','string','number'].includes(typeof result?.[key]))safe[key]=result[key]
     if(o.command==='preflight')safe.releaseVerified=result===true
     if(o.command==='auth-protection-configure')safe.hashConfigurationVerified=result.hashConfigurationVerified===true
+    if(o.command==='backup-job-run')safe.jobSubmitted=result.jobSubmitted===true
     if(o.command==='observe'){safe.phase=result.runtime?.phase??null;safe.generation=result.runtime?.generation??null;safe.activeOperations=result.activeOperations;safe.operatorBlocked=result.operatorBlocked}
     if(o.command==='backups'){safe.schedules=result.schedules.length;safe.backups=result.backups.length;safe.policyVerified=result.policyVerified;safe.firestoreBackupStatus=result.firestoreBackupStatus}
     if(o.command.startsWith('protection-'))for(const key of ['pitrEnabled','dailySchedules','privateBucket','foundationReady'])safe[key]=result[key]

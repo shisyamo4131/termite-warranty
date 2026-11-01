@@ -4,6 +4,12 @@
 
 ### 保護基盤の成功とAuth退避経路の整備
 
+追加候補：`backup-job-run`は固定Scheduler 1件だけをGET／runし、Cloud Runの専用SA・自動退避パラメータ・URI一致・保護基盤・正常世代を確認。既存排他と永続journalを使い、重複要求と結果不明時の再送を拒否する。成功出力は起動受付だけであり、Auth読戻し・初回READYの成功とは区別する。Local重点32試験、`npm test`667成功・既存2skip、各exit0。包括7gateを選定し型/build/Rules207/Functions構文/seed構文は本日成功証拠を再利用（app/functions/domain/依存/Rules/build設定は不変）。新試験のtimeout擬似値の参照誤りを修正し再実行済み。実ジョブ起動は未実施。
+
+Auth保全候補c7ae06f（dev履歴取込みa0edb9e）のDev run41270196562は12:41:51–12:43:37 JSTに成功（build46秒、配備照合53秒）。PR #67をdev9b26b12へ、PR #68をmainaa934bfへ必須CI成功後に通常merge。Prod run41270446982は12:45:42–12:52:32 JSTに成功（分類23秒、成果物検証2分9秒、配備照合4分10秒）。Auth保全の専用run41270893259は同mainで成功し、12:54:48 JSTにhashConfigurationVerified=trueを確認（exit0）。SCRYPT設定を固定private bucketへ上書き禁止保存し、generationを指定して読戻した。秘密値はrunner内とCloud保存先だけで扱った。これはAuthユーザー一覧の実退避ではない。業務アプリの機能変更・業務データ操作は今回含まない。 最終読取りrun41271045566は12:57:40 JSTにschedules=1、backups=0、policyVerified=true、firestoreBackupStatus=missingを返しexit0。日次予定の設定は成功、初回READYは未取得。全run終了後に一時PRODUCTION_OPERATION_REQUESTを削除し、production-operationsのsecret一覧が空であることを確認した。
+
+次の通知・初回ジョブ検証の具体IAM案は[backup-monitoring-iam-plan.json](../../deliverables/production-bootstrap-2026-10-13/backup-monitoring-iam-plan.json)。通知先・policyの新規作成／読取り、Logging通知ruleの作成、非機密試験logの書込みと、管理画面で実在を確認した東京のbackup monitor1ジョブだけのget/run。本人は2ロールの作成・限定付与を承認。prodProtectionJobRunは作成・固定1ジョブ条件で付与・読戻し済み。通知先3権限がCloud画面で「テスト／本番非推奨」と判明したためprodProtectionMonitoringは未作成。本人は本番非推奨構成の採用を拒否したため、このカスタムロール案を不採用とする。通知経路・ジョブ起動処理は未実装。先行の7ロールには含まれない。本人は必要ならHS管理用メール宛でもよいと回答したが、注意表示は宛先ではなくカスタムロールでの権限利用に起因するため、宛先変更だけでは解消しない。宛先変更を確定扱いせず、既存Ownerによる通知設定だけの限定操作など、サポートされた設定経路を提示して判断を得る。11/1、本人は通知設定・到達試験だけHS Ownerによる実施を承認。指定開発側宛先を維持し、新規カスタム通知ロールは作らない。13:09 JSTにメールchannel作成、続いてProd recovery backup failure（policy 13629980922042660260）を作成・有効状態を読戻した。Cloud RunのrecoverybackupmonitorかつrecoveryBackupFailure=trueだけを対象、通知間隔1時間・自動close7日。これは通知受信の証拠ではない。Cloud Shellの本人確認待ちで試験ログ未送信。既存policy変更／削除・復元・Dev権限を含めない。
+
 11/1、本人が7ロールの新規作成・限定付与を具体的に承認し、HS Ownerの管理画面から適用。prod-backupに4ロール、prod-operatorに3ロールを追加し、既存7ロールを保持したoperatorの計10ロールと各条件を読戻した。固定bucketのauth/新規保存はruntime、hash-configuration/新規保存と両prefix読取りはoperatorへ分離。ユーザー変更・業務データ変更・削除権限・WIF変更は追加しない。
 
 Local検証（追加候補）：`npm test`665成功・既存2skip、exit0。sandbox内では一時Git作成・renameの権限不足により7件失敗したため、同一試験を通常権限で再実行して成功。重点30試験・ガバナンス検査もexit0。包括7gateを選定し、型／build／Rules207／Functions構文／seed構文は前節の11/1成功証拠を再利用（失効対象不変）。Cloud実行は未実施。
