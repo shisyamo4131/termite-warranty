@@ -1,0 +1,23 @@
+{
+  "status": "applied-and-console-readback-2026-11-01",
+  "project": "termite-warranty-prod",
+  "runtimeServiceAccount": "prod-backup@termite-warranty-prod.iam.gserviceaccount.com",
+  "operatorServiceAccount": "prod-operator@termite-warranty-prod.iam.gserviceaccount.com",
+  "roles": [
+    {"roleId":"prodBackupMetadata","permissions":["datastore.databases.getMetadata","datastore.backups.get","datastore.backups.list","firebaseauth.users.get","firebaseauth.configs.getHashConfig"],"principal":"runtime","condition":null},
+    {"roleId":"prodBackupBusinessRead","permissions":["datastore.entities.get"],"principal":"runtime","condition":"resource.name == 'projects/termite-warranty-prod/databases/(default)'"},
+    {"roleId":"prodBackupControl","permissions":["datastore.databases.get","datastore.entities.get","datastore.entities.list","datastore.entities.create","datastore.entities.update","datastore.entities.delete"],"principal":"runtime","condition":"resource.name == 'projects/termite-warranty-prod/databases/recovery-control'"},
+    {"roleId":"prodBackupBucket","permissions":["storage.buckets.get","storage.buckets.getIamPolicy","storage.objects.create"],"principal":"runtime","condition":"resource.name == 'projects/_/buckets/termite-warranty-prod-auth-backups-988295873733' || resource.name.startsWith('projects/_/buckets/termite-warranty-prod-auth-backups-988295873733/objects/auth/')"},
+    {"roleId":"prodProtectionEvidenceRead","permissions":["datastore.backups.get","datastore.backups.list","firebaseauth.configs.get","firebaseauth.configs.getHashConfig"],"principal":"operator","condition":null},
+    {"roleId":"prodProtectionEvidenceObjects","permissions":["storage.objects.get"],"principal":"operator","condition":"resource.name.startsWith('projects/_/buckets/termite-warranty-prod-auth-backups-988295873733/objects/auth/') || resource.name.startsWith('projects/_/buckets/termite-warranty-prod-auth-backups-988295873733/objects/hash-configuration/')"},
+    {"roleId":"prodProtectionHashCreate","permissions":["storage.objects.create"],"principal":"operator","condition":"resource.name.startsWith('projects/_/buckets/termite-warranty-prod-auth-backups-988295873733/objects/hash-configuration/')"}
+  ],
+  "preserveExistingBindings": true,
+  "createKeys": false,
+  "changeWif": false,
+  "authUserMutation": false,
+  "businessDataMutation": false,
+  "backupDeletion": false,
+  "scopeExcludes": ["restore permissions", "notification setup", "Dev permissions"],
+  "sensitiveAccess": "Read Auth password hashes and project hash configuration only within protected cloud runtime; never print or store in Git, logs, artifacts or local files."
+}

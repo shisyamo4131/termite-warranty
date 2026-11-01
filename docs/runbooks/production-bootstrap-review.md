@@ -1,5 +1,25 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-11-01 専用運用経路の統合・保護基盤設定
+
+### 保護基盤の成功とAuth退避経路の整備
+
+11/1、本人が7ロールの新規作成・限定付与を具体的に承認し、HS Ownerの管理画面から適用。prod-backupに4ロール、prod-operatorに3ロールを追加し、既存7ロールを保持したoperatorの計10ロールと各条件を読戻した。固定bucketのauth/新規保存はruntime、hash-configuration/新規保存と両prefix読取りはoperatorへ分離。ユーザー変更・業務データ変更・削除権限・WIF変更は追加しない。
+
+Local検証（追加候補）：`npm test`665成功・既存2skip、exit0。sandbox内では一時Git作成・renameの権限不足により7件失敗したため、同一試験を通常権限で再実行して成功。重点30試験・ガバナンス検査もexit0。包括7gateを選定し、型／build／Rules207／Functions構文／seed構文は前節の11/1成功証拠を再利用（失効対象不変）。Cloud実行は未実施。
+
+追加実装候補：main限定の既存専用運用経路に`auth-protection-configure`、読取り専用の`backups`／`auth-inspect`を追加。固定projectのAuth設定をworker内で読み、SCRYPT形式を検証し、固定bucketのhash-configuration/に上書き禁止で保存。同一generationを指定して内容を読戻してからcontrolへ参照をcreateする。正常世代・運用排他・Auth退避排他を維持し、結果不明ではjournalとロックを残して再送しない。秘密値をLocal・Git・ログ・artifactへ出さない。これはhash設定の保全経路であり、Authユーザーの実退避・自動処理・通知・復元実証は別の未完了gate。
+
+run41268520450の読取りでnormal・generation3・activeOperations0・operatorBlocked=falseを確認。専用経路run41268732045は12:22:16 JSTにpitrEnabled=true、dailySchedules=1、privateBucket=true、foundationReady=trueを返し、exit0で完了（job2分31秒）。固定Auth bucketの東京・公開禁止・統一アクセス・auth/30日削除・soft deleteなしを同実行器で読戻した。作成後、prodProtectionBucketCreateの付与を解除し、残る2つの追加ロールと既存5ロールを画面で確認。Owner・既存請求先・WIF・長期鍵は変更しない。
+
+管理画面でも日次30日・PITR保持7日を確認。12:23頃の最古利用可能時点は11/1 11:23 JST、backup一覧は0件。これは設定完了であり初回READY・復元実証ではない。Auth bucketにもまだ認証データを退避していない。実行後の読取りrun41269003754は12:26:18 JSTにnormal・generation3・activeOperations0・operatorBlocked=falseを返して成功。全run終了後、一時PRODUCTION_OPERATION_REQUESTを削除し、環境secret一覧0件を確認した。
+
+Auth実退避・読戻しの[専用runtime／証拠確認用IAM案](../../deliverables/production-bootstrap-2026-10-13/backup-runtime-iam-plan.json)は本人承認後に適用済み。コンソールで既存prod-backup（Production backup runtime）の存在・有効状態を確認した。runtimeは業務DBの読取り、control文書の排他・履歴操作、backupメタデータ、Authユーザーとパスワードhash読取り、固定bucketの設定読取りとauth/への新規保存に限定する。operatorはbackup一覧／Auth hash設定の読取り、固定auth/・hash-configuration/の読戻し、hash-configuration/だけの新規保存を追加する。ユーザーの作成・更新・削除、業務文書更新、退避objectの削除、復元権限、通知設定、Dev権限はこの案に含まない。hash等はクラウド内だけで扱いGit・ログ・artifact・Localへ出力しない。7ロールは作成・付与・読戻し済み。実Auth退避・通知・復元検証は未完了。
+
+Local候補7494b46をdev履歴と統合した4073fdbを、Dev run41267405653で配備・照合成功（12:00:24–12:02:08 JST、build46秒・配備照合55秒）。業務アプリは受入れ済みca5ad00から不変。必須CI成功後、PR #65をdev7434380、PR #66をmain084dca6へ通常mergeした。mainのProd run41267856558は12:07:04–12:13:43 JST、全成功（分類20秒・成果物検証2分30秒・配備照合3分38秒）。default/control Rules、索引READY、Functions21本/ソース21、Hosting56ファイル/2回観測の全5照合成功。
+
+実行経緯：本人は追加IAM・専用経路の統合・保護設定を承認したが、HS OwnerのコンソールでprodProtectionDatabase（3権限）の作成を押した際、自動承認レビューが「具体的なカスタムIAMロール作成への信頼できる承認がない」と拒否した。その後、本人が3ロールの新規作成・条件付き付与・作成権限の後片付けを具体名で承認し、停止は解消。以降の設定・解除・照合結果は上記のとおり。以下のLocal候補節は統合前の設計・検証記録として残す。
+
 ## 2026-11-01 専用経路による保護基盤設定（Local候補）
 
 追加ロール名・条件・完了後の解除対象は[機械可読のIAM案](../../deliverables/production-bootstrap-2026-10-13/protection-iam-plan.json)に記録。これは提案であり、実IAMの存在／適用を示さない。

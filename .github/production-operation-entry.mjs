@@ -9,7 +9,7 @@ import {target} from '../scripts/production-auth-probe.mjs'
 import {administratorInput,requireClosed} from '../scripts/lib/production-bootstrap-data.mjs'
 
 export const workflowRef=target.repository+'/.github/workflows/execute-production-operation.yml@refs/heads/main'
-const allowed=new Set(['observe','initialize','administrator','intake-inspect','intake-apply','plan-intake','preflight','publish','reopen','protection-inspect','protection-configure'])
+const allowed=new Set(['observe','initialize','administrator','intake-inspect','intake-apply','plan-intake','preflight','publish','reopen','protection-inspect','protection-configure','auth-protection-configure','auth-inspect','backups'])
 const refuse=()=>{throw Error('Production operation admission refused.')}
 export function admit(env,encoded,digest){
   if(env.GITHUB_ACTIONS!=='true'||env.GITHUB_EVENT_NAME!=='workflow_dispatch'||env.GITHUB_REF!=='refs/heads/main'||env.GITHUB_REPOSITORY!==target.repository||env.GITHUB_REPOSITORY_ID!==target.repositoryId||env.GITHUB_REPOSITORY_OWNER_ID!==target.ownerId||env.GITHUB_WORKFLOW_REF!==workflowRef||!/^\w{40}$/.test(env.GITHUB_SHA??'')||Object.keys(env).some(k=>k.endsWith('_EMULATOR_HOST')&&env[k])||env.FUNCTIONS_EMULATOR==='true'||env.FIREBASE_TOKEN||env.TERMITE_TEST_RUN)refuse()
@@ -26,6 +26,7 @@ export function admit(env,encoded,digest){
   }else{
     if(!allowed.has(o.command))refuse()
     productionOperation(o)
+    if(o.command==='auth-inspect'&&o.bucket!==`${target.project}-auth-backups-${target.number}`)refuse()
     if(o.bundle!==undefined&&o.bundle!=='.production-release')refuse()
   }
   return o
