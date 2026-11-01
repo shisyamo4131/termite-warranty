@@ -1,8 +1,19 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { assertApprovedPrototypeRuntime, assertLocalPrototypeRuntime, resolveProjectId } from '../functions/local-runtime.js'
+import { assertApprovedPrototypeRuntime, assertLocalPrototypeRuntime, resolveProjectId, localBulkImportValidationOnly } from '../functions/local-runtime.js'
 import { LOCAL_RUNTIME, localRuntimeHost } from '../src/config/local-emulator.mjs'
 import { TEST_RUNTIME, isIsolatedTestEnvironment } from '../functions/test-emulator-profile.js'
+
+test('manual Local import pause requires explicit switch and exact Local runtime', () => {
+  const env = { FUNCTIONS_EMULATOR: 'true', GCLOUD_PROJECT: 'demo-termite-warranty', FIRESTORE_EMULATOR_HOST: '127.0.0.1:28080', TERMITE_LOCAL_IMPORT_VALIDATION_ONLY: 'true' }
+  assert.equal(localBulkImportValidationOnly(env), true)
+  for (const patch of [
+    { TERMITE_LOCAL_IMPORT_VALIDATION_ONLY: undefined }, { TERMITE_LOCAL_IMPORT_VALIDATION_ONLY: 'false' },
+    { FUNCTIONS_EMULATOR: 'false' }, { GCLOUD_PROJECT: 'termite-warranty-dev' },
+    { GCLOUD_PROJECT: 'termite-warranty-prod' }, { FIRESTORE_EMULATOR_HOST: '127.0.0.1:38080' },
+    { TERMITE_TEST_RUN: 'isolated' },
+  ]) assert.equal(localBulkImportValidationOnly({ ...env, ...patch }), false)
+})
 
 test('test profile requires all isolated endpoints, project and run identity; Local is not a fallback', () => {
   const env = { FUNCTIONS_EMULATOR:'true', TERMITE_TEST_RUN:'12345678-1234-1234-1234-123456789abc',

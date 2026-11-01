@@ -1352,9 +1352,13 @@ test('property replay binds submitted content and legacy evidence never claims a
   assert.deepEqual((await receiptRef.get()).data(),legacy)
   assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),before)
   await receiptRef.delete()
+  // New drafts have no business history fallback. Legacy stored drafts still do.
+  await assert.rejects(propertyPrototypeOperation(auth,db,payload,'meeting-hs'),{code:'aborted'})
+  const legacyDraft={...before,history:[{kind:'save',requestId:payload.requestId}]}
+  await db.doc('propertyWarranties/'+key).set(legacyDraft)
   assert.equal((await propertyPrototypeOperation(auth,db,payload,'meeting-hs')).operationStatus,'legacy-unverified')
   assert.equal((await receiptRef.get()).exists,false)
-  assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),before)
+  assert.deepEqual((await db.doc('propertyWarranties/'+key).get()).data(),legacyDraft)
 })
 
 test('master creation retries return one identity without undoing later edits or disable',async()=>{
@@ -1445,4 +1449,73 @@ test('configured group caps cover draft, registration, edits, extension snapshot
  const after=await supplementGroupWarrantyLimits(target,assignments)
  assert.equal(after.updates.length,0);assert.equal(after.propertiesDigest,plan.propertiesDigest)
  assert.deepEqual((await target.doc('propertyWarranties/p').get()).data(),current)
+})
+
+
+test('draft deletion enforces ownership, releases keys, removes history and rejects concurrent stale writers',async()=>{
+  // Separate named emulator database: generation changes cannot affect other suites.
+  const target=getFirestore(app,'draft-deletion-test')
+  for(const collection of ['staffAccounts','constructionCompanyAccounts','constructionCompanies','companyBranches','warrantyGroups']){
+    for(const row of (await db.collection(collection).get()).docs)await target.doc(`${collection}/${row.id}`).set(row.data())
+  }
+  await target.doc('staffAccounts/meeting-hs').set({enabled:true,role:'house_solution_administrator'})
+  for(const [uid,company,scope,branchId] of [['meeting-head','meeting-co','company',''],['meeting-branch-user','meeting-co','branch','meeting-branch'],['meeting-otherbranch','meeting-co','branch','other'],['meeting-otherco','other','company','']])await target.doc('constructionCompanyAccounts/'+uid).set({enabled:true,role:'construction_company',constructionCompanyId:company,scope,branchId})
+  await target.doc('warrantyGroups/HSC').set({...initialGroups.find(g=>g.id==='HSC'),externalKeyRequired:true,externalKeyLabel:'外部キー'})
+  await target.doc('constructionCompanies/meeting-co').set({name:'架空工務店',defaultGroupId:'HSC',enabled:true})
+  await target.doc('companyBranches/meeting-branch').set({name:'架空支店',constructionCompanyId:'meeting-co',branchCode:'9001',enabled:true})
+  await target.doc('branchCodeReservations/'+createHash('sha256').update('meeting-co\0'+'9001').digest('hex')).set({constructionCompanyId:'meeting-co',branchCode:'9001',branchId:'meeting-branch'})
+  const invoke=(action,input={},uid='meeting-hs')=>propertyPrototypeOperation(auth,target,{action,...input},uid)
+  const epoch=async()=> (await invoke('creationContext')).creationEpoch
+  const make=async(id,key='KEY-'+id)=>{const payload=command(id,0,{creationEpoch:await epoch(),fields:{...fields,externalKey:key}});await invoke('save',payload);return payload}
+  const remove=(id,revision=1,uid='meeting-hs')=>invoke('deleteDraft',command(id,revision),uid)
+  const saved=await make('delete-owned','draft-reusable-key')
+  const ref=target.doc('propertyWarranties/delete-owned')
+  assert.equal(Object.hasOwn((await ref.get()).data(),'history'),false)
+  for(const uid of ['meeting-otherbranch','meeting-otherco'])await assert.rejects(remove('delete-owned',1,uid),e=>e.code==='permission-denied')
+  await assert.rejects(remove('delete-owned',0),e=>e.code==='aborted')
+  await ref.update({history:[{kind:'save',requestId:'old-draft-history'}]})
+  await remove('delete-owned',1,'meeting-branch-user')
+  assert.equal((await ref.get()).exists,false)
+  const keyRef=target.doc('externalKeyReservations/'+createHash('sha256').update('draft-reusable-key').digest('hex'))
+  assert.equal((await keyRef.get()).exists,false)
+  assert.equal((await target.collection('propertyOperationReceipts').where('propertyId','==','delete-owned').get()).size,0)
+  assert.deepEqual((await target.doc('prototypeSettings/propertyCreation').get()).data(),{epoch:1})
+  assert.equal((await remove('delete-owned')).absent,true)
+  await assert.rejects(invoke('save',saved),e=>e.code==='failed-precondition')
+  await assert.rejects(invoke('register',{...saved,requestId:crypto.randomUUID()}),e=>e.code==='failed-precondition')
+  await assert.rejects(invoke('save',command('delete-owned',1,{creationEpoch:await epoch()})),e=>e.code==='aborted')
+  assert.equal((await ref.get()).exists,false)
+  await make('reuse-key','draft-reusable-key')
+  await remove('reuse-key',1,'meeting-head')
+  // Formal registration also reuses the released external key; no draft snapshots retained.
+  await make('formal','draft-reusable-key')
+  await invoke('register',command('formal',1,{fields:{...fields,externalKey:'draft-reusable-key'}}))
+  const formal=(await target.doc('propertyWarranties/formal').get()).data()
+  assert.deepEqual(formal.history.map(row=>row.kind),['register'])
+  assert.equal(formal.history[0].before,null)
+  await assert.rejects(remove('formal',2),e=>e.code==='failed-precondition')
+  for(const action of ['save','register']){
+    const id='race-'+action,payload=await make(id)
+    const results=await Promise.allSettled([remove(id),invoke(action,{...payload,revision:1,requestId:crypto.randomUUID()})])
+    assert.equal(results.filter(row=>row.status==='fulfilled').length,1)
+    const row=(await target.doc('propertyWarranties/'+id).get()).data()
+    if(row){assert.equal(row.revision,2);if(row.status==='draft')await remove(id,2)}
+    else assert.equal((await target.collection('propertyOperationReceipts').where('propertyId','==',id).get()).size,0)
+  }
+  // The released key is also available to the existing bulk-import path.
+  await make('bulk-reuse','KEY-bulk-reuse')
+  await remove('bulk-reuse')
+  const values={'外部キー':'KEY-bulk-reuse','本支店コード':'9001','物件名':'架空再利用','申込日':'2026/10/01','引渡日':'2026/10/01','最長保証期間':'20','建築面積':'100','断熱材あり':'なし','住所':'架空住所1-1'}
+  const csv=CSV_TEMPLATE_HEADERS.join(',')+'\r\n'+CSV_TEMPLATE_HEADERS.map(header=>values[header.replace('（＊）','')]??'').join(',')
+  const bulk={groupId:'HSC',companyId:'meeting-co',format:'common',requestId:'deleted-key-import',csv}
+  const preview=await propertyBulkImportOperation(target,{...bulk,action:'preview'},'meeting-hs')
+  assert.deepEqual(preview.errors,[])
+  const imported=await propertyBulkImportOperation(target,{...bulk,action:'commit',confirmed:true,previewHash:preview.previewHash},'meeting-hs')
+  assert.equal(imported.count,1)
+  await make('double-delete')
+  const twice=await Promise.all([remove('double-delete'),remove('double-delete')])
+  assert.ok(twice.every(row=>row.absent===true))
+  assert.equal((await target.doc('propertyWarranties/double-delete').get()).exists,false)
+  await target.doc('constructionCompanyAccounts/meeting-head').update({enabled:false})
+  await assert.rejects(remove('absent',1,'meeting-head'),e=>e.code==='permission-denied')
 })
