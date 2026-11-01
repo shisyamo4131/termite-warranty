@@ -2,6 +2,10 @@
 
 ## 2026-11-01 納品資料統合と再配備の準備
 
+資料・記録と限定PDF分類をb48c86bでcommit/push、[PR #73](https://github.com/shisyamo4131/termite-warranty/pull/73)へ集約。mainとの製品入力digest不変をexit0で確認した。CI分類変更を含むため、検証入力digestは変更あり。Dev [run41277298463](https://github.com/shisyamo4131/termite-warranty/actions/runs/41277298463)は14:34:06 JSTに成功（build51秒、配備・照合71秒）。ready=true、21 Functions ACTIVE、publicEntry=true、PITR=false・日次0・自動退避falseを確認。全source ZIP／Hosting hash比較は既存Dev方針どおり実施せず、Prodの全5照合とは区別する。PRの初回必須checkは26秒で成功。
+
+Prod [run41274379201 attempt2](https://github.com/shisyamo4131/termite-warranty/actions/runs/41274379201/attempts/2)は14:37:54 JSTに成功。対象main c629c94、分類21秒・成果物検証123秒・配備照合235秒。14:37:49の実出力はready=true、両DB Rules・索引READY・21 Functions/21 source archive・Hosting56ファイル2回一致の全5項目pass。保護有効パラメータを維持。配備後のPR統合は文書/CIのみのため自動配備を省略し、最終dev/mainと実配備版の製品入力一致を確認する。日次DB初回backupと日次backup復元は引き続き未完了で、配備成功と混同しない。統合状態はPRとGit履歴を正本とし、未生成backupを待って既存の成功配備を再実行しない。
+
 追加指示：日次DB初回生成・日次backupからの隔離復元を継続し、保護記録・納品PDFをcommit/push、PRでdev/mainへ統合して両環境の配備を終える。初回日次backupは現時点の再読取りでも0件。PITR成功を日次backup成功に読み替えず、生成待ちのまま独立した資料・配備作業を先行する。
 
 新規納品PDF2件はCIでunknownとして拒否されるため、`scripts/lib/change-scope.mjs`に当該2パスだけを文書登録。未審査PDFは拒否、アプリ混在はproduct、PDFのみでは製品digest不変を回帰検証した。重点 `node --test test/documentation-changes.test.mjs` は19成功・exit0、`npm test` は669成功・既存2skip・exit0。分類はCI/配備と文書で包括7gateを選定。型/build/Rules207/Functions構文/seed構文は本日の同一実装の既存成功証拠を再利用：app/functions/src/domain/依存/Rules/Emulator/seed/build設定は変更なし。ガバナンスとdiff検査はcommit直前に再実行する。
