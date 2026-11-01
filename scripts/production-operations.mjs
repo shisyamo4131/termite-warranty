@@ -17,6 +17,7 @@ import {verifyProductionBundle} from './lib/production-release-bundle.mjs'
 import {inspectProductionRelease,productionReadAllowed} from './lib/production-release-inspection.mjs'
 import {readPrivateAuthObject,authImportOptions,loadAuthAuthority,missingAuthPlan} from './lib/auth-recovery.mjs'
 import {assertPrivateAuthBucket} from '../src/domain/backup-health.mjs'
+import {productionProtectionProvider,protectionRequestAllowed} from './lib/production-protection.mjs'
 
 async function main(){
   const [mode,path,confirmation]=process.argv.slice(2)
@@ -36,9 +37,10 @@ async function main(){
     const u=new URL(url),resource=`/v1/projects/${target.project}`
     const bucketRead=bucketRoot&&u.origin==='https://storage.googleapis.com'&&(u.pathname===bucketRoot||u.pathname===bucketRoot+'/iam'||u.pathname.startsWith(bucketRoot+'/o/'))
     const providerWrite=mode==='execute'&&u.origin==='https://firestore.googleapis.com'&&(
-      o.command==='configure-backups'&&(method==='POST'&&u.pathname===resource+'/databases/(default)/backupSchedules'&&!u.search||method==='PATCH'&&u.pathname===resource+'/databases/(default)'&&u.search==='?updateMask=pointInTimeRecoveryEnablement')||
+      ['configure-backups','protection-configure'].includes(o.command)&&(method==='POST'&&u.pathname===resource+'/databases/(default)/backupSchedules'&&!u.search||method==='PATCH'&&u.pathname===resource+'/databases/(default)'&&u.search==='?updateMask=pointInTimeRecoveryEnablement')||
       o.command==='restore'&&method==='POST'&&!u.search&&[resource+'/databases:restore',resource+'/databases:clone'].includes(u.pathname))
-    if(u.protocol!=='https:'||u.username||u.password||u.hash||!(method==='GET'&&(productionReadAllowed(url,target)||bucketRead)||providerWrite))throw Error('Unapproved request.')
+    const foundation=['protection-inspect','protection-configure'].includes(o.command)&&protectionRequestAllowed(url,method,target,mode==='execute',body)
+    if(u.protocol!=='https:'||u.username||u.password||u.hash||!(method==='GET'&&(productionReadAllowed(url,target)||bucketRead)||providerWrite||foundation))throw Error('Unapproved request.')
     return fetch(url,{method,headers:{Authorization:`Bearer ${(await credentials.credential.getAccessToken()).access_token}`,'Content-Type':'application/json'},redirect:'error',signal:AbortSignal.timeout(60000),...(body?{body:JSON.stringify(body)}:{})})
   }
   const request=async(url,method,body)=>{const response=await requestRaw(url,method,body);if(!response.ok){const error=Error('Provider request failed.');error.status=response.status;throw error}const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>4*1024*1024)throw Error('Read budget exceeded.');chunks.push(Buffer.from(chunk))}return JSON.parse(Buffer.concat(chunks).toString())}
@@ -65,14 +67,16 @@ async function main(){
       const {profiles,users}=await loadAuthAuthority(database('(default)'),auth),plan=missingAuthPlan(data,profiles,users)
       return {accounts:plan.total,missing:plan.missing,preserved:plan.preserved,liveAuthImportAvailable:false}
     }
-    const result=await dispatchProductionOperation(o,{database,auth,fixed,controller,provider,assertRules,verifyDeployment,inspectAuth})
+    const protection=productionProtectionProvider({target,request,provider})
+    const result=await dispatchProductionOperation(o,{database,auth,fixed,controller,provider,assertRules,verifyDeployment,inspectAuth,protection})
     // Never serialize raw documents, UID/email, backup references or Auth data.
     const safe={command:o.command,mode,cloudWrites:!o.readOnly}
     for(const key of ['phase','generation','initialized','administratorBound','maintenanceRetained','complete','properties','documents','restoreSubmitted','restoreDone','accounts','missing','preserved','deleteCount','inventoryHash','authorizationHash','accountHash','count','hash','status'])if(['boolean','string','number'].includes(typeof result?.[key]))safe[key]=result[key]
     if(o.command==='preflight')safe.releaseVerified=result===true
     if(o.command==='observe'){safe.phase=result.runtime?.phase??null;safe.generation=result.runtime?.generation??null;safe.activeOperations=result.activeOperations;safe.operatorBlocked=result.operatorBlocked}
     if(o.command==='backups'){safe.schedules=result.schedules.length;safe.backups=result.backups.length;safe.policyVerified=result.policyVerified;safe.firestoreBackupStatus=result.firestoreBackupStatus}
+    if(o.command.startsWith('protection-'))for(const key of ['pitrEnabled','dailySchedules','privateBucket','foundationReady'])safe[key]=result[key]
     console.log(JSON.stringify(safe))
   }finally{for(const db of instances.values())await db.terminate();await deleteApp(app)}
 }
-main().catch(()=>{console.error('PRODUCTION_OPERATION_REFUSED_OR_INTERRUPTED: keep maintenance; inspect private evidence and exact owner before retrying.');process.exitCode=1})
+main().catch(()=>{console.error('PRODUCTION_OPERATION_REFUSED_OR_INTERRUPTED: retain current runtime state; inspect private evidence and exact owner before retrying.');process.exitCode=1})

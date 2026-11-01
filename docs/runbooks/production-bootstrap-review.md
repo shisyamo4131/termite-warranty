@@ -1,5 +1,21 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-11-01 専用経路による保護基盤設定（Local候補）
+
+追加ロール名・条件・完了後の解除対象は[機械可読のIAM案](../../deliverables/production-bootstrap-2026-10-13/protection-iam-plan.json)に記録。これは提案であり、実IAMの存在／適用を示さない。
+
+Local検証：`npm test`662成功・既存2skip、`node --test test/production-operation-entry.test.mjs test/production-operations.test.mjs`27成功、ガバナンス検査・diff検査は各exit0。最初の新試験ファイルの構文誤りは修正し再実行済み。検証分類は運用入口／権限・配備で包括7gateを選定。単体・ガバナンスを再実行し、型／build／Rules207成功／Functions構文／seed構文は11/1 ca5ad00の成功証拠を再利用：app・Functions・domain・依存・Rules・Emulator・seed・ビルド設定は不変で、今回変更した専用operatorと入口は単体／重点試験で確認。Cloudの権限・設定・初回保存成功は未検証であり、Local成功で代替しない。
+
+オーナーがOwner直接設定ではなく専用運用経路の先行整備を選択。`execute-production-operation.yml`の固定main・repo/owner・production-operations・既存operator WIF・一時secret/digest照合を維持し、`protection-inspect`と`protection-configure`だけを追加する。workflow／WIF条件自体は変更しない。未統合・Cloud未実行。通常の業務処理・配備物は変更しない。
+
+- 読取り：両DBのproject／東京を既存入口で照合し、(default)の日次予定・PITR、固定Auth bucketのproject／東京／STANDARD／公開禁止／統一アクセス／auth/30日削除／soft deleteなしを確認。既存設定に差異があれば上書きしない。
+- 設定：正常世代の一致、既存運用／Auth退避の排他を確認し、controlに専用journalとロックを作成する。固定bucketの新規作成、日次予定の不足分追加、PITRの有効化だけを実行。業務DB・Authユーザー・IAM・runtime phaseを変更しない。従前の保守必須`configure-backups`／復元入口のガードは残す。
+- 非同期反映待ち・応答不明・失敗はjournal／ロックを保持して停止。自動再送しない。`protection-inspect`で状態を読み、全基盤が完成済みで前worker終了が確認できた場合だけ、元operation／approval／revision／generation／resumeOwnerとworkerStopped=trueを明示した同コマンドで後処理する。この経路ではCloud API書込みを再送せず、正常世代と所有者を再照合してロック解除する。未完成のままの再開・ロック削除は許さず、追加の復旧判断が必要。
+
+必要IAM案（未付与）：既存`prod-operator`に、(default)限定で`datastore.backupSchedules.list`・`datastore.backupSchedules.create`・`datastore.databases.update`、固定Auth bucket限定で`storage.buckets.get`・`storage.buckets.getIamPolicy`、Prod projectに`storage.buckets.create`。既存のproject／DB読取り・control文書操作・Rules読取りは維持。作成権限はproject範囲のためIAMだけでは固定bucket名に限定できず、入口で名称・作成bodyを固定する。新規作成完了後は作成権限を外す案とし、具体IAM更新前に本人承認と実policyの差分照合を要する。DB更新権限自体はPITR以外の設定も更新し得るが、入口はPITR updateMaskだけに限定する。削除・復元・Authユーザー／hash読取り・IAM変更権限は今回の追加案に含めない。
+
+権限根拠：[Firestore API別権限](https://docs.cloud.google.com/firestore/native/docs/security/iam)、[bucket作成権限](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets/insert)、[soft delete設定](https://docs.cloud.google.com/storage/docs/json_api/v1/buckets)。初回backup READY、Auth自動退避・通知・隔離復元、Devの保護保留条件解消はこの基盤設定だけでは完了しない。
+
 ## 2026-10-23 開発者表示名の限定修正
 
 オーナーが今回に限りOwner認証でProd開発者1名の表示名変更を明示承認。Authと担当者データのdisplayNameを「株式会社 AIR」へ変更・照合済み。メール・権限・パスワード・過去の操作記録は変更しない。これは恒常的な直接更新許可ではなく、本操作で完結する例外。[実行・照合記録](../operations.md#2026-10-23-prod開発者の表示名変更)。
