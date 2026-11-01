@@ -1,0 +1,44 @@
+{
+  "status": "partially-applied-job-role-2026-11-01",
+  "project": "termite-warranty-prod",
+  "serviceAccount": "prod-operator@termite-warranty-prod.iam.gserviceaccount.com",
+  "roles": [
+    {
+      "roleId": "prodProtectionMonitoring",
+      "permissions": [
+        "monitoring.notificationChannels.create",
+        "monitoring.notificationChannels.get",
+        "monitoring.notificationChannels.list",
+        "monitoring.alertPolicies.create",
+        "monitoring.alertPolicies.get",
+        "monitoring.alertPolicies.list",
+        "logging.notificationRules.create",
+        "logging.logEntries.create"
+      ],
+      "condition": null,
+      "boundary": "Project-level creation/read permissions; operational executor must restrict to the approved backup-failure email channel/policy and a synthetic non-sensitive test log. No existing policy/channel updates or deletions.",
+      "status": "rejected-by-owner-2026-11-01-not-created"
+    },
+    {
+      "roleId": "prodProtectionJobRun",
+      "permissions": [
+        "cloudscheduler.jobs.get",
+        "cloudscheduler.jobs.run"
+      ],
+      "condition": "resource.name == 'projects/termite-warranty-prod/locations/asia-northeast1/jobs/firebase-schedule-recoveryBackupMonitor-asia-northeast1'",
+      "boundary": "Exact existing backup monitor job, observed in Cloud Scheduler on 2026-11-01; no schedule, target, authentication or job changes.",
+      "status": "created-bound-with-exact-job-condition-and-console-readback"
+    }
+  ],
+  "preserveExistingBindings": true,
+  "createKeys": false,
+  "changeWif": false,
+  "scopeExcludes": [
+    "Auth user mutations",
+    "business data changes",
+    "restore",
+    "delete",
+    "Dev permissions"
+  ],
+  "executionStatus": "Owner rejected custom-role TESTING permissions. Notification implementation remains blocked pending a supported setup path. Exact-job role remains applied. Recipient change to HS was conditional, not required by the permission warning."
+}

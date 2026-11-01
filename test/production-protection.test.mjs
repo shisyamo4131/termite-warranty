@@ -2,9 +2,34 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {productionProtectionProvider,protectionBucketSpec,protectionRequestAllowed,configureProductionProtection} from '../scripts/lib/production-protection.mjs'
 import {authProtectionRequestAllowed,preserveProductionAuthConfiguration} from '../scripts/lib/production-auth-protection.mjs'
+import {backupJobRequestAllowed,backupJobName,runProductionBackupJob} from '../scripts/lib/production-backup-job.mjs'
 const target={project:'fictional-prod',projectNumber:'123456',control:'recovery-control'}
 const request={target,generation:1,operation:'fictional-protect',approval:'fictional-approval',revision:'a'.repeat(40)}
 const ready={foundationReady:true,pitrEnabled:true,dailySchedules:1,privateBucket:true}
+test('backup job admission limits transport to one exact job and no configuration updates',()=>{
+  const root=`https://cloudscheduler.googleapis.com/v1/${backupJobName(target)}`
+  assert.equal(backupJobRequestAllowed(root,'GET',target),true)
+  assert.equal(backupJobRequestAllowed(root+':run','POST',target,{}),true)
+  for(const [url,method,body] of [[root,'PATCH',{}],[root+':run?x=1','POST',{}],[root.replace('fictional-prod','foreign')+':run','POST',{}],[root+':run','POST',{schedule:'other'}]])assert.equal(!!backupJobRequestAllowed(url,method,target,body),false)
+})
+function jobContext(){
+  const c=context(),env={RECOVERY_BACKUP_AUTOMATION:'true',RECOVERY_AUTH_BACKUP_BUCKET:protectionBucketSpec(target).name,RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE:'recovery/hashConfigurationEvidence',RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE:'verified-notification'}
+  const service={uri:'https://fictional.example.invalid',template:{serviceAccount:'prod-backup@fictional-prod.iam.gserviceaccount.com',containers:[{env:Object.entries(env).map(([name,value])=>({name,value}))}]}}
+  const job={name:backupJobName(target),state:'ENABLED',httpTarget:{uri:service.uri,httpMethod:'POST',oidcToken:{serviceAccountEmail:'fictional@example.invalid'}}}
+  c.request=async(url,method='GET')=>{if(method==='POST'){c.calls.push('run');if(c.unknown)throw Error('timeout');return job}return url.includes('run.googleapis.com')?service:job}
+  return Object.assign(c,{service,job})
+}
+test('backup submission is journaled once, checks runtime configuration and does not claim completed backup',async()=>{
+  const o={...request,command:'backup-job-run'},c=jobContext()
+  assert.deepEqual(await runProductionBackupJob(o,c),{jobSubmitted:true})
+  assert.deepEqual(c.calls,['run']);assert.equal(c.rows.has('recovery/operatorLock'),false)
+  await assert.rejects(()=>runProductionBackupJob(o,c));assert.equal(c.calls.length,1)
+  for(const mutate of [x=>x.job.state='PAUSED',x=>x.job.httpTarget.uri='https://foreign.invalid',x=>x.service.template.containers[0].env[0].value='false',x=>x.service.template.serviceAccount='foreign',x=>x.marker.phase='recovering']){
+    const f=jobContext();mutate(f);await assert.rejects(()=>runProductionBackupJob(o,f));assert.equal(f.calls.length,0)
+  }
+  const f=jobContext();f.unknown=true;await assert.rejects(()=>runProductionBackupJob(o,f));assert.equal(f.rows.has('recovery/operatorLock'),true)
+  await assert.rejects(()=>runProductionBackupJob(o,f));assert.equal(f.calls.length,1)
+})
 function providerFixture(){
   const writes=[],s={db:{name:'projects/fictional-prod/databases/(default)',type:'FIRESTORE_NATIVE',locationId:'asia-northeast1',pointInTimeRecoveryEnablement:'POINT_IN_TIME_RECOVERY_DISABLED'},schedules:[],bucket:null,policy:{bindings:[]}}
   const provider={describe:async()=>s.db,schedules:async()=>s.schedules,configure:async()=>{writes.push('configure');s.db.pointInTimeRecoveryEnablement='POINT_IN_TIME_RECOVERY_ENABLED';s.schedules=[{dailyRecurrence:{},retention:'2592000s'}]}}

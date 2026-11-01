@@ -7,6 +7,7 @@ import {randomUUID} from 'node:crypto'
 import {backupHealth} from '../../src/domain/backup-health.mjs'
 import {configureProductionProtection} from './production-protection.mjs'
 import {preserveProductionAuthConfiguration} from './production-auth-protection.mjs'
+import {runProductionBackupJob} from './production-backup-job.mjs'
 const refuse=()=>{throw Error('Production operation refused or interrupted; inspect private evidence before retrying.')}
 const commandKeys={
   observe:[],initialize:[],administrator:['generation','operation','approval','administrator','resumeOwner','workerStopped'],
@@ -15,6 +16,7 @@ const commandKeys={
   'configure-backups':['generation','operation','approval'],
   'protection-inspect':[],'protection-configure':['generation','operation','approval','resumeOwner','workerStopped'],
   'auth-protection-configure':['generation','operation','approval','resumeOwner','workerStopped'],
+  'backup-job-run':['generation','operation','approval'],
   enter:['generation','operation','approval'],baseline:['generation','operation','approval'],
   restore:['generation','operation','approval','targetDatabase','backup','snapshotTime'],
   'restore-status':['generation','operation','approval','targetDatabase','restoreOperation','workerStopped'],
@@ -63,6 +65,7 @@ export async function dispatchProductionOperation(o,c){
   if(o.command==='protection-inspect')return c.protection.inspect()
   if(o.command==='protection-configure')return configureProductionProtection(o,c)
   if(o.command==='auth-protection-configure')return preserveProductionAuthConfiguration(o,c)
+  if(o.command==='backup-job-run')return runProductionBackupJob(o,c)
   if(o.command==='observe')return fixed.status()
   if(o.command==='initialize')return initializeProductionData({database,controlId:o.target.control,factory:fixed})
   if(o.command==='administrator')return bindProductionAdministrator({database,auth,controlId:o.target.control,...o,input:o.administrator})
