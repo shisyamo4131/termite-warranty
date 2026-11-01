@@ -1,5 +1,11 @@
 # 共通CSV一括取込み・物件住所統合
 
+## 2026-11-01 Dev受入れ・dev／main統合
+
+本人のDev ca5ad00受入れを記録した0941ba4を含め、[PR #63](https://github.com/shisyamo4131/termite-warranty/pull/63)をdev e9a3eb1へ11:32:53 JSTに、[PR #64](https://github.com/shisyamo4131/termite-warranty/pull/64)をmain c70d728へ11:33:53 JSTに通常mergeした。両PRの必須検証は成功（22秒／24秒）。最新dev／mainのtree差分はなく、受入れca5ad00とmainの製品入力も差分なし（git diff --quiet終了0）。既存の包括7gate成功証拠を再利用し、追加の変更は受入れ記録のみ。
+
+[Prod run 41265722385](https://github.com/shisyamo4131/termite-warranty/actions/runs/41265722385)はmain pushにより開始し、11:40:39 JSTに全job成功。11:33:58から全体6分41秒、分類24秒、成果物作成・検証1分44秒、配備・照合job4分28秒。Cloud照合は両DB Rules・業務索引READY・Functions21本／source archive21件・Hosting56ファイルの全5項目pass、ready=true。受入れ済み変更のProd反映を完了。保護設定は別工程として未完了。以下の「未受入れ／未統合／Prod未承認」は各準備時点の記録であり、本節の本人承認・統合・配備結果を優先する。
+
 ## 2026-11-01 Local受入れ・Dev配備候補
 
 本人Dev受入れ：11/1、本チャットでDev ca5ad00の受入れ完了を明示。受入れ対象は下書き削除・一括取込み画面変更。dev／mainへのPR統合・Prod配備／照合、その後の当日予定の保護設定・検証を承認。追加IAM等は具体差分を確認する。記録commit09579b7から受入れ記録までは文書のみで、受入れ版の製品差分はない。

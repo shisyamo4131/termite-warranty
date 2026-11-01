@@ -10,6 +10,15 @@ import {admitCandidate} from '../scripts/development-candidate.mjs'
 import {activeInventory,protectionHeld,developmentConfig} from '../scripts/development-deployment.mjs'
 const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40),repo={id:1363463339,owner:{id:72244713}},repository='shisyamo4131/termite-warranty'
 const raw=path=>':100644 100644 '+a+' '+b+' M\0'+path+'\0'
+test('delivery PDFs are bounded documents and cannot hide mixed or unknown changes',()=>{
+ const paths=['output/pdf/HS_納品書と利用条件_確認用.pdf','output/pdf/HS_運用引継ぎガイド_確認用.pdf']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('functions/index.js')),'product')
+ assert.throws(()=>classifyDiff(raw('output/pdf/HS_未審査資料.pdf')))
+ const entries=[{path:'app/a.vue',mode:'100644',sha:a}]
+ assert.deepEqual(inputDigests(entries),inputDigests([...entries,...paths.map(path=>({path,mode:'100644',sha:b}))]))
+})
 test('insurance guide documents are bounded and mixed product changes stay product',()=>{
  const paths=['deliverables/insurance-report-guide-2026-10-19/README.md','deliverables/insurance-report-guide-2026-10-19/build_pdf.py','deliverables/insurance-report-guide-2026-10-19/build_alternatives.py','output/pdf/保険報告CSV_住所と契約番号を分ける理由_2026-10-19.pdf','output/pdf/保険報告一覧_今回分と過去未報告分_図解比較版_2026-10-19.pdf','output/pdf/保険報告一覧_抽出方法のご案内_2026-10-19.pdf']
  for(const p of paths)assert.equal(classifyDiff(raw(p)),'documentation')
