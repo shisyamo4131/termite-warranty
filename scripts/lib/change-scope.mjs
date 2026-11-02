@@ -18,6 +18,8 @@ const verificationTools=new Set([
   'lib/test-emulator-stage.mjs','lib/test-functions-loader.mjs','lib/test-functions-register.mjs',
 ])
 const documentExtras=new Set([
+  'output/pdf/Googleアカウント_納品書.pdf',
+  'deliverables/google-account-delivery-2026-11-02/build_pdf.py',
   'output/pdf/HS_納品書と利用条件_確認用.pdf',
   'output/pdf/HS_運用引継ぎガイド_確認用.pdf',
   'deliverables/hs-prod-account-2026-10-21/README.md',
