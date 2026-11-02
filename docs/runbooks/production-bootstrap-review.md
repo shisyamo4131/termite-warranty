@@ -1,5 +1,13 @@
 # Prod環境の初期構築・権限引渡し手順
 
+## 2026-11-02 納品記録統合・休止
+
+納品完了・日次バックアップ2件生成と復元試験未実施の扱いは[納品完了記録](../roadmaps/2026-initial-delivery.md#2026-11-02-納品完了)を正とする。オーナー承認により今回までの資料をPRでdev/mainへ統合し、以降は追加要望まで休止。配備・復元試験は実行しない。確認用PDFは署名済み原本と区別し、Googleアカウント納品書のパスワード欄は空欄を維持。
+
+新規Googleアカウント納品書PDFと生成元の2パスのみをCI文書一覧へ追加。包括7gateを選定し、`npm test`は670成功・既存2skip・exit0（文書分類20試験を含む）。最初のsandbox実行は一時Git作成の権限制限で失敗したため、同じ試験を許可された制限外実行で完了。型/build/Rules207/Functions構文/seed構文は11/1成功証拠を再利用：アプリ・domain・Functions・依存・Rules・seed・build入力は変更なし。生成PDFの表示確認は作成時に完了し、Googleアカウント納品書の空フィールドは統合前に再検査する。最終governance/diff検査・PRの必須CIとmain配備skip確認は統合時に実行する。
+
+11/1追加決定：オーナーが別プロジェクトによるAuth実復元試験を棄却。事前試験を納品前必須作業から除外し、実障害時に対応する。退避・読戻し成功と実復元未実証を区別し、[決定と障害時の境界](backup-recovery.md#2026-11-01-auth実復元の事前試験を見送る決定)を適用する。検証先の作成・認証情報の複製は未実施。日次DBバックアップ生成／隔離復元と、HS初回パスワード設定後のAuth再退避は残る。
+
 ## 2026-11-01 納品資料統合と再配備の準備
 
 資料・記録と限定PDF分類をb48c86bでcommit/push、[PR #73](https://github.com/shisyamo4131/termite-warranty/pull/73)へ集約。mainとの製品入力digest不変をexit0で確認した。CI分類変更を含むため、検証入力digestは変更あり。Dev [run41277298463](https://github.com/shisyamo4131/termite-warranty/actions/runs/41277298463)は14:34:06 JSTに成功（build51秒、配備・照合71秒）。ready=true、21 Functions ACTIVE、publicEntry=true、PITR=false・日次0・自動退避falseを確認。全source ZIP／Hosting hash比較は既存Dev方針どおり実施せず、Prodの全5照合とは区別する。PRの初回必須checkは26秒で成功。

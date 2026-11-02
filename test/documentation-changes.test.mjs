@@ -171,6 +171,15 @@ test('reviewed HS billing guide is documentation with adjacent and mixed changes
  assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed-billing.pdf')))
 })
 
+test('Google account delivery is documentation without admitting unrelated assets or mixed product changes',()=>{
+ const paths=['output/pdf/Googleアカウント_納品書.pdf','deliverables/google-account-delivery-2026-11-02/build_pdf.py']
+ for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
+ assert.equal(sameProduct(a,b,()=>paths.join('\0')+'\0'),true)
+ assert.equal(classifyDiff(raw(paths[0])+raw('functions/index.js')),'product')
+ assert.equal(classifyDiff(raw('deliverables/google-account-delivery-2026-11-02/other.py')),'product')
+ assert.throws(()=>classifyDiff(raw('output/pdf/unreviewed-google-account.pdf')))
+})
+
 test('combined account guide and retired schedule remain bounded documents',()=>{
  const paths=['deliverables/hs-prod-account-2026-10-21/README.md','deliverables/hs-prod-account-2026-10-21/build_pdf.py','deliverables/hs-prod-account-2026-10-21/combine_pdf.py','output/pdf/HS_本番管理アカウントと請求先登録ガイド.pdf','output/pdf/HS_本番稼働に向けた目標スケジュール_2026-10-05.pdf']
  for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')
