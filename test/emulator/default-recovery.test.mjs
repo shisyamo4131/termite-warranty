@@ -141,6 +141,41 @@ test('full default synchronization preserves current roles, counters and typed r
  assert.equal((await api.emergencyClose(6,'emergency-third')).generation,7)
  assert.ok((await documentImage(target)).size>0) // private orphan checkpoint paths are deliberately excluded
 })
+test('raw recovery wire values preserve nested qualified references and refuse lossy numbers or foreign references',async()=>{
+ await clean();await api.initialize()
+ await target.doc('properties/untouched').set({label:'fictional target stays unchanged'})
+ const before=await documentImage(target)
+ const project=source.projectId,documentPath='properties/raw-wire'
+ const endpoint='http://'+localRuntimeHost(LOCAL_RUNTIME.firestorePort)+'/v1/projects/'+project+'/databases/'+source.databaseId+'/documents/'+documentPath
+ async function write(fields){
+  const response=await fetch(endpoint,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:'Bearer owner'},body:JSON.stringify({fields})})
+  assert.equal(response.status,200,'raw fixture must be accepted by the isolated emulator')
+ }
+ const nested=value=>({nested:{mapValue:{fields:{items:{arrayValue:{values:[value]}}}}}})
+ for(const [id,referenceProject,referenceDatabase] of [
+  ['source',project,source.databaseId],['target',project,target.databaseId],
+  ['foreign-project','demo-foreign-recovery',source.databaseId],['foreign-database',project,'test-unrelated-source'],
+ ]){
+  await write(nested({referenceValue:'projects/'+referenceProject+'/databases/'+referenceDatabase+'/documents/properties/referenced'}))
+  const fields=(await documentImage(source)).get(documentPath).fields,reference=fields.nested.items[0]
+  assert.deepEqual([reference.firestore.projectId,reference.firestore.databaseId,reference.path],[referenceProject,referenceDatabase,'properties/referenced'])
+  if(id.startsWith('foreign-')){
+   const args=await evidence(1,'raw-wire-'+id)
+   await assert.rejects(api.plan(1,'raw-wire-plan-'+id,args),{code:'failed-precondition'})
+   assert.equal((await control.doc('defaultRecoveryPlans/raw-wire-plan-'+id).get()).exists,false)
+   const after=await documentImage(target)
+   assert.equal(imageHash(after),imageHash(before))
+   for(const [path,row] of before)assert.equal(after.get(path).version.isEqual(row.version),true)
+   assert.equal((await api.status()).runtime.phase,'recovering')
+  }
+ }
+ for(const value of [{integerValue:'9007199254740993'},{doubleValue:42}]){
+  await write(nested(value))
+  await assert.rejects(documentImage(source),{code:'failed-precondition'})
+ }
+ await source.doc(documentPath).delete()
+})
+
 test('normal recovery restores company profile and group billing recipient to the selected point including update metadata',async()=>{
  await clean()
  const oldProfile={companyName:'架空旧会社',postalCode:'1000001',address1:'架空住所1',address2:'架空棟',telephone:'03-1234-5678',fax:'',invoiceRegistrationNumber:'T1234567890123',representativeName:'架空代表',representativeTitle:'代表',email:'old@example.invalid',updatedAt:new Timestamp(100,123000),updatedBy:'fictional-old-editor',updatedByName:'架空旧担当'}

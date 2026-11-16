@@ -2,6 +2,17 @@
 
 ## 2026-11-16 Firebase依存更新（進行中）
 
+Admin新版 MAINT26 Highレビュー承認、MAINT27包括7gate全exit0：governance0.75秒、単体671成功2skip／5.96秒、型検査6.55秒、build8.00秒、Rules208成功／418.83秒、Functions構文2.28秒、seed構文0.14秒。追加raw-wire試験も旧版／新版双方成功（新版1.03秒）。隔離Emulator終了・待受0。Git外tmp/maint27-summary.json参照。アプリ画面の変更なし、本人業務受入れは未実施。AdminのDev配備・照合はこれから。
+
+
+Admin準備：High MAINT19設計・MAINT21独立レビューに基づきraw REST値の復旧回帰1件を既存Emulator試験へ追加。旧Admin14.3.0で承認済みshardを実行し63成功・exit0／119.14秒、追加試験実行と停止・待受0を確認（MAINT22）。その後root/functions Adminを14.5.1へ更新しnpm11.19.1 ci成功。Local lock実解決はFirestore9.4.1・Storage8.4.0・Admin内Google認証11.3.4。新版の包括検証は上記MAINT27で完了。
+
+既存の配備方式はfunctionsディレクトリを送付し、root workspace lockをCloudへ送付しない。Admin直接依存は厳密14.5.1だが、Cloud側の間接依存は再解決されるためLocalと同一とは断定しない。今回のDev照合は実稼働版・設定・公開Callable等の範囲とし、Cloud間接依存の完全一致は未検証。Dev保護は保留を維持するため実Storage SDKによるAuth退避も未実証であり、Prod昇格前の確認事項として残す。
+
+
+CLI Dev実証：候補919bfc936db05dab596dd0cd8c20715dc721e64a、run https://github.com/shisyamo4131/termite-warranty/actions/runs/43830712890 全job成功。実CLI15.36.0をログで確認。配備後check：21Functions ACTIVE、公開入口成功、automation=false、PITR=false、日次予定0。独立読取りもexit0、normal／generation16を維持し、lock・更新なし、公開Callable読取り成功。Hosting FINALIZED更新、Functions revisionはコード不変のため従前のまま。全ソースZIP／全Hosting hash照合や本人の業務画面受入れは未実施。Prod・main変更なし。
+
+
 CLI単独候補 MAINT-13〜15：CI準備PR77は必須check成功後devへ統合（663a8a2）。CLI15.36.0へ更新、Admin14.3.0は不変。公式tag／registry／lock integrity一致、npm11.19.1 ci成功、認証内部export互換の静的確認成功。High MAINT14承認。包括7gate全exit0：governance0.69秒、単体671成功2skip／4.65秒、型6.42秒、build7.99秒、Rules207成功／437.85秒、Functions構文2.27秒、seed構文0.14秒。隔離Emulator終了と待受0。Git外tmp/maint15-summary.jsonに実測。
 
 Dev事前読取り：初回は別案件の既定CLIアカウントで403。本人が管理アカウントを追加ログイン後、既定設定を変更しない完全一致選択の読取りhelperをHigh MAINT18レビューし使用。normal、runtime/marker一致、generation16、更新・運用lock・Auth退避lockなし、21Functions ACTIVE、Hosting FINALIZED、公開recoveryRuntimeのFirestore読取り成功を確認（exit0）。業務データ更新なし。Dev配備はこの時点で未実行、本人の業務受入れ未実施。
