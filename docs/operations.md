@@ -42,10 +42,10 @@
 
 High MAINT28の判断と今回のDev成功から、今回の依存更新だけを理由とする本番の計画停止、および計画メンテナンス経路の追加整備は不要との推奨。無停止・無影響を保証するものではない。現行の障害復旧モードには復元なしの汎用再開経路がなく、更新のために入らない。業務停止が別途必要な変更では、停止から再開・失敗時の扱いまで先に設計・検証する。
 
-- 本人の認証付きDev業務受入れは未実施。公開Callableの成功で代替しない。ログイン・代表的な一覧／詳細・CSVなどを受入れ確認する。製品候補はdevへ未統合、CI修正だけ統合済み。main／Prodは未変更。
+- 2026-11-16、オーナーが本チャットで「Dev 3bad432の受入れ完了」を明示し、受入れ記録とPRによるdev統合を承認。対象は3bad432ebdda0fbe3674e78e41354156561869b5、成功Dev run 43833179314。受入れ後の差分は文書だけで製品は同一のため、上記Local検証・Dev配備の証拠を再利用する。個々の確認画面は本人から指定されていないため推定しない。main統合・Prod配備は未承認で保留。
 - Dev保護は保留を維持しているため、実Storage SDK 8系によるAuth退避・読戻しは未実証。自動取得が有効なProdへの昇格前に、この実接続の確認方法と結果を確定する。
 - 既存Functions配備はfunctionsディレクトリを送付し、root workspace lockは送らない。直接Admin指定は固定だがCloudの間接依存は再解決されるため、LocalのFirestore／Storage版とCloud実版の完全一致は未確認。今回、配備方式を無断拡張しない。
-- 通常Dev手順どおり全Functions ZIP・全Hostingファイルhash比較は未実施。ブラウザー実画面操作も今回未実施。コード・配備成功と本人の受入れを区別する。
+- 通常Dev手順どおり全Functions ZIP・全Hostingファイルhash比較は未実施。エージェントによるブラウザー実画面操作は未実施。コード・配備成功と本人の受入れを区別する。
 
 公式資料：[CLI更新履歴](https://firebase.google.com/support/release-notes/cli)、[Admin更新履歴](https://firebase.google.com/support/release-notes/admin/node)、[Cloud Node依存管理](https://docs.cloud.google.com/run/docs/runtimes/nodejs-dependencies)。
 
