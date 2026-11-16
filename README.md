@@ -33,6 +33,8 @@ Node.js 22とJava 21がある環境で、依存をlockfileどおりに導入し�
 npx --yes npm@11.19.1 ci
 ```
 
+この導入はrootのlockに加え、postinstallで独立した`functions/package-lock.json`からFunctions依存も導入します。FunctionsのLocal実行とCloud配備には同じFunctions用lockを使用します。rootのworkspaceへ戻したり、lockを削除して導入しないでください。[依存固定の方針](docs/decisions/0052-functions-dependency-lock.md)。
+
 ターミナル1でEmulatorを起動し、ターミナル2で合成データを投入してアプリを起動します。
 
 ```powershell

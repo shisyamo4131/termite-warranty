@@ -3,6 +3,7 @@ import { readFile, realpath } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { isIsolatedTestEnvironment } from '../../functions/test-emulator-profile.js'
+import './functions-sdk-register.mjs'
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const stage = await realpath(process.env.TERMITE_TEST_STAGE ?? '')
 const runs = await realpath(resolve(root, 'tmp/emulator-runs'))

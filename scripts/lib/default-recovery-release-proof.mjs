@@ -7,6 +7,7 @@ import {assertFunctionsDomainSynchronized} from '../functions-domain.mjs'
 import {assertFreshBuild} from './default-recovery-build.mjs'
 import {bindProviderInitialization} from './default-recovery-provider-init.mjs'
 import {proofFailure,proofDiagnostic} from './default-recovery-diagnostics.mjs'
+import {assertFunctionsLock} from './functions-dependencies.mjs'
 
 export const ARCHIVE_LIMIT=64*1024*1024
 const fail=()=>{throw proofFailure('release-proof','artifact-mismatch')}
@@ -63,16 +64,21 @@ export function hostingConfig(config) {
 }
 function normalizedConfig(value) {const result={...value};for(const key of ['headers','rewrites','redirects'])if(Array.isArray(result[key])&&result[key].length===0)delete result[key];if(result.cleanUrls===false)delete result.cleanUrls;if(result.trailingSlashBehavior==='TRAILING_SLASH_BEHAVIOR_UNSPECIFIED')delete result.trailingSlashBehavior;return result}
 export const hostingHash=bytes=>createHash('sha256').update(gzipSync(bytes,{level:9})).digest('hex')
-async function collect(directory) {
+async function collect(directory,{functionsSource=false}={}) {
   const files=new Map();let total=0
-  async function visit(path,prefix='') {for(const entry of await readdir(path,{withFileTypes:true})){if(entry.isSymbolicLink())fail();const name=prefix+entry.name,full=join(path,entry.name);if(entry.isDirectory())await visit(full,name+'/');else if(entry.isFile()){if(!safePath(name)||files.size>=10000||(await lstat(full)).size>16*1024*1024)fail();const bytes=await readFile(full);total+=bytes.length;if(total>128*1024*1024)fail();files.set(name,bytes)}else fail()}}
+  async function visit(path,prefix='') {for(const entry of await readdir(path,{withFileTypes:true})){if(functionsSource&&entry.name==='node_modules')continue;if(entry.isSymbolicLink())fail();const name=prefix+entry.name,full=join(path,entry.name);if(entry.isDirectory())await visit(full,name+'/');else if(entry.isFile()){if(!safePath(name)||files.size>=10000||(await lstat(full)).size>16*1024*1024)fail();const bytes=await readFile(full);total+=bytes.length;if(total>128*1024*1024)fail();files.set(name,bytes)}else fail()}}
   await visit(directory);return files
+}
+export async function collectFunctionsSource(directory) {
+  const files=await collect(directory,{functionsSource:true})
+  for(const name of [...files.keys()])if(privateSource(name))files.delete(name)
+  assertFunctionsLock(files.get('package.json'),files.get('package-lock.json'))
+  return files
 }
 export async function localReleaseInputs(root,{receipt,revision}={}) {
   await assertFreshBuild(receipt,{root,revision})
   await assertFunctionsDomainSynchronized({sourceDirectory:join(root,'src/domain'),outputDirectory:join(root,'functions/domain')})
-  const functions=await collect(join(root,'functions'))
-  for(const name of [...functions.keys()])if(privateSource(name))functions.delete(name)
+  const functions=await collectFunctionsSource(join(root,'functions'))
   const index=functions.get('index.js')?.toString('utf8')??'',exports=[...index.matchAll(/export const (\w+)\s*=/g)].map(m=>m[1])
   for(const m of index.matchAll(/export\s*\{\s*(\w+)\s*\}\s*from/g))exports.push(m[1])
   if(new Set(exports).size!==exports.length||exports.length<1||/export default|export \*/.test(index))fail()

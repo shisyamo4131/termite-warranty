@@ -92,6 +92,8 @@ jobs:
           path: .production-release
       - run: node scripts/check-production-release.mjs local .production-release
       - run: node scripts/check-production-release.mjs stage .production-release
+      - name: Install locked Functions dependencies for discovery
+        run: npx --yes npm@11.19.1 ci --prefix .production-deploy/functions --ignore-scripts --no-audit --no-fund
       - name: Reject obsolete candidate
         env:
           GH_TOKEN: ${{ github.token }}

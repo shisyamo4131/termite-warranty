@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-16 Functions依存固定（配備前）
+
+Functions用lockを独立させ、LocalとCloudで同じ依存定義を使う構成へ移行。試験SDKの読込みと配備物収集を整合し、Prodの認証前stageへ固定依存を導入する。業務仕様・データ形式は変更なし。最終検証・Dev／Prod反映状況は[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を参照。
+
+## 2026-11-16 Firebase依存更新（Dev）
+
+Firebase CLI15.36.0、Admin SDK14.5.1を段階別に更新し、Local検証とDev配備・照合を完了。Dev配備は候補のCLIを明示使用する。復旧データ型の回帰を追加。本人Dev受入れ完了（3bad432）。Prod未反映。詳細と確認限界は[運用記録](docs/operations.md#2026-11-16-firebase-cliadmin-sdk更新dev照合完了)を参照。
+
 ## 2026-11-01 一括取込み画面とExcel運用
 
 選択肢のない「取込みルール」とプレビューの「報告不要にする期間」を削除。検証・登録・満了期間の判定は保持。Excelでの外部キー文字列設定、年付き日付表示とCSV UTF-8保存を操作説明へ記録。Local検証専用スイッチは再解除済みで、Dev／Prodには適用されない。

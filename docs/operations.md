@@ -1,5 +1,120 @@
 # Operations
 
+## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
+
+オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。依存固定候補4ac0348のLocal検証・独立レビューと、文書追記版39ef967のDev配備・本人受入れ完了。Auth保存／読戻しは実行基盤の不適合で未実証となり、本人の明示判断でS4へ繰延べ、今回のProd前条件から除外。Prodは未反映。
+
+旧チャットはidleを確認し、未commitの試験準備文書2件をレビューして保全。origin/devとの製品差分なしを確認し、主checkoutでcodex/firebase-locked-releaseを作成。引継ぎとロードマップを70fb337へ記録。文書時点の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit0。後続の実装検証を代替しない。
+
+R1設計の独立レビューで、Functions依存を分離する際の配備物へのnode_modules混入、試験SDKのクラス／既定App実体の分裂、Prod stageでの依存探索を確認。標準npmによる独立package／lockと導入・試験・配備経路の整合を同時に扱う。業務schema/API、保護設定、権限は変更しない。現行の包括7gateと必要回帰を最終候補に適用する。仕様・データ契約は業務変更がないため改版しない。
+
+以下の旧候補のLocal／Dev成功と本人受入れは保持するが、依存固定後の候補の成功へ読み替えない。新規IAM、実業務データ操作、Auth実復元は今回の配備承認に含めない。
+
+### 依存固定候補のLocal検証（4ac0348）
+
+変更分類はbuild-release-deploy／application-logic／documentation-only。包括7gateを選定し、次のコマンドを各exit0で確認。最終修正は試験用SDK解決のESM条件保持で、単体とRulesを修正後に再実行した。型／build／Functions構文／seed構文は修正が失効条件に該当しないため既存成功を再利用。文書追記は製品の検証を失効させず、governanceだけ更新する。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `npm test` | 677成功・既存2skip、5.67秒 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 208成功、422.65秒、Emulator終了 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+入力該当のdocumentation-routing回帰はnpm test内で成功し重複実行しない。独立reviewのESM条件指摘を修正し、再reviewで残ブロッカーなし。rootのworkspaceを除去しFunctions用lock240依存を分離、既存依存の版／取得元／integrityは維持。標準npm11.19.1によるrootとFunctionsの清浄導入を確認。テストSDKとFunctions SDKの同一性、ソースへのnode_modules混入拒否、lock欠落／不一致拒否を回帰に含む。
+
+実Prod設定で生成した配備bundleは140ファイル、revision 4ac0348afb3ae1e958cd75a85a78bab17f8f5870、digest 0a57a848102fe7287a99fb5d0f203e29a77bf8c72e203e72ee5be0143e0cc7be。`stageProductionBundle`による元bundleと別stageの一致確認exit0。`npx --yes npm@11.19.1 ci --prefix tmp/locked-release-prod-stage/functions --ignore-scripts --no-audit --no-fund`は240依存導入・exit0。stageに含まれる環境設定とprojectを指定したESM importで全21export／Admin14.5.1／Functions7.3.2を確認、exit0。最初の環境未指定importは対象guardで拒否（exit1）され、配備物の環境設定を読み込んで確認し直した。handlerは呼び出さずCloud通信・変更なし。これはCloud build／実稼働の証拠を代替しない。
+
+Git外の最終ログはtmp/locked-release-domain-final.log、tmp/locked-release-rules-final.log等。今回の独立reviewで、新候補のDev技術確認後に本人の限定受入れを確認する必要を再確認。旧版の受入れを新しい依存構成の受入れとして転記しない。
+
+### 依存固定候補のDev配備・受入れとAuth試験の判断
+
+39ef967fef94249b6e85c23bcb5819356bce2caeを[Dev run43847062351](https://github.com/shisyamo4131/termite-warranty/actions/runs/43847062351)へ明示配備。全job成功、`gh run watch ... --exit-status`はexit0。run全体216秒（3分36秒）、依存導入3回43／18／19秒、Firebase配備90秒、公開後check2秒。今回の主目的は依存再現性であり、速度改善の因果を主張しない。
+
+独立GET／公開recoveryRuntime確認は配備後と一時試験終了後の各exit0。全21Functions ACTIVE・全21revision更新、Hosting FINALIZED、normal／generation16／runtimeとmarker一致、active operation／operatorLock／authExportLockなし、automation=falseを確認。オーナーは本チャットで新候補39ef967のログイン・一覧・詳細を確認し「問題なし」と回答。登録・変更・採番を伴う実データ試験は行っていない。
+
+Cloud Build efdd579c-99e6-4a58-806f-13e69db760baはSUCCESS。addAppliedWarrantyの配備ソースgeneration1794824221765010をメモリ内で読み、Functions用package-lockのLocalとのbyte一致（SHA-256 6b14bda6c97d7beae033099328154ac316b6a1130b235ab8c8456abb28f2c3ed）とnode_modules混入なしを確認、exit0。稼働revision addappliedwarranty-00053-lihへ100%配信、image digest c75219a64317aa76c7432827e8662ad4ee378b229d441e2757de9c4d0cb71b28。これは稼働プロセス内でのSDK版照会とは区別する。
+
+本人は一時JobによるDev実Auth読取り／非公開object保存・読戻し・削除、7日soft delete保持、Job削除を承認。既存image／SAを使うdev-auth-sdk-verify-20261116を作成し、execution dev-auth-sdk-verify-20261116-qpgfqを1回だけ実行した。作成APIは初回nameフィールドを400拒否し、不在再確認後に余分なフィールドだけ除いて作成。実行は起動時exit82で失敗し、試験コードの結果なし。完全なログ走査を本文非保存の固定分類で確認し、heapsizeのexec.d起動と必要ファイル不在を特定した。
+
+imageのgoogle.run-imageはgoogle-22-full/scratch/nodejs22。Functionsは実行時にbase imageを合成するが、Cloud Run JobではbaseImageUri非対応。既存imageの単純流用という試験案に見落としがあり、launcher引数の修正だけでは解消しない。[公式説明](https://docs.cloud.google.com/functions/docs/securing/execution-environment-security)、[Container仕様](https://docs.cloud.google.com/run/docs/reference/rest/v2/Container)。試験用objectとauthExportLockは独立GETで各404を複数回確認。終了済みexecution・Job UID／etagを照合してJobを削除し、削除operation成功・Job404を確認（exit0）。再実行・IAM追加・既存Functions設定変更なし。Auth保存／読戻しの成功、実行中SDK版取得、物理消去の成功には読み替えない。
+
+オーナーは失敗原因と代案を確認し「未実証を記録してProdへ進む」を明示選択。R3のAuth実試験を今回のProd前条件から外し、S4の正式な手動試験入口で確認する。Local包括検証・Dev配備／本人受入れ・Cloudソースlock照合と、Prod既存全5照合を今回の根拠とする。Auth実復元の既存見送り、新規IAM禁止、通常PRによる切戻しは維持。未確認ログ本文のLocal保存は自動承認審査に拒否されたため実施せず、固定エラー分類だけを取得した。Git外証拠はtmp/locked-release-dev-*.json、tmp/locked-release-probe-cleanup.json等。
+
+## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
+
+承認範囲：CLIとAdminを分けた更新、Local検証、Dev配備・照合。本番main統合・Prod配備、データ移行、IAM／保護設定変更、復旧用メンテナンスへの移行は行っていない。既存の移動・独立化文書はcodex/shared-foundationに保持し、最新devから専用候補branchで作業した。
+
+### 差分・独立レビュー
+
+- CI準備PR77：candidateのlockで導入したCLIを明示パスで実行し、認証前に版を記録する。対象／順序／cwdの制約と拒否回帰を追加。High MAINT-3設計・MAINT-4／7独立レビュー、包括検証後、必須check成功でdevだけへ通常merge（663a8a2）。製品依存をこのPRへ混ぜず、本人Dev受入れを捏造しない。
+- CLI候補919bfc936db05dab596dd0cd8c20715dc721e64a：15.29.0→15.36.0、Admin14.3.0保持。High MAINT14レビュー。lock変更はCLI関連依存と既存extraneous項目整理。
+- Admin候補3bad432ebdda0fbe3674e78e41354156561869b5：root／functionsの厳密指定14.3.0→14.5.1、CLI15.36.0保持。High MAINT19試験設計・MAINT21／26独立レビュー。既存Emulatorへraw-wire復旧回帰1件追加。スキーマ・業務・権限・停止再開制御に変更なし。
+- 公式tag manifest、npm registryのname/version/tarball/integrity、consumer lockの一致を確認し、各段階でnpm11.19.1 ci成功。Admin新版のLocal解決はFirestore9.4.1、Storage8.4.0、Admin内Google認証11.3.4。単なる修正番号更新より影響が広いものとして検証した。
+
+### Local検証結果（各コマンドのexitは全て0）
+
+| 工程 | CI準備 MAINT8 | CLI MAINT15 | Admin MAINT27 |
+| --- | --- | --- | --- |
+| governance | 0.78秒 | 0.69秒 | 0.75秒 |
+| npm test | 671成功・2skip／4.75秒 | 671成功・2skip／4.65秒 | 671成功・2skip／5.96秒 |
+| typecheck | 8.39秒 | 6.42秒 | 6.55秒 |
+| build | 9.28秒 | 7.99秒 | 8.00秒 |
+| test:rules | 207成功／451.44秒 | 207成功／437.85秒 | 208成功／418.83秒 |
+| Functions構文 | 2.23秒 | 2.27秒 | 2.28秒 |
+| seed構文 | 0.15秒 | 0.14秒 | 0.14秒 |
+
+単体の2skipはホストのsymlink制約。配備契約・文書分類回帰はnpm test内で実行し重複させない。全段階で隔離Emulator終了・独立読取りで試験port待受0を確認。既知のbuild／非推奨依存警告は残る。Git外証拠はtmp/maint8-summary.json、maint15-summary.json、maint27-summary.jsonと各ログ。
+
+追加raw-wire試験は旧Admin14.3.0で既存shardを実行し63成功・exit0／119.14秒（MAINT22）。新版の全208件にも含め、入れ子の参照保持、危険な数値／対象外参照の拒否、対象データ不変を比較した。試験のための任意コマンド許可・runnerガード迂回はしていない。
+
+### Dev実証
+
+| 候補 | 実行 | 結果／所要時間（待機を含むrun全体） |
+| --- | --- | --- |
+| CLI 919bfc9 | [43830712890](https://github.com/shisyamo4131/termite-warranty/actions/runs/43830712890) | 全job成功、実CLI15.36.0、2分20秒 |
+| Admin 3bad432 | [43833179314](https://github.com/shisyamo4131/termite-warranty/actions/runs/43833179314) | 全job成功、実CLI15.36.0、3分34秒 |
+
+各候補は現在devを含む固定SHAで明示配備。配備後checkは21Functions ACTIVE、公開入口成功、automation=false、PITR=false、日次予定0。CLIのみの段階ではFunctions source不変のためrevisionは従前のまま。Admin段階では全21revision更新を独立読取りで照合し、HostingはFINALIZED。normal・generation16・runtime/marker一致、処理中更新／運用lock／Auth退避lockなしを前後確認し、公開recoveryRuntimeのFirestore読取りも成功（exit0）。
+
+事前読取りは初回、別案件の既定CLIアカウントで403となった。本人が管理アカウントをlogin:add後、High MAINT16／18レビュー済みのプロセス内完全一致選択で照合した。既定アカウントを書き換えず、token等をログ・文書へ出力しない。補助処理と非機密な前後比較はGit外tmp/firebase-update-dev-inspect.mjs、maint-admin-predeploy.json、maint-admin-postdeploy.json。業務文書・Authユーザー・採番の変更操作は実行していない（全業務データのhash不変まで実測したという意味ではない）。
+
+### 本人受入れ後のdev統合・Cloud事前確認（2026-11-16）
+
+- オーナーのDev 3bad432受入れを88f8f2fへ記録し、[PR78](https://github.com/shisyamo4131/termite-warranty/pull/78)を必須check成功（25秒）後、devへ通常merge。統合commitは0a0983b286de88dc433d56c485376f6d4bb101b7。統合後と受入れ版の差分は文書だけで、製品・依存・追加試験の内容は同一。包括試験・Dev再配備を重複実行していない。
+- mainはd884c78e9e9d9e9f29209ec0abf2cc628cc1ef82のまま。Prod配備・保護設定・IAM・API有効化・Authデータ操作は実行していない。
+- Highレビュー済みのDev限定GETによる調査では、21関数すべてACTIVE、Cloud Runの稼働revisionへ100%配信、image digestを確認。21関数は同じdigest、対応Cloud Buildは1件でSUCCESS。Build応答にresults.imagesがなく、Build成果物とのdigest一致は未照合。既存Artifact AnalysisのPACKAGE／SBOM参照読取りはHTTP403（IAM_PERMISSION_DENIED）で、Cloud実依存版は未確認。LocalのlockをCloud実版の証拠に代用しない。
+- Auth退避先の設定は21関数に存在し、automationは全てfalse。固定Devプロジェクトのbucket一覧と設定値を照合し、Adminが解決するStorage依存SDKを直接利用してmetadata／IAMの読取りに成功。Dev所有・統一アクセス・公開禁止・公開メンバーなしを確認。これはAdmin getStorage認証経路全体やobject保存／読戻しの実証ではない。既存exporterはfalseならforce指定でも保存に進まない。既存Auth読戻しツールはfetchであり、新Storage SDKの保存・読戻し試験の代替にならない。秘密本文・password hash・SCRYPT設定をLocalへ取得していない。
+- 新SDKの実退避を確かめる場合、Devに限定したCloud内一回実行経路が必要。自動取得を勝手に有効化しない。架空payloadの保存・generation固定読戻し・一致・同一generation削除はStorage接続の限定試験になり得るが、実Auth列挙・hash取得・変更競合制御の成功とは区別する。実行場所・保存先と既存権限を確定し、新資源／IAMが必要なら具体差分を先に提示する。
+- 最終GET再照合で21関数のrevision／digestは調査前後で不変。Git外の非機密結果はtmp/maint35-cloud-metadata.jsonとtmp/maint39-cloud-metadata.json。初回Build結果欠如、続く仮定したbucket名前制約での停止は未確認として扱い、名前推測を廃してDev所属一覧との照合に修正した。Cloud変更・Auth本文取得はない。
+- 新SDKによる実Auth退避・読戻しは未実証。既決定のAuth実復元試験見送りとは別の残確認として維持する。
+
+### Cloud依存版・Dev Auth試験の追加準備（2026-11-16、未実行）
+
+追加依頼を受け、既存Devの読取りだけを実施。稼働imageのmanifest／configをSHA-256で照合し、BuildpacksのSBOM参照を特定したが、そのblobは404。Artifact Analysisの403に対し権限を追加しても、存在しないSBOMを取得できるとは判断できない。Cloudの実依存版は未確認のまま、一時Job内で実際に解決した版を取得する案へ絞った。imageのアプリ層全体・Auth本文は取得していない。
+
+既存runtime SAは1039792105037-compute@developer.gserviceaccount.com。projectのEditorとrecoveryAuthHashReader、Dev専用Auth bucketのobjectCreatorとrecoveryAuthBucketMetadataReaderへの直接bindingを確認。custom roleの実定義はfirebaseauth.configs.getHashConfig、およびstorage.buckets.get/getIamPolicy。新SA／IAM追加は予定しないが、bindingだけで全実効権限の成功を保証しない。
+
+保存先termite-warranty-dev-recovery-authはDev所有・東京・公開禁止・統一アクセス。soft delete 604800秒（7日）、versioning無効、retention期間指定なし、既定holdなしを読取りで確認。試験ファイル削除後も7日間復元可能なコピーが残るため、完全消去とは区別し、その保持と保存費用を承認範囲に含める。[具体的な一時Job案](runbooks/backup-recovery.md#2026-11-16-dev限定sdk実接続試験の準備実行承認前)を参照。
+
+Highの設計・読取りhelperレビューに基づく結果はGit外tmp/maint43-dev-plan-state.json、maint48-sbom-state.json、maint51-dev-plan-state.json、maint51-sbom-state.jsonに保存。新規Job、追加IAM、保護設定変更、Prod配備は未実施。Dev automation=falseを維持し、Auth実復元見送りも変更していない。
+
+一時Job候補はHigh MAINT54レビュー通過、Medium MAINT53のオフライン試験36件成功・exit0（通信0件）。ソースとJob埋込みの一致を確認。曖昧な保存応答＋404では清掃完了にせず、再照合要・自身lock保持とする。削除前の保持設定変更やobject holdも拒否する。候補・hashと7日残存込みの承認範囲は上記手順書へ記録。実行承認待ちでCloud書込みは未実施。
+
+### 判定・残確認
+
+High MAINT28の判断と今回のDev成功から、今回の依存更新だけを理由とする本番の計画停止、および計画メンテナンス経路の追加整備は不要との推奨。無停止・無影響を保証するものではない。現行の障害復旧モードには復元なしの汎用再開経路がなく、更新のために入らない。業務停止が別途必要な変更では、停止から再開・失敗時の扱いまで先に設計・検証する。
+
+- 2026-11-16、オーナーが本チャットで「Dev 3bad432の受入れ完了」を明示し、受入れ記録とPRによるdev統合を承認。対象は3bad432ebdda0fbe3674e78e41354156561869b5、成功Dev run 43833179314。受入れ後の差分は文書だけで製品は同一のため、上記Local検証・Dev配備の証拠を再利用する。個々の確認画面は本人から指定されていないため推定しない。main統合・Prod配備は未承認で保留。
+- Dev保護は保留を維持しているため、実Storage SDK 8系によるAuth退避・読戻しは未実証。自動取得が有効なProdへの昇格前に、この実接続の確認方法と結果を確定する。
+- 既存Functions配備はfunctionsディレクトリを送付し、root workspace lockは送らない。直接Admin指定は固定だがCloudの間接依存は再解決されるため、LocalのFirestore／Storage版とCloud実版の完全一致は未確認。今回、配備方式を無断拡張しない。
+- 通常Dev手順どおり全Functions ZIP・全Hostingファイルhash比較は未実施。エージェントによるブラウザー実画面操作は未実施。コード・配備成功と本人の受入れを区別する。
+
+公式資料：[CLI更新履歴](https://firebase.google.com/support/release-notes/cli)、[Admin更新履歴](https://firebase.google.com/support/release-notes/admin/node)、[Cloud Node依存管理](https://docs.cloud.google.com/run/docs/runtimes/nodejs-dependencies)。
+
 ## 2026-10-31 下書き削除のLocal検証・Dev導入
 
 オーナー承認範囲：下書き削除の実装・Local検証・Dev配備と照合。Prod配備なし。一括取込み入力問題はHS元ファイル待ち。実データ削除、工務店ポータルの公開再開、IAM変更、保護設定の実行は含めない。[保存契約](design/meeting-prototype-2026-10-03.md#2026-10-31-下書きの物理削除)、[判断](decisions/0051-draft-physical-deletion.md)、[操作説明](requirements/user-explanation-items.md#2026-10-31-下書きを削除する)を参照。

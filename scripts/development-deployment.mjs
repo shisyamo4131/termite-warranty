@@ -52,7 +52,7 @@ async function main(mode){
   if(mode==='prepare'){
     const live=await read('https://firebasehosting.googleapis.com/v1beta1/sites/'+t.site+'/channels/live')
     await inspectProductionRelease({target:t},{providerVersion:live.release?.version?.name,credentials:{credential},predeploy:true})
-    for(const file of ['.output/public/index.html','functions/index.js','functions/domain/recovery.mjs'])await access(join(root,file))
+    for(const file of ['.output/public/index.html','functions/index.js','functions/package-lock.json','functions/domain/recovery.mjs'])await access(join(root,file))
     const base=JSON.parse(await readFile(join(root,'firebase.json'),'utf8'))
     await writeFile(join(root,'functions/.env.'+t.project),Object.entries(parameters).map(([k,v])=>k+'='+v).join('\n')+'\n',{flag:'wx'})
     await writeFile(join(root,'firebase.development.generated.json'),JSON.stringify(developmentConfig(base),null,2),{flag:'wx'})

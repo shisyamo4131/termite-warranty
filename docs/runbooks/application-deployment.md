@@ -1,5 +1,13 @@
 # Dev／Prod 通常アプリの配備手順
 
+## 2026-11-16 Functions依存固定の移行
+
+[ADR0052](../decisions/0052-functions-dependency-lock.md)に従い、Functionsをroot workspaceから独立させ、Functions用package／lockをLocalとCloudで共用する。移行候補は実装・検証中で、配備成功は[現在地](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)と運用記録を確認する。
+
+`npx --yes npm@11.19.1 ci`はroot導入後にFunctionsの標準npm ciも実行する。配備ソースにはFunctions用lockを含め、node_modulesは含めない。Devは候補側のFunctions依存、Prodは認証前に配備stageへ同じlockで導入した依存でCLI探索を行う。Cloud buildもこのlockを使う。OS／Node patchを含む実行基盤全体の同一性を保証するものではない。
+
+依存更新ではroot／Functionsそれぞれのpackage・lock差分をレビューする。共有domain準備、Dev自動取得無効、Prod保護設定、PR保護・認証方式は維持する。業務データの移行は不要。切戻しは前版のコード・依存・導入処理を通常PRで戻し、配備後の状態を確認する。失敗時にlockを削除して回避したり、実データを巻き戻したりしない。
+
 ## 2026-10-22 保証グループ上限の導入
 
 承認済みDev導入に限り、アプリ配備の前に既存3グループへmaxWarrantyYearsを補完する。UH10、HSC／SHS30。通常の設定変更では既存物件を検査しない。この補完処理も上限超過の物件を修正せず、物件全体の要約hashは不変照合にだけ使う。保証期間・満了日・採番・履歴を更新しない。
@@ -49,7 +57,7 @@ gh workflow run deploy-development-manual.yml --ref dev -f source_branch=<改修
 
 dev上のcontrollerが同一repository・実branch先頭・現在devを含む候補を確認する。候補のnpm ci、build、Functions domain準備はCloud認証なしのjob。生成物は同run/attemptのGitHub artifactで配備jobへ渡す。配備jobは同じ候補SHAをcheckoutし、そのlockの依存導入を認証前に行う。controller依存導入も残る。buildは再実行しない。
 
-既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configのFirebase CLIを一度実行する。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
+既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configを指定し、候補のlockから導入した `candidate/node_modules/firebase-tools/lib/bin/firebase.js` をcontrollerルートから一度実行する。認証前に同じ実行ファイルの `--version` を記録し、候補の固定版と一致を確認する。controller／global CLIへの代替はしない。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
 
 配備はdevelopment-deploymentで非取消・直列化。資格情報付きFunctions discoveryは指定候補コードを扱うため、信頼できるreview済みrepository候補だけを指定する。任意forkや未確認コードへの実行権限は与えない。
 
