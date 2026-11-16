@@ -6,11 +6,13 @@
 
 実装担当とは別の読取り専任レビューで、非公開IAM・配備ソース一致・単回呼出し・所有世代だけの後片付け・不明結果保持・秘密非出力を確認し、残ブロッカーなし。S5はREADME／文書索引／governance索引／operationsの旧制約／旧Job手順の5箇所を整理し、現行入口と履歴の区別・リンクを独立照合した。
 
-変更分類はbuild-release-deploy／documentation-onlyで包括7gateを選定。対象の試験39件成功、`npm test` は最終718成功・既存symlink fixture2skip、exit0。初回sandbox内実行はWindowsリンク作成EPERMで2件失敗したため、コードを変更せず通常権限で再実行して成功した。`npm run typecheck`、`npm run build`、`pwsh -NoProfile -File scripts/check-governance.ps1` は各exit0。記録はtmp/s4-test-final.log、s4-typecheck.log、s4-build.log、s4-governance.log。
+変更分類はbuild-release-deploy／documentation-onlyで包括7gateを選定。対象の試験39件成功、`npm test` は最終720成功・既存symlink fixture2skip、exit0。初回sandbox内実行はWindowsリンク作成EPERMで2件失敗したため、コードを変更せず通常権限で再実行して成功した。`npm run typecheck`、`npm run build`、`pwsh -NoProfile -File scripts/check-governance.ps1` は各exit0。記録はtmp/s4-test-final.log、s4-typecheck.log、s4-build.log、s4-governance.log。
 
 初回Cloud試行は作成前のbaseline比較で停止（exit1、Auth未取得・Cloud資源未作成）。実metadataを二度読み、値は同一だがobjectキー順が異なることを確認した。比較2箇所を意味的な深い一致へ修正し、キー順だけの差は受理・値や配列順の差は拒否する回帰を追加。修正後の対象28件と上記最終単体試験は各exit0。型・buildの入力は変わらず既存成功証拠を維持する。
 
 次の試行は非公開Function配備・Cloud source一致確認に成功したが、Windows gcloud起動がstdin EOF待ちとなり、POST前で停止した（exit1）。同じ認証コマンドへEOFを渡すと終了することを秘密非出力で確認。子プロセスstdinを閉じる限定修正を行い、実Local子プロセスの回帰を含む29件・全体718件成功、各exit0、独立レビュー残指摘なし。未呼出しFunctionの正確な所有ID、試験object／lock不在を確認してFunctionだけ削除（exit0）。GET404・Dev21 Functions／normal generation16確認後に所有Local lockを解放した。Auth取得・保存はこの試行でも未実施。
+
+812bbd1のCloud試験は配備・非公開／source照合・HTTP呼出し・一時Function削除まで実行したが、bucket権限の事前確認で停止（exit1）。Auth取得・試験object／lock作成なし、後片付け完了。既存SA直接付与にはobject get/deleteがなく、本人が試験prefixへの2権限を30分限定で追加・終了後撤去する範囲を明示承認した。prefix条件に合わせ、bucket全体の権限試験を固有objectのGET404確認へ置換。対象31件・単体720件成功（各exit0）、独立レビュー残指摘なし。権限追加と保存・読戻し成功は後続の実測で確認する。
 
 Rules208件・Functions構文・seed構文は既存の有効な包括検証証拠を再利用する。今回の新規スクリプト・試験登録・文書変更はpolicyの各失効対象に含まれず、Functions本体、共有domain、復旧helper、依存、Node／CLI／Java、Emulator設定は変更していない。製品仕様・データ契約・既存配備ADRの判断内容は不変のため改版しない。
 

@@ -43,6 +43,11 @@ function fixture(options = {}) {
         stored = value; generation = '42'
       },
       getMetadata: async () => {
+        if (!saved) {
+          calls.push('preflight-get')
+          if (options.existingObject) return [{ generation: 'existing' }]
+          if (options.preflightError) { const error = Error('SECRET preflight'); error.code = options.preflightError; throw error }
+        }
         if (!stored) { const error = Error('SECRET absent'); error.code = 404; throw error }
         if (options.generationError) throw Error('SECRET metadata')
         return [{ generation, metadata: { operation: config.operation } }]
@@ -64,7 +69,6 @@ function fixture(options = {}) {
     assert.equal(name, config.bucket)
     return { file, getMetadata: async () => [options.badBucket ? { ...metadata, softDeletePolicy: {} } : metadata], iam: {
       getPolicy: async () => [{ bindings: options.public ? [{ members: ['allUsers'] }] : [] }],
-      testPermissions: async permissions => [Object.fromEntries(permissions.map(p => [p, !options.permissionDenied]))],
     } }
   } }
   const auth = { listUsers: async () => {
@@ -94,7 +98,7 @@ test('Cloud Auth bytes save/read/delete exactly one generation; response contain
   assert.equal(result.softDeleteSeconds, 604800)
   assert.equal(f.docs.has('recovery/authExportLock'), false)
   assert.deepEqual(f.counts(), { readCount: 1, saved: 1, deleted: 1 })
-  assert.deepEqual(f.calls, ['auth', 'save', 'download', 'delete'])
+  assert.deepEqual(f.calls, ['preflight-get', 'auth', 'save', 'download', 'delete'])
   assert.equal(verifyProbeResult(result, config), result)
   assert.doesNotMatch(JSON.stringify(result), /SECRET|PRIVATE UID/)
   assert.deepEqual([...f.docs.keys()].sort(), ['recovery/authBackupEpoch','recovery/runtime'])
@@ -102,7 +106,8 @@ test('Cloud Auth bytes save/read/delete exactly one generation; response contain
 for (const [name, options, phase] of [
   ['wrong project', { project: 'prod' }, 'target'], ['wrong SDK', { sdkVersion: '0' }, 'target'],
   ['public bucket', { public: true }, 'bucket'], ['changed retention', { badBucket: true }, 'bucket'],
-  ['missing storage permission', { permissionDenied: true }, 'bucket'], ['another lock', { lock: true }, 'lock'], ['active Auth mutation', { active: true }, 'lock'],
+  ['object GET denied', { preflightError: 403 }, 'bucket'], ['object GET unavailable', { preflightError: 503 }, 'bucket'],
+  ['existing probe object', { existingObject: true }, 'bucket'], ['another lock', { lock: true }, 'lock'], ['active Auth mutation', { active: true }, 'lock'],
 ]) test(`${name} rejects before Auth reads`, async () => {
   const f = fixture(options), result = await f.run()
   assert.equal(result.status, 'failed'); assert.equal(result.phase, phase)

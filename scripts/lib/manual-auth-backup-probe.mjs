@@ -16,9 +16,10 @@ export async function manualAuthBackupProbe({ config, project, sdkVersion, contr
     const [metadata] = await bucket.getMetadata(), [policy] = await bucket.iam.getPolicy()
     assertPrivateAuthBucket(metadata, policy, projectNumber)
     if (metadata.location !== 'ASIA-NORTHEAST1' || Number(metadata.softDeletePolicy?.retentionDurationSeconds) !== 604800 || metadata.versioning?.enabled || metadata.defaultEventBasedHold || metadata.retentionPolicy?.retentionPeriod) throw Error()
-    const permissions = ['storage.objects.create', 'storage.objects.get', 'storage.objects.delete']
-    const [allowed] = await bucket.iam.testPermissions(permissions)
-    if (permissions.some(permission => allowed[permission] !== true)) throw Error()
+    // Check this exact prefix-scoped object, not bucket-wide IAM permissions.
+    // Delete permission is proved by the later same-generation deletion.
+    const file = bucket.file(object)
+    try { await file.getMetadata(); throw Error() } catch (error) { if (Number(error.code) !== 404) throw error }
     phase = 'lock'
     binding = await control.runTransaction(async tx => {
       const [held, epoch, state, mutations, operator] = await Promise.all([tx.get(lock), tx.get(epochRef), tx.get(runtime), tx.get(active), tx.get(control.doc('recovery/operatorLock'))])
@@ -40,7 +41,6 @@ export async function manualAuthBackupProbe({ config, project, sdkVersion, contr
       pageToken = page.pageToken
     } while (pageToken)
     const bytes = Buffer.from(JSON.stringify({ schemaVersion: 1, users }))
-    const file = bucket.file(object)
     phase = 'save'; objectGone = false
     // An uncertain save leaves the lock and object for operator investigation.
     await file.save(gzipSync(bytes), { resumable: false, metadata: { contentType: 'application/gzip', metadata: { operation } }, preconditionOpts: { ifGenerationMatch: 0 } })
