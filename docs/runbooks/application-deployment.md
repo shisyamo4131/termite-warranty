@@ -49,7 +49,7 @@ gh workflow run deploy-development-manual.yml --ref dev -f source_branch=<改修
 
 dev上のcontrollerが同一repository・実branch先頭・現在devを含む候補を確認する。候補のnpm ci、build、Functions domain準備はCloud認証なしのjob。生成物は同run/attemptのGitHub artifactで配備jobへ渡す。配備jobは同じ候補SHAをcheckoutし、そのlockの依存導入を認証前に行う。controller依存導入も残る。buildは再実行しない。
 
-既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configのFirebase CLIを一度実行する。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
+既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configを指定し、候補のlockから導入した `candidate/node_modules/firebase-tools/lib/bin/firebase.js` をcontrollerルートから一度実行する。認証前に同じ実行ファイルの `--version` を記録し、候補の固定版と一致を確認する。controller／global CLIへの代替はしない。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
 
 配備はdevelopment-deploymentで非取消・直列化。資格情報付きFunctions discoveryは指定候補コードを扱うため、信頼できるreview済みrepository候補だけを指定する。任意forkや未確認コードへの実行権限は与えない。
 
