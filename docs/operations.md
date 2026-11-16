@@ -2,6 +2,11 @@
 
 ## 2026-11-16 Firebase依存更新（進行中）
 
+CLI単独候補 MAINT-13〜15：CI準備PR77は必須check成功後devへ統合（663a8a2）。CLI15.36.0へ更新、Admin14.3.0は不変。公式tag／registry／lock integrity一致、npm11.19.1 ci成功、認証内部export互換の静的確認成功。High MAINT14承認。包括7gate全exit0：governance0.69秒、単体671成功2skip／4.65秒、型6.42秒、build7.99秒、Rules207成功／437.85秒、Functions構文2.27秒、seed構文0.14秒。隔離Emulator終了と待受0。Git外tmp/maint15-summary.jsonに実測。
+
+Dev事前読取り：初回は別案件の既定CLIアカウントで403。本人が管理アカウントを追加ログイン後、既定設定を変更しない完全一致選択の読取りhelperをHigh MAINT18レビューし使用。normal、runtime/marker一致、generation16、更新・運用lock・Auth退避lockなし、21Functions ACTIVE、Hosting FINALIZED、公開recoveryRuntimeのFirestore読取り成功を確認（exit0）。業務データ更新なし。Dev配備はこの時点で未実行、本人の業務受入れ未実施。
+
+
 CI準備 MAINT-8：High MAINT-7レビュー承認。npm11.19.1で包括7gate成功（全exit0）。governance 0.78秒、単体671成功・2skip・失敗0／4.75秒、型検査8.39秒、build9.28秒、Rules207成功／451.44秒、Functions構文2.23秒、seed構文0.15秒。skipはホストsymlink条件。単体に配備契約・文書分類回帰を含むため重複実行なし。隔離Emulator終了・待受0確認。記録：Git外tmp/maint8-summary.jsonと各ログ。画面変更なし、本人UI受入れは未実施。
 
 
