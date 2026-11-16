@@ -1,4 +1,32 @@
 # バックアップ・全体復旧の操作手順
+## 2026-11-16 Dev限定SDK実接続試験の準備（実行承認前）
+
+目的：Admin更新後の実Auth退避・同一世代読戻しと、Cloudで実際に解決される依存版を確認する。Prod配備・Dev自動取得有効化は対象外。オーナーは追加権限・設定変更が必要なら具体内容を先に提示するよう指示しており、以下の新規Jobはまだ作成・実行していない。
+
+確認済み資源（2026-11-16、本人Owner資格による読取り）：
+
+- Dev：`termite-warranty-dev`、番号`1039792105037`、東京。
+- 既存実行SA：`1039792105037-compute@developer.gserviceaccount.com`。projectのEditorおよびAuth hash読取り用custom roleへの直接bindingを確認。bucketではobjectCreator・metadata読取り用custom role。bindingの存在は全実効権限の保証ではない。
+- 既存Auth保存先：`termite-warranty-dev-recovery-auth`。Dev所有、東京、統一アクセス・公開禁止・公開メンバーなし。soft deleteは604800秒（7日）、versioning無効、既定holdなし、retention policyの期間指定なし。
+- 稼働image：`asia-northeast1-docker.pkg.dev/termite-warranty-dev/gcf-artifacts/termite--warranty--dev__asia--northeast1__add_applied_warranty@sha256:220e5fba1aea2898c9215628926d1d1fc1f61422a42c601b9f116ffc4513d521`。Job準備時・実行前にも稼働版との一致を再確認し、不一致なら停止する。
+
+提案する変更範囲：
+
+1. 一時Cloud Run Job `dev-auth-sdk-verify-20261116` を新規作成する。存在時は上書きしない。上記imageとSAを再利用、task数1・並列数1・retry 0・timeout 180秒、手動1回。新build・bucket・SA・IAM追加は予定しない。既存Functions／Scheduler／automation=falseは変更しない。短時間のJob実行・保存に通常の従量料金が発生し得る。
+2. 同じimage内で依存版を確認後、Adminの`getAuth()`でDev実Authを読み、`getStorage()`で試験専用object 1件を新規保存する。Auth本文・password hash／saltはCloud内で処理し、非公開bucketの試験objectにのみ保存する。Local・ログへ出力しない。既存exporterのfalseガードを上書きしない。
+3. objectは`auth/sdk-verification/`の試験用固定識別子配下に限定し、`ifGenerationMatch:0`で作成。同一generationで読戻し、gzip展開後の一致を確認し、そのgenerationだけ削除・通常参照での不在確認をする。既存soft delete設定により削除後も7日間復元可能なコピーが保持され、その間は保存費用の対象になる。これは完全消去完了とは扱わず、この残存を含めて実行承認を得る。既存退避・hash設定は変更しない。
+4. `recovery-control`の`recovery/authExportLock`を所有者付きで一時取得し、開始・終了のnormal／generation／Auth変更epoch／処理中Auth更新を照合する。自身のlockだけ解除する。業務DB・Authアカウント・`lastAuthBackup`・`backupHistory`は更新しない。
+5. Jobは1回だけ起動し、実行IDを記録する。結果不明時に再送しない。成功・失敗・timeout時とも、外側の操作担当が同じexecutionの終了を確認してからJob・試験object・自身のlockの残存を調べて限定清掃する。180秒の強制終了ではfinallyの実行を保証できない。保存応答不明後の単発404を不存在確定にせず、結果のexecutionとgenerationを使って再確認し、不明状態でJobを削除・再実行しない。所有者／generationを照合できないものは削除しない。Job削除後も非機密の実行ログはCloudの保持期間に従って残る。
+
+準備済み候補：Git外のtmp/dev-auth-sdk-probe.cjsとtmp/dev-auth-sdk-probe-job.json。source SHA-256はe3d7d8927ea8a83dc5b4ca2c5cb63b8ad5a9feed3e667f8b220d5db94e61211e、JSON埋込み全文とhashの一致を確認。High MAINT54レビュー通過、Medium MAINT53のオフライン試験36件成功（exit0、通信0件）。結果はtmp/maint53-summary.json。実SDK通信・IAM・物理消去は未実証で、JobはproposalOnly／approvalRequiredの準備物。実行前にこのhashと承認範囲を再照合する。
+
+制約：試験中は担当者によるDev Auth変更を控える。lockは管理画面やConsoleのAuth変更を完全に阻止せず、epoch等の変化時は試験を不合格とする。検証コードとLocal試験結果をレビューした上で上記の実行承認を得る。権限不足なら自動追加せず必要権限と資源を提示する。image configの起動ディレクトリは/workspace、PATHの/cnb/lifecycleは確認済みだが、候補の/cnb/lifecycle/launcher自体の起動成功は未実証。起動失敗ならAuth読取り・保存に進まない。
+
+この試験が成功しても、確認範囲は新SDKによる実Auth読取り・Storage保存／読戻しである。自動exporter全体の実行成功、正式バックアップ記録、Auth実復元・復元後ログインの成功には読み替えない。Auth実復元試験の既決定の見送りは維持する。
+
+公式手順：[既存imageからJob作成](https://docs.cloud.google.com/run/docs/create-jobs)、[コンテナ起動指定](https://docs.cloud.google.com/run/docs/configuring/jobs/containers)、[Job削除とログ保持](https://docs.cloud.google.com/run/docs/managing/jobs)。
+
+削除保持の根拠：[Cloud Storage soft delete仕様](https://docs.cloud.google.com/storage/docs/soft-delete)。
 
 ## 2026-11-02 日次バックアップ生成確認・復元検証の保留
 

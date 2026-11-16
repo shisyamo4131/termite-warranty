@@ -48,6 +48,18 @@
 - 最終GET再照合で21関数のrevision／digestは調査前後で不変。Git外の非機密結果はtmp/maint35-cloud-metadata.jsonとtmp/maint39-cloud-metadata.json。初回Build結果欠如、続く仮定したbucket名前制約での停止は未確認として扱い、名前推測を廃してDev所属一覧との照合に修正した。Cloud変更・Auth本文取得はない。
 - 新SDKによる実Auth退避・読戻しは未実証。既決定のAuth実復元試験見送りとは別の残確認として維持する。
 
+### Cloud依存版・Dev Auth試験の追加準備（2026-11-16、未実行）
+
+追加依頼を受け、既存Devの読取りだけを実施。稼働imageのmanifest／configをSHA-256で照合し、BuildpacksのSBOM参照を特定したが、そのblobは404。Artifact Analysisの403に対し権限を追加しても、存在しないSBOMを取得できるとは判断できない。Cloudの実依存版は未確認のまま、一時Job内で実際に解決した版を取得する案へ絞った。imageのアプリ層全体・Auth本文は取得していない。
+
+既存runtime SAは1039792105037-compute@developer.gserviceaccount.com。projectのEditorとrecoveryAuthHashReader、Dev専用Auth bucketのobjectCreatorとrecoveryAuthBucketMetadataReaderへの直接bindingを確認。custom roleの実定義はfirebaseauth.configs.getHashConfig、およびstorage.buckets.get/getIamPolicy。新SA／IAM追加は予定しないが、bindingだけで全実効権限の成功を保証しない。
+
+保存先termite-warranty-dev-recovery-authはDev所有・東京・公開禁止・統一アクセス。soft delete 604800秒（7日）、versioning無効、retention期間指定なし、既定holdなしを読取りで確認。試験ファイル削除後も7日間復元可能なコピーが残るため、完全消去とは区別し、その保持と保存費用を承認範囲に含める。[具体的な一時Job案](runbooks/backup-recovery.md#2026-11-16-dev限定sdk実接続試験の準備実行承認前)を参照。
+
+Highの設計・読取りhelperレビューに基づく結果はGit外tmp/maint43-dev-plan-state.json、maint48-sbom-state.json、maint51-dev-plan-state.json、maint51-sbom-state.jsonに保存。新規Job、追加IAM、保護設定変更、Prod配備は未実施。Dev automation=falseを維持し、Auth実復元見送りも変更していない。
+
+一時Job候補はHigh MAINT54レビュー通過、Medium MAINT53のオフライン試験36件成功・exit0（通信0件）。ソースとJob埋込みの一致を確認。曖昧な保存応答＋404では清掃完了にせず、再照合要・自身lock保持とする。削除前の保持設定変更やobject holdも拒否する。候補・hashと7日残存込みの承認範囲は上記手順書へ記録。実行承認待ちでCloud書込みは未実施。
+
 ### 判定・残確認
 
 High MAINT28の判断と今回のDev成功から、今回の依存更新だけを理由とする本番の計画停止、および計画メンテナンス経路の追加整備は不要との推奨。無停止・無影響を保証するものではない。現行の障害復旧モードには復元なしの汎用再開経路がなく、更新のために入らない。業務停止が別途必要な変更では、停止から再開・失敗時の扱いまで先に設計・検証する。
