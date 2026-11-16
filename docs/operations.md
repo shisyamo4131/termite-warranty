@@ -1,33 +1,53 @@
 # Operations
 
-## 2026-11-16 Firebase依存更新（進行中）
+## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
 
-Admin新版 MAINT26 Highレビュー承認、MAINT27包括7gate全exit0：governance0.75秒、単体671成功2skip／5.96秒、型検査6.55秒、build8.00秒、Rules208成功／418.83秒、Functions構文2.28秒、seed構文0.14秒。追加raw-wire試験も旧版／新版双方成功（新版1.03秒）。隔離Emulator終了・待受0。Git外tmp/maint27-summary.json参照。アプリ画面の変更なし、本人業務受入れは未実施。AdminのDev配備・照合はこれから。
+承認範囲：CLIとAdminを分けた更新、Local検証、Dev配備・照合。本番main統合・Prod配備、データ移行、IAM／保護設定変更、復旧用メンテナンスへの移行は行っていない。既存の移動・独立化文書はcodex/shared-foundationに保持し、最新devから専用候補branchで作業した。
 
+### 差分・独立レビュー
 
-Admin準備：High MAINT19設計・MAINT21独立レビューに基づきraw REST値の復旧回帰1件を既存Emulator試験へ追加。旧Admin14.3.0で承認済みshardを実行し63成功・exit0／119.14秒、追加試験実行と停止・待受0を確認（MAINT22）。その後root/functions Adminを14.5.1へ更新しnpm11.19.1 ci成功。Local lock実解決はFirestore9.4.1・Storage8.4.0・Admin内Google認証11.3.4。新版の包括検証は上記MAINT27で完了。
+- CI準備PR77：candidateのlockで導入したCLIを明示パスで実行し、認証前に版を記録する。対象／順序／cwdの制約と拒否回帰を追加。High MAINT-3設計・MAINT-4／7独立レビュー、包括検証後、必須check成功でdevだけへ通常merge（663a8a2）。製品依存をこのPRへ混ぜず、本人Dev受入れを捏造しない。
+- CLI候補919bfc936db05dab596dd0cd8c20715dc721e64a：15.29.0→15.36.0、Admin14.3.0保持。High MAINT14レビュー。lock変更はCLI関連依存と既存extraneous項目整理。
+- Admin候補3bad432ebdda0fbe3674e78e41354156561869b5：root／functionsの厳密指定14.3.0→14.5.1、CLI15.36.0保持。High MAINT19試験設計・MAINT21／26独立レビュー。既存Emulatorへraw-wire復旧回帰1件追加。スキーマ・業務・権限・停止再開制御に変更なし。
+- 公式tag manifest、npm registryのname/version/tarball/integrity、consumer lockの一致を確認し、各段階でnpm11.19.1 ci成功。Admin新版のLocal解決はFirestore9.4.1、Storage8.4.0、Admin内Google認証11.3.4。単なる修正番号更新より影響が広いものとして検証した。
 
-既存の配備方式はfunctionsディレクトリを送付し、root workspace lockをCloudへ送付しない。Admin直接依存は厳密14.5.1だが、Cloud側の間接依存は再解決されるためLocalと同一とは断定しない。今回のDev照合は実稼働版・設定・公開Callable等の範囲とし、Cloud間接依存の完全一致は未検証。Dev保護は保留を維持するため実Storage SDKによるAuth退避も未実証であり、Prod昇格前の確認事項として残す。
+### Local検証結果（各コマンドのexitは全て0）
 
+| 工程 | CI準備 MAINT8 | CLI MAINT15 | Admin MAINT27 |
+| --- | --- | --- | --- |
+| governance | 0.78秒 | 0.69秒 | 0.75秒 |
+| npm test | 671成功・2skip／4.75秒 | 671成功・2skip／4.65秒 | 671成功・2skip／5.96秒 |
+| typecheck | 8.39秒 | 6.42秒 | 6.55秒 |
+| build | 9.28秒 | 7.99秒 | 8.00秒 |
+| test:rules | 207成功／451.44秒 | 207成功／437.85秒 | 208成功／418.83秒 |
+| Functions構文 | 2.23秒 | 2.27秒 | 2.28秒 |
+| seed構文 | 0.15秒 | 0.14秒 | 0.14秒 |
 
-CLI Dev実証：候補919bfc936db05dab596dd0cd8c20715dc721e64a、run https://github.com/shisyamo4131/termite-warranty/actions/runs/43830712890 全job成功。実CLI15.36.0をログで確認。配備後check：21Functions ACTIVE、公開入口成功、automation=false、PITR=false、日次予定0。独立読取りもexit0、normal／generation16を維持し、lock・更新なし、公開Callable読取り成功。Hosting FINALIZED更新、Functions revisionはコード不変のため従前のまま。全ソースZIP／全Hosting hash照合や本人の業務画面受入れは未実施。Prod・main変更なし。
+単体の2skipはホストのsymlink制約。配備契約・文書分類回帰はnpm test内で実行し重複させない。全段階で隔離Emulator終了・独立読取りで試験port待受0を確認。既知のbuild／非推奨依存警告は残る。Git外証拠はtmp/maint8-summary.json、maint15-summary.json、maint27-summary.jsonと各ログ。
 
+追加raw-wire試験は旧Admin14.3.0で既存shardを実行し63成功・exit0／119.14秒（MAINT22）。新版の全208件にも含め、入れ子の参照保持、危険な数値／対象外参照の拒否、対象データ不変を比較した。試験のための任意コマンド許可・runnerガード迂回はしていない。
 
-CLI単独候補 MAINT-13〜15：CI準備PR77は必須check成功後devへ統合（663a8a2）。CLI15.36.0へ更新、Admin14.3.0は不変。公式tag／registry／lock integrity一致、npm11.19.1 ci成功、認証内部export互換の静的確認成功。High MAINT14承認。包括7gate全exit0：governance0.69秒、単体671成功2skip／4.65秒、型6.42秒、build7.99秒、Rules207成功／437.85秒、Functions構文2.27秒、seed構文0.14秒。隔離Emulator終了と待受0。Git外tmp/maint15-summary.jsonに実測。
+### Dev実証
 
-Dev事前読取り：初回は別案件の既定CLIアカウントで403。本人が管理アカウントを追加ログイン後、既定設定を変更しない完全一致選択の読取りhelperをHigh MAINT18レビューし使用。normal、runtime/marker一致、generation16、更新・運用lock・Auth退避lockなし、21Functions ACTIVE、Hosting FINALIZED、公開recoveryRuntimeのFirestore読取り成功を確認（exit0）。業務データ更新なし。Dev配備はこの時点で未実行、本人の業務受入れ未実施。
+| 候補 | 実行 | 結果／所要時間（待機を含むrun全体） |
+| --- | --- | --- |
+| CLI 919bfc9 | [43830712890](https://github.com/shisyamo4131/termite-warranty/actions/runs/43830712890) | 全job成功、実CLI15.36.0、2分20秒 |
+| Admin 3bad432 | [43833179314](https://github.com/shisyamo4131/termite-warranty/actions/runs/43833179314) | 全job成功、実CLI15.36.0、3分34秒 |
 
+各候補は現在devを含む固定SHAで明示配備。配備後checkは21Functions ACTIVE、公開入口成功、automation=false、PITR=false、日次予定0。CLIのみの段階ではFunctions source不変のためrevisionは従前のまま。Admin段階では全21revision更新を独立読取りで照合し、HostingはFINALIZED。normal・generation16・runtime/marker一致、処理中更新／運用lock／Auth退避lockなしを前後確認し、公開recoveryRuntimeのFirestore読取りも成功（exit0）。
 
-CI準備 MAINT-8：High MAINT-7レビュー承認。npm11.19.1で包括7gate成功（全exit0）。governance 0.78秒、単体671成功・2skip・失敗0／4.75秒、型検査8.39秒、build9.28秒、Rules207成功／451.44秒、Functions構文2.23秒、seed構文0.15秒。skipはホストsymlink条件。単体に配備契約・文書分類回帰を含むため重複実行なし。隔離Emulator終了・待受0確認。記録：Git外tmp/maint8-summary.jsonと各ログ。画面変更なし、本人UI受入れは未実施。
+事前読取りは初回、別案件の既定CLIアカウントで403となった。本人が管理アカウントをlogin:add後、High MAINT16／18レビュー済みのプロセス内完全一致選択で照合した。既定アカウントを書き換えず、token等をログ・文書へ出力しない。補助処理と非機密な前後比較はGit外tmp/firebase-update-dev-inspect.mjs、maint-admin-predeploy.json、maint-admin-postdeploy.json。業務文書・Authユーザー・採番の変更操作は実行していない（全業務データのhash不変まで実測したという意味ではない）。
 
+### 判定・残確認
 
-承認：CLIとAdmin SDKを分けて更新し、Local検証・Dev配備と照合まで。Prod配備・main統合・データ移行・保護設定変更は行わない。既存の移動・独立化文書はcodex/shared-foundationに保持し、最新devを基点とする専用branchで作業する。
+High MAINT28の判断と今回のDev成功から、今回の依存更新だけを理由とする本番の計画停止、および計画メンテナンス経路の追加整備は不要との推奨。無停止・無影響を保証するものではない。現行の障害復旧モードには復元なしの汎用再開経路がなく、更新のために入らない。業務停止が別途必要な変更では、停止から再開・失敗時の扱いまで先に設計・検証する。
 
-High MAINT-3設計／MAINT-4独立レビューに基づき、最初にCIだけの変更をdevへPR統合する。候補依存のCLIを明示実行し、認証前の版記録と順序・対象の契約試験を追加する。package/lockをこのPRに含めず、本人Dev受入れを要求しない既存CI分類を使う。以後CLI、Adminの順で別差分・Local検証・Dev実証を行う。
+- 本人の認証付きDev業務受入れは未実施。公開Callableの成功で代替しない。ログイン・代表的な一覧／詳細・CSVなどを受入れ確認する。製品候補はdevへ未統合、CI修正だけ統合済み。main／Prodは未変更。
+- Dev保護は保留を維持しているため、実Storage SDK 8系によるAuth退避・読戻しは未実証。自動取得が有効なProdへの昇格前に、この実接続の確認方法と結果を確定する。
+- 既存Functions配備はfunctionsディレクトリを送付し、root workspace lockは送らない。直接Admin指定は固定だがCloudの間接依存は再解決されるため、LocalのFirestore／Storage版とCloud実版の完全一致は未確認。今回、配備方式を無断拡張しない。
+- 通常Dev手順どおり全Functions ZIP・全Hostingファイルhash比較は未実施。ブラウザー実画面操作も今回未実施。コード・配備成功と本人の受入れを区別する。
 
-更新候補はCLI15.36.0、Admin14.5.1。公式タグmanifestとnpm registryのname/version/tarball/integrityを読取り確認済み。依存解決後のlockと実動作は未検証。包括7gateと対象回帰を選択。実行結果は完了後に追記し、予定を成功と扱わない。
-
-今回の通常更新では復旧用メンテナンスへ移行しない。現行再開条件の緩和、移行証拠の転用、健全なDB復元をしない。停止が必要と判明したら計画保守用の停止・再開を別途設計する。技術的なDev照合と本人の業務受入れは区別する。
+公式資料：[CLI更新履歴](https://firebase.google.com/support/release-notes/cli)、[Admin更新履歴](https://firebase.google.com/support/release-notes/admin/node)、[Cloud Node依存管理](https://docs.cloud.google.com/run/docs/runtimes/nodejs-dependencies)。
 
 ## 2026-10-31 下書き削除のLocal検証・Dev導入
 
