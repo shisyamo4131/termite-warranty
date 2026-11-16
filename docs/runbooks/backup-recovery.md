@@ -31,7 +31,19 @@ FirestoreバックアップはDBの文書と索引を保存する機能で、Aut
 
 2026-11-16現在：以下の一時Job案は、本人承認後の1回実行で起動時失敗し、Job・試験object・lockの不在を確認して終了した。Functionsのimageは実行時base image合成を必要とするscratch形式であり、baseImageUriをサポートしないJobへの単純流用は不適合。再利用しない。本人はAuth保存／読戻し未実証を記録してProd更新へ進むと判断し、正式な手動試験入口と実試験を[ロードマップS4](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)へ繰延べた。[実績・判断](../operations.md#依存固定候補のdev配備受入れとauth試験の判断)。以下の実行承認前・未実行は準備時点の記録。
 
+## Dev限定Auth保存・読戻しの手動試験（S4）
+
+定期取得を有効化せず、手元から `npm run test:backup:manual -- dev --account <ログイン済みメールアドレス>` を実行する。現在は実装・検証中で、Cloudでの成功はまだ確認していない。cleanなcommit、Firebase CLIとgcloudの同一明示アカウント、既存権限を前提とする。Prodには使用しない。
+
+既存Functionsと同じ固定依存から、独立codebaseの非公開HTTP Functionを一時作成する。既存Dev実行アカウントを使い、IAMの追加はしない。実際の配備ソースと非公開設定を確認後、1回だけ呼び出す。実AuthはCloud内で読み、既存の非公開保存先の固有objectへ保存・読戻し・一致確認・世代指定削除を行う。既存Auth export lockと世代を照合し、競合を拒否する。Authユーザー、通常バックアップの履歴、業務データ、自動取得設定は変更しない。
+
+成功後は試験objectの通常読取りでの不在、所有lockの解放、一時Functionの削除、Devの通常状態・既存Functions・保護設定の不変を確認する。削除objectは既存soft delete設定により7日残る。ビルド・ログ等は既存保持設定に従う。Auth本文・ハッシュ・トークンは手元やログに出さず、`tmp/manual-auth-backup/`には操作ID・段階・結果等のmetadataだけを保存する。
+
+失敗・応答不明時は自動再呼出ししない。`dev.lock`と結果metadataが残る場合は、記録された一時Function・operation・object世代と実状態を照合してから、その操作が所有するものだけを後片付けする。処理中か不明なobjectやlockを削除せず、原因解消前にlockだけ消して再実行しない。権限不足で停止した場合もIAMを自動追加しない。これは保存・読戻しの試験であり、Auth復元・import・復元後ログインや定期処理全体の実証ではない。
+
 ## 2026-11-16 Dev限定SDK実接続試験の準備（実行承認前）
+
+**以下は旧案・再実行不可。** 起動失敗で終了した一時Jobの準備記録。現行の手動試験入口は[上記S4](#dev限定auth保存読戻しの手動試験s4)を参照する。
 
 目的：Admin更新後の実Auth退避・同一世代読戻しと、Cloudで実際に解決される依存版を確認する。Prod配備・Dev自動取得有効化は対象外。オーナーは追加権限・設定変更が必要なら具体内容を先に提示するよう指示しており、以下の新規Jobはまだ作成・実行していない。
 

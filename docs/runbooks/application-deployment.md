@@ -23,6 +23,8 @@ npm run deploy -- prod --account <ログイン済みメールアドレス>
 
 ### 変更対象だけ配備する（S3Local検証済み）
 
+2026-11-17、Dev／ProdのHosting単独配備も実証済み。[実測と確認範囲](../operations.md#2026-11-17-s3のhosting部分配備実証)。
+
 通常のコマンドに `--only` を付けて対象を手動で選ぶ。省略時は従来どおり全体配備する。Git差分による自動判定や配備履歴台帳は使わない。
 
 ~~~powershell

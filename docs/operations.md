@@ -1,5 +1,34 @@
 # Operations
 
+## 2026-11-17 S4手動試験入口のLocal検証
+
+既存の固定Functions依存を使うDev限定の非公開HTTP Function方式を実装。[操作・失敗時の扱い](runbooks/backup-recovery.md#dev限定auth保存読戻しの手動試験s4)。通常FunctionsやIAM、依存版、保護設定、業務仕様は変更しない。Cloud実証はまだ未完了。
+
+実装担当とは別の読取り専任レビューで、非公開IAM・配備ソース一致・単回呼出し・所有世代だけの後片付け・不明結果保持・秘密非出力を確認し、残ブロッカーなし。S5はREADME／文書索引／governance索引／operationsの旧制約／旧Job手順の5箇所を整理し、現行入口と履歴の区別・リンクを独立照合した。
+
+変更分類はbuild-release-deploy／documentation-onlyで包括7gateを選定。対象の試験39件成功、`npm test` は716成功・既存symlink fixture2skip、exit0。初回sandbox内実行はWindowsリンク作成EPERMで2件失敗したため、コードを変更せず通常権限で再実行して成功した。`npm run typecheck`、`npm run build`、`pwsh -NoProfile -File scripts/check-governance.ps1` は各exit0。記録はtmp/s4-test-final.log、s4-typecheck.log、s4-build.log、s4-governance.log。
+
+Rules208件・Functions構文・seed構文は既存の有効な包括検証証拠を再利用する。今回の新規スクリプト・試験登録・文書変更はpolicyの各失効対象に含まれず、Functions本体、共有domain、復旧helper、依存、Node／CLI／Java、Emulator設定は変更していない。製品仕様・データ契約・既存配備ADRの判断内容は不変のため改版しない。
+
+## 2026-11-17 S3のHosting部分配備実証
+
+本人の残作業続行指示に基づき、Local検証済み8197a6fa2187913bc8cb9cb35d847cb589c4b1f4をdevへ通常push、Dev成功後mainへ通常push（各exit0）。両環境で `npm run deploy -- <dev|prod> --account <明示account> --only hosting` を実行し、各exit0。既存の有効な包括検証証拠を再利用し、同一ソースの全試験を反復していない。
+
+| 工程 | Dev | Prod |
+| --- | ---: | ---: |
+| 共通事前確認 | 5.120秒 | 5.291秒 |
+| build・固定 | 8.362秒 | 8.451秒 |
+| 最終確認 | 3.600秒 | 3.493秒 |
+| Hosting配備 | 9.080秒 | 7.163秒 |
+| 公開後確認 | 3.719秒 | 93.509秒 |
+| 全体（開始1ms含む） | 29.882秒 | 117.908秒 |
+
+stage Functions依存導入は両方とも実行なし。Prodの実施照合IDはhosting-release-proofだけでpass。独立した配備前後の読取り・比較は各exit0で、両環境の21 Functions全revision・保護状態・runtime不変を確認した。Dev generation16／Prod generation3でnormal。公開版はDev32fa72d289672342、Prod9e34029022303382。
+
+S2全体配備118.915秒／194.973秒に対し今回29.882秒／117.908秒。ただしProdのHosting公開後照合には反映待ちを含む93.509秒を要した。配備対象・Cloud反映時間が異なる1回の実測であり、固定時間や全組合せのCloud実証を保証しない。functions／firestore単独・組合せはLocal回帰済み、今回Cloudで実行したのはhostingだけ。ユーザー画面・業務API・依存内容は不変で、既存受入れを維持。業務データ変更・バックアップ設定変更はなし。
+
+証拠はtmp/s3-dev-run.log、s3-prod-run.log、s3-dev-before/after.json、s3-prod-before/after.json。S3はこの代表的なHosting部分配備の実証・実測をもって完了とする。
+
 ## 2026-11-16 S3・変更対象だけの配備（Local完了）
 
 オーナーのS3着手・単純な運用・検証とロードマップ更新の指示に基づき、基点7c31d1bc60d59c272216f0d87d8ec1aa7517046aから実装。任意の `--only hosting`／`functions`／`firestore` とカンマ区切りの組合せを追加し、省略時は既存の全体配備を維持する。自動差分分類・CI・配備履歴台帳・個別関数選択を追加していない。[現行手順](runbooks/application-deployment.md#変更対象だけ配備するs3local検証済み)・[判断](decisions/0053-direct-application-deployment.md)。
@@ -3499,6 +3528,8 @@ PMの実行前判断は既存の作業記録に「実差分／生成物・配備
 Localでの機能成功とDev固有の確認を混同しない。配備されたバイト列、接続先、実索引のREADY、実データの追加投影・旧writer収束はLocalでは証明できない。一方、その差に関係しない業務シナリオをDevの実データ更新で再演する必要はない。確認のために実番号を消費せず、[検証データ保全規則](../governance/project-rules.md#検証データ採番変更を実運用へ残さない)を適用する。
 
 #### 現行ツールの制約と別途改修候補
+
+本節は2026-10-12時点の復旧CLIに関する制約の記録。通常アプリ配備はその後[直接配備・対象選択](runbooks/application-deployment.md)へ移行した。復旧CLIの選択範囲や再開機能が同時に変更されたことを意味しない。
 
 - **正式照合の範囲選択は未実装**：[preflight](../scripts/lib/default-recovery-preflight.mjs)はDB／marker／ロック／2種Rules／索引を照合し、[releaseProof](../scripts/lib/default-recovery-release-proof.mjs)はFunctionsとHostingの両方を実行する。Hostingだけの正式経路や、子結果を次の呼出しへ安全に引き継ぐ機能はない。HostingのfileCount反映待ちだけでも再呼出しは広く走る。改修までは必須内部検査を削らず、その再実行をツール制約として記録する。正式preflightと、別コマンドの全業務像走査は区別する。
 - **ビルド証拠の受渡しは未実装**：[build helper](../scripts/lib/default-recovery-build.mjs)は入力・環境と出力hashを照合するが、証拠はプロセス内WeakMapのみ。[CLI](../scripts/default-recovery.mjs)の正式照合は再度generateする。通常build、公開用build、preflightのbuildを安全に一本化するには、改ざん・古い入力・異なる環境／revisionを拒否する成果物受渡しとゲート包含の検証が必要。現行JSONのincludesは空であり、見かけ上同じgenerateを呼ぶだけでapp-buildを充足したと扱わない。

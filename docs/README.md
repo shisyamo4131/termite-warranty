@@ -1,8 +1,12 @@
 # Documentation Map
 
-S3の対象選択配備は実装・Local検証済み。`--only`でhosting／functions／firestoreを手動選択し、省略時は全体。部分配備のCloud実証・実測は未実施。[手順](runbooks/application-deployment.md)・[検証結果](operations.md#2026-11-16-s3変更対象だけの配備local完了)。
+S3の対象選択配備はDev／ProdのHosting単独配備まで実証済み。`--only`でhosting／functions／firestoreを手動選択し、省略時は全体。実測はDev29.882秒／Prod117.908秒。[手順](runbooks/application-deployment.md)・[検証結果](operations.md#2026-11-17-s3のhosting部分配備実証)。
 
 2026-11-16最新方針：[手元からの直接配備](decisions/0053-direct-application-deployment.md)を採用し、コード統合にはPRを使わず通常pushとし、通常配備をPR／Actionsから切り離す。[現行手順](runbooks/application-deployment.md)と[保守簡素化の現在地](roadmaps/technical-remediation.md)を優先する。PRなしのdev/main通常pushとDev／Prod直接配備の実証を完了。Dev約1分59秒／Prod約3分15秒。[結果・条件](operations.md#2026-11-16-prなし直接配備への切替完了)。以下のActions配備・Linux実証待ちは旧方式の実績／計画。
+
+## 過去の経緯・当時の状態
+
+以下の日付付き記録は各時点の状態です。現行の操作には上記の手順とロードマップを使用してください。
 
 2026-11-16：Firebase CLI／Admin SDK更新とFunctions依存固定をProdへ反映完了。Local検証・Dev本人受入れ・Prod全5照合・実画面読取り・保護維持を確認。Auth保存／読戻しは本人判断で未実証のまま後続へ。[工程・現在地](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[依存固定の決定](decisions/0052-functions-dependency-lock.md)、[完了記録](operations.md#firebase更新のprod反映完了2026-11-16)。後続S1／S2はPR84でdev反映・Dev実証済み。S2のProd Linux実証・時間比較とS3〜S5は残件。[Dev実測](operations.md#2026-11-16-s1s2のdev反映と実測)。下記の納品前の記録と区別する。
 

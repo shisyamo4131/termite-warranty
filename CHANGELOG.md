@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-17 部分配備の実証と現行手順の整理
+
+PRなしの通常push後、Dev／ProdのHosting単独配備を実証。Dev29.882秒／Prod117.908秒、Functionsと保護設定は変更なし。現行の直接配備手順を入口に統一し、過去のActions手順や納品前記録との優先関係を明記。[実測・条件](docs/operations.md#2026-11-17-s3のhosting部分配備実証)。
+
 ## 2026-11-16 変更対象だけの配備（Local検証済み）
 
 既存コマンドに任意の`--only`を追加。hosting／functions／firestoreを手動選択し、省略時は全体。Functions非対象時はstage依存導入を省き、Prodは選択対象だけ公開後照合する。自動差分判定・新しいCI／台帳は追加せず、共通buildと既存保護を維持。対象62・単体689・Emulator208成功、独立レビュー済み。GitHub送信・部分配備のCloud実証／実測は未実施。[結果](docs/operations.md#2026-11-16-s3変更対象だけの配備local完了)。

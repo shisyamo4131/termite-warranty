@@ -41,7 +41,7 @@ This is the entry point for project-specific governance. It keeps operating rule
 
 ## Local Governance Maintenance
 
-検証・統合フローの承認済み候補は[ADR0047](../docs/decisions/0047-single-verification-and-nonproduct-pr.md)と[配備手順](../docs/runbooks/application-deployment.md)。未統合・未配備の状態を保ち、導入後は通常非製品1PR・上流の検証・記録だけでは無効化しない証拠の扱いを適用する。Prod昇格に機能試験工程を置かず、不足時はDev側または試験/CI変更の技術確認へ戻す。main→devの非製品同期は製品不変の確認と技術検証のためだけに許可し、配備しない。operationsの2026-10-12時点の固定CI制約や旧ADR0046を、新候補を旧方式へ戻す要件として使わない。必要ゲートと失効条件の正本は引き続きローカルのverification-policy.jsonである。
+現行の統合・配備は[ADR0053](../docs/decisions/0053-direct-application-deployment.md)と[直接配備手順](../docs/runbooks/application-deployment.md)に従う。PRを使わず通常pushし、配備対象は手動で選ぶ。必要な検証と証拠の失効条件は[verification-policy.json](verification-policy.json)を正本とする。旧PR運用の判断履歴はADR0047／0048とGitに残す。
 
 The project owns its governance after initial scaffolding; the installed scaffold skill is not part of maintenance. See [decision 0042](../docs/decisions/0042-project-owned-governance.md). Edit the [local contract](common-governance.md), project rules, policy or local tools; run `./scripts/render-governance.ps1 -Check` for comparison, approved `-Apply` to regenerate, then `./scripts/check-governance.ps1`. Generation touches only AGENTS, the operations policy-summary block, and local-generation lock fields. Origin hashes are retained as provenance. For render/check/helper changes, run the focused safety regression `node --test test/governance-tools.test.mjs` before the selected completion gates. `check-governance.ps1 -SourcesOnly` is internal source preflight, not completion evidence; use the ordinary checker after generation.
 
