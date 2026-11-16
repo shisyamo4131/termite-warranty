@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {fileURLToPath,pathToFileURL} from 'node:url'
 import {resolve} from 'node:path'
 import {createServer} from 'node:net'
-import {mkdtemp,mkdir,writeFile,readFile,access,rm} from 'node:fs/promises'
+import {mkdtemp,mkdir,writeFile,readFile,access,rm,realpath} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {randomUUID} from 'node:crypto'
 import {prepareTestStage,populateTestStage,cleanupTestStage} from '../scripts/lib/test-emulator-stage.mjs'
@@ -75,10 +75,14 @@ test('focused orchestration isolates generated files and preserves failures',asy
 });
 
 test('stage lock excludes a second runner and direct imports use only the owned generated Functions',async()=>{
+ const modules=resolve(root,'functions/node_modules');
+ const installedPackages=['firebase-admin','firebase-functions'].map(name=>resolve(modules,name,'package.json'));
+ const before=await Promise.all(installedPackages.map(file=>readFile(file)));
  const nonce=randomUUID(),owned=await prepareTestStage(root,nonce);
  try {
   await assert.rejects(()=>prepareTestStage(root,randomUUID()),{code:'EEXIST'});
   await populateTestStage(owned,root);
+  assert.equal(await realpath(resolve(owned.stage,'functions/node_modules')),await realpath(modules));
   await assert.rejects(()=>cleanupTestStage({...owned,nonce:randomUUID()}),/ownership/);
   await writeFile(resolve(owned.stage,'functions/local-runtime.js'),'export const onlyInStage = 42;');
   const env={...process.env,TERMITE_TEST_RUN:nonce,TERMITE_TEST_STAGE:owned.stage,
@@ -89,6 +93,8 @@ test('stage lock excludes a second runner and direct imports use only the owned 
   assert.equal((await runNode(args,{root,env,echo:false})).code,0);
   assert.notEqual((await runNode(args,{root,env:{...env,FIRESTORE_EMULATOR_HOST:'127.0.0.1:28080'},echo:false})).code,0);
  } finally {await cleanupTestStage(owned);}
+ await assert.rejects(()=>access(owned.stage));
+ assert.deepEqual(await Promise.all(installedPackages.map(file=>readFile(file))),before);
 });
 
 test('real Node reporter rejects zero matches, selected skip and failed tests',async()=>{

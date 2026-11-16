@@ -6,6 +6,7 @@ import {resolve,join,dirname} from 'node:path'
 import {validateProductionTarget} from './production-deployment-plan.mjs'
 import {hostingHash,hostingConfig} from './default-recovery-release-proof.mjs'
 import {productionFunctionIdentity} from '../../functions/production-identities.js'
+import {assertFunctionsLock} from './functions-dependencies.mjs'
 const hash=bytes=>createHash('sha256').update(bytes).digest('hex')
 const fail=()=>{throw Error('Production release bundle refused.')}
 const revisionPattern=/^[a-f0-9]{40}$/
@@ -37,6 +38,7 @@ export function runtimeEnvironment(target,parameters){return Object.entries({TER
 export async function writeProductionBundle({directory,target,revision,inputs,hostingFiles,rules,indexes,parameters}) {
   target=validateProductionTarget(target)
   if(!revisionPattern.test(revision)||!(inputs.sourceFiles instanceof Map)||!(hostingFiles instanceof Map)||!inputs.sourceFiles.has('index.js')||!hostingFiles.has('index.html'))fail()
+  assertFunctionsLock(inputs.sourceFiles.get('package.json'),inputs.sourceFiles.get('package-lock.json'))
   const files=new Map()
   for(const [name,bytes] of inputs.sourceFiles){if(!safe(name)||secret(name)||!Buffer.isBuffer(bytes))fail();files.set('functions/'+name,bytes)}
   for(const [name,bytes] of hostingFiles){if(!safe(name)||secret(name)||name.startsWith('__/')||!Buffer.isBuffer(bytes)||inputs.hostingFiles.get('/'+name)!==hostingHash(bytes))fail();files.set('public/'+name,bytes)}
@@ -71,6 +73,7 @@ export async function verifyProductionBundle({directory,target,revision,digest})
   const sourceFiles=new Map([...files].filter(([n])=>n.startsWith('functions/')&&!secret(n)).map(([n,b])=>[n.slice(10),b]))
   const hostingFiles=new Map([...files].filter(([n])=>n.startsWith('public/')).map(([n,b])=>['/'+n.slice(7),hostingHash(b)]))
   if(!sourceFiles.has('index.js')||!hostingFiles.has('/index.html'))fail()
+  assertFunctionsLock(sourceFiles.get('package.json'),sourceFiles.get('package-lock.json'))
   return {target,revision,files,inputs:{expectedRuntimeIdentities:Object.fromEntries(manifest.functionNames.map(name=>[name,productionFunctionIdentity(name,target.project)])),functionNames:manifest.functionNames,region:manifest.region,sourceFiles,hostingFiles,servingConfig:hostingConfig(config.hosting),expectedEnvironment:{TERMITE_DEPLOYMENT_ENVIRONMENT:'production',TERMITE_PRODUCTION_PROJECT:target.project,TERMITE_PRODUCTION_PROJECT_NUMBER:target.projectNumber,...manifest.parameters}},rules:{default:files.get('firestore.rules').toString(),control:files.get('firestore.control.rules').toString(),controlId:target.control},indexes:JSON.parse(files.get('firestore.indexes.json'))}
 }
 export async function readHostingFiles(root){return filesAt(join(root,'.output/public'))}

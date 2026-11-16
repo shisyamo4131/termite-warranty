@@ -1,5 +1,7 @@
 # Architecture and Product Decisions
 
+- [0052: Functions依存のLocal／Cloud固定](0052-functions-dependency-lock.md)：採用済み、実装・配備検証中。
+
 - [0051: 履歴を残さない下書き削除](0051-draft-physical-deletion.md)：物理削除と旧保存の復活防止。
 
 - [0050: zipcloud住所入力補助](0050-zipcloud-postal-lookup.md)：現行検索経路。納品書への依存条件を含む。

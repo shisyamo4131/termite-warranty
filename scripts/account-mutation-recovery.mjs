@@ -1,10 +1,13 @@
 // Inspect by default; real recovery needs separate approval and a stopped old worker.
 import { createRequire } from 'node:module'
-import { initializeApp, deleteApp } from 'firebase-admin/app'
-import { getAuth } from 'firebase-admin/auth'
-import { Firestore } from '@google-cloud/firestore'
 import { OAuth2Client } from 'google-auth-library'
 import { inspectAccountMutation, recoverAccountMutation } from '../functions/account-mutation-recovery.js'
+
+// Service FieldValue/Timestamp objects and operator clients share one SDK tree.
+const functionsRequire = createRequire(new URL('../functions/package.json', import.meta.url))
+const { initializeApp, deleteApp } = functionsRequire('firebase-admin/app')
+const { getAuth } = functionsRequire('firebase-admin/auth')
+const { Firestore } = functionsRequire('firebase-admin/firestore')
 
 const args = process.argv.slice(2)
 const option = key => args.includes(key) ? args[args.indexOf(key) + 1] : undefined

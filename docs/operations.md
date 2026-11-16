@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
+
+オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。現時点は設計・実装中で、最終候補の検証・配備は未実施。
+
+旧チャットはidleを確認し、未commitの試験準備文書2件をレビューして保全。origin/devとの製品差分なしを確認し、主checkoutでcodex/firebase-locked-releaseを作成。引継ぎとロードマップを70fb337へ記録。文書時点の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit0。後続の実装検証を代替しない。
+
+R1設計の独立レビューで、Functions依存を分離する際の配備物へのnode_modules混入、試験SDKのクラス／既定App実体の分裂、Prod stageでの依存探索を確認。標準npmによる独立package／lockと導入・試験・配備経路の整合を同時に扱う。業務schema/API、保護設定、権限は変更しない。現行の包括7gateと必要回帰を最終候補に適用する。仕様・データ契約は業務変更がないため改版しない。
+
+以下の旧候補のLocal／Dev成功と本人受入れは保持するが、依存固定後の候補の成功へ読み替えない。新規IAM、実業務データ操作、Auth実復元は今回の配備承認に含めない。
+
 ## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
 
 承認範囲：CLIとAdminを分けた更新、Local検証、Dev配備・照合。本番main統合・Prod配備、データ移行、IAM／保護設定変更、復旧用メンテナンスへの移行は行っていない。既存の移動・独立化文書はcodex/shared-foundationに保持し、最新devから専用候補branchで作業した。

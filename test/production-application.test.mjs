@@ -92,7 +92,7 @@ test('Functions production detection requires explicit configuration, agreement 
 })
 function fixture(directory){
   const html=Buffer.from('<html>fictional production application</html>')
-  return {directory,target,revision,parameters,inputs:{sourceFiles:new Map([['index.js',Buffer.from('export const one=1')],['package.json',Buffer.from('{}')]]),functionNames:['one'],region:'asia-northeast1',hostingFiles:new Map([['/index.html',hostingHash(html)]]),hostingConfig:{public:'.output/public'},servingConfig:{}},hostingFiles:new Map([['index.html',html]]),rules:{default:'default rules',control:'control rules'},indexes:{indexes:[],fieldOverrides:[]}}
+  return {directory,target,revision,parameters,inputs:{sourceFiles:new Map([['index.js',Buffer.from('export const one=1')],['package.json',Buffer.from(JSON.stringify({name:'fixture',dependencies:{}}))],['package-lock.json',Buffer.from(JSON.stringify({lockfileVersion:3,packages:{'':{name:'fixture',dependencies:{}}}}))]]),functionNames:['one'],region:'asia-northeast1',hostingFiles:new Map([['/index.html',hostingHash(html)]]),hostingConfig:{public:'.output/public'},servingConfig:{}},hostingFiles:new Map([['index.html',html]]),rules:{default:'default rules',control:'control rules'},indexes:{indexes:[],fieldOverrides:[]}}
 }
 test('verified bundle preserves both DB configurations, Functions environment and exact bytes without rebuild',async t=>{
   const root=await mkdtemp(join(tmpdir(),'prod-bundle-'));t.after(()=>rm(root,{recursive:true,force:true}))
@@ -113,12 +113,13 @@ test('verified bundle preserves both DB configurations, Functions environment an
 })
 test('bundle refuses credentials, traversal, stale Hosting and implicit backup parameter reset',async t=>{
   const root=await mkdtemp(join(tmpdir(),'prod-bundle-reject-'));t.after(()=>rm(root,{recursive:true,force:true}))
-  for(const mode of ['credentials','path','hash','params']){
+  for(const mode of ['credentials','path','hash','params','missing-lock']){
     const f=fixture(join(root,mode))
     if(mode==='credentials')f.inputs.sourceFiles.set('gha-creds-test.json',Buffer.from('fictional'))
     if(mode==='path')f.hostingFiles.set('../escape',Buffer.from('fictional'))
     if(mode==='hash')f.inputs.hostingFiles.set('/index.html','b'.repeat(64))
     if(mode==='params')f.parameters=undefined
+    if(mode==='missing-lock')f.inputs.sourceFiles.delete('package-lock.json')
     await assert.rejects(()=>writeProductionBundle(f))
   }
   assert.throws(()=>recoveryParameters({...parameters,RECOVERY_BACKUP_AUTOMATION:'true'}))
@@ -161,5 +162,5 @@ test('predeploy refuses missing or foreign foundation before any deployment and 
 test('production workflow contract rejects gate bypass, artifact substitution, credentials in verification and automatic cancellation',async()=>{
   const text=await readFile(new URL('../.github/workflows/deploy-production.yml',import.meta.url),'utf8'),policy=JSON.parse(await readFile(new URL('../governance/verification-policy.json',import.meta.url),'utf8'))
   assert.equal(validateProductionWorkflow(text,policy),true)
-  for(const mutate of [w=>{w.jobs.verify.steps=w.jobs.verify.steps.filter(s=>s.run!=='node scripts/prepare-production-release.mjs .production-release')},w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/prepare-production-release.mjs .production-release')['continue-on-error']=true},w=>{w.jobs.deploy.needs=undefined},w=>{w.jobs.deploy.env.PRODUCTION_RELEASE_DIGEST='untrusted'},w=>{w.jobs.deploy.concurrency['cancel-in-progress']=true},w=>{w.jobs.verify.steps.push({uses:'google-github-actions/auth@v3'})},w=>{w.jobs.deploy.steps.push({run:'npm run build'})},w=>{w.jobs.deploy.steps=w.jobs.deploy.steps.filter(s=>s.run!=='node scripts/check-production-release.mjs local .production-release')}]){const w=parse(text);mutate(w);assert.throws(()=>validateProductionWorkflow(stringify(w),policy))}
+  for(const mutate of [w=>{w.jobs.deploy.steps=w.jobs.deploy.steps.filter(s=>!s.run?.includes('--prefix .production-deploy/functions'))},w=>{const i=w.jobs.deploy.steps.findIndex(s=>s.run?.includes('--prefix .production-deploy/functions'));w.jobs.deploy.steps.push(w.jobs.deploy.steps.splice(i,1)[0])},w=>{w.jobs.verify.steps=w.jobs.verify.steps.filter(s=>s.run!=='node scripts/prepare-production-release.mjs .production-release')},w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/prepare-production-release.mjs .production-release')['continue-on-error']=true},w=>{w.jobs.deploy.needs=undefined},w=>{w.jobs.deploy.env.PRODUCTION_RELEASE_DIGEST='untrusted'},w=>{w.jobs.deploy.concurrency['cancel-in-progress']=true},w=>{w.jobs.verify.steps.push({uses:'google-github-actions/auth@v3'})},w=>{w.jobs.deploy.steps.push({run:'npm run build'})},w=>{w.jobs.deploy.steps=w.jobs.deploy.steps.filter(s=>s.run!=='node scripts/check-production-release.mjs local .production-release')}]){const w=parse(text);mutate(w);assert.throws(()=>validateProductionWorkflow(stringify(w),policy))}
 })
