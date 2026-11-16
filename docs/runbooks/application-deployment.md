@@ -1,5 +1,15 @@
 # Dev／Prod 通常アプリの配備手順
 
+## 2026-11-16 S1／S2簡素化候補（Local検証済み・未配備）
+
+S1は既存の段階検証・有効証拠再利用を維持し、独立した準備を確認した登録済みファイルを `npm run test:rules -- --file <slug>` で実行する入口を追加する。対象と制約は[検証手順](../operations.md#検証の進め方)を参照する。対象試験の成功を包括Rulesゲート成功として扱わない。試験対象を毎回増やして固定全試験を繰り返す運用は追加しない。
+
+S2候補では、Devのcontroller側npm ciを除去し、認証ライブラリは確認済み候補のnode_modulesからだけ解決する。配備jobの候補rootは `ci --ignore-scripts`、Functionsは明示的な独立ciとし、build jobの通常ci・build・domain成果物を維持する。Prodの3jobはUbuntuへ変更し、配備jobのrootのみ `ci --ignore-scripts` とする。Prodの認証前build・固定bundle・stage Functions導入・対象制約・再認証・公開後全5照合は維持する。
+
+構造上の導入回数はDev root3→2／Functions3→2、Prod root2→2／Functions3→2。配備jobで不要なNuxt prepareも省く。実行時間の短縮は未測定で、WindowsでのLocal試験をUbuntuの清浄導入・build・stage探索成功へ読み替えない。Linuxでの実証と新経路の切替は残件。現行配備済み経路について記した下節のcontroller導入は切替前の状態を示す。
+
+変更分類は検証挙動・build/release/deploy・文書。包括7gateを選定し、失効した証拠を更新する。Cloud設定・業務仕様・データ形式・依存版は変更しない。切戻しはこのrunner／workflow／helper変更を通常PRで戻す。Dev保護保留の解除は別判断。
+
 ## 2026-11-16 Functions依存固定の移行
 
 [ADR0052](../decisions/0052-functions-dependency-lock.md)に従い、Functionsをroot workspaceから独立させ、Functions用package／lockをLocalとCloudで共用する。2026-11-16、Dev受入れを経てmain a513137のProd配備・全5照合を完了。[現在地](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)と[実測・残る未実証](../operations.md#firebase更新のprod反映完了2026-11-16)を参照する。

@@ -1,5 +1,31 @@
 # Operations
 
+## 2026-11-16 S1・S2のLocal簡素化
+
+本人の後続指示でS1／S2を実装。基点はc75a51f7deca90c10005e900fe95319ea51b321f、主checkoutの作業差分。独立担当が限定実行のfixture独立性と最終コード差分をレビューし、修正必須の残指摘なし。別担当が[Dev保管・Auth保全の調査](runbooks/backup-recovery.md#2026-11-16-devの保管とauth自動取得調査提案設定変更なし)をレビューした。設定変更はしていない。
+
+S1は登録済み5ファイルだけの反復用入口を既存runnerへ追加。全体／shardのreceiptと区別し、既存の失敗・対象・nonce・後始末検査を維持する。S2はDev controller導入を削除、配備jobのroot postinstallを省略しFunctions導入を明示。ProdはUbuntu・bashへ変更。候補の依存だけから認証ライブラリを解決し、controller側fallbackを拒否する。詳細は[配備手順](runbooks/application-deployment.md#2026-11-16-s1s2簡素化候補local検証済み未配備)。
+
+変更分類はgovernance-permissions-agents（検証挙動）／build-release-deploy／documentation-only。包括7gateを選定。policyと生成要約、権限・承認境界は変更しない。基点と4ac0348の差分は文書のみで、今回もapp・依存・Functions・seed・Node runtimeは不変。下記3gateは[4ac0348のexit0証拠](#依存固定候補のlocal検証4ac0348)を失効条件に照らして再利用し、不必要な再実行をしない。
+
+| コマンド | 今回の結果／扱い | exit |
+| --- | --- | --- |
+| `npm test` | 681成功・既存symlink fixture2skip。documentation-routing回帰を内包 | 0 |
+| `npm run build` | 成功。Linux実行の証拠ではない | 0 |
+| `npm run typecheck` | 4ac0348の成功を再利用。app／Nuxt／TS設定・package入力不変 | 再利用元0 |
+| `node scripts/check-functions-syntax.mjs` | 4ac0348の成功を再利用。Functions／domain／構文検査入力不変 | 再利用元0 |
+| `node --check scripts/seed-emulator.mjs` | 4ac0348の成功を再利用。seed／Node不変 | 再利用元0 |
+| `npm run test:rules -- --file staff-account-management` | 実Callable2件成功、17.476秒、Emulator終了、completionGate:false | 0 |
+| `npm run test:rules` | 208成功・skip0、458.503秒、Emulator終了 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功。policy／生成物整合、7gate維持 | 0 |
+| `git diff --check` | 成功 | 0 |
+
+対象回帰は `node --import ./scripts/lib/functions-sdk-register.mjs --test --test-reporter=spec test/rules-runner.test.mjs test/development-workflow-contract.test.mjs test/documentation-changes.test.mjs test/production-application.test.mjs` で50成功・exit0。実candidate依存の解決、controllerにnode_modulesがない状態のimport、対象0件・skip・失敗・対象外・nonce・cleanup失敗の拒否を含む。初回のnpm testはsandboxの一時依存リンク作成拒否により2失敗、限定実行も同じEPERMで失敗した。実装を変えず通常権限環境で再実行して上記成功を確認。ログはGit外tmp/s1s2-domain-final.log、s1s2-build.log、s1s2-file-staff.log、s1s2-rules-final.log。
+
+現時点で未commit・未push・未配備。Ubuntuの清浄導入／build／stage探索とCloud実経路の比較は未実証。以前のProd導入204秒／全体484秒からの短縮率は算出しない。未登録試験の限定実行・全5ファイルそれぞれの単独実測は未実施（代表1ファイルのみ実測）。業務仕様・データ契約・ユーザー操作・保護設定は変えないため該当仕様書の改版なし。ADR0048の認証／成果物／配備境界とADR0052の依存固定判断を維持し、新ADRは作らない。既存ロードマップ・配備手順・変更履歴・文書入口を整合する。切戻しはrunner／workflow／helper差分を通常PRで戻し、データ復元は含めない。
+
+実装・試験の変更ファイルは `.github/workflows/deploy-development-manual.yml`、`.github/workflows/deploy-production.yml`、`scripts/development-deployment.mjs`、`scripts/lib/pipeline-contract.mjs`、`scripts/lib/rules-test-plan.mjs`、`scripts/lib/test-emulators.mjs`、`scripts/test-rules.mjs`、`test/development-workflow-contract.test.mjs`、`test/documentation-changes.test.mjs`、`test/rules-runner.test.mjs`。文書は `CHANGELOG.md`、`docs/operations.md`、`docs/roadmaps/technical-remediation.md`、`docs/runbooks/application-deployment.md`、`docs/runbooks/backup-recovery.md` 、`docs/README.md`、`docs/roadmaps/README.md`。
+
 ## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
 
 オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。Local検証・独立レビュー、39ef967のDev配備・本人受入れを経て、main a513137のProd配備・全5照合・実画面読取り・保護設定維持を確認。更新のProd反映は完了。Auth保存／読戻しは未実証として本人判断でS4へ繰延べた。保守簡素化S1〜S5は後続工程。
@@ -3321,9 +3347,11 @@ The inclusion graph must be acyclic and may not reference an unknown gate. When 
 3. 対象試験の通過後、影響範囲の回帰検証と最終差分の完了ゲートを満たす。有効証拠が残るゲートは再実行せず、不足・失効したゲートだけを実行する。対象試験は全体ゲートの代替ではない。失敗後は原因を直し、失敗ゲートとその修正で失効したゲートへ戻る。
 4. 実行中は実行ツールの完了通知・状態を使い、通常は結果要約を確認する。詳細ログは失敗・停滞・判断に必要な差分がある場合に読む。ログ末尾の成功表示だけで完了とせず、各コマンドの終了コードを確認する。
 
-対象試験の入口は `npm run test:rules:focused -- excel-dates`。現時点の許可対象はExcel日付の保存・受領値保持・全件棄却の結合試験1件で、自由なファイル名／試験名は受け付けない。満了案内用の対象実行は未実装。runnerは試験専用ポートの未使用を確認し、試験ごとのFunctions生成後に再確認して別demoのEmulatorを新規起動する。常用Localのポート・生成物は使用しない。利用統計を無効にした一時CLI設定を使い、終了時に削除する。ユーザーのFirebase設定は変更しない。稼働中Localや既存Emulatorへの接続・停止、データのimport/exportは行わない。ポート使用中・設定不一致は作業者へ報告し、既存プロセスを終了させて通さない。
+単一ケースの対象試験入口は `npm run test:rules:focused -- excel-dates`。許可対象はExcel日付の保存・受領値保持・全件棄却の結合試験1件で、自由なファイル名／試験名は受け付けない。満了案内用の対象実行は未実装。runnerは試験専用ポートの未使用を確認し、試験ごとのFunctions生成後に再確認して別demoのEmulatorを新規起動する。常用Localのポート・生成物は使用しない。利用統計を無効にした一時CLI設定を使い、終了時に削除する。ユーザーのFirebase設定は変更しない。稼働中Localや既存Emulatorへの接続・停止、データのimport/exportは行わない。ポート使用中・設定不一致は作業者へ報告し、既存プロセスを終了させて通さない。
 
 子試験のexitに加え、対象ファイル・完全一致の試験名・成功1件・対象skipなし・当該実行の結果であること、Emulator終了後のポート解放を検査する。対象0件や異常終了は失敗。除外された他試験のskipは通常の絞込みとして区別する。この結果は反復中の証拠で、選定された全体の `npm run test:rules` を代替しない。対象追加時は独立した準備・後始末を確認し、兄弟試験に依存する場合は既存のファイル単位／全体検証へ戻す。
+
+S1のファイル単位入口（Local検証済み）は `npm run test:rules -- --file <slug>`。許可するslugは `firestore-rules`、`firestore-control-rules`、`isolated-property-import`、`staff-account-management`、`callable-applied-warranty`。独立した初期データを持つ各1ファイルの全ケースを実行し、任意パス・複数指定は受け付けない。既存の結果検査を使い、対象外・0件・skip・失敗・実行ID不一致・後始末失敗を成功にしない。出力は `completionGate:false` とし、全体／shardの完了receiptを生成しない。各回で新規の使い捨てEmulatorを起動・終了し、既存Emulatorへの接続・再利用・並行実行を認めない。未登録の業務範囲は既存の影響回帰／全体検証を使う。この入口の追加はverification-policy.jsonの完了ゲートを変更しない。
 
 Dev配備の正式照合では、失敗時の `diagnostic.stage`／`reasonCode`、HTTP失敗時の数値 `httpStatus` を確認する。設定のオブジェクトキー順だけは同値として扱うが、項目・値・型・配列順の差、来歴・hash不一致、途中の版変更は引き続き拒否する。未知例外はunknown／blockedのまま。生の例外文・URL・設定値・認証情報は診断へ出さず、blockedを自動再試行して成功扱いにしない。今回の診断追加だけでは過去のHosting初回失敗の原因は確定しない。
 

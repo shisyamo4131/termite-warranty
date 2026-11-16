@@ -5,10 +5,10 @@ import {tmpdir} from 'node:os'
 import {resolve} from 'node:path'
 import {fileURLToPath,pathToFileURL} from 'node:url'
 import {rulesWorkers,assertRulesInventory,validateRulesInventory,rulesEventResult,assertRulesResult,readRulesReceipt} from '../scripts/lib/rules-test-plan.mjs'
-import {runRulesWorkers,readRulesSummary} from '../scripts/test-rules.mjs'
+import {runRulesWorkers,readRulesSummary,main as rulesMain} from '../scripts/test-rules.mjs'
 import {runNode} from '../scripts/lib/test-emulators.mjs'
 import {isolatedImportDatabase,isolatedImportAuth} from './helpers/isolated-import.mjs'
-import {rulesShards} from '../scripts/lib/rules-test-plan.mjs'
+import {rulesShards,rulesFileProfiles,rulesFileProfile,rulesWorker} from '../scripts/lib/rules-test-plan.mjs'
 import {validateRulesReceipts} from '../scripts/lib/rules-test-receipts.mjs'
 import {validateRulesProducer} from '../scripts/lib/rules-test-workflow.mjs'
 import {readFile} from 'node:fs/promises'
@@ -18,6 +18,37 @@ import {spawnSync} from 'node:child_process'
 const root=fileURLToPath(new URL('..',import.meta.url)),worker=rulesWorkers[1],nonce='unit-run'
 const passed=worker=>({byFile:Object.fromEntries(worker.files.map(file=>[file,{passed:1,failed:0,skipped:0}])),unexpected:0})
 const receipt=worker=>'RULES_WORKER_RESULT '+JSON.stringify({worker:worker.id,nonce,...passed(worker)})+'\n'
+
+test('reviewed single-file iteration cannot become full-suite or shard evidence',async()=>{
+ for(const profile of rulesFileProfiles){
+  assert.equal(rulesFileProfile(profile.slug),profile)
+  assert.equal(rulesWorker(profile.id),profile)
+  const logs=[],summary={nonce,completionGate:false,workers:[{worker:profile.id,exitCode:0,...passed(profile)}]}
+  const output='RULES_RESULT '+JSON.stringify(summary)
+  await rulesMain(['--file',profile.slug],{emulator:async command=>{
+   assert.equal(command,'node scripts/test-rules.mjs --child --file '+profile.slug)
+   return {output,nonce}
+  },log:line=>logs.push(JSON.parse(line))})
+  assert.equal(logs.length,1);assert.equal(logs[0].completionGate,false)
+  assert.deepEqual(logs[0].files,profile.files)
+  assert.throws(()=>readRulesSummary(output,nonce))
+  for(const plan of rulesShards)assert.throws(()=>readRulesSummary(output,nonce,[plan]))
+  for(const mutate of [row=>row.nonce='foreign',row=>row.workers[0].byFile[profile.files[0]].passed=0,
+   row=>row.workers[0].byFile[profile.files[0]].skipped=1,row=>row.workers[0].byFile[profile.files[0]].failed=1,
+   row=>row.workers[0].byFile['test/emulator/extra.test.mjs']={passed:1,failed:0,skipped:0}]){
+   const invalid=structuredClone(summary);mutate(invalid)
+   await assert.rejects(rulesMain(['--file',profile.slug],{emulator:async()=>({output:'RULES_RESULT '+JSON.stringify(invalid),nonce}),log:()=>assert.fail('invalid results published')}))
+  }
+  for(const fail of ['cleanup','child failure']){
+   const failedLogs=[]
+   await assert.rejects(rulesMain(['--file',profile.slug],{emulator:async()=>{throw Error(fail)},log:line=>failedLogs.push(line)}))
+   assert.deepEqual(failedLogs,[])
+  }
+ }
+ for(const args of [['--file','unknown'],['--file','../test/firestore-rules.test.mjs'],['--file','firestore-rules','extra'],['--file'],['--file','firestore-rules','--baseline']]){
+  await assert.rejects(rulesMain(args,{emulator:async()=>{assert.fail('invalid selection launched')}}))
+ }
+})
 
 test('every rules/emulator file belongs to exactly one reviewed worker',async()=>{
   await validateRulesInventory(root)
@@ -105,6 +136,7 @@ test('worker aggregation requires exit zero plus matching complete results in bo
 })
 
 test('actual rules reporter exposes failures and rejects empty/skipped files',async()=>{
+  const worker=rulesFileProfile('isolated-property-import')
   const directory=await mkdtemp(resolve(tmpdir(),'rules-reporter-'))
   const file=resolve(directory,worker.files[0]),reporter=pathToFileURL(resolve(root,'scripts/lib/rules-test-reporter.mjs')).href
   const env={...process.env,RULES_TEST_WORKER:worker.id,FOCUSED_TEST_NONCE:nonce};delete env.NODE_TEST_CONTEXT

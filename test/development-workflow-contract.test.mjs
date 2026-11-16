@@ -46,12 +46,28 @@ test('manual Dev uses only the candidate CLI after install and before authentica
   w=>w.defaults={run:{'working-directory':'candidate'}},
   w=>w.jobs.deploy.defaults={run:{'working-directory':'candidate'}},
   w=>version(w).run='node node_modules/firebase-tools/lib/bin/firebase.js --version',
-  w=>moveBefore(w,version(w),w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate')),
-  w=>moveBefore(w,publish(w),w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate')),
-  w=>{const steps=w.jobs.deploy.steps,install=steps.find(s=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate');steps.splice(steps.indexOf(install),1);steps.push(install)},
+  w=>moveBefore(w,version(w),w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci --ignore-scripts')),
+  w=>moveBefore(w,publish(w),w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci --ignore-scripts')),
+  w=>{const steps=w.jobs.deploy.steps,install=steps.find(s=>s.run==='npx --yes npm@11.19.1 ci --ignore-scripts');steps.splice(steps.indexOf(install),1);steps.push(install)},
   w=>{const steps=w.jobs.deploy.steps,v=version(w);steps.splice(steps.indexOf(v),1);steps.push(v)},
   w=>publish(w).run+=' --force'
  ]){
   const w=load('development-manual');mutate(w);assert.throws(()=>validateManualDevelopment(stringify(w)))
  }
+})
+
+test('deploy preparation omits controller install and lifecycle rebuilds but requires Functions dependencies',()=>{
+ for(const mutate of [
+  w=>w.jobs.deploy.steps.push({run:'npx --yes npm@11.19.1 ci'}),
+  w=>w.jobs.deploy.steps.find(s=>s.run?.includes('--prefix functions')).run='echo omitted',
+  w=>delete w.jobs.deploy.steps.find(s=>s.run?.includes('--prefix functions'))['working-directory'],
+  w=>w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci --ignore-scripts').run='npx --yes npm@11.19.1 ci',
+  w=>w.jobs.deploy.steps.push({run:'npx nuxt prepare'}),
+ ]){const w=load('development-manual');mutate(w);assert.throws(()=>validateManualDevelopment(stringify(w)))}
+ for(const mutate of [
+  w=>w.jobs.deploy['runs-on']='windows-latest',
+  w=>w.jobs.deploy.steps.find(s=>s.run?.includes('firebase deploy')).shell='pwsh',
+  w=>w.jobs.deploy.steps.find(s=>s.run?.includes('firebase deploy')).env.TARGET_PROJECT='foreign',
+  w=>w.jobs.deploy.steps.find(s=>s.run==='npx --yes npm@11.19.1 ci --ignore-scripts').run='npx --yes npm@11.19.1 ci',
+ ]){const w=load('production');mutate(w);assert.throws(()=>validatePipeline(stringify(w),policy,'production'))}
 })

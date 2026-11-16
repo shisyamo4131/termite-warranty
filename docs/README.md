@@ -1,6 +1,6 @@
 # Documentation Map
 
-2026-11-16：Firebase CLI／Admin SDK更新とFunctions依存固定をProdへ反映完了。Local検証・Dev本人受入れ・Prod全5照合・実画面読取り・保護維持を確認。Auth保存／読戻しは本人判断で未実証のまま後続へ。[工程・現在地](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[依存固定の決定](decisions/0052-functions-dependency-lock.md)、[完了記録](operations.md#firebase更新のprod反映完了2026-11-16)。配備高速化等のS1〜S5は別工程。下記の納品前の記録と区別する。
+2026-11-16：Firebase CLI／Admin SDK更新とFunctions依存固定をProdへ反映完了。Local検証・Dev本人受入れ・Prod全5照合・実画面読取り・保護維持を確認。Auth保存／読戻しは本人判断で未実証のまま後続へ。[工程・現在地](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[依存固定の決定](decisions/0052-functions-dependency-lock.md)、[完了記録](operations.md#firebase更新のprod反映完了2026-11-16)。後続S1／S2はLocal検証・独立レビュー完了、未統合・未配備。S2のLinux実証・時間比較とS3〜S5は残件。下記の納品前の記録と区別する。
 
 2026-11-02：オーナーから納品完了・署名済み納品書のAIR Googleドライブ保存を報告受領。[納品完了記録](roadmaps/2026-initial-delivery.md#2026-11-02-納品完了)。Prodの日次DBバックアップ2件の生成を確認。日次バックアップからの復元検証は本人指示で未実施のまま残す。以下の確認用PDFは署名済み原本ではない。
 

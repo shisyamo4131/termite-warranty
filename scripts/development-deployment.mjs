@@ -1,14 +1,20 @@
 // Dev CLI preparation and bounded read-only checks; no business-data writes.
-import {readFile,writeFile,access} from 'node:fs/promises'
-import {join,resolve} from 'node:path'
+import {readFile,writeFile,access,realpath} from 'node:fs/promises'
+import {join,resolve,sep} from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {GoogleAuth} from 'google-auth-library'
+import {createRequire} from 'node:module'
 import {git,repository} from './lib/verification-evidence.mjs'
 import {inspectProductionRelease} from './lib/production-release-inspection.mjs'
 import {proofDiagnostic} from './lib/default-recovery-diagnostics.mjs'
 
 export const developmentTarget=Object.freeze({project:'termite-warranty-dev',projectNumber:'1039792105037',site:'termite-warranty-dev',appId:'1:1039792105037:web:39be28742dfbc14be65e04',control:'recovery-control'})
 const environmentKeys=['RECOVERY_AUTH_BACKUP_BUCKET','RECOVERY_AUTH_HASH_CONFIGURATION_EVIDENCE','RECOVERY_DEVELOPER_EMAIL_ALERT_EVIDENCE']
+export async function candidateGoogleAuth(root) {
+  const candidate=await realpath(root),require=createRequire(join(candidate,'package.json'))
+  const entry=await realpath(require.resolve('google-auth-library'))
+  if(!entry.startsWith(join(candidate,'node_modules')+sep))throw Error('Candidate authentication dependency missing; root fallback refused.')
+  return require(entry).GoogleAuth
+}
 export function preservedDevelopmentParameters(functions){
   if(!Array.isArray(functions)||!functions.length)throw Error('Existing Dev functions required.')
   const result={RECOVERY_CONTROL_DATABASE:developmentTarget.control,RECOVERY_BACKUP_AUTOMATION:'false'}
@@ -37,6 +43,7 @@ export function activeInventory(inventory){
 async function main(mode){
   if(!['prepare','check'].includes(mode)||process.env.GITHUB_ACTIONS!=='true'||process.env.GITHUB_REPOSITORY!==repository||process.env.GITHUB_REF!=='refs/heads/dev'||process.env.GITHUB_EVENT_NAME!=='workflow_dispatch'||git('rev-parse','HEAD')!==process.env.GITHUB_SHA)throw Error('Exact protected Dev controller required.')
   const root=resolve('candidate'),t=developmentTarget
+  const GoogleAuth=await candidateGoogleAuth(root)
   const credentials=JSON.parse(await readFile(process.env.GOOGLE_APPLICATION_CREDENTIALS,'utf8'))
   if(credentials.type!=='service_account'||credentials.project_id!==t.project||!credentials.client_email?.endsWith('@'+t.project+'.iam.gserviceaccount.com'))throw Error('Dev credential identity mismatch.')
   const auth=new GoogleAuth({credentials,scopes:['https://www.googleapis.com/auth/cloud-platform']}),client=await auth.getClient()
