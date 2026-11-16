@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16 Firebase依存更新（Dev）
+
+Firebase CLI15.36.0、Admin SDK14.5.1を段階別に更新し、Local検証とDev配備・照合を完了。Dev配備は候補のCLIを明示使用する。復旧データ型の回帰を追加。本人Dev受入れ完了（3bad432）。Prod未反映。詳細と確認限界は[運用記録](docs/operations.md#2026-11-16-firebase-cliadmin-sdk更新dev照合完了)を参照。
+
 ## 2026-11-01 一括取込み画面とExcel運用
 
 選択肢のない「取込みルール」とプレビューの「報告不要にする期間」を削除。検証・登録・満了期間の判定は保持。Excelでの外部キー文字列設定、年付き日付表示とCSV UTF-8保存を操作説明へ記録。Local検証専用スイッチは再解除済みで、Dev／Prodには適用されない。
