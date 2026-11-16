@@ -11,6 +11,7 @@ import {validateProductionTarget} from './lib/production-deployment-plan.mjs'
 import {prepareProductionRelease} from './prepare-production-release.mjs'
 import {verifyProductionBundle,stageProductionBundle,readHostingFiles,recoveryParameters} from './lib/production-release-bundle.mjs'
 import {inspectProductionRelease} from './lib/production-release-inspection.mjs'
+import {deploymentTargets,deploymentChecksPassed} from './lib/default-recovery-preflight.mjs'
 import {buildReleaseArtifacts,assertFreshBuild} from './lib/default-recovery-build.mjs'
 import {collectFunctionsSource} from './lib/default-recovery-release-proof.mjs'
 import {prepareFunctionsDomain} from './functions-domain.mjs'
@@ -26,8 +27,8 @@ async function recordLock(handle,value) {
   await handle.write(bytes,0,bytes.length,0);await handle.truncate(bytes.length)
 }
 export function deploymentOptions(args) {
-  if(args.length!==3||!['dev','prod'].includes(args[0])||args[1]!=='--account'||!/^[-a-zA-Z0-9._+]+@[-a-zA-Z0-9.]+$/.test(args[2]??''))throw Error('Usage: npm run deploy -- dev|prod --account email')
-  return {environment:args[0],account:args[2]}
+  if(![3,5].includes(args.length)||!['dev','prod'].includes(args[0])||args[1]!=='--account'||!/^[-a-zA-Z0-9._+]+@[-a-zA-Z0-9.]+$/.test(args[2]??'')||args.length===5&&(args[3]!=='--only'||typeof args[4]!=='string'))throw Error('Usage: npm run deploy -- dev|prod --account email [--only hosting,functions,firestore]')
+  return {environment:args[0],account:args[2],targets:deploymentTargets(args.length===5?args[4].split(','):undefined)}
 }
 export function deploymentEnvironment(source,home) {
   const result={}
@@ -136,6 +137,7 @@ async function runCommand(args,options) {
 }
 export async function deployApplication(options,dependencies={}) {
   const {environment,account}=deploymentOptions([options.environment,'--account',options.account])
+  const targets=deploymentTargets(options.targets)
   const env=dependencies.env??process.env;assertDeploymentEnvironment(env)
   const revisionOf=dependencies.revision??cleanRevision,authenticate=dependencies.authenticate??deploymentCredentials
   const snapshot=dependencies.snapshot??deploymentSnapshot,build=dependencies.build??childBuild,command=dependencies.command??runCommand
@@ -180,8 +182,10 @@ export async function deployApplication(options,dependencies={}) {
     const cli=join(directoryRoot,'node_modules/firebase-tools/lib/bin/firebase.js')
     const locked=JSON.parse(await readFile(join(directoryRoot,'package-lock.json'),'utf8')),installed=JSON.parse(await readFile(join(directoryRoot,'node_modules/firebase-tools/package.json'),'utf8'))
     if(installed.version!==locked.packages['node_modules/firebase-tools'].version)throw Error('Installed Firebase CLI differs from the lock; run the project npm ci first.')
-    step('staged-functions-install')
-    await command([env.npm_execpath,'exec','--yes','--package=npm@11.19.1','--','npm','ci','--prefix',join(stage,'functions'),'--ignore-scripts','--no-audit','--no-fund'],{cwd:directoryRoot,env:deploymentEnvironment(env)})
+    if(targets.includes('functions')){
+      step('staged-functions-install')
+      await command([env.npm_execpath,'exec','--yes','--package=npm@11.19.1','--','npm','ci','--prefix',join(stage,'functions'),'--ignore-scripts','--no-audit','--no-fund'],{cwd:directoryRoot,env:deploymentEnvironment(env)})
+    }
     if(await stageDigest(stage)!==digest)throw Error('Deployment inputs changed during dependency preparation.')
     if(await revisionOf(directoryRoot)!==revision)throw Error('Source changed during preparation.')
     step('final-source-and-cloud-check')
@@ -190,14 +194,16 @@ export async function deployApplication(options,dependencies={}) {
     if(environment==='prod')await verifyBundle(bundleOptions)
     if(await stageDigest(stage)!==digest||await revisionOf(directoryRoot)!==revision)throw Error('Deployment source or staged inputs changed before publication.')
     step('firebase-deploy')
-    await command([cli,'deploy','--account',account,'--project',target.project,'--config',join(stage,'firebase.json'),'--only','firestore,functions,hosting','--non-interactive'],{cwd:stage,env:deploymentEnvironment(env)})
+    await command([cli,'deploy','--account',account,'--project',target.project,'--config',join(stage,'firebase.json'),'--only',targets.join(','),'--non-interactive'],{cwd:stage,env:deploymentEnvironment(env)})
     step('postdeployment-verification')
     await credentials.verifyIdentity()
     const after=await snapshot(target,environment,read)
     for(const key of ['parameters','protections','runtime','marker','environments'])requireEqual(after[key],before[key],'Deployment changed preserved '+key+'. Do not retry automatically.')
+    let checkIds
     if(environment==='prod'){
-      const proof=await inspect(bundle,{providerVersion:before.providerVersion,credentials})
-      if(!proof.ready)throw Error('Production release proof failed. Do not retry deployment automatically.')
+      const proof=await inspect(bundle,{providerVersion:before.providerVersion,credentials,targets})
+      if(!proof.ready||!deploymentChecksPassed(proof.checks,targets))throw Error('Production release proof failed. Do not retry deployment automatically.')
+      checkIds=proof.checks.map(check=>check.id)
     }else{
       const response=await fetcher('https://'+target.site+'.web.app/__/firebase/init.json',{redirect:'error',signal:AbortSignal.timeout(20000)})
       if(!response.ok)throw Error('Dev public configuration unavailable.')
@@ -206,7 +212,7 @@ export async function deployApplication(options,dependencies={}) {
       if(!page.ok||!/<html[\s>]/i.test(await page.text()))throw Error('Dev application entry missing.')
     }
     const finished=now();phases.at(-1).elapsedMs=finished-phases.at(-1).startedMs
-    return {ready:true,environment,project:target.project,revision,checks:environment==='prod'?'all-five':'bounded-dev',directory,
+    return {ready:true,environment,project:target.project,revision,targets,checks:environment==='prod'?(targets.length===3?'all-five':'selected-production'):'bounded-dev',...(checkIds?{checkIds}:{}),directory,
       startedAt:new Date(started).toISOString(),elapsedMs:finished-started,phases:phases.map(({startedMs,...value})=>value)}
   }catch(error){
     preserveLock=unknownChildTermination(error)

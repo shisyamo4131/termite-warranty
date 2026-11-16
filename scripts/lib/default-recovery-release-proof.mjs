@@ -8,6 +8,7 @@ import {assertFreshBuild} from './default-recovery-build.mjs'
 import {bindProviderInitialization} from './default-recovery-provider-init.mjs'
 import {proofFailure,proofDiagnostic} from './default-recovery-diagnostics.mjs'
 import {assertFunctionsLock} from './functions-dependencies.mjs'
+import {deploymentTargets,deploymentCheckIds} from './default-recovery-preflight.mjs'
 
 export const ARCHIVE_LIMIT=64*1024*1024
 const fail=()=>{throw proofFailure('release-proof','artifact-mismatch')}
@@ -182,15 +183,18 @@ export async function hostingReleaseProof({project,projectNumber,site,request,in
     }
   }
 }
-export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic,hostingSettling=false}) {
+export async function releaseProof({project,control,site,request,readArchive,inputs,providerVersion,readPublic,hostingSettling=false,targets}) {
+  const selected=deploymentTargets(targets),ids=deploymentCheckIds(selected).filter(id=>id.endsWith('-release-proof'))
   const checks=[]
+  if(!ids.length)return checks
   let projectNumber
-  try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch(error){return ['functions-release-proof','hosting-release-proof'].map(id=>({id,status:'blocked',diagnostic:proofDiagnostic(error,'project-metadata')}))}
+  try{const p=await request(`https://firebase.googleapis.com/v1beta1/projects/${project}`);if(p.projectId!==project||!/^\d+$/.test(String(p.projectNumber)))fail();projectNumber=String(p.projectNumber)}catch(error){return ids.map(id=>({id,status:'blocked',diagnostic:proofDiagnostic(error,'project-metadata')}))}
   const hosting=async()=>{
     const expected=providerVersion?await bindProviderInitialization({project,projectNumber,site,priorVersion:providerVersion,request,readPublic,inputs}):inputs
     return hostingReleaseProof({project,projectNumber,site,request,inputs:expected,settle:hostingSettling})
   }
   for(const [id,run] of [['functions-release-proof',()=>functionsReleaseProof({project,projectNumber,control,request,readArchive,inputs})],['hosting-release-proof',hosting]]) {
+    if(!ids.includes(id))continue
     try{checks.push({id,status:'pass',summary:await run()})}catch(error){checks.push({id,status:'blocked',diagnostic:proofDiagnostic(error,id==='functions-release-proof'?'functions-proof':'hosting-proof')})}
   }
   return checks

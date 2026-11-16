@@ -2,7 +2,7 @@
 
 ## 手元からの通常アプリ配備（2026-11-16採用）
 
-[ADR0053](../docs/decisions/0053-direct-application-deployment.md)と[配備手順](../docs/runbooks/application-deployment.md)を適用する。通常Dev／Prod配備は明示account・環境・clean commitから手元コマンドで行い、PR分類・確認欄・Actions成功を実行条件にしない。dev/mainのコード統合はPRを使わず通常pushで行う。PR必須・PR専用必須checkを解除し、強制push・branch削除は禁止する。Localの必要gateと有効証拠再利用、実配備の承認境界を維持する。新しい固定全試験wrapper・証拠台帳は作らない。通常配備Actionsは撤去し、復旧用は今回変更しない。Prodの全5照合、Devの限定照合、既存データ・保護設定を保持する。旧ADR0048のcontroller・run参照手順は通常配備には適用しない。
+[ADR0053](../docs/decisions/0053-direct-application-deployment.md)と[配備手順](../docs/runbooks/application-deployment.md)を適用する。通常Dev／Prod配備は明示account・環境・clean commitから手元コマンドで行い、PR分類・確認欄・Actions成功を実行条件にしない。dev/mainのコード統合はPRを使わず通常pushで行う。PR必須・PR専用必須checkを解除し、強制push・branch削除は禁止する。Localの必要gateと有効証拠再利用、実配備の承認境界を維持する。新しい固定全試験wrapper・証拠台帳は作らない。通常配備Actionsは撤去し、復旧用は今回変更しない。Prodは手動選択した配備対象を照合し、省略時は従来の全5照合を行う。Devの限定照合、既存データ・保護設定を保持する。旧ADR0048のcontroller・run参照手順は通常配備には適用しない。
 
 - Status: Active
 - Owner: Project

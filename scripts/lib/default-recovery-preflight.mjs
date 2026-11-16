@@ -3,22 +3,33 @@ import { databaseId } from '../../src/domain/recovery.mjs'
 export const DEV_RUNTIME_PATHS = ['app','functions','src','scripts','firestore.rules','firestore.control.rules','firestore.indexes.json','firebase.json','package.json','package-lock.json','nuxt.config.ts','.github/workflows/deploy-development.yml']
 const phases=new Set(['normal','recovering','verification'])
 const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b)
+const targetChecks={firestore:['default-rules','control-rules','default-indexes-ready'],functions:['functions-release-proof'],hosting:['hosting-release-proof']}
+export function deploymentTargets(targets=Object.keys(targetChecks)) {
+  if(!Array.isArray(targets)||!targets.length||new Set(targets).size!==targets.length||targets.some(name=>typeof name!=='string'||!Object.hasOwn(targetChecks,name)))throw Error('Unknown, duplicate or empty deployment targets.')
+  return Object.keys(targetChecks).filter(name=>targets.includes(name))
+}
+export function deploymentCheckIds(targets) {return deploymentTargets(targets).flatMap(name=>targetChecks[name])}
+export function deploymentChecksPassed(checks,targets) {
+  const ids=deploymentCheckIds(targets)
+  return Array.isArray(checks)&&checks.length===ids.length&&new Set(checks.map(row=>row.id)).size===ids.length&&checks.every(row=>ids.includes(row.id)&&row.status==='pass')
+}
 export function repositoryPreflight(o, repository) {
   return [
     {id:'git-revision',status:repository.head===o.revision?'pass':'blocked'},
     {id:'runtime-source-clean',status:repository.dirty===false?'pass':'blocked'},
   ]
 }
-export async function infrastructureChecks({project,request,expectedRules,indexConfig,releaseChecks}) {
+export async function infrastructureChecks({project,request,expectedRules,indexConfig,releaseChecks,targets}) {
+  const selected=deploymentTargets(targets),releaseIds=deploymentCheckIds(selected).filter(id=>id.endsWith('-release-proof'))
   const checks=[]
-  for(const [id,run] of [['default-rules',()=>rules(request,project,'(default)',expectedRules.default)],['control-rules',()=>rules(request,project,expectedRules.controlId,expectedRules.control)],['default-indexes-ready',()=>indexes(request,project,indexConfig)]]) {
+  for(const [id,run] of selected.includes('firestore')?[['default-rules',()=>rules(request,project,'(default)',expectedRules.default)],['control-rules',()=>rules(request,project,expectedRules.controlId,expectedRules.control)],['default-indexes-ready',()=>indexes(request,project,indexConfig)]]:[]) {
     try{await run();checks.push({id,status:'pass'})}catch{checks.push({id,status:'blocked'})}
   }
-  try {
+  if(releaseIds.length)try {
     const result=await releaseChecks()
-    if(!Array.isArray(result)||result.length!==2||new Set(result.map(c=>c.id)).size!==2||result.some(c=>!['functions-release-proof','hosting-release-proof'].includes(c.id)||!['pass','blocked'].includes(c.status)))throw Error('Unknown release proof')
+    if(!Array.isArray(result)||result.length!==releaseIds.length||new Set(result.map(c=>c.id)).size!==releaseIds.length||result.some(c=>!releaseIds.includes(c.id)||!['pass','blocked'].includes(c.status)))throw Error('Unknown release proof')
     checks.push(...result)
-  }catch{for(const id of ['functions-release-proof','hosting-release-proof'])checks.push({id,status:'blocked'})}
+  }catch{for(const id of releaseIds)checks.push({id,status:'blocked'})}
   return checks
 }
 export async function closedDataRules({project,control,request,expectedRules}) {

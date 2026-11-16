@@ -2,7 +2,7 @@ import {test} from 'node:test'
 import assert from 'node:assert/strict'
 import {spawnSync} from 'node:child_process'
 import {options} from '../scripts/default-recovery.mjs'
-import {devPreflight} from '../scripts/lib/default-recovery-preflight.mjs'
+import {devPreflight,infrastructureChecks,deploymentCheckIds,deploymentChecksPassed} from '../scripts/lib/default-recovery-preflight.mjs'
 
 const revision='a'.repeat(40),project='termite-warranty-dev',control='recovery-control',source='recovery-drill-20261006'
 const base=['--project',project,'--control',control,'--source',source,'--generation','4','--revision',revision,'--dev-inspect']
@@ -25,6 +25,24 @@ function fixture() {
   return {...data,calls}
 }
 const status=(result,id)=>result.checks.find(check=>check.id===id)?.status
+
+test('selected infrastructure checks never run unselected Rules/index or release callbacks',async()=>{
+ for(let mask=1;mask<8;mask++){
+  const targets=['firestore','functions','hosting'].filter((_,i)=>mask&(1<<i)),f=fixture()
+  const ids=deploymentCheckIds(targets),releaseIds=ids.filter(id=>id.endsWith('-release-proof'))
+  let releaseCalls=0
+  const checks=await infrastructureChecks({project,targets,request:f.request,expectedRules:{...f.expectedRules,controlId:control},indexConfig:f.indexConfig,
+   releaseChecks:async()=>{releaseCalls++;return releaseIds.map(id=>({id,status:'pass'}))}})
+  assert.equal(deploymentChecksPassed(checks,targets),true)
+  assert.deepEqual(checks.map(row=>row.id),ids)
+  assert.equal(releaseCalls,releaseIds.length?1:0)
+  assert.equal(f.calls.length>0,targets.includes('firestore'))
+ }
+ for(const result of [[],[{id:'functions-release-proof',status:'pass'}],Array(2).fill({id:'hosting-release-proof',status:'pass'})]){
+  const checks=await infrastructureChecks({project,targets:['hosting'],request:()=>assert.fail('unrelated request'),releaseChecks:async()=>result})
+  assert.deepEqual(checks,[{id:'hosting-release-proof',status:'blocked'}])
+ }
+})
 test('Auth export lock and mixed release proof cannot enable live mutation',async()=>{
   const f=fixture();f.documents.set(`${control}/recovery/authExportLock`,{private:'secret canary'})
   f.releaseChecks=async()=>[{id:'functions-release-proof',status:'pass'},{id:'hosting-release-proof',status:'blocked'}]

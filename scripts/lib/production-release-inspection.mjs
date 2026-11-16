@@ -1,6 +1,6 @@
 import {operatorCredentials} from './operator-credentials.mjs'
 import {releaseProof,ARCHIVE_LIMIT} from './default-recovery-release-proof.mjs'
-import {infrastructureChecks} from './default-recovery-preflight.mjs'
+import {infrastructureChecks,deploymentTargets,deploymentChecksPassed} from './default-recovery-preflight.mjs'
 import {proofFetch,proofFailure} from './default-recovery-diagnostics.mjs'
 export function productionReadAllowed(url,target){
   try{
@@ -16,7 +16,8 @@ export function productionReadAllowed(url,target){
     return false
   }catch{return false}
 }
-export async function inspectProductionRelease(bundle,{providerVersion,credentials,fetcher=fetch,predeploy=false}={}) {
+export async function inspectProductionRelease(bundle,{providerVersion,credentials,fetcher=fetch,predeploy=false,targets}={}) {
+  const selected=deploymentTargets(targets)
   const target=bundle.target
   if(!new RegExp(`^sites/${target.site}/versions/[-a-zA-Z0-9]+$`).test(providerVersion??''))throw Error('Explicit same-site initial provider baseline required.')
   const auth=credentials??await operatorCredentials({mode:'adc',audience:target.audience,serviceAccount:target.serviceAccount})
@@ -50,7 +51,7 @@ export async function inspectProductionRelease(bundle,{providerVersion,credentia
     if(bytes.length!==Number(meta.size))throw Error('Source archive size mismatch.')
     return bytes
   }
-  const checks=await infrastructureChecks({project:target.project,request,expectedRules:bundle.rules,indexConfig:bundle.indexes,
-    releaseChecks:()=>releaseProof({project:target.project,control:target.control,site:target.site,inputs:bundle.inputs,request,readArchive,providerVersion,hostingSettling:true,readPublic:async url=>(await read(url,{publicRead:true,max:16384})).toString()})})
-  return {cloudWrites:false,ready:checks.length===5&&checks.every(c=>c.status==='pass'),checks}
+  const checks=await infrastructureChecks({project:target.project,request,expectedRules:bundle.rules,indexConfig:bundle.indexes,targets:selected,
+    releaseChecks:()=>releaseProof({project:target.project,control:target.control,site:target.site,inputs:bundle.inputs,request,readArchive,providerVersion,hostingSettling:true,targets:selected,readPublic:async url=>(await read(url,{publicRead:true,max:16384})).toString()})})
+  return {cloudWrites:false,ready:deploymentChecksPassed(checks,selected),checks}
 }

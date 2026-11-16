@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import {deflateRawSync} from 'node:zlib'
 import {crc32,readSourceZip,hostingHash,hostingConfig,releaseProof,hostingReleaseProof,functionsReleaseProof} from '../scripts/lib/default-recovery-release-proof.mjs'
 import {proofFailure,proofDiagnostic,proofFetch} from '../scripts/lib/default-recovery-diagnostics.mjs'
+import {inspectProductionRelease} from '../scripts/lib/production-release-inspection.mjs'
 
 function zip(files) {
   const locals=[],central=[];let offset=0
@@ -31,6 +32,44 @@ function fixture(functionNames=['one','two']) {
   for(const f of functions){const name=f.serviceConfig.service,revision=`${name}/revisions/${f.serviceConfig.revision}`;values.set(`https://run.googleapis.com/v2/${name}`,{name,generation:'2',observedGeneration:'2',terminalCondition:{state:'CONDITION_SUCCEEDED'},latestReadyRevision:revision,latestCreatedRevision:revision,traffic:[{revision,percent:100}],trafficStatuses:[{revision,percent:100}],template:{containers:[{env}]}});values.set(`https://run.googleapis.com/v2/${revision}`,{name:revision,conditions:[{type:'Ready',state:'CONDITION_SUCCEEDED'}],containers:[{env}]})}
   return {project,projectNumber,control,site,inputs,functions,values,archive,request:async url=>{if(!values.has(url))throw Error('private canary');return structuredClone(values.get(url))},readArchive:async()=>archive}
 }
+
+test('selected release proofs do not request unrelated services and ignore unselected local mismatches',async()=>{
+ for(let mask=1;mask<8;mask++){
+  const targets=['firestore','functions','hosting'].filter((_,i)=>mask&(1<<i)),f=fixture(),calls=[]
+  if(!targets.includes('functions'))f.inputs.sourceFiles.set('index.js',Buffer.from('unselected local change'))
+  if(!targets.includes('hosting'))f.inputs.hostingFiles.set('/index.html','unselected local change')
+  const result=await releaseProof({...f,targets,request:async url=>{calls.push(url);return f.request(url)},readArchive:async()=>{calls.push('archive');return f.archive}})
+  assert.deepEqual(result.map(row=>row.id),[...(targets.includes('functions')?['functions-release-proof']:[]),...(targets.includes('hosting')?['hosting-release-proof']:[])])
+  assert.ok(result.every(row=>row.status==='pass'))
+  if(!targets.includes('functions'))assert.ok(!calls.some(url=>url==='archive'||url.includes('cloudfunctions')||url.includes('run.googleapis')))
+  if(!targets.includes('hosting'))assert.ok(!calls.some(url=>url.includes('firebasehosting')))
+  assert.ok(!calls.some(url=>url.includes('firebaserules')||url.includes('firestore.googleapis')))
+ }
+ for(const target of ['functions','hosting']){
+  const f=fixture()
+  if(target==='functions')f.inputs.sourceFiles.set('index.js',Buffer.from('selected mismatch'))
+  else f.inputs.hostingFiles.set('/index.html','selected mismatch')
+  const result=await releaseProof({...f,targets:[target]});assert.equal(result.length,1);assert.equal(result[0].status,'blocked')
+ }
+ const f=fixture();assert.deepEqual((await releaseProof(f)).map(row=>row.id),['functions-release-proof','hosting-release-proof'])
+})
+test('production inspector performs only the selected Functions proof despite unrelated local changes',async()=>{
+ const f=fixture(),calls=[]
+ f.inputs.hostingFiles.set('/index.html','unselected local change')
+ const target={project:f.project,projectNumber:f.projectNumber,site:f.site,control:f.control}
+ const fetcher=async url=>{
+  calls.push(url)
+  if(url.startsWith('https://storage.googleapis.com/')){
+   if(url.includes('alt=media'))return new Response(f.archive)
+   return new Response(JSON.stringify({bucket:'gcf-v2-sources-123-asia-northeast1',name:'source.zip',generation:'1',size:String(f.archive.length)}))
+  }
+  return new Response(JSON.stringify(await f.request(url)))
+ }
+ const result=await inspectProductionRelease({target,inputs:f.inputs,rules:{default:'unselected mismatch'},indexes:{}},
+  {targets:['functions'],providerVersion:`sites/${f.site}/versions/prior`,credentials:{credential:{getAccessToken:async()=>({access_token:'fictional'})}},fetcher})
+ assert.equal(result.ready,true);assert.deepEqual(result.checks.map(row=>row.id),['functions-release-proof'])
+ assert.ok(!calls.some(url=>url.includes('firebasehosting')||url.includes('firebaserules')||url.includes('firestore.googleapis')||url.includes('.web.app')))
+})
 
 test('Functions proof latency sample retains complete requests and one shared archive',async t=>{
  for(const shared of [true,false]) {

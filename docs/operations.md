@@ -1,5 +1,33 @@
 # Operations
 
+## 2026-11-16 S3・変更対象だけの配備（Local完了）
+
+オーナーのS3着手・単純な運用・検証とロードマップ更新の指示に基づき、基点7c31d1bc60d59c272216f0d87d8ec1aa7517046aから実装。任意の `--only hosting`／`functions`／`firestore` とカンマ区切りの組合せを追加し、省略時は既存の全体配備を維持する。自動差分分類・CI・配備履歴台帳・個別関数選択を追加していない。[現行手順](runbooks/application-deployment.md#変更対象だけ配備するs3local検証済み)・[判断](decisions/0053-direct-application-deployment.md)。
+
+既存の認証隔離・全体build・固定bundleを共用し、Functions非対象ならstageのnpm ciを省略する。CLIには選んだ対象だけを渡し、Prodの公開後照合は選択対象のID集合と完全一致・全件passを確認する。対象外を照合してから結果だけ捨てる処理ではない。共通の対象・操作者・保護状態・通常稼働確認は維持し、Devは既存の限定照合を維持する。成功結果に選択対象、Prodでは実際の照合IDも含める。
+
+独立担当が実装、別担当が設計と最終差分をレビューし、具体的な残ブロッカーなし。全7組合せと省略時の全体、未知／空／重複指定の拒否、Functions導入省略、公開後証明照合での対象外リクエストなし、選択内不一致拒否・選択外ローカル不一致許容、既存全体・復旧経路の既定動作を確認した。既存CLI15.36.0のfilterTargets実装も読み、カンマ区切りの対象選択と整合することを確認。Cloud dry-runはAPI有効化を伴う可能性があるため実行していない。
+
+変更分類はbuild-release-deploy／governance-permissions-agents（配備照合範囲）／documentation-only。包括7gateを選定。default-recovery共通helper変更がpolicyのRules失効条件に該当するため、全体Emulator回帰を一度実行した。下記結果はこの最終コード差分に対応する。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `node --test --test-reporter=spec test/direct-application-deployment.test.mjs test/default-recovery-release-proof.test.mjs test/default-recovery-preflight.test.mjs test/production-application.test.mjs` | 対象62件成功 | 0 |
+| `npm test` | 最終689成功・既存symlink fixture2skip、5.407秒 | 0 |
+| `npm run test:rules` | 208成功・skip0、448.690秒、Emulator終了・lock解放 | 0 |
+| `npm run build` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `npm run typecheck` | S2最終証拠を再利用。app／Nuxt／TypeScript／package／lock不変 | 0（既存） |
+| `node scripts/check-functions-syntax.mjs` | 4ac0348の証拠を再利用。Functions／domain／準備・構文helper不変 | 0（既存） |
+| `node --check scripts/seed-emulator.mjs` | 4ac0348の証拠を再利用。seed不変 | 0（既存） |
+| `git diff --check` | 成功 | 0 |
+
+Nodeはv22.23.2で変更なし。初回npm testは親担当がEmulator試験と重ねたため、共有active.lockにより2件失敗（exit1）。試験コードや判定を変更せず、Emulator終了後の単独再実行で上記の成功を得た。失敗ログはtmp/s3-test.log、最終はtmp/s3-test-final.log、Rulesはtmp/s3-rules.log、buildはtmp/s3-build.log。
+
+正本の配備手順・ADR0053・仕様の運用要約・project-rules・ロードマップ・索引・changelogを整合した。policyのgate／失効条件、依存版、業務コード、画面、データ契約は変更していない。renderer -Applyはexit0・生成差分0。既存業務受入れは失効させない。
+
+今回完了した範囲はS3の実装・Local検証・文書更新。GitHub送信・main統合・新しい部分配備のDev／Prod実行は未実施であり、部分配備の実測値はない。S2の全体直接配備実測をS3の速度実証へ読み替えない。実Cloud配備では対象環境と配備対象を明示した承認範囲で実行する。共有処理／API／依存の互換性が不明な場合は従来どおり全体を選び、切戻しも同じ対象単位で行う。
+
 ## 2026-11-16 PRなし・直接配備への切替完了
 
 本人がコード統合にもPRを一切使わないと明示し、切替・Dev／Prod実証・実測・ロードマップ更新まで承認。[ADR0053](decisions/0053-direct-application-deployment.md)を適用する。dev/mainのPR必須と専用必須checkをGitHub APIで解除し、各DELETEと読戻しはexit0。両branchの強制push／削除は禁止のまま、管理者適用を維持。ruleset一覧は空。通常配備・PR確認の3 workflowを撤去し、復旧／保守用は維持する。以下のPR／Actions配備記録は当時の実績。

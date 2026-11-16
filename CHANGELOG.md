@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16 変更対象だけの配備（Local検証済み）
+
+既存コマンドに任意の`--only`を追加。hosting／functions／firestoreを手動選択し、省略時は全体。Functions非対象時はstage依存導入を省き、Prodは選択対象だけ公開後照合する。自動差分判定・新しいCI／台帳は追加せず、共通buildと既存保護を維持。対象62・単体689・Emulator208成功、独立レビュー済み。GitHub送信・部分配備のCloud実証／実測は未実施。[結果](docs/operations.md#2026-11-16-s3変更対象だけの配備local完了)。
+
 ## 2026-11-16 PRなし・手元コマンドへ移行（切替・実証完了）
 
 本人の選択により、通常Dev／Prod配備をPR・GitHub Actionsの判定から切り離す。環境とログイン済みアカウントを明示し、既存のbuild・固定成果物・環境別照合を再利用する。コード統合にもPRを使わず通常pushへ変更。PR必須・専用必須checkを解除し、強制push・branch削除は禁止する。必要なLocal検証は維持。CI例外PR86は未統合で終了。Dev／Prod直接配備exit0、Dev約1分59秒／Prod約3分15秒、Prod全5照合・保護不変。実測条件は[ロードマップ](docs/roadmaps/technical-remediation.md)で管理する。

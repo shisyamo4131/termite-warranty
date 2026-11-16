@@ -7,10 +7,11 @@ import {fileURLToPath} from 'node:url'
 import {deploymentOptions,deploymentEnvironment,assertDeploymentEnvironment,deployApplication,stageDigest,deploymentSnapshot,metadataReader} from '../scripts/deploy-application.mjs'
 import {selectDeploymentAccount} from '../scripts/lib/direct-deployment-credentials.mjs'
 import {developmentTarget} from '../scripts/development-deployment.mjs'
+import {deploymentTargets,deploymentCheckIds} from '../scripts/lib/default-recovery-preflight.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url)),revision='a'.repeat(40),email='deployer@example.invalid'
 test('direct entry requires exactly an environment and explicit account, never ambient overrides',()=>{
- assert.deepEqual(deploymentOptions(['prod','--account',email]),{environment:'prod',account:email})
+ assert.deepEqual(deploymentOptions(['prod','--account',email]),{environment:'prod',account:email,targets:['firestore','functions','hosting']})
  for(const args of [[],['prod'],['main','--account',email],['dev','--account',email,'--force'],['prod','--account','']])assert.throws(()=>deploymentOptions(args))
  for(const env of [{GITHUB_ACTIONS:'true'},{FIREBASE_TOKEN:'private'},{GOOGLE_APPLICATION_CREDENTIALS:'private'},{NODE_OPTIONS:'--require other'},{FIRESTORE_EMULATOR_HOST:'localhost:1'},{TERMITE_PRODUCTION_PROJECT:'other'}])assert.throws(()=>assertDeploymentEnvironment(env))
  const sanitized=deploymentEnvironment({PATH:'path',HOME:'private',APPDATA:'private',LOCALAPPDATA:'private',USERPROFILE:'private',FIREBASE_TOKEN:'private',GOOGLE_APPLICATION_CREDENTIALS:'private',GITHUB_TOKEN:'private',NUXT_PUBLIC_FIREBASE_API_KEY:'private'},'empty-home')
@@ -39,12 +40,35 @@ async function fixture(t,environment='dev') {
  const makeStage=async(stage)=>{await mkdir(join(stage,'functions'),{recursive:true});await writeFile(join(stage,'firebase.json'),'{}');await writeFile(join(stage,'functions/package-lock.json'),'{}')}
  const deps={root:directory,env:{npm_execpath:'fixture-npm'},revision:async()=>revision,
   authenticate:async selected=>{assert.equal(selected,email);return {credential:{getAccessToken:async()=>{throw Error('No real OAuth in unit test')}},verifyIdentity:async()=>calls.push('identity')}},
-  snapshot:async()=>structuredClone(state),inspect:async(_,options)=>{calls.push(options.predeploy?'preflight':'proof');return {ready:true}},
+  snapshot:async()=>structuredClone(state),inspect:async(_,options)=>{calls.push(options.predeploy?'preflight':'proof');return {ready:true,checks:deploymentCheckIds(options.targets).map(id=>({id,status:'pass'}))}},
   build:async input=>{calls.push('build');if(environment==='dev')await makeStage(join(input.directory,'stage'));return {revision,digest:environment==='dev'?await stageDigest(join(input.directory,'stage')):'b'.repeat(64)}},
   verifyBundle:async()=>({target:{}}),stageBundle:async(_,stage)=>makeStage(stage),
   command:async args=>calls.push(args),fetcher:async url=>new Response(url.endsWith('init.json')?JSON.stringify({projectId:developmentTarget.project,appId:developmentTarget.appId}):'<html></html>')}
- return {directory,deps,calls,state,run:()=>deployApplication({environment,account:email},deps)}
+ return {directory,deps,calls,state,run:targets=>deployApplication({environment,account:email,targets},deps)}
 }
+test('all seven target combinations keep full build and install Functions only when selected',async t=>{
+ const all=['firestore','functions','hosting']
+ for(let mask=1;mask<8;mask++)for(const environment of ['dev','prod']){
+  const targets=all.filter((_,i)=>mask&(1<<i)),input=[...targets].reverse().join(',')
+  const parsed=deploymentOptions([environment,'--account',email,'--only',input]);assert.deepEqual(parsed.targets,targets)
+  const f=await fixture(t,environment),inspect=f.deps.inspect
+  f.deps.inspect=async(bundle,options)=>{if(!options.predeploy)assert.deepEqual(options.targets,targets);return inspect(bundle,options)}
+  const result=await f.run(parsed.targets),commands=f.calls.filter(Array.isArray)
+  assert.deepEqual(result.targets,targets);assert.equal(f.calls.filter(call=>call==='build').length,1)
+  assert.equal(commands.length,targets.includes('functions')?2:1)
+  assert.equal(commands.at(-1)[commands.at(-1).indexOf('--only')+1],targets.join(','))
+  assert.equal(result.checks,environment==='dev'?'bounded-dev':mask===7?'all-five':'selected-production')
+  assert.deepEqual(result.checkIds,environment==='prod'?deploymentCheckIds(targets):undefined)
+ }
+ for(const only of ['',',','hosting,','hosting,hosting','Hosting','hosting:site','functions:name','firestore:rules','all','constructor','hosting, unknown'])assert.throws(()=>deploymentOptions(['prod','--account',email,'--only',only]))
+ for(const invalid of [[],['hosting','hosting'],['unknown'],[new String('hosting')]])assert.throws(()=>deploymentTargets(invalid))
+})
+test('selected Prod proofs must contain exactly the required passing IDs',async t=>{
+ for(const checks of [[],[{id:'functions-release-proof',status:'pass'}],[{id:'hosting-release-proof',status:'blocked'}],Array(2).fill({id:'hosting-release-proof',status:'pass'})]){
+  const f=await fixture(t,'prod');f.deps.inspect=async()=>({ready:true,checks})
+  await assert.rejects(f.run(['hosting']),/release proof failed/)
+ }
+})
 test('both direct paths build once, install only staged Functions, deploy once with selected identity and verify',async t=>{
  for(const environment of ['dev','prod']){
   const f=await fixture(t,environment),result=await f.run()
