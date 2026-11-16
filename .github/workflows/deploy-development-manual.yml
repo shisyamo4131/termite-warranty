@@ -82,13 +82,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npx --yes npm@11.19.1 ci
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.build.outputs.revision }}
           path: candidate
           persist-credentials: false
-      - run: npx --yes npm@11.19.1 ci
+      - run: npx --yes npm@11.19.1 ci --ignore-scripts
+        working-directory: candidate
+      - run: npx --yes npm@11.19.1 ci --prefix functions --ignore-scripts --no-audit --no-fund
         working-directory: candidate
       - run: node candidate/node_modules/firebase-tools/lib/bin/firebase.js --version
       - uses: actions/download-artifact@v8

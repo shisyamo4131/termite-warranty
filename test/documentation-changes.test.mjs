@@ -4,12 +4,48 @@ import {mkdtempSync,writeFileSync,mkdirSync,rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join,resolve,dirname} from 'node:path'
 import {execFileSync} from 'node:child_process'
+import {cp} from 'node:fs/promises'
+import {createRequire} from 'node:module'
+import {fileURLToPath} from 'node:url'
 import {classifyDiff,inputDigests} from '../scripts/lib/change-scope.mjs'
 import {compareEvent,sameProduct,reviewedLocal,acceptedDeployment,successfulPR,resolveScope,assertCurrentBranch,manualWorkflow} from '../scripts/pipeline.mjs'
 import {admitCandidate} from '../scripts/development-candidate.mjs'
-import {activeInventory,protectionHeld,developmentConfig} from '../scripts/development-deployment.mjs'
+import {activeInventory,protectionHeld,developmentConfig,candidateGoogleAuth} from '../scripts/development-deployment.mjs'
 const a='a'.repeat(40),b='b'.repeat(40),c='c'.repeat(40),repo={id:1363463339,owner:{id:72244713}},repository='shisyamo4131/termite-warranty'
 const raw=path=>':100644 100644 '+a+' '+b+' M\0'+path+'\0'
+test('controller resolves authentication only from installed candidate dependencies',async()=>{
+ const directory=mkdtempSync(join(tmpdir(),'candidate-auth-')),candidate=join(directory,'candidate')
+ try{
+  mkdirSync(candidate)
+  writeFileSync(join(candidate,'package.json'),'{}')
+  const install=base=>{const path=join(base,'node_modules/google-auth-library');mkdirSync(path,{recursive:true});writeFileSync(join(path,'index.js'),'exports.GoogleAuth=class GoogleAuth {}')}
+  install(directory)
+  await assert.rejects(candidateGoogleAuth(candidate),/fallback refused/)
+  const installed=join(directory,'installed-candidate')
+  mkdirSync(installed);writeFileSync(join(installed,'package.json'),'{}');install(installed)
+  assert.equal(typeof await candidateGoogleAuth(installed),'function')
+ }finally{
+  if(!directory.startsWith(join(tmpdir(),'candidate-auth-')))throw Error('Fixture cleanup scope mismatch')
+  rmSync(directory,{recursive:true,force:true})
+ }
+})
+test('controller imports without its own node_modules and resolves the installed candidate auth library',async()=>{
+ const root=fileURLToPath(new URL('..',import.meta.url)),directory=mkdtempSync(join(tmpdir(),'controller-import-'))
+ try{
+  for(const name of ['scripts','src'])await cp(join(root,name),join(directory,name),{recursive:true})
+  mkdirSync(join(directory,'functions'))
+  await cp(join(root,'functions/production-identities.js'),join(directory,'functions/production-identities.js'))
+  mkdirSync(join(directory,'deliverables/production-bootstrap-2026-10-13'),{recursive:true})
+  await cp(join(root,'deliverables/production-bootstrap-2026-10-13/target.json'),join(directory,'deliverables/production-bootstrap-2026-10-13/target.json'))
+  writeFileSync(join(directory,'package.json'),'{"type":"module"}')
+  execFileSync(process.execPath,['--input-type=module','-e',"await import('./scripts/development-candidate.mjs'); await import('./scripts/development-deployment.mjs')"],{cwd:directory,encoding:'utf8',windowsHide:true})
+  const expected=createRequire(join(root,'package.json'))('google-auth-library').GoogleAuth
+  assert.equal(await candidateGoogleAuth(root),expected)
+ }finally{
+  if(!directory.startsWith(join(tmpdir(),'controller-import-')))throw Error('Fixture cleanup scope mismatch')
+  rmSync(directory,{recursive:true,force:true})
+ }
+})
 test('delivery PDFs are bounded documents and cannot hide mixed or unknown changes',()=>{
  const paths=['output/pdf/HS_納品書と利用条件_確認用.pdf','output/pdf/HS_運用引継ぎガイド_確認用.pdf']
  for(const path of paths)assert.equal(classifyDiff(raw(path)),'documentation')

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-16 検証・配備準備の簡素化（Local検証済み・未配備）
+
+独立した試験ファイルの限定実行入口を追加し、全体検証と区別する。Dev controllerの依存導入と配備jobの不要な準備処理を削減し、ProdをLinuxで実行する候補を準備。包括完了ゲート・認証前build・配備対象制約は維持。未配備であり、Linux実証と時間比較は残件。[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)。Dev保管・Auth保全は提案を整理した段階で設定変更なし。
+
 ## 2026-11-16 Functions依存固定（Prod反映済み）
 
 Functions用lockを独立させ、LocalとCloudで同じ依存定義を使う構成へ移行。試験SDKの読込みと配備物収集を整合し、Prodの認証前stageへ固定依存を導入する。Dev受入れ後、PR80／81・main a513137でProd反映・全5照合を完了。業務仕様・データ形式は変更なし。Auth保存／読戻し未実証と後続改善は[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を参照。

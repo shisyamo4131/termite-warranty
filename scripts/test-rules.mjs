@@ -2,7 +2,7 @@ import {resolve} from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {mkdir,writeFile,access} from 'node:fs/promises'
 import {runEmulatorCommand,assertFocusedEnvironment,runNode,assertEmulatorPortsFree} from './lib/test-emulators.mjs'
-import {rulesWorkers,rulesShards,validateRulesInventory,readRulesReceipt,assertRulesResult} from './lib/rules-test-plan.mjs'
+import {rulesWorkers,rulesShards,rulesFileProfile,validateRulesInventory,readRulesReceipt,assertRulesResult} from './lib/rules-test-plan.mjs'
 import {aggregateRulesReceipts} from './lib/rules-test-receipts.mjs'
 
 const root=fileURLToPath(new URL('..',import.meta.url))
@@ -39,7 +39,7 @@ export function readRulesSummary(output,nonce,plan=rulesWorkers) {
   }
   return result
 }
-async function main(args) {
+export async function main(args,{emulator=runEmulatorCommand,log=console.log}={}) {
   if(JSON.stringify(args)===JSON.stringify(['--child','--failure-probe'])){
     assertFocusedEnvironment(process.env,{child:true})
     throw Error('INTENTIONAL_RULES_FAILURE_PROBE')
@@ -68,27 +68,28 @@ async function main(args) {
     return
   }
   const child=args[0]==='--child',options=child?args.slice(1):args
+  const file=options.length===2&&options[0]==='--file'?rulesFileProfile(options[1]):null
   const shard=options.length===2&&options[0]==='--shard'&&rulesShards.find(row=>row.id===options[1])
-  if(!shard && (options.length>1 || options.length===1&&!['--serial','--baseline'].includes(options[0])))throw Error('Unknown rules runner mode.')
-  const serial=options[0]==='--serial',plan=shard?[shard]:rulesWorkers
+  if(!file&&!shard && (options.length>1 || options.length===1&&!['--serial','--baseline'].includes(options[0])))throw Error('Unknown rules runner mode.')
+  const serial=options[0]==='--serial',plan=file?[file]:shard?[shard]:rulesWorkers
   await validateRulesInventory(root)
   if(child) {
     assertFocusedEnvironment(process.env,{child:true})
     if(!/^[0-9a-f-]{36}$/.test(process.env.FOCUSED_TEST_NONCE??''))throw Error('Parent identity missing.')
     const workers=await runRulesWorkers({serial,plan})
-    console.log('RULES_RESULT '+JSON.stringify({nonce:process.env.FOCUSED_TEST_NONCE,workers}))
+    log('RULES_RESULT '+JSON.stringify({nonce:process.env.FOCUSED_TEST_NONCE,workers,...(file?{completionGate:false}:{} )}))
   } else {
     const start=performance.now()
-    const result=await runEmulatorCommand('node scripts/test-rules.mjs --child'+(shard?' --shard '+shard.id:serial?' --serial':''))
+    const result=await emulator('node scripts/test-rules.mjs --child'+(file?' --file '+file.slug:shard?' --shard '+shard.id:serial?' --serial':''))
     const summary=readRulesSummary(result.output,result.nonce,plan)
     const passed=summary.workers.flatMap(worker=>Object.values(worker.byFile)).reduce((n,row)=>n+row.passed,0)
-    const receipt={...summary,id:shard?.id??'baseline',revision:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,
+    const receipt={...summary,id:file?.id??shard?.id??'baseline',revision:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,
       runner:process.env.RUNNER_NAME,exitCode:0,passed,emulatorsStopped:true,elapsedMs:Math.round(performance.now()-start)}
     if(shard||options[0]==='--baseline'){
       await mkdir(resolve(root,'tmp/rules-receipts'),{recursive:true})
       await writeFile(resolve(root,'tmp/rules-receipts',receipt.id+'.json'),JSON.stringify(receipt))
     }
-    console.log(JSON.stringify({rulesSuite:receipt.id,passed,emulatorsStopped:true,elapsedMs:receipt.elapsedMs}))
+    log(JSON.stringify({rulesSuite:receipt.id,passed,emulatorsStopped:true,elapsedMs:receipt.elapsedMs,...(file?{completionGate:false,files:file.files}:{})}))
   }
 }
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url))main(process.argv.slice(2)).catch(error=>{

@@ -44,7 +44,9 @@ export function validatePipeline(text,policy,kind){
   const auth=deploy.steps.map((s,i)=>s.uses?.startsWith('google-github-actions/auth@')?i:-1).filter(i=>i>=0)
   const current=required(deploy,'node scripts/pipeline.mjs current-'+(kind==='development'?'dev':'main'))
   need(auth.length>0&&current<auth[0],'Current branch check must precede authentication.')
-  required(deploy,'npx --yes npm@11.19.1 ci')
+  const rootInstall=required(deploy,'npx --yes npm@11.19.1 ci --ignore-scripts')
+  need(rootInstall<auth[0]&&!deploy.steps[rootInstall]['working-directory'],'Deploy tooling must install before authentication at the checkout root.')
+  need([scope,verify,deploy].every(job=>job['runs-on']==='ubuntu-latest'),'Production jobs require the reviewed Ubuntu runtime.')
   {
     need(!rules&&!application,'Production must not rerun common tests.')
     need(verify.needs==='scope','Production build requires source admission.')
@@ -52,9 +54,11 @@ export function validatePipeline(text,policy,kind){
     required(verify,'npx --yes npm@11.19.1 ci');required(verify,'node scripts/prepare-production-release.mjs .production-release')
     need(verify.outputs.digest==='${{ steps.bundle.outputs.digest }}'&&deploy.env.PRODUCTION_RELEASE_DIGEST==='${{ needs.verify.outputs.digest }}','Bundle digest must come from successful builder.')
     const guard=required(deploy,'node scripts/check-production-deployment.mjs --application'),local=required(deploy,'node scripts/check-production-release.mjs local .production-release'),stage=required(deploy,'node scripts/check-production-release.mjs stage .production-release'),pre=required(deploy,'node scripts/check-production-release.mjs predeploy .production-release'),post=required(deploy,'node scripts/check-production-release.mjs cloud .production-release')
-    const publish=required(deploy,'npx --no-install firebase deploy --non-interactive --project $env:TARGET_PROJECT --config .production-deploy/firebase.json --only firestore,functions,hosting')
+    const publish=required(deploy,'npx --no-install firebase deploy --non-interactive --project "$TARGET_PROJECT" --config .production-deploy/firebase.json --only firestore,functions,hosting')
+    need(deploy.steps[publish].shell==='bash'&&deploy.steps[publish].env?.TARGET_PROJECT==='${{ steps.target.outputs.project }}','Deployment shell and guarded target must agree.')
     const install=required(deploy,'npx --yes npm@11.19.1 ci --prefix .production-deploy/functions --ignore-scripts --no-audit --no-fund')
-    need(stage<install&&install<auth[0],'Locked Functions discovery dependencies must be installed before authentication.')
+    need(rootInstall<guard&&stage<install&&install<auth[0]&&!deploy.steps[install]['working-directory'],'Locked Functions discovery dependencies must be installed before authentication.')
+    need(deploy.steps.filter(s=>s.run?.includes('npm@')).length===2,'Only tooling and staged Functions installs are needed for deployment.')
     need(auth.length===2&&guard<local&&local<stage&&stage<auth[0]&&auth[0]<pre&&pre<publish&&publish<auth[1]&&auth[1]<post,'Production safety order is invalid.')
     need(deploy.steps.filter(s=>s.run?.includes('firebase deploy')).length===1,'Unexpected production deployment command.')
     for(const i of auth){const a=deploy.steps[i];need(a.with?.project_id==='${{ steps.target.outputs.project }}'&&a.with?.service_account==='${{ steps.target.outputs.service_account }}'&&a.with?.workload_identity_provider==='${{ steps.target.outputs.provider }}'&&!a.with.credentials_json,'Authentication target differs from guard.')}
@@ -91,7 +95,11 @@ export function validateManualDevelopment(text){
     need(evaluate(d.if,c)===(!cancelled&&result==='success'&&branch==='dev'&&enabled==='true'),'Deployment guard failed.')
   }
   for(const j of [b,d]){need(!j['continue-on-error']&&j.steps.every(s=>!s.if&&!s['continue-on-error']),'No skipped safety steps.');required(j,'node scripts/development-candidate.mjs')}
-  for(const j of [b,d])need(j.steps.some(s=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate'),'Candidate dependencies must match its lock.')
+  const buildInstall=required(b,'npx --yes npm@11.19.1 ci')
+  need(b.steps[buildInstall]['working-directory']==='candidate','Candidate build dependencies must match its lock.')
+  const deployInstall=required(d,'npx --yes npm@11.19.1 ci --ignore-scripts')
+  const functionsInstall=required(d,'npx --yes npm@11.19.1 ci --prefix functions --ignore-scripts --no-audit --no-fund')
+  need([deployInstall,functionsInstall].every(i=>d.steps[i]['working-directory']==='candidate')&&d.steps.filter(s=>s.run?.includes('npm@')).length===2,'Only candidate tooling and Functions installs are needed.')
   const source=d.steps.find(s=>s.with?.path==='candidate'&&s.uses?.startsWith('actions/checkout@'))
   need(source?.with?.ref==='${{ needs.build.outputs.revision }}'&&source.with['persist-credentials']===false,'Deployment source must match admitted build commit.')
   need(b.steps[0]?.uses?.startsWith('actions/checkout@')&&b.steps[0].with?.path==='controller'&&b.steps[0].with['fetch-depth']===0&&b.steps[0].with['persist-credentials']===false,'Build controller must be separate from the candidate and its ancestors.')
@@ -104,11 +112,10 @@ export function validateManualDevelopment(text){
   need(auth>required(d,'node scripts/development-candidate.mjs')&&d.steps[auth].with.credentials_json==='${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}','Authenticate only after current candidate guard.')
   const cli='node candidate/node_modules/firebase-tools/lib/bin/firebase.js'
   const version=required(d,cli+' --version')
-  const installs=d.steps.map((s,i)=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate'?i:-1).filter(i=>i>=0)
-  need(installs.length===1&&d.steps.indexOf(source)<installs[0]&&installs[0]<version&&version<auth,'Candidate CLI version must be checked after its lock install and before Cloud authentication.')
+  need(d.steps.indexOf(source)<deployInstall&&deployInstall<functionsInstall&&functionsInstall<version&&version<auth,'Candidate CLI version must be checked after both lock installs and before Cloud authentication.')
   const pre=required(d,'node scripts/development-deployment.mjs prepare'),pub=required(d,cli+' deploy --config candidate/firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'),post=required(d,'node scripts/development-deployment.mjs check')
   need(!w.defaults?.run?.['working-directory']&&!d.defaults?.run?.['working-directory']&&[version,pre,pub,post,required(d,'node scripts/development-candidate.mjs')].every(i=>!d.steps[i]['working-directory']),'Deployment commands must retain the controller root working directory.')
-  need(auth<pre&&pre<pub&&pub<post&&!/--force\b|npm run build/.test(JSON.stringify(d)),'Deployment order or rebuild unsafe.')
+  need(auth<pre&&pre<pub&&pub<post&&!/--force\b|npm run build|nuxt prepare|prepare:functions/.test(JSON.stringify(d)),'Deployment order or rebuild unsafe.')
   const up=b.steps.find(s=>s.uses?.startsWith('actions/upload-artifact@')),down=d.steps.find(s=>s.uses?.startsWith('actions/download-artifact@'))
   need(up?.with?.name==='development-candidate-${{ github.run_id }}-${{ github.run_attempt }}'&&down?.with?.name===up.with.name&&down.with.path==='candidate'&&down.with['digest-mismatch']==='error'&&up.with['include-hidden-files']===true&&up.with['if-no-files-found']==='error','Same-run native artifact handoff required.')
   return true

@@ -1,5 +1,34 @@
 # バックアップ・全体復旧の操作手順
 
+## 2026-11-16 Devの保管とAuth自動取得（調査・提案、設定変更なし）
+
+納品後のDev保管方針を検討するための整理。自動取得の有効化、保護保留の解除、環境削除は未採用・未実施。S1／S2の配備準備簡素化と分けて判断する。
+
+### 現行コードで確認できる影響
+
+- `functions/recovery-backups.js` の `RECOVERY_BACKUP_AUTOMATION=false` はAuth保存を開始前に止める。`force`でも回避できない。定期監視も早期終了し、Firestore／Authの健康状態更新とその失敗通知は動かない。
+- 通常ログイン・業務読取りをこの設定で拒否する処理ではない。一方、無効期間のアカウント追加・削除・パスワード等の変更を含む新しいAuth退避は生成されない。Authを失ったときにFirestoreの職員情報だけから同じ認証情報を復元することはできない。古い退避の存在・鮮度・復元可能性は別途確認が必要。
+- `functions/recovery-runtime.js` はアカウント更新後に退避を要求するが、無効時は保存されない。有効時には全Authの取得・保存を待つ場合があり、その処理時間・読書きが加わる。現在の件数での追加時間は未測定。
+- 有効化しても「毎日Auth全件を保存」する設計ではない。監視は毎日10時JSTだが、前回保存から7日未満かつ未処理の更新要求がなければAuth保存を省略する。アプリの要求記録を通らない変更まで即時に保全される保証はなく、許容損失期間と照合する必要がある。
+- スイッチを有効にするとFirestoreのバックアップ鮮度も監視する。DevのFirestoreバックアップ保留を維持したままでは、Auth保存に成功しても監視が失敗し得る。`scripts/development-deployment.mjs` は自動取得無効・PITR無効・予定なしを確認しており、スイッチだけ変えると次の配備を拒否する。
+- 無効化は既存退避の削除、Scheduler等の資源削除、料金ゼロを意味しない。今回Cloudの現行料金・全資源・最新Auth退避は再棚卸ししていない。
+
+FirestoreバックアップはDBの文書と索引を保存する機能で、Authの別保全を代替しない。[Firestore公式仕様](https://firebase.google.com/docs/firestore/backups)。保存成功とAuth実取込み・復元後ログイン成功も別であり、既決定のAuth実復元試験見送りは変更しない。
+
+### 推奨する運用案（未採用）
+
+| 状態 | Devの扱い | Auth保全の判断 |
+| --- | --- | --- |
+| 改修・受入れが続く | 顧客ごとの既存Devを再利用。変更ごとに新projectを増やさない | 再作成できないアカウント・試行データを保持するなら、許容損失期間を決めて自動保全を検討 |
+| 長期に改修予定がない | project IDを残し、不要な実行・保存資源を個別に縮小する案を比較 | 合成データと再作成可能な試験アカウントだけなら、定期退避を必須にせず再構築手順を優先できる |
+| 維持不要で再構築可能 | コード・lock・環境設定・Rules／索引・初期データ・外部連携の再構築と所要時間を確認後、Dev廃止を別途判断 | 必要な保存対象・保持期限・削除範囲を確定してから廃止。現状では条件未確認 |
+
+基本案は「顧客ごとProd＋必要な期間Dev、日常はLocal」。この案件は当面Devを保持することを推奨する。プロジェクト数そのものより、顧客・用途・管理者・保管状態を一覧で把握でき、再開手順が明確かを重視する。複数顧客やProd／Devを一つのFirebase projectへまとめる案は勧めない。同じproject内のアプリはAuth・Firestore等のbackendを共有し、公式も環境ごとのproject分離を推奨する。[Firebase環境分離](https://firebase.google.com/docs/projects/dev-workflows/general-best-practices)。Localでは[Auth Emulator](https://firebase.google.com/docs/emulator-suite/connect_auth)を利用できるが、実IAM・実バックアップ保存の検証まで代替できるものではない。
+
+課金解除を保管用の一括休止として扱わない。サービス停止や資源喪失の可能性がある。[課金解除の影響](https://docs.cloud.google.com/billing/docs/how-to/modify-project)。project削除は30日の復元猶予があるが、一部資源はそれ以前に失われる場合があり、永久削除後のIDは再利用できない。削除待ちもquotaに算入される。[削除・復元仕様](https://docs.cloud.google.com/resource-manager/docs/delete-restore-projects)。この案件の利用上限・費用・再構築時間は未確認。
+
+有効化を選ぶ場合は、まず残すDevデータと許容損失期間を確認し、S4の正式な手動試験でAuth保存・読戻しを実証する。その上でAuthとFirestoreの監視の分離要否、保存期間、通知、配備時ガードの変更を具体化して承認を得る。単一スイッチの切替だけでは完了としない。
+
 2026-11-16現在：以下の一時Job案は、本人承認後の1回実行で起動時失敗し、Job・試験object・lockの不在を確認して終了した。Functionsのimageは実行時base image合成を必要とするscratch形式であり、baseImageUriをサポートしないJobへの単純流用は不適合。再利用しない。本人はAuth保存／読戻し未実証を記録してProd更新へ進むと判断し、正式な手動試験入口と実試験を[ロードマップS4](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)へ繰延べた。[実績・判断](../operations.md#依存固定候補のdev配備受入れとauth試験の判断)。以下の実行承認前・未実行は準備時点の記録。
 
 ## 2026-11-16 Dev限定SDK実接続試験の準備（実行承認前）

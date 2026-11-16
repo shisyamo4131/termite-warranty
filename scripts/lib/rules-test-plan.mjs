@@ -28,6 +28,20 @@ export const rulesShards = heavy.map((name,index)=>({id:'shard-'+name,files:allF
     allFiles.filter(value=>!heavy.some(item=>value===`test/emulator/${item}.test.mjs`)).indexOf(file)%3===index))}))
 assertRulesInventory(allFiles,rulesShards)
 
+// Individually reviewed, self-seeding files only. Each run gets fresh emulators.
+export const rulesFileProfiles = Object.freeze([
+  Object.freeze({id:'file-firestore-rules',slug:'firestore-rules',files:Object.freeze(['test/firestore-rules.test.mjs'])}),
+  Object.freeze({id:'file-firestore-control-rules',slug:'firestore-control-rules',files:Object.freeze(['test/firestore-control-rules.test.mjs'])}),
+  Object.freeze({id:'file-isolated-property-import',slug:'isolated-property-import',files:Object.freeze(['test/emulator/isolated-property-import.test.mjs'])}),
+  Object.freeze({id:'file-staff-account-management',slug:'staff-account-management',files:Object.freeze(['test/emulator/staff-account-management.test.mjs'])}),
+  Object.freeze({id:'file-callable-applied-warranty',slug:'callable-applied-warranty',files:Object.freeze(['test/emulator/callable-applied-warranty.test.mjs'])}),
+])
+export function rulesFileProfile(slug) {
+  const profile=rulesFileProfiles.find(row=>row.slug===slug)
+  if(!profile)throw Error('Unknown reviewed rules file.')
+  return profile
+}
+
 export function assertRulesInventory(inventory, workers=rulesWorkers) {
   const files=workers.flatMap(worker=>worker.files)
   if(new Set(workers.map(worker=>worker.id)).size!==workers.length || new Set(files).size!==files.length || new Set(inventory).size!==inventory.length ||
@@ -37,9 +51,10 @@ export async function validateRulesInventory(root) {
   const files=(await readdir(resolve(root,'test/emulator'))).filter(name=>name.endsWith('.test.mjs')).map(name=>'test/emulator/'+name)
   const top=(await readdir(resolve(root,'test'))).filter(name=>/^firestore.*\.test\.mjs$/.test(name)).map(name=>'test/'+name)
   assertRulesInventory([...top,...files])
+  if(rulesFileProfiles.some(row=>row.files.length!==1||!allFiles.includes(row.files[0])))throw Error('Invalid rules file profile.')
 }
 export function rulesWorker(id) {
-  const worker=[...rulesWorkers,...rulesShards].find(worker=>worker.id===id)
+  const worker=[...rulesWorkers,...rulesShards,...rulesFileProfiles].find(worker=>worker.id===id)
   if(!worker)throw Error('Unknown rules worker.')
   return worker
 }
