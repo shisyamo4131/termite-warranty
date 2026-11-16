@@ -1,5 +1,18 @@
 # Operations
 
+## 2026-11-16 Firebase依存更新（進行中）
+
+CI準備 MAINT-8：High MAINT-7レビュー承認。npm11.19.1で包括7gate成功（全exit0）。governance 0.78秒、単体671成功・2skip・失敗0／4.75秒、型検査8.39秒、build9.28秒、Rules207成功／451.44秒、Functions構文2.23秒、seed構文0.15秒。skipはホストsymlink条件。単体に配備契約・文書分類回帰を含むため重複実行なし。隔離Emulator終了・待受0確認。記録：Git外tmp/maint8-summary.jsonと各ログ。画面変更なし、本人UI受入れは未実施。
+
+
+承認：CLIとAdmin SDKを分けて更新し、Local検証・Dev配備と照合まで。Prod配備・main統合・データ移行・保護設定変更は行わない。既存の移動・独立化文書はcodex/shared-foundationに保持し、最新devを基点とする専用branchで作業する。
+
+High MAINT-3設計／MAINT-4独立レビューに基づき、最初にCIだけの変更をdevへPR統合する。候補依存のCLIを明示実行し、認証前の版記録と順序・対象の契約試験を追加する。package/lockをこのPRに含めず、本人Dev受入れを要求しない既存CI分類を使う。以後CLI、Adminの順で別差分・Local検証・Dev実証を行う。
+
+更新候補はCLI15.36.0、Admin14.5.1。公式タグmanifestとnpm registryのname/version/tarball/integrityを読取り確認済み。依存解決後のlockと実動作は未検証。包括7gateと対象回帰を選択。実行結果は完了後に追記し、予定を成功と扱わない。
+
+今回の通常更新では復旧用メンテナンスへ移行しない。現行再開条件の緩和、移行証拠の転用、健全なDB復元をしない。停止が必要と判明したら計画保守用の停止・再開を別途設計する。技術的なDev照合と本人の業務受入れは区別する。
+
 ## 2026-10-31 下書き削除のLocal検証・Dev導入
 
 オーナー承認範囲：下書き削除の実装・Local検証・Dev配備と照合。Prod配備なし。一括取込み入力問題はHS元ファイル待ち。実データ削除、工務店ポータルの公開再開、IAM変更、保護設定の実行は含めない。[保存契約](design/meeting-prototype-2026-10-03.md#2026-10-31-下書きの物理削除)、[判断](decisions/0051-draft-physical-deletion.md)、[操作説明](requirements/user-explanation-items.md#2026-10-31-下書きを削除する)を参照。

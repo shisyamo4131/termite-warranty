@@ -100,7 +100,12 @@ export function validateManualDevelopment(text){
   const auth=d.steps.findIndex(s=>s.uses?.startsWith('google-github-actions/auth@'))
   need(d.steps.every((s,i)=>!s.run?.includes('npm@')||i<auth),'Dependency installation must precede Cloud authentication.')
   need(auth>required(d,'node scripts/development-candidate.mjs')&&d.steps[auth].with.credentials_json==='${{ secrets.FIREBASE_SERVICE_ACCOUNT_TERMITE_WARRANTY_DEV }}','Authenticate only after current candidate guard.')
-  const pre=required(d,'node scripts/development-deployment.mjs prepare'),pub=required(d,'npx --no-install firebase deploy --config candidate/firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'),post=required(d,'node scripts/development-deployment.mjs check')
+  const cli='node candidate/node_modules/firebase-tools/lib/bin/firebase.js'
+  const version=required(d,cli+' --version')
+  const installs=d.steps.map((s,i)=>s.run==='npx --yes npm@11.19.1 ci'&&s['working-directory']==='candidate'?i:-1).filter(i=>i>=0)
+  need(installs.length===1&&d.steps.indexOf(source)<installs[0]&&installs[0]<version&&version<auth,'Candidate CLI version must be checked after its lock install and before Cloud authentication.')
+  const pre=required(d,'node scripts/development-deployment.mjs prepare'),pub=required(d,cli+' deploy --config candidate/firebase.development.generated.json --project termite-warranty-dev --only firestore,functions,hosting --non-interactive'),post=required(d,'node scripts/development-deployment.mjs check')
+  need(!w.defaults?.run?.['working-directory']&&!d.defaults?.run?.['working-directory']&&[version,pre,pub,post,required(d,'node scripts/development-candidate.mjs')].every(i=>!d.steps[i]['working-directory']),'Deployment commands must retain the controller root working directory.')
   need(auth<pre&&pre<pub&&pub<post&&!/--force\b|npm run build/.test(JSON.stringify(d)),'Deployment order or rebuild unsafe.')
   const up=b.steps.find(s=>s.uses?.startsWith('actions/upload-artifact@')),down=d.steps.find(s=>s.uses?.startsWith('actions/download-artifact@'))
   need(up?.with?.name==='development-candidate-${{ github.run_id }}-${{ github.run_attempt }}'&&down?.with?.name===up.with.name&&down.with.path==='candidate'&&down.with['digest-mismatch']==='error'&&up.with['include-hidden-files']===true&&up.with['if-no-files-found']==='error','Same-run native artifact handoff required.')
