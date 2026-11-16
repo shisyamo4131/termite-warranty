@@ -1,6 +1,6 @@
 # 0053 通常アプリの手元からの直接配備
 
-- Status: Accepted; 実装・切替検証中
+- Status: Accepted; 実装・dev/main通常push・Dev／Prod実証完了
 - Date: 2026-11-16
 - Approval: 本チャット01a1e3b3-f313-7320-8b6f-bacd8cb40550で、本人が「手元のコマンドで直接配備する」を選択し、その後コード統合も含めPRを一切使わないと明示、切替からDev／Prod実証・実測・記録更新まで承認。S2のmain統合・Prod実証承認を、Actions上のLinux実証から直接配備の準備・検証へ組み替える。
 - Supersedes: ADR0048の通常Dev／Prod配備と配備のPR／Actions来歴依存。必要検証・製品受入れ・対象照合・保護設定維持の判断は保持する。
@@ -24,3 +24,5 @@ PRの変更分類・成功run・確認欄と配備の実行を切り離す。通
 業務API・schema・ユーザー画面は変更しないため、業務受入れの再実施を自動で要求しない。コード統合と直接配備の成功、検証範囲、未確認事項を既存operations／roadmapへ記録する。切戻しは既知の良好なコードへ修正commitを通常pushして戻し、必要検証後に直接再配備する。旧Actions自動配備の復活やデータ復元を黙って行わない。
 
 [現行手順](../runbooks/application-deployment.md)・[進捗](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)。
+
+実証：配備版b3e17c0、Dev118.915秒／Prod194.973秒、両exit0・Prod全5照合・保護不変。[検証と比較条件](../operations.md#2026-11-16-prなし直接配備への切替完了)。

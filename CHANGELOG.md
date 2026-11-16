@@ -1,10 +1,10 @@
 # Changelog
 
-## 2026-11-16 通常配備を手元コマンドへ移行（実装中）
+## 2026-11-16 PRなし・手元コマンドへ移行（切替・実証完了）
 
-本人の選択により、通常Dev／Prod配備をPR・GitHub Actionsの判定から切り離す。環境とログイン済みアカウントを明示し、既存のbuild・固定成果物・環境別照合を再利用する。コード統合にもPRを使わず通常pushへ変更。PR必須・専用必須checkを解除し、強制push・branch削除は禁止する。必要なLocal検証は維持。CI例外PR86は未統合で終了。実配備の成功・実測は[ロードマップ](docs/roadmaps/technical-remediation.md)で管理する。
+本人の選択により、通常Dev／Prod配備をPR・GitHub Actionsの判定から切り離す。環境とログイン済みアカウントを明示し、既存のbuild・固定成果物・環境別照合を再利用する。コード統合にもPRを使わず通常pushへ変更。PR必須・専用必須checkを解除し、強制push・branch削除は禁止する。必要なLocal検証は維持。CI例外PR86は未統合で終了。Dev／Prod直接配備exit0、Dev約1分59秒／Prod約3分15秒、Prod全5照合・保護不変。実測条件は[ロードマップ](docs/roadmaps/technical-remediation.md)で管理する。
 
-## 2026-11-16 検証・配備準備の簡素化（Dev反映済み・Prod未反映）
+## 2026-11-16 検証・配備準備の簡素化（直接配備への切替前の記録）
 
 独立した試験ファイルの限定実行入口を追加し、全体検証と区別する。Dev controllerの依存導入と配備jobの不要な準備処理を削減し、ProdをLinuxで実行する候補を準備。包括完了ゲート・認証前build・配備対象制約は維持。PR84でdevへ統合し、run43858520087で新しいDev準備・配備・公開後確認を実証。配備job導入37→15秒。Prod Linux実証と時間比較は残件。[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)。Dev保管・Auth保全は提案を整理した段階で設定変更なし。
 

@@ -1,6 +1,6 @@
 # Architecture and Product Decisions
 
-- [0053: 通常アプリの手元からの直接配備](0053-direct-application-deployment.md)：採用済み。通常配備をPR／Actionsから切り離す。実装・切替検証中。
+- [0053: 通常アプリの手元からの直接配備](0053-direct-application-deployment.md)：採用済み。通常配備をPR／Actionsから切り離す。dev/main通常push・Dev／Prod実証完了。
 
 - [0052: Functions依存のLocal／Cloud固定](0052-functions-dependency-lock.md)：採用済み、実装・配備検証中。
 

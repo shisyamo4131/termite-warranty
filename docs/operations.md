@@ -1,6 +1,6 @@
 # Operations
 
-## 2026-11-16 PRなし・直接配備への切替（実証中）
+## 2026-11-16 PRなし・直接配備への切替完了
 
 本人がコード統合にもPRを一切使わないと明示し、切替・Dev／Prod実証・実測・ロードマップ更新まで承認。[ADR0053](decisions/0053-direct-application-deployment.md)を適用する。dev/mainのPR必須と専用必須checkをGitHub APIで解除し、各DELETEと読戻しはexit0。両branchの強制push／削除は禁止のまま、管理者適用を維持。ruleset一覧は空。通常配備・PR確認の3 workflowを撤去し、復旧／保守用は維持する。以下のPR／Actions配備記録は当時の実績。
 
@@ -17,7 +17,31 @@
 | `node scripts/check-functions-syntax.mjs` | 4ac0348の証拠を再利用。対象ソース／準備・構文helper／Node不変 | 0（既存） |
 | `node --check scripts/seed-emulator.mjs` | 4ac0348の証拠を再利用。対象／Node不変 | 0（既存） |
 
-撤去workflowへのfocused trigger参照だけをpolicyから除き、rendererでoperations要約／lockを再生成した。必須gate・失効条件は変更なし。明示FirebaseアカウントのOAuth本人照合は読取りで成功exit0。初回Devはd6722faで認証・対象確認後、隔離build内のGit ownership確認により停止（exit1、Cloud配備前）。隔離HOMEで失われたsafe.directory設定を、確認済みcheckout1件に限定して子プロセスへ渡す修正を行う。実配備と計測はこれから行い、成功を先取りしない。Git外ログはtmp/direct-test.log、direct-typecheck.log、direct-build.log、direct-governance-tools.log。
+撤去workflowへのfocused trigger参照だけをpolicyから除き、rendererでoperations要約／lockを再生成した。必須gate・失効条件は変更なし。明示FirebaseアカウントのOAuth本人照合は読取りで成功exit0。初回Devはd6722faで認証・対象確認後、隔離build内のGit ownership確認により停止（exit1、Cloud配備前）。隔離HOMEで失われたsafe.directory設定を、確認済みcheckout1件に限定して子プロセスへ渡す修正を完了。当該修正後に単体684成功・2skip／exit0を再確認。型・build・Rules・構文の対象入力は不変のため成功証拠を維持し、実環境別の隔離buildは下記の配備コマンドでも成功した。Git外ログはtmp/direct-test.log、direct-typecheck.log、direct-build.log、direct-governance-tools.log。
+
+### Dev・Prod実証と実測
+
+配備版は両環境とも `b3e17c0834eb1ce415e7cbd94a45c43ab3071b95`。mainの既存履歴を通常mergeで取り込み（tree差分なし）、PRを作らずdev、Dev実証後にmainへ通常push、いずれもexit0。DevのpushでActions新規起動なし。mainでは既存保守基準版workflowのみskipとなり、通常配備Actionsは起動しない。
+
+`npm run deploy -- dev --account <明示account>` と `npm run deploy -- prod --account <同account>` は各exit0。手元Windows／Node22.23.2、CLI15.36.0、root依存導入済み・npm cacheあり。計測はコマンド内の開始から確認完了までで、事前Local検証・Git操作・初回修正作業を含まない。旧Actionsのrun全体はqueueや後処理も含むため、完全に同条件の比較ではない。
+
+| 工程 | 今回Dev | 今回Prod |
+| --- | ---: | ---: |
+| アカウント・Cloud事前確認 | 5.561秒 | 5.527秒 |
+| 隔離build・配備物固定 | 8.367秒 | 8.517秒 |
+| stage Functions依存導入 | 3.308秒 | 3.173秒 |
+| ソース・Cloud最終確認 | 3.699秒 | 3.653秒 |
+| Firebase実配備 | 94.170秒 | 112.856秒 |
+| 公開後照合・保護維持確認 | 3.809秒 | 61.246秒 |
+| 合計（開始処理1ms含む） | 118.915秒（約1分59秒） | 194.973秒（約3分15秒） |
+
+従前DevのActionsは154秒（前段216秒）、直近Prodは484秒。Prodの観測差は289.027秒（約4分49秒）。root依存の二重導入とPR／Actions待ちを外した一方、Firebase実配備は前回94秒から今回112.856秒であり、全ての工程が速くなったとはしない。今回両環境21 Functionsすべてのrevision更新を独立確認。直前Dev154秒はFunctions更新省略だった点にも注意し、OS・端末・cache・Cloud処理の差を含む1回の実測を速度保証にしない。
+
+Devは限定公開確認、Prodはdefault-rules／control-rules／default-indexes-ready／functions-release-proof／hosting-release-proofの全5項目pass（ready=true）。独立読取り `node tmp/firebase-update-dev-inspect.mjs --runtime-smoke` と `node tmp/s2-prod-observe.mjs` は各exit0。Dev normal generation16、Prod normal generation3、21 Functions ACTIVE、Hosting FINALIZED。Dev公開版 `0f5fc123f9e1350a`、Prod公開版 `e1cdd5dbaefba0d3`。
+
+Prod前後比較はexit0。業務DBのPITR有効・日次30日保持予定、controlのPITR無効・予定なし、削除保護、全Functionsの保護パラメータhashが一致。Devの自動保護falseも維持。配備コマンド内でも全Functions環境値、runtime／marker、DB保護値を前後比較した。業務データ更新・Auth操作・保護設定変更は実施していない。業務画面・API・依存は前回本人受入れから不変なので既存のログイン／一覧／詳細受入れを維持し、今回新たな実画面受入れを行ったとはしない。Auth保存／読戻し実試験はS4の未実証として残す。
+
+Git外証拠：tmp/direct-dev-run.log、direct-prod-run.log、direct-dev-after.json、direct-prod-before.json、direct-prod-after.json。両コマンドは環境／build lockを正常解放。文書結果の追記では再配備せず、governanceと差分検査だけ更新する。S1もmain反映完了、S2は完了。S3（対象別配備）、S4（手動バックアップ試験）、S5（過去記録整理）は後続。
 
 ## 2026-11-16 S1・S2のDev反映と実測
 

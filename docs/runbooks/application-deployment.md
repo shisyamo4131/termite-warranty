@@ -1,6 +1,6 @@
 # Dev／Prod 通常アプリの配備手順
 
-[ADR0053](../decisions/0053-direct-application-deployment.md)の採用済み方針。通常配備を手元から実行し、PRやGitHub Actionsを配備条件にしない。現在は実装・切替検証中。[工程と実績](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を確認する。旧手順・当時の配備はGitと[operations](../operations.md)に残す。
+[ADR0053](../decisions/0053-direct-application-deployment.md)の採用済み方針。通常配備を手元から実行し、PRやGitHub Actionsを配備条件にしない。PRなしのdev/main統合・Dev／Prod実証を完了。[工程と実績](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を確認する。旧手順・当時の配備はGitと[operations](../operations.md)に残す。
 
 ## 1. 対象と承認境界
 
