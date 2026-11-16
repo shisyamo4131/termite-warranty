@@ -2,6 +2,7 @@ import { copyFile, mkdir, readdir, writeFile, readFile, rm, realpath, lstat } fr
 import { join, dirname, resolve } from 'node:path'
 import { prepareFunctionsDomain } from '../functions-domain.mjs'
 import { TEST_RUNTIME as profile } from '../../functions/test-emulator-profile.js'
+import { linkFunctionsDependencies } from './functions-dependencies.mjs'
 
 export async function prepareTestStage(root, nonce) {
   const parent = resolve(root, 'tmp/emulator-runs')
@@ -18,10 +19,11 @@ export async function prepareTestStage(root, nonce) {
 export async function populateTestStage({ stage, nonce }, root) {
   await mkdir(join(stage, 'functions'))
   for (const item of await readdir(join(root, 'functions'), { withFileTypes: true })) {
-    if (!/\.(js|mjs)$/.test(item.name) && item.name !== 'package.json') continue
+    if (!/\.(js|mjs)$/.test(item.name) && !['package.json', 'package-lock.json'].includes(item.name)) continue
     if (!item.isFile()) throw Error('Functions input must be a regular file.')
     await copyFile(join(root, 'functions', item.name), join(stage, 'functions', item.name))
   }
+  await linkFunctionsDependencies(join(root, 'functions'), join(stage, 'functions'))
   await prepareFunctionsDomain({ sourceDirectory: join(root, 'src/domain'), outputDirectory: join(stage, 'functions/domain') })
   // Firebase discovery deliberately strips inherited custom variables.
   await writeFile(join(stage, 'functions/.env.local'), `TERMITE_TEST_RUN=${nonce}\n`)
