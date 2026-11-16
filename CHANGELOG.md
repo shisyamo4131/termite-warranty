@@ -1,12 +1,12 @@
 # Changelog
 
-## 2026-11-16 Functions依存固定（配備前）
+## 2026-11-16 Functions依存固定（Prod反映済み）
 
-Functions用lockを独立させ、LocalとCloudで同じ依存定義を使う構成へ移行。試験SDKの読込みと配備物収集を整合し、Prodの認証前stageへ固定依存を導入する。業務仕様・データ形式は変更なし。最終検証・Dev／Prod反映状況は[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を参照。
+Functions用lockを独立させ、LocalとCloudで同じ依存定義を使う構成へ移行。試験SDKの読込みと配備物収集を整合し、Prodの認証前stageへ固定依存を導入する。Dev受入れ後、PR80／81・main a513137でProd反映・全5照合を完了。業務仕様・データ形式は変更なし。Auth保存／読戻し未実証と後続改善は[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を参照。
 
-## 2026-11-16 Firebase依存更新（Dev）
+## 2026-11-16 Firebase依存更新（Prod反映済み）
 
-Firebase CLI15.36.0、Admin SDK14.5.1を段階別に更新し、Local検証とDev配備・照合を完了。Dev配備は候補のCLIを明示使用する。復旧データ型の回帰を追加。本人Dev受入れ完了（3bad432）。Prod未反映。詳細と確認限界は[運用記録](docs/operations.md#2026-11-16-firebase-cliadmin-sdk更新dev照合完了)を参照。
+Firebase CLI15.36.0、Admin SDK14.5.1を段階別に更新し、Local検証とDev配備・照合を完了。Dev配備は候補のCLIを明示使用する。復旧データ型の回帰を追加。依存固定後の39ef967を本人が受入れ、main a513137でProdへ反映。詳細と確認限界は[運用記録](docs/operations.md#firebase更新のprod反映完了2026-11-16)を参照。
 
 ## 2026-11-01 一括取込み画面とExcel運用
 

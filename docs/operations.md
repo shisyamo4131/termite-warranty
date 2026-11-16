@@ -2,7 +2,7 @@
 
 ## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
 
-オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。依存固定候補4ac0348のLocal検証・独立レビューと、文書追記版39ef967のDev配備・本人受入れ完了。Auth保存／読戻しは実行基盤の不適合で未実証となり、本人の明示判断でS4へ繰延べ、今回のProd前条件から除外。Prodは未反映。
+オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。Local検証・独立レビュー、39ef967のDev配備・本人受入れを経て、main a513137のProd配備・全5照合・実画面読取り・保護設定維持を確認。更新のProd反映は完了。Auth保存／読戻しは未実証として本人判断でS4へ繰延べた。保守簡素化S1〜S5は後続工程。
 
 旧チャットはidleを確認し、未commitの試験準備文書2件をレビューして保全。origin/devとの製品差分なしを確認し、主checkoutでcodex/firebase-locked-releaseを作成。引継ぎとロードマップを70fb337へ記録。文書時点の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit0。後続の実装検証を代替しない。
 
@@ -43,6 +43,31 @@ Cloud Build efdd579c-99e6-4a58-806f-13e69db760baはSUCCESS。addAppliedWarranty�
 imageのgoogle.run-imageはgoogle-22-full/scratch/nodejs22。Functionsは実行時にbase imageを合成するが、Cloud Run JobではbaseImageUri非対応。既存imageの単純流用という試験案に見落としがあり、launcher引数の修正だけでは解消しない。[公式説明](https://docs.cloud.google.com/functions/docs/securing/execution-environment-security)、[Container仕様](https://docs.cloud.google.com/run/docs/reference/rest/v2/Container)。試験用objectとauthExportLockは独立GETで各404を複数回確認。終了済みexecution・Job UID／etagを照合してJobを削除し、削除operation成功・Job404を確認（exit0）。再実行・IAM追加・既存Functions設定変更なし。Auth保存／読戻しの成功、実行中SDK版取得、物理消去の成功には読み替えない。
 
 オーナーは失敗原因と代案を確認し「未実証を記録してProdへ進む」を明示選択。R3のAuth実試験を今回のProd前条件から外し、S4の正式な手動試験入口で確認する。Local包括検証・Dev配備／本人受入れ・Cloudソースlock照合と、Prod既存全5照合を今回の根拠とする。Auth実復元の既存見送り、新規IAM禁止、通常PRによる切戻しは維持。未確認ログ本文のLocal保存は自動承認審査に拒否されたため実施せず、固定エラー分類だけを取得した。Git外証拠はtmp/locked-release-dev-*.json、tmp/locked-release-probe-cleanup.json等。
+
+追加の独立読取りでは、上記Dev imageのmanifest／configとアプリlayerの圧縮／展開後hashを照合し、package metadataだけをメモリ内で検査（exit0）。Admin14.5.1、Functions7.3.2、Firestore9.4.1、Storage8.4.0、Google Auth Library11.3.4の4配置、計8パスがFunctions lockと一致。アプリlayerは圧縮18,620,976 bytes、digest f4b4ca6c5bfaa2ecebd443c961f0809770099fddf95319ec2a133a877e73aae1。layer・アプリ本文・環境変数・Auth本文をLocalへ保存していない。これは格納済みpackage metadataの証拠であり、実行時resolver／クラス同一性やAuth保存／読戻しの成功ではない。
+
+### Firebase更新のProd反映完了（2026-11-16）
+
+[PR80](https://github.com/shisyamo4131/termite-warranty/pull/80)の必須check17秒成功後、dev147200e8dec8db5deabdb2564fa24620eb6731bcへ通常merge。受入れ版39ef967との製品入力一致をexit0で確認。[PR81](https://github.com/shisyamo4131/termite-warranty/pull/81)も必須check20秒成功後、main a5131370c63564c615752b04879e0ce363885537へ通常mergeした。保護を迂回していない。
+
+[Prod run43850551788](https://github.com/shisyamo4131/termite-warranty/actions/runs/43850551788)は全job成功、`gh run watch ... --exit-status`はexit0。配備後検証器のdefault-rules／control-rules／default-indexes-ready／functions-release-proof／hosting-release-proofは全てpass・ready=true。最終結果だけを抽出する独立確認もexit0。
+
+| 工程 | 実測 |
+| --- | --- |
+| run全体（待機を含む） | 484秒／8分4秒 |
+| 変更分類・受入れ照合job | 25秒 |
+| build側の依存導入 | 121秒 |
+| Prod build・bundle生成 | 30秒 |
+| 配備側の依存導入 | 78秒 |
+| Functions stageの固定依存導入 | 5秒 |
+| Firebase実配備 | 94秒 |
+| 公開後全5照合 | 72秒 |
+
+Prod前後のOwner GET照合はexit0。21Functions全てACTIVE・全21revision更新、normal／generation3とmarker一致、operator／Auth lockなし。業務DBのPITR有効・日次30日保持の既存予定、制御DBのPITR無効・予定なし、既存削除保護状態、全FunctionsのAuth automation=trueと保存先は前後不変。保護の追加／変更操作は行っていない。本人が本番へログイン後、新版を再読み込みしてダッシュボード・無条件20件一覧・代表1件の詳細取得を実ブラウザーで確認。登録・変更・削除・採番・CSV出力は行わず、顧客名／物件値を文書・画像へ保存していない。本人の既存ログインを利用した確認であり、Auth実復元や全権限組合せの再試験ではない。
+
+切戻しは直前Prod main d884c78e9e9d9e9f29209ec0abf2cc628cc1ef82のコード・依存構成を参照し、通常PRで戻して再配備・照合する。データ復元や保護設定変更を伴わない。今回の業務仕様／データ契約／権限／governance policy変更はなく、それらの改版を行わない。最終結果の追記はdocumentation-onlyで、governanceと差分検査を行い、製品入力一致により成功済みアプリ検証・Dev受入れを再利用する。
+
+改善判断：今回のProd依存導入だけで合計204秒。実配備94秒と公開後照合72秒も含むため、遅さをGitHub Actionsというサービスだけの原因とは断定しない。S2では重複導入とWindows実行の寄与を比較測定する。S1では約7分のRulesを含む包括試験の必要性と証拠失効を分け、変更のたびの無条件反復を減らす。S3の対象別配備、S4の正式試験入口、S5の現行手順整理も後続であり、今回完了とは扱わない。Git外証拠はtmp/locked-release-prod-run.json、prod-checks.json、prod-before.json／prod-after.json／prod-comparison.json（いずれも同じlocked-release-接頭辞）。
 
 ## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
 

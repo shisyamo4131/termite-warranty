@@ -1,6 +1,6 @@
 # 0052 Functionsの依存をLocalとCloudで固定する
 
-- Status: Accepted; implementation and deployment verification in progress
+- Status: Accepted; implemented and deployed to Dev and Prod (Auth live verification deferred by owner)
 - Date: 2026-11-16
 - Approval: オーナーが本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）で「その方針で進めてください」「更新のProd配備まで完了」と指示。依存固定を先行し、その他の簡素化は本番反映後に分離する。
 
