@@ -2,13 +2,33 @@
 
 ## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
 
-オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。現時点は設計・実装中で、最終候補の検証・配備は未実施。
+オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。依存固定候補4ac0348のLocal検証・独立レビュー完了。Dev／Prod配備と新候補の本人受入れは未実施。
 
 旧チャットはidleを確認し、未commitの試験準備文書2件をレビューして保全。origin/devとの製品差分なしを確認し、主checkoutでcodex/firebase-locked-releaseを作成。引継ぎとロードマップを70fb337へ記録。文書時点の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit0。後続の実装検証を代替しない。
 
 R1設計の独立レビューで、Functions依存を分離する際の配備物へのnode_modules混入、試験SDKのクラス／既定App実体の分裂、Prod stageでの依存探索を確認。標準npmによる独立package／lockと導入・試験・配備経路の整合を同時に扱う。業務schema/API、保護設定、権限は変更しない。現行の包括7gateと必要回帰を最終候補に適用する。仕様・データ契約は業務変更がないため改版しない。
 
 以下の旧候補のLocal／Dev成功と本人受入れは保持するが、依存固定後の候補の成功へ読み替えない。新規IAM、実業務データ操作、Auth実復元は今回の配備承認に含めない。
+
+### 依存固定候補のLocal検証（4ac0348）
+
+変更分類はbuild-release-deploy／application-logic／documentation-only。包括7gateを選定し、次のコマンドを各exit0で確認。最終修正は試験用SDK解決のESM条件保持で、単体とRulesを修正後に再実行した。型／build／Functions構文／seed構文は修正が失効条件に該当しないため既存成功を再利用。文書追記は製品の検証を失効させず、governanceだけ更新する。
+
+| コマンド | 結果 | exit |
+| --- | --- | --- |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `npm test` | 677成功・既存2skip、5.67秒 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `npm run test:rules` | 208成功、422.65秒、Emulator終了 | 0 |
+| `node scripts/check-functions-syntax.mjs` | 成功 | 0 |
+| `node --check scripts/seed-emulator.mjs` | 成功 | 0 |
+
+入力該当のdocumentation-routing回帰はnpm test内で成功し重複実行しない。独立reviewのESM条件指摘を修正し、再reviewで残ブロッカーなし。rootのworkspaceを除去しFunctions用lock240依存を分離、既存依存の版／取得元／integrityは維持。標準npm11.19.1によるrootとFunctionsの清浄導入を確認。テストSDKとFunctions SDKの同一性、ソースへのnode_modules混入拒否、lock欠落／不一致拒否を回帰に含む。
+
+実Prod設定で生成した配備bundleは140ファイル、revision 4ac0348afb3ae1e958cd75a85a78bab17f8f5870、digest 0a57a848102fe7287a99fb5d0f203e29a77bf8c72e203e72ee5be0143e0cc7be。`stageProductionBundle`による元bundleと別stageの一致確認exit0。`npx --yes npm@11.19.1 ci --prefix tmp/locked-release-prod-stage/functions --ignore-scripts --no-audit --no-fund`は240依存導入・exit0。stageに含まれる環境設定とprojectを指定したESM importで全21export／Admin14.5.1／Functions7.3.2を確認、exit0。最初の環境未指定importは対象guardで拒否（exit1）され、配備物の環境設定を読み込んで確認し直した。handlerは呼び出さずCloud通信・変更なし。これはCloud build／実稼働の証拠を代替しない。
+
+Git外の最終ログはtmp/locked-release-domain-final.log、tmp/locked-release-rules-final.log等。今回の独立reviewで、新候補のDev技術確認後に本人の限定受入れを確認する必要を再確認。旧版の受入れを新しい依存構成の受入れとして転記しない。
 
 ## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
 
