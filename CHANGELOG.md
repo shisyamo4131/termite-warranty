@@ -1,8 +1,8 @@
 # Changelog
 
-## 2026-11-16 検証・配備準備の簡素化（Local検証済み・未配備）
+## 2026-11-16 検証・配備準備の簡素化（Dev反映済み・Prod未反映）
 
-独立した試験ファイルの限定実行入口を追加し、全体検証と区別する。Dev controllerの依存導入と配備jobの不要な準備処理を削減し、ProdをLinuxで実行する候補を準備。包括完了ゲート・認証前build・配備対象制約は維持。未配備であり、Linux実証と時間比較は残件。[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)。Dev保管・Auth保全は提案を整理した段階で設定変更なし。
+独立した試験ファイルの限定実行入口を追加し、全体検証と区別する。Dev controllerの依存導入と配備jobの不要な準備処理を削減し、ProdをLinuxで実行する候補を準備。包括完了ゲート・認証前build・配備対象制約は維持。PR84でdevへ統合し、run43858520087で新しいDev準備・配備・公開後確認を実証。配備job導入37→15秒。Prod Linux実証と時間比較は残件。[工程表](docs/roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)。Dev保管・Auth保全は提案を整理した段階で設定変更なし。
 
 ## 2026-11-16 Functions依存固定（Prod反映済み）
 
