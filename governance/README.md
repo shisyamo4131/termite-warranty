@@ -1,6 +1,6 @@
 # Project Governance Index
 
-現行の採用方針は[ADR0048](../docs/decisions/0048-explicit-lightweight-development-deployment.md)と[配備手順](../docs/runbooks/application-deployment.md)。main/dev切替・Dev配備実証済み。本人の限定した非更新画面確認済み（範囲は実績参照）。[実績](../docs/operations.md#2026-10-16-軽量dev配備の切替実証)。以下のADR0047の経路は切替前の記録として読み、新方式のLocal確認へ固定全試験/JSON証明を復活させない。
+現行の採用方針は[ADR0053](../docs/decisions/0053-direct-application-deployment.md)の手元からの直接配備と[配備手順](../docs/runbooks/application-deployment.md)。切替の実施状況は[ロードマップ](../docs/roadmaps/technical-remediation.md)を参照。コード統合にはPRを使わず通常pushとし、通常配備をPR／Actions判定から切り離し、Localの必要検証・有効証拠再利用と実環境の照合は維持する。以下のADR0047／0048の経路は過去の記録として読む。
 
 This is the entry point for project-specific governance. It keeps operating rules short and routes detail to the authoritative document for each subject.
 

@@ -10,7 +10,6 @@ import {runtimeIdentity,productionFunctionIdentity} from '../functions/productio
 import {hostingHash} from '../scripts/lib/default-recovery-release-proof.mjs'
 import {writeProductionBundle,verifyProductionBundle,recoveryParameters,stageProductionBundle} from '../scripts/lib/production-release-bundle.mjs'
 import {productionReadAllowed,inspectProductionRelease} from '../scripts/lib/production-release-inspection.mjs'
-import {validateProductionWorkflow} from '../scripts/production-workflow-contract.mjs'
 import {proofDiagnostic} from '../scripts/lib/default-recovery-diagnostics.mjs'
 import {productionInspectionPlan} from '../scripts/lib/production-inspection-plan.mjs'
 import {prepareProductionRelease} from '../scripts/prepare-production-release.mjs'
@@ -158,9 +157,4 @@ test('predeploy refuses missing or foreign foundation before any deployment and 
     const check=()=>inspectProductionRelease({target},{providerVersion,credentials,fetcher,predeploy:true})
     if(mode==='valid')assert.equal((await check()).ready,true);else await assert.rejects(check)
   }
-})
-test('production workflow contract rejects gate bypass, artifact substitution, credentials in verification and automatic cancellation',async()=>{
-  const text=await readFile(new URL('../.github/workflows/deploy-production.yml',import.meta.url),'utf8'),policy=JSON.parse(await readFile(new URL('../governance/verification-policy.json',import.meta.url),'utf8'))
-  assert.equal(validateProductionWorkflow(text,policy),true)
-  for(const mutate of [w=>{w.jobs.deploy.steps=w.jobs.deploy.steps.filter(s=>!s.run?.includes('--prefix .production-deploy/functions'))},w=>{const i=w.jobs.deploy.steps.findIndex(s=>s.run?.includes('--prefix .production-deploy/functions'));w.jobs.deploy.steps.push(w.jobs.deploy.steps.splice(i,1)[0])},w=>{w.jobs.verify.steps=w.jobs.verify.steps.filter(s=>s.run!=='node scripts/prepare-production-release.mjs .production-release')},w=>{w.jobs.verify.steps.find(s=>s.run==='node scripts/prepare-production-release.mjs .production-release')['continue-on-error']=true},w=>{w.jobs.deploy.needs=undefined},w=>{w.jobs.deploy.env.PRODUCTION_RELEASE_DIGEST='untrusted'},w=>{w.jobs.deploy.concurrency['cancel-in-progress']=true},w=>{w.jobs.verify.steps.push({uses:'google-github-actions/auth@v3'})},w=>{w.jobs.deploy.steps.push({run:'npm run build'})},w=>{w.jobs.deploy.steps=w.jobs.deploy.steps.filter(s=>s.run!=='node scripts/check-production-release.mjs local .production-release')}]){const w=parse(text);mutate(w);assert.throws(()=>validateProductionWorkflow(stringify(w),policy))}
 })

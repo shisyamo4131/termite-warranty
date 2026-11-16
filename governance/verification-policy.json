@@ -3,7 +3,7 @@
   "comprehensiveGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"],
   "unknownImpactGateIds": ["governance-check", "domain-test", "app-typecheck", "app-build", "firestore-rules-test", "functions-syntax", "seed-syntax"],
   "focusedRegressions": [
-    {"id": "documentation-routing", "triggerPaths": ["scripts/pipeline.mjs", "scripts/development-candidate.mjs", "scripts/lib/change-scope.mjs", "scripts/development-deployment.mjs", "scripts/lib/pipeline-contract.mjs", ".github/workflows/deploy-development-manual.yml", ".github/workflows/deploy-development.yml", ".github/workflows/deploy-production.yml"], "command": "node --test test/documentation-changes.test.mjs", "completionRequired": true},
+    {"id": "documentation-routing", "triggerPaths": ["scripts/pipeline.mjs", "scripts/development-candidate.mjs", "scripts/lib/change-scope.mjs", "scripts/development-deployment.mjs", "scripts/lib/pipeline-contract.mjs"], "command": "node --test test/documentation-changes.test.mjs", "completionRequired": true},
     {"id": "governance-tools", "triggerPaths": ["scripts/render-governance.ps1", "scripts/check-governance.ps1", "scripts/lib/governance-policy.ps1", "test/governance-tools.test.mjs", "governance/verification-policy.json"], "command": "node --test test/governance-tools.test.mjs", "completionRequired": true}
   ],
   "runtimeProfiles": [

@@ -1,5 +1,7 @@
 # Dev／Prod 環境設定・権限仕様
 
+2026-11-16採用：通常アプリ配備は[ADR0053](../decisions/0053-direct-application-deployment.md)に従い手元コマンドへ移行する。PR／Actions成功・GitHub environment・WIFを通常配備の実行条件にせず、ログイン済みFirebase CLIアカウントを明示する。コード統合もPRを使わず通常pushへ変更し、PR必須・PR専用必須checkを解除する。強制push・branch削除は禁止し、実環境の対象照合・既存保護設定は維持。既存IAM／secret／WIF資源と復旧専用Actionsは変更しない。以下のActions連動配備は過去の方式であり、切替状況と現行入口は[配備手順](../runbooks/application-deployment.md)を優先する。
+
 2026-10-21請求先現況：Prodの請求先はHS-TermiteWarrantyへ切替済み。本人の切替・有料化後、コンソールでProdの関連付け、請求先の「アクティブ」、概要の「有料のアカウント」を確認。無料クレジットは47,159円・残り100%・「利用可能」、期限2027年1月20日。詳細と確認範囲は[運用記録](../operations.md#2026-10-21-prod請求先切替有料化の完了確認)。今回の作業では環境設定を変更せず、配備・正式投入・バックアップ・PITR・Auth退避の保留を維持する。以下の旧請求先に関する記載は各時点の記録。
 
 2026-10-16採用：[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)。development環境はdev限定のまま、dev controllerから確認済み未統合commitへ明示配備する。branch protection・必須check名・secret/IAM・ProdのWIF/照合は維持。main/dev切替とDev実証は完了。既存Dev起動flagを停止・復帰し、PR保護/環境制限/資格情報/IAMは変更していない。[実績](../operations.md#2026-10-16-軽量dev配備の切替実証)。以下の起動方式と現在地は旧経路の記録。[切替手順](../runbooks/application-deployment.md)。

@@ -1,5 +1,9 @@
 # termite-warranty Specification
 
+## 2026-11-16 通常配備の直接実行
+
+オーナーはDev／Prodの通常アプリ配備を手元のコマンドから直接行い、配備にGitHub Actionsを使わない方式を選択した。コード統合にもPRを一切使わず、必要なLocal検証後に通常Git pushで反映する。PR必須・PR専用必須checkを解除し、強制push・branch削除は禁止する。[ADR0053](decisions/0053-direct-application-deployment.md)と[配備手順](runbooks/application-deployment.md)を正とする。業務仕様・データ契約・既存保護設定は変更しない。切替・Dev／Prod実証の現在地は[ロードマップ](roadmaps/technical-remediation.md)を参照する。
+
 ## 2026-10-31 下書き削除・履歴不要の確定
 
 オーナー決定：下書きは仮登録として削除可能とする。HS側に加え、工務店側も既存の所属・操作範囲内の下書きを削除できる。他社・他支店への権限拡張や工務店ポータルの公開再開は含まない。復元機能は設けず、外部キーを解放して同じキーで再登録・一括取込み可能とする。Draftの業務履歴・削除記録は不要。本登録済みの履歴保持・番号非再利用・取消仕様は変更しない。

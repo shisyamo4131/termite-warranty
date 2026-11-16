@@ -1,110 +1,49 @@
 # Dev／Prod 通常アプリの配備手順
 
-## 2026-11-16 S1／S2簡素化（Dev反映済み・Prod未反映）
-
-S1は既存の段階検証・有効証拠再利用を維持し、独立した準備を確認した登録済みファイルを `npm run test:rules -- --file <slug>` で実行する入口を追加する。対象と制約は[検証手順](../operations.md#検証の進め方)を参照する。対象試験の成功を包括Rulesゲート成功として扱わない。試験対象を毎回増やして固定全試験を繰り返す運用は追加しない。
-
-S2候補では、Devのcontroller側npm ciを除去し、認証ライブラリは確認済み候補のnode_modulesからだけ解決する。配備jobの候補rootは `ci --ignore-scripts`、Functionsは明示的な独立ciとし、build jobの通常ci・build・domain成果物を維持する。Prodの3jobはUbuntuへ変更し、配備jobのrootのみ `ci --ignore-scripts` とする。Prodの認証前build・固定bundle・stage Functions導入・対象制約・再認証・公開後全5照合は維持する。
-
-構造上の導入回数はDev root3→2／Functions3→2、Prod root2→2／Functions3→2。配備jobで不要なNuxt prepareも省く。PR84でdevへ統合し、run43858520087でUbuntu上のDev実経路成功を確認した。配備job導入37→15秒、run全体216→154秒。ただし今回はFunctions変更なしで更新省略のため、全体差を準備削減だけの効果とはしない。Prod側は未反映・未実証。[実測と制約](../operations.md#2026-11-16-s1s2のdev反映と実測)。
-
-変更分類は検証挙動・build/release/deploy・文書。包括7gateを選定し、失効した証拠を更新する。Cloud設定・業務仕様・データ形式・依存版は変更しない。切戻しはこのrunner／workflow／helper変更を通常PRで戻す。Dev保護保留の解除は別判断。
-
-## 2026-11-16 Functions依存固定の移行
-
-[ADR0052](../decisions/0052-functions-dependency-lock.md)に従い、Functionsをroot workspaceから独立させ、Functions用package／lockをLocalとCloudで共用する。2026-11-16、Dev受入れを経てmain a513137のProd配備・全5照合を完了。[現在地](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)と[実測・残る未実証](../operations.md#firebase更新のprod反映完了2026-11-16)を参照する。
-
-`npx --yes npm@11.19.1 ci`はroot導入後にFunctionsの標準npm ciも実行する。配備ソースにはFunctions用lockを含め、node_modulesは含めない。Devは候補側のFunctions依存、Prodは認証前に配備stageへ同じlockで導入した依存でCLI探索を行う。Cloud buildもこのlockを使う。OS／Node patchを含む実行基盤全体の同一性を保証するものではない。
-
-依存更新ではroot／Functionsそれぞれのpackage・lock差分をレビューする。共有domain準備、Dev自動取得無効、Prod保護設定、PR保護・認証方式は維持する。業務データの移行は不要。切戻しは前版のコード・依存・導入処理を通常PRで戻し、配備後の状態を確認する。失敗時にlockを削除して回避したり、実データを巻き戻したりしない。
-
-## 2026-10-22 保証グループ上限の導入
-
-承認済みDev導入に限り、アプリ配備の前に既存3グループへmaxWarrantyYearsを補完する。UH10、HSC／SHS30。通常の設定変更では既存物件を検査しない。この補完処理も上限超過の物件を修正せず、物件全体の要約hashは不変照合にだけ使う。保証期間・満了日・採番・履歴を更新しない。
-
-1. `node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev` を読取り実行。対象3グループの識別情報、欠落項目、442物件（実数が変われば理由確認）、beforeDigestとpropertiesDigestを確認する。認証情報や物件本文を出力しない。
-2. 実補完が承認済みであることを確認し、`node scripts/supplement-group-warranty-limits.mjs termite-warranty-dev --apply <確認済みbeforeDigest>` を実行する。normal状態、同一原像、既存値の競合なしをtransactionで確認し、欠落項目だけ更新する。
-3. 同じ読取りコマンドでupdatesが0、propertiesDigestが実行前と一致することを確認する。結果不明時は読取りを先に行い、blind retryやデータ巻戻しをしない。
-4. 包括Local検証済み候補を以下の明示Dev配備経路で配備し、公開・Functions・保護保留と画面を照合する。Devでは確認用の物件登録・延長・採番を実行しない。
-
-Local用は`FIRESTORE_EMULATOR_HOST=127.0.0.1:28080`とdemo-termite-warrantyを使う。実行器はProdを拒否する。Prodへの補完・正式投入は別途保留解除後に対象を具体化する。アプリ切戻しでは補完項目を保持し、既存物件を巻き戻さない。
-
-
-## 2026-10-21 検索索引を追加した候補の照合
-
-Firebase CLIの索引配備成功と、検索可能なREADYは別段階。今回のDev候補ではCI成功後も3索引がCREATINGで、新検索が一時的にcode 9／500になった。索引を追加した場合は管理APIで対象索引のREADYを確認し、実画面の同条件検索成功まで確認する。READY直後にも一時的に失敗した観測があるため、READY表示だけで業務確認を省略しない。状態を読取り、結果不明の再配備や索引再作成を行わない。Prod導入の際は、旧アプリと互換な追加索引を先行して作成・READY確認したうえで新アプリを公開する順序を準備する。今回、Prod設定・CI自動処理は変更していない。[実績](../operations.md#2026-10-21-検索住所必須過去取込みのdev候補)。
-
-[ADR0048](../decisions/0048-explicit-lightweight-development-deployment.md)の採用済み配備手順。main/dev切替と新経路のDev実証は完了、本人の限定した非更新画面確認は完了（範囲は運用記録参照）。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。旧経路の実績とPR38本人確認は[operations](../operations.md)を参照する。
+[ADR0053](../decisions/0053-direct-application-deployment.md)の採用済み方針。通常配備を手元から実行し、PRやGitHub Actionsを配備条件にしない。現在は実装・切替検証中。[工程と実績](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)を確認する。旧手順・当時の配備はGitと[operations](../operations.md)に残す。
 
 ## 1. 対象と承認境界
 
-Devは termite-warranty-dev（1039792105037）、Hostingは https://termite-warranty-dev.web.app、業務DBは(default)、制御DBはrecovery-control。Prodは termite-warranty-prod（988295873733）、https://termite-warranty-prod.web.app。同じ2DB名。主checkoutを使い、origin、現在branch、差分、最新remote、進行中Actionsを確認する。
+Devは termite-warranty-dev（1039792105037）、Hostingは https://termite-warranty-dev.web.app。Prodは termite-warranty-prod（988295873733）、https://termite-warranty-prod.web.app。いずれも業務DBは(default)、制御DBはrecovery-control。対象は実装内の固定値と承認済みtarget資料から選び、任意projectを入力して使い回さない。
 
-dev/mainのPR必須・最新base・必須check Verify development deployment・管理者適用・force push/削除禁止を維持する。development環境はdev、productionはmain限定。新しいsecret、IAM変更、環境許可branchの拡張は不要な設計。未統合の同一repository候補をDevへ配備する実効範囲の変更は今回承認された。配備自体、main統合、追加の権限設定は実行前の別境界。
+通常配備はコード・Rules・索引・Functions・Hostingを更新する操作である。業務データの登録／削除・seed・Authユーザー操作・保護設定の変更・復旧モード移行・IAM変更を含めない。Devの保護保留とProdの既存保護を保持する。実装・検証承認と実配備承認を区別し、当該作業で明示された環境だけに実行する。
 
-HS試行中という理由だけで改修を延期しないが、既存Devデータ・Auth・採番を保持する。seed、初期化、再投入、補正、削除は通常配備に含めない。バックアップ/PITR/Auth退避はリリース直前まで保留。automation=false、日次予定0、PITR無効、既存Dev退避先情報を維持する。保留確認は保護成功の証拠ではない。
+コード統合にもPRを一切使わない。必要なLocal検証後にdev/mainへ通常pushする。PR必須・PR専用必須checkを解除し、強制push・branch削除は禁止する。復旧専用・保守基準版用Actionsは別手順のままで、通常アプリ配備には使用しない。
 
-## 2. 日常のLocal確認と記録
+## 2. 手元からの配備
 
-1. 最新devから改修branchを作り、変更クラスと必要gateをverification-policy.jsonで選ぶ。
-2. 対象試験・影響回帰・Local画面受入れを行う。有効な既存証拠はoperationsの失効基準で再利用する。配備時の包括gate選定は維持し、選定と再実行を区別する。必須結果が不足ならLocalで補う。
-3. 対象差分またはcommit、コマンド・結果・独立exit、再利用元と失効しない理由、画面確認範囲を既存記録へ保存する。試験のためだけの固定全試験wrapper、専用JSONコメント、CI再実行は不要。
-4. 最終候補をcommit/pushし、対象branchと40桁commitを確定する。baseを取り込んだり競合解消したら、影響する試験と画面確認を先に更新する。
-
-自動試験は専用demo-termite-warranty-testと隔離ポートを使い、常用Localを停止・初期化しない。試験がなかったことをチェック欄で成功へ変えない。失敗・skip・未実施はそのまま記録し、必要gateが未充足なら配備へ進まない。
-
-## 3. 明示起動のDev配備
-
-通常文書だけなら起動しない。自動分類を増やして手動起動を置き換えない。
-
-Actionsの Deploy selected development candidate を **dev branch上で** 起動する。inputsはsource_branch（改修branch）、source_sha（確認済み40桁SHA）、local_verified=true、verification_reference（秘密を含まないLocal記録参照）。親から実配備承認を得た後の操作例：
+前提は、主checkoutで必要検証を満たしたcleanなcommit、lockどおりに導入済みのroot依存、対象を操作できるログイン済みFirebase CLIアカウント。配備のたびにroot npm ciを繰り返さない。依存を更新した場合は通常の依存導入・検証を先に行う。パスワード・token・長期鍵をコマンドや文書へ貼り付けない。
 
 ~~~powershell
-gh workflow run deploy-development-manual.yml --ref dev -f source_branch=<改修branch> -f source_sha=<40桁SHA> -f local_verified=true -f verification_reference=<Local記録参照>
+npm run deploy -- dev --account <ログイン済みメールアドレス>
+npm run deploy -- prod --account <ログイン済みメールアドレス>
 ~~~
 
-例のplaceholderを実値と誤認しない。workflowはdefault branch mainにも登録済みでなければ起動できない。
+上記は代替の2コマンドで、両方を無条件に実行する手順ではない。対象環境を一つ選ぶ。既定アカウントへの自動fallbackはなく、確認した操作者で読取りと配備を行う。未commitのアプリ変更を混ぜない。branch名やmainへの所属はコマンドの実行条件にしないが、実配備するcommitと承認範囲を作業記録で対応させる。
 
-dev上のcontrollerが同一repository・実branch先頭・現在devを含む候補を確認する。候補のnpm ci、build、Functions domain準備はCloud認証なしのjob。生成物は同run/attemptのGitHub artifactで配備jobへ渡す。配備jobは同じ候補SHAをcheckoutし、そのlockの依存導入を認証前に行う。controller側の依存導入は行わない。候補rootはignore-scriptsで導入し、Functions依存は別途明示導入する。buildは再実行しない。
+コマンドが行う処理：
 
-既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configを指定し、候補のlockから導入した `candidate/node_modules/firebase-tools/lib/bin/firebase.js` をcontrollerルートから一度実行する。認証前に同じ実行ファイルの `--version` を記録し、候補の固定版と一致を確認する。controller／global CLIへの代替はしない。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
+1. 対象・アカウント・commit・同一端末の環境別lockを確認する。
+2. 既存Functionsの保護パラメータ、DBのPITR／予定／削除保護、normalと制御情報、公開版を読む。保護値を既定値で上書きしない。
+3. 認証情報を渡さない子プロセスで環境別buildを行い、配備用コピーへ固定する。Prodは既存bundleを検査し、Devも既存の対象制約を維持する。
+4. 配備用Functionsへ独立lockで依存を導入し、配備対象ソースと設定・版・実環境の前提が変わっていないことを確認する。配備時の再buildは行わない。
+5. 固定したCLI・project・config・アカウントで一度配備する。
+6. Prodは既存の全5照合（2DB Rules・索引READY・Functions／Hosting）、Devは公開入口・接続先・Functions ACTIVEと保護保留を確認する。両方ともruntimeと保護値の維持を確認する。
 
-配備はdevelopment-deploymentで非取消・直列化。資格情報付きFunctions discoveryは指定候補コードを扱うため、信頼できるreview済みrepository候補だけを指定する。任意forkや未確認コードへの実行権限は与えない。
+ローカルlockは別PC・Cloud Console操作まで排他しない。同じ環境へ複数の担当者が同時配備しないよう調整する。所有不明のlockや他プロセスを自動削除・停止して通さない。生成物はGit外tmp領域へ置き、ユーザーデータや既存バックアップを作業用に流用しない。
 
-## 4. Dev受入れ後の軽いPR
+## 3. 変更分類と統合前の検証
 
-配備run全体成功を確認して、実Devで本人が必要な画面を受け入れる。PR本文に次を記載する。通常の記録参照・チェック欄であり、実行証明JSONではない。
+[verification-policy.json](../../governance/verification-policy.json)で変更クラスの和集合から必要gateを選ぶ。変更途中は対象試験、影響回帰、最後に選定した完了gateを満たす。既存成功が失効していないgateは再実行しない。配備自身に必要な包括gate選定は維持するが、配備コマンドへ固定全試験wrapperや専用の証拠入力を追加しない。
 
-~~~text
-- [x] Local verification reviewed
-Local verification: 対象版・必要コマンド/exit・再利用理由を記録した参照
-- [x] Dev acceptance reviewed
-Dev acceptance: 本人が確認した範囲と結果の参照
-Dev run: https://github.com/shisyamo4131/termite-warranty/actions/runs/実run番号
-~~~
+検証したcommit／差分、コマンド・結果・exit、再利用元と理由、実画面で確認した範囲をoperationsまたは通常の作業報告へ残す。UI・業務変更なら影響範囲の受入れを行う。製品不変の配備準備変更だけで既存の本人受入れを失効させず、新たな画面確認をしたと偽らない。Git pushの成功は必要なLocal検証の代用ではない。
 
-ownerのPRを前提とし、代理作成時も本人確認を捏造しない。本文変更はeditedイベントで軽いcheckを更新する。文書だけはLocal/Dev欄を要求しない。試験/CI変更はLocal欄、製品変更は両欄を必要とする。未確認・撤回時はチェックを外す。
+文書・試験・CIだけの統合は公開版を自動更新しない。配備するかは作業目的と本人の承認に従い、人が明示して決める。索引追加時はCLI成功だけで検索可能とせず、READYと影響する検索を確認する。
 
-必須checkはgovernance、差分、Local記録参照、製品変更時の成功Dev run/実deploy job、受入れ版と仮統合の製品差分を確認する。Local試験、build、配備は繰り返さない。通常mergeでdevへ統合し、dev push配備は起動しない。
+## 4. 失敗・切戻し・記録
 
-記録だけの変更ではDev受入れを失効させない。CI/試験変更は技術確認のみ更新する。製品・依存・設定・競合解消で製品が変われば必要なLocal/Dev確認へ戻る。旧dev push配備runも本人受入れと実deploy job成功を明示して参照できる。元PR artifact・独自marker・64commit探索は要求しない。受入れ済みbranch削除後もcommitとrunは参照できる。将来の別Dev版を古い受入れとして扱わない。
+失敗や結果不明では自動再配備しない。CLIのどの段階まで完了したかと現在の公開版・Functions・保護状態を読取り、部分反映を確認してから次の操作を判断する。認証・対象・lockの拒否を回避するためにガードを外さない。
 
-## 5. Prodとの接続
+切戻しは既知の良好なコード・lockへ修正commitを通常pushして戻し、必要な検証後に直接配備する。データ復元や旧Actions自動配備の復活を同時に行わない。既存の公開版・検証証拠・データは保持する。
 
-最後にdev→main PRを作り、同じLocal記録と受入れrunを本文で参照する。製品の同一性はGit差分で確認し、Prod昇格のための機能試験は追加しない。不足はLocal/Devへ戻す。main pushは一意な統合PRの最新成功checkと現時点の本文を読戻す。
-
-Prod固有build、成功buildの固定bundle/digest受渡し、main限定WIF、production環境、最新main確認、認証前guard、predeploy、固定CLI配備、再認証、公開後全5照合、既存保留を維持する。Dev成果物をProdへ直接流用しない。文書/試験/CIだけのmain pushはCloud認証・配備をしない。Prodの実受入れはログイン・代表読取り・権限/接続先を確認し、HSの正式受入れや保護準備の代替にしない。
-
-## 6. 導入と切戻し
-
-今回の改修自体はgovernance-permissions-agents＋build-release-deploy＋documentation-only。包括7gateと入力該当focused回帰、独立reviewを満たす。コード/設定変更を後から加えたら失効gateを再確認する。
-
-1. ローカル記録d79e0c1/d372311を保持し、owned diffをreviewする。現checkoutはdev製品を含むため、そのままmain向けPRへ流さない。
-2. 承認後、配備制御と関連文書/試験だけをmain基点の通常PRとして統合する。旧製品差分を混ぜない。これはCI変更なのでProd公開を起動しない。既存保護checkを迂回しない。
-3. strict最新baseを満たすため、dev基点の同期branchでmainをmergeし、製品不変を確認した同期PRを軽いcheckでdevへ統合する。main側へdev製品を逆流させない。受信側で旧dev自動配備が消えていることを確認する。この同期でDev配備は起きない。
-4. default branch登録、dev controller、environment dev限定、enable、進行中runなしを読戻す。新secret/IAM/保護変更が必要なら具体対象を報告し実行前承認を得る。
-5. 別途承認された候補を手動Dev配備し、run・実画面・データ保持範囲・実測を記録する。未実証をCI成功で埋めない。
-
-失敗・結果不明は部分反映を読取り、再配備を自動で繰り返さない。切戻しは通常PRで変更一式を戻すが、旧dev push自動配備の復活は外部効果になるため承認なしに戻さない。必要なら旧起動enable停止を先に承認対象にする。公開済み版、旧証拠、Devデータは保存する。Gitの切戻しとデータ復元を混同しない。
-
-記録はロードマップに対象版・run・本人結果・残件の短い要約、詳細コマンド結果は既存operationsまたは作業報告へ一度保存する。新台帳や各索引へのhash/件数の転記を増やさない。
+完了記録には対象環境・commit、build／導入／配備／照合の時間、各結果とexit、既存保護の比較、画面確認範囲、未確認事項を記す。異なるPC／cache／Functions更新量の時間差を改善効果だけと断定しない。ロードマップには到達点と主な証拠へのリンクを残す。

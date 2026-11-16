@@ -1,5 +1,24 @@
 # Operations
 
+## 2026-11-16 PRなし・直接配備への切替（実証中）
+
+本人がコード統合にもPRを一切使わないと明示し、切替・Dev／Prod実証・実測・ロードマップ更新まで承認。[ADR0053](decisions/0053-direct-application-deployment.md)を適用する。dev/mainのPR必須と専用必須checkをGitHub APIで解除し、各DELETEと読戻しはexit0。両branchの強制push／削除は禁止のまま、管理者適用を維持。ruleset一覧は空。通常配備・PR確認の3 workflowを撤去し、復旧／保守用は維持する。以下のPR／Actions配備記録は当時の実績。
+
+変更分類はbuild-release-deploy／governance-permissions-agents／documentation-only。包括7gateを選定。最終候補の独立レビューで子プロセス終了不明時のlock解除を修正し、再レビューの残ブロッカーなし。対象回帰10件成功exit0。終了不明時だけlockを保持し、通常失敗では後始末する。業務データ・schema・画面・依存版・Cloud IAM・バックアップ設定は変更しないためデータ契約と業務受入れは改版／再実施しない。
+
+| 検証 | 結果 | exit |
+| --- | --- | --- |
+| `npm test` | 684成功・既存symlink fixture2skip、documentation-routing内包 | 0 |
+| `npm run typecheck` | 成功 | 0 |
+| `npm run build` | 成功 | 0 |
+| `pwsh -NoProfile -File scripts/check-governance.ps1` | 成功 | 0 |
+| `node --test test/governance-tools.test.mjs` | 10成功 | 0 |
+| `npm run test:rules` | S1/S2最終208成功の証拠を再利用。今回Rules／Functions／domain／runner／依存／runtime不変 | 0（既存） |
+| `node scripts/check-functions-syntax.mjs` | 4ac0348の証拠を再利用。対象ソース／準備・構文helper／Node不変 | 0（既存） |
+| `node --check scripts/seed-emulator.mjs` | 4ac0348の証拠を再利用。対象／Node不変 | 0（既存） |
+
+撤去workflowへのfocused trigger参照だけをpolicyから除き、rendererでoperations要約／lockを再生成した。必須gate・失効条件は変更なし。明示FirebaseアカウントのOAuth本人照合は読取りで成功exit0。実配備と計測はこれから行い、成功を先取りしない。Git外ログはtmp/direct-test.log、direct-typecheck.log、direct-build.log、direct-governance-tools.log。
+
 ## 2026-11-16 S1・S2のDev反映と実測
 
 本人のGitHub反映・Dev実証承認に基づき、[PR84](https://github.com/shisyamo4131/termite-warranty/pull/84)をdevへ通常merge。候補ecfea661bf38b8749dfd02936017974e7304913cの必須checkは22秒で成功。dev c6da652e8973152b6d31893be5d786a9d662b492と候補のtree一致を`git diff --exit-code HEAD origin/dev`で確認（exit0）し、feature branchをfast-forwardして新controllerの現在dev包含条件を満たした。製品差分・競合なしでLocal証拠を再利用。
@@ -29,7 +48,7 @@ S1はdev反映済み。S2のDev準備は実証済みだが、Prod Ubuntuのbuild
 
 本人の後続指示でS1／S2を実装。基点はc75a51f7deca90c10005e900fe95319ea51b321f、主checkoutの作業差分。独立担当が限定実行のfixture独立性と最終コード差分をレビューし、修正必須の残指摘なし。別担当が[Dev保管・Auth保全の調査](runbooks/backup-recovery.md#2026-11-16-devの保管とauth自動取得調査提案設定変更なし)をレビューした。設定変更はしていない。
 
-S1は登録済み5ファイルだけの反復用入口を既存runnerへ追加。全体／shardのreceiptと区別し、既存の失敗・対象・nonce・後始末検査を維持する。S2はDev controller導入を削除、配備jobのroot postinstallを省略しFunctions導入を明示。ProdはUbuntu・bashへ変更。候補の依存だけから認証ライブラリを解決し、controller側fallbackを拒否する。詳細は[配備手順](runbooks/application-deployment.md#2026-11-16-s1s2簡素化dev反映済みprod未反映)。
+S1は登録済み5ファイルだけの反復用入口を既存runnerへ追加。全体／shardのreceiptと区別し、既存の失敗・対象・nonce・後始末検査を維持する。S2はDev controller導入を削除、配備jobのroot postinstallを省略しFunctions導入を明示。ProdはUbuntu・bashへ変更。候補の依存だけから認証ライブラリを解決し、controller側fallbackを拒否する。詳細は[配備手順](runbooks/application-deployment.md)。
 
 変更分類はgovernance-permissions-agents（検証挙動）／build-release-deploy／documentation-only。包括7gateを選定。policyと生成要約、権限・承認境界は変更しない。基点と4ac0348の差分は文書のみで、今回もapp・依存・Functions・seed・Node runtimeは不変。下記3gateは[4ac0348のexit0証拠](#依存固定候補のlocal検証4ac0348)を失効条件に照らして再利用し、不必要な再実行をしない。
 
@@ -3332,7 +3351,7 @@ Every literal `.ps1` path in a gate command must identify an existing script. Th
 
 <!-- BEGIN GENERATED VERIFICATION POLICY SUMMARY -->
 - Root: schemaVersion=1.0; comprehensiveGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]; unknownImpactGateIds=[governance-check,domain-test,app-typecheck,app-build,firestore-rules-test,functions-syntax,seed-syntax]
-- FocusedRegression: id=documentation-routing; triggerPaths=[scripts/pipeline.mjs,scripts/development-candidate.mjs,scripts/lib/change-scope.mjs,scripts/development-deployment.mjs,scripts/lib/pipeline-contract.mjs,.github/workflows/deploy-development-manual.yml,.github/workflows/deploy-development.yml,.github/workflows/deploy-production.yml]; command=node --test test/documentation-changes.test.mjs; completionRequired=True
+- FocusedRegression: id=documentation-routing; triggerPaths=[scripts/pipeline.mjs,scripts/development-candidate.mjs,scripts/lib/change-scope.mjs,scripts/development-deployment.mjs,scripts/lib/pipeline-contract.mjs]; command=node --test test/documentation-changes.test.mjs; completionRequired=True
 - FocusedRegression: id=governance-tools; triggerPaths=[scripts/render-governance.ps1,scripts/check-governance.ps1,scripts/lib/governance-policy.ps1,test/governance-tools.test.mjs,governance/verification-policy.json]; command=node --test test/governance-tools.test.mjs; completionRequired=True
 - RuntimeProfile: id=powershell; platform=windows; edition=PowerShell; executable=pwsh; versionRule=minimum-major=7; required=True; supportStatus=supported
 - Class: id=documentation-only; triggers=[Markdown or documentation files]; iterationGateIds=[governance-check]; targetedRegressionGateIds=[governance-check]; completionGateIds=[governance-check]; releaseOnlyGateIds=[]; omittableGateIds=[]; omissionRecord=task completion report

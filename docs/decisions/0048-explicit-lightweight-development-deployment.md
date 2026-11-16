@@ -1,5 +1,7 @@
 # 0048 明示起動の軽量Dev配備と受入れ後のPR統合
 
+2026-11-16：通常アプリの配備経路は[ADR0053](0053-direct-application-deployment.md)に置換。下記は旧Actions方式の判断・実績であり、現在の配備を起動する条件にしない。
+
 - Status: Accepted; main/dev cutover and explicit Dev deployment verified; limited read-only owner screen confirmation recorded (scope in operations)
 - Date: 2026-10-16
 - Approval: 親タスク01a1186d-ebfa-70e3-9fa5-67accdb2202eから伝達された本人「①は推奨案を採用する。作業開始。なお、HS側のDev受入れ検証期間中だが、そこは気にしなくてよい。」。dev統合PR維持、dev固定controllerから未統合候補への明示配備、Prod保護維持を採用。実装・必要検証まで実行し、main統合/実配備前に報告する。
