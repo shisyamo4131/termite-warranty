@@ -17,6 +17,10 @@ test('direct entry requires exactly an environment and explicit account, never a
  assert.equal(sanitized.PATH,'path')
  for(const key of ['HOME','USERPROFILE','APPDATA','LOCALAPPDATA','XDG_CONFIG_HOME'])assert.equal(sanitized[key],'empty-home')
  assert.ok(!Object.values(sanitized).includes('private'))
+ assert.equal(sanitized.GIT_CONFIG_COUNT,'1');assert.equal(sanitized.GIT_CONFIG_KEY_0,'safe.directory')
+ assert.equal(resolve(sanitized.GIT_CONFIG_VALUE_0),resolve(root))
+ assert.notEqual(sanitized.GIT_CONFIG_VALUE_0,'*')
+ assert.equal(deploymentEnvironment({PATH:'path'}).GIT_CONFIG_COUNT,undefined)
 })
 test('account selection rejects missing, duplicate and mismatched identities without default fallback',()=>{
  const loggedIn={user:{email},tokens:{refresh_token:'fictional'}}

@@ -33,6 +33,9 @@ export function deploymentEnvironment(source,home) {
   const result={}
   for(const key of ['PATH','Path','SystemRoot','SYSTEMROOT','WINDIR','COMSPEC','PATHEXT','TEMP','TMP','TMPDIR','LANG'])if(source[key])result[key]=source[key]
   for(const key of ['HOME','USERPROFILE','APPDATA','LOCALAPPDATA','XDG_CONFIG_HOME'])if(home||source[key])result[key]=home??source[key]
+  // Empty HOME intentionally hides user Git config. Trust only this checkout,
+  // already verified by the parent; never restore global config or wildcard trust.
+  if(home)Object.assign(result,{GIT_CONFIG_COUNT:'1',GIT_CONFIG_KEY_0:'safe.directory',GIT_CONFIG_VALUE_0:root})
   return {...result,NUXT_TELEMETRY_DISABLED:'1'}
 }
 export function assertDeploymentEnvironment(env) {

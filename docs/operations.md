@@ -17,7 +17,7 @@
 | `node scripts/check-functions-syntax.mjs` | 4ac0348の証拠を再利用。対象ソース／準備・構文helper／Node不変 | 0（既存） |
 | `node --check scripts/seed-emulator.mjs` | 4ac0348の証拠を再利用。対象／Node不変 | 0（既存） |
 
-撤去workflowへのfocused trigger参照だけをpolicyから除き、rendererでoperations要約／lockを再生成した。必須gate・失効条件は変更なし。明示FirebaseアカウントのOAuth本人照合は読取りで成功exit0。実配備と計測はこれから行い、成功を先取りしない。Git外ログはtmp/direct-test.log、direct-typecheck.log、direct-build.log、direct-governance-tools.log。
+撤去workflowへのfocused trigger参照だけをpolicyから除き、rendererでoperations要約／lockを再生成した。必須gate・失効条件は変更なし。明示FirebaseアカウントのOAuth本人照合は読取りで成功exit0。初回Devはd6722faで認証・対象確認後、隔離build内のGit ownership確認により停止（exit1、Cloud配備前）。隔離HOMEで失われたsafe.directory設定を、確認済みcheckout1件に限定して子プロセスへ渡す修正を行う。実配備と計測はこれから行い、成功を先取りしない。Git外ログはtmp/direct-test.log、direct-typecheck.log、direct-build.log、direct-governance-tools.log。
 
 ## 2026-11-16 S1・S2のDev反映と実測
 
