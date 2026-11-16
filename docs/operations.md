@@ -38,6 +38,16 @@
 
 事前読取りは初回、別案件の既定CLIアカウントで403となった。本人が管理アカウントをlogin:add後、High MAINT16／18レビュー済みのプロセス内完全一致選択で照合した。既定アカウントを書き換えず、token等をログ・文書へ出力しない。補助処理と非機密な前後比較はGit外tmp/firebase-update-dev-inspect.mjs、maint-admin-predeploy.json、maint-admin-postdeploy.json。業務文書・Authユーザー・採番の変更操作は実行していない（全業務データのhash不変まで実測したという意味ではない）。
 
+### 本人受入れ後のdev統合・Cloud事前確認（2026-11-16）
+
+- オーナーのDev 3bad432受入れを88f8f2fへ記録し、[PR78](https://github.com/shisyamo4131/termite-warranty/pull/78)を必須check成功（25秒）後、devへ通常merge。統合commitは0a0983b286de88dc433d56c485376f6d4bb101b7。統合後と受入れ版の差分は文書だけで、製品・依存・追加試験の内容は同一。包括試験・Dev再配備を重複実行していない。
+- mainはd884c78e9e9d9e9f29209ec0abf2cc628cc1ef82のまま。Prod配備・保護設定・IAM・API有効化・Authデータ操作は実行していない。
+- Highレビュー済みのDev限定GETによる調査では、21関数すべてACTIVE、Cloud Runの稼働revisionへ100%配信、image digestを確認。21関数は同じdigest、対応Cloud Buildは1件でSUCCESS。Build応答にresults.imagesがなく、Build成果物とのdigest一致は未照合。既存Artifact AnalysisのPACKAGE／SBOM参照読取りはHTTP403（IAM_PERMISSION_DENIED）で、Cloud実依存版は未確認。LocalのlockをCloud実版の証拠に代用しない。
+- Auth退避先の設定は21関数に存在し、automationは全てfalse。固定Devプロジェクトのbucket一覧と設定値を照合し、Adminが解決するStorage依存SDKを直接利用してmetadata／IAMの読取りに成功。Dev所有・統一アクセス・公開禁止・公開メンバーなしを確認。これはAdmin getStorage認証経路全体やobject保存／読戻しの実証ではない。既存exporterはfalseならforce指定でも保存に進まない。既存Auth読戻しツールはfetchであり、新Storage SDKの保存・読戻し試験の代替にならない。秘密本文・password hash・SCRYPT設定をLocalへ取得していない。
+- 新SDKの実退避を確かめる場合、Devに限定したCloud内一回実行経路が必要。自動取得を勝手に有効化しない。架空payloadの保存・generation固定読戻し・一致・同一generation削除はStorage接続の限定試験になり得るが、実Auth列挙・hash取得・変更競合制御の成功とは区別する。実行場所・保存先と既存権限を確定し、新資源／IAMが必要なら具体差分を先に提示する。
+- 最終GET再照合で21関数のrevision／digestは調査前後で不変。Git外の非機密結果はtmp/maint35-cloud-metadata.jsonとtmp/maint39-cloud-metadata.json。初回Build結果欠如、続く仮定したbucket名前制約での停止は未確認として扱い、名前推測を廃してDev所属一覧との照合に修正した。Cloud変更・Auth本文取得はない。
+- 新SDKによる実Auth退避・読戻しは未実証。既決定のAuth実復元試験見送りとは別の残確認として維持する。
+
 ### 判定・残確認
 
 High MAINT28の判断と今回のDev成功から、今回の依存更新だけを理由とする本番の計画停止、および計画メンテナンス経路の追加整備は不要との推奨。無停止・無影響を保証するものではない。現行の障害復旧モードには復元なしの汎用再開経路がなく、更新のために入らない。業務停止が別途必要な変更では、停止から再開・失敗時の扱いまで先に設計・検証する。
