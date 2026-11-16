@@ -91,9 +91,18 @@ ownerのPRを前提とし、代理作成時も本人確認を捏造しない。�
 
 ## 5. Prodとの接続
 
+2026-11-16の承認済みS2実証では、CI変更だけの同一製品再配備を明示できる限定経路を追加する。同一repository・owner作成のdev→main PRに次を記す。通常のCI変更・文書のみ・未チェックでは配備しない。理由だけでLocal／Devの証拠を省略しない。
+
+~~~text
+- [x] Production redeployment requested
+Production redeployment: S2のProd Linux準備・配備経路を、承認済みの同一製品で実証する。
+~~~
+
+既存のLocal verificationとDev acceptance／Dev run欄も必要。業務コード不変の場合は既存の本人受入れを維持した根拠と最新の技術確認を区別し、新しい画面受入れを捏造しない。main push時も一意の統合PR・最新成功check・現在本文を照合する。scope実行時の本文照合で明示要求が取り消されている、または証拠不足なら配備しない。差分分類はciのまま、配備許可を別に扱う。[判断](../decisions/0048-explicit-lightweight-development-deployment.md#2026-11-16-同一製品のprod再配備を明示する限定経路)。
+
 最後にdev→main PRを作り、同じLocal記録と受入れrunを本文で参照する。製品の同一性はGit差分で確認し、Prod昇格のための機能試験は追加しない。不足はLocal/Devへ戻す。main pushは一意な統合PRの最新成功checkと現時点の本文を読戻す。
 
-Prod固有build、成功buildの固定bundle/digest受渡し、main限定WIF、production環境、最新main確認、認証前guard、predeploy、固定CLI配備、再認証、公開後全5照合、既存保留を維持する。Dev成果物をProdへ直接流用しない。文書/試験/CIだけのmain pushはCloud認証・配備をしない。Prodの実受入れはログイン・代表読取り・権限/接続先を確認し、HSの正式受入れや保護準備の代替にしない。
+Prod固有build、成功buildの固定bundle/digest受渡し、main限定WIF、production環境、最新main確認、認証前guard、predeploy、固定CLI配備、再認証、公開後全5照合、既存保留を維持する。Dev成果物をProdへ直接流用しない。上記の限定した明示CI再配備を除き、文書/試験/CIだけのmain pushはCloud認証・配備をしない。Prodの実受入れはログイン・代表読取り・権限/接続先を確認し、HSの正式受入れや保護準備の代替にしない。
 
 ## 6. 導入と切戻し
 

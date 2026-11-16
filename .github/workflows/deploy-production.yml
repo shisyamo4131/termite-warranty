@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       kind: ${{ steps.scope.outputs.kind }}
+      deployRequested: ${{ steps.scope.outputs.deployRequested }}
       local: ${{ steps.scope.outputs.local }}
       reuse: ${{ steps.scope.outputs.reuse }}
       proof: ${{ steps.scope.outputs.proof }}
@@ -32,7 +33,7 @@ jobs:
         run: node scripts/pipeline.mjs scope
   verify:
     needs: scope
-    if: ${{ needs.scope.result == 'success' && needs.scope.outputs.kind == 'product' && needs.scope.outputs.reuse == 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    if: ${{ needs.scope.result == 'success' && (needs.scope.outputs.kind == 'product' || needs.scope.outputs.kind == 'ci') && needs.scope.outputs.deployRequested == 'true' && needs.scope.outputs.reuse == 'true' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     outputs:
       digest: ${{ steps.bundle.outputs.digest }}
@@ -63,7 +64,7 @@ jobs:
     needs:
       - scope
       - verify
-    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.kind == 'product' && needs.verify.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && (needs.scope.outputs.kind == 'product' || needs.scope.outputs.kind == 'ci') && needs.scope.outputs.deployRequested == 'true' && needs.verify.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.PRODUCTION_APP_DEPLOY_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     environment: production
     permissions:

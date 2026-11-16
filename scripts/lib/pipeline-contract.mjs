@@ -7,9 +7,9 @@ const matches=(j,c)=>j.steps.filter(s=>s.run===c)
 function required(j,c){const a=matches(j,c);need(a.length===1&&!a[0].if&&!a[0]['continue-on-error'],'Missing or conditional command: '+c);return j.steps.indexOf(a[0])}
 function deployGuard(j,kind){
   const key=kind+j.if;if(checked.has(key))return
-  for(const cancelled of [false,true])for(const scope of ['success','failure','cancelled','skipped'])for(const verified of ['success','failure','cancelled','skipped'])for(const change of ['product','ci','test','documentation',''])for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['dev','main','other'])for(const enabled of ['true','false']){
-    const c={cancelled:()=>cancelled,always:()=>true,needs:{scope:{result:scope,outputs:{kind:change}},verify:{result:verified}},github:{event_name:event,ref:'refs/heads/'+branch},vars:{DEVELOPMENT_BRANCH_DEPLOY_ENABLED:enabled,PRODUCTION_APP_DEPLOY_ENABLED:enabled}}
-    need(evaluate(j.if,c)===(!cancelled&&scope==='success'&&verified==='success'&&change==='product'&&event==='push'&&branch===(kind==='development'?'dev':'main')&&enabled==='true'),'Deployment admission/target condition is invalid.')
+  for(const cancelled of [false,true])for(const scope of ['success','failure','cancelled','skipped'])for(const verified of ['success','failure','cancelled','skipped'])for(const change of ['product','ci','test','documentation',''])for(const requested of ['true','false',''])for(const event of ['push','pull_request','workflow_dispatch'])for(const branch of ['dev','main','other'])for(const enabled of ['true','false']){
+    const c={cancelled:()=>cancelled,always:()=>true,needs:{scope:{result:scope,outputs:{kind:change,deployRequested:requested}},verify:{result:verified}},github:{event_name:event,ref:'refs/heads/'+branch},vars:{DEVELOPMENT_BRANCH_DEPLOY_ENABLED:enabled,PRODUCTION_APP_DEPLOY_ENABLED:enabled}}
+    need(evaluate(j.if,c)===(!cancelled&&scope==='success'&&verified==='success'&&['product','ci'].includes(change)&&requested==='true'&&event==='push'&&branch==='main'&&enabled==='true'),'Deployment admission/target condition is invalid.')
   }
   checked.add(key)
 }
@@ -32,7 +32,7 @@ export function validatePipeline(text,policy,kind){
   required(scope,'node scripts/pipeline.mjs scope')
   const checkout=scope.steps.find(s=>s.uses?.startsWith('actions/checkout@'))
   need(checkout?.with?.['fetch-depth']===0&&!checkout.with.ref,'Scope requires exact event checkout and complete history.')
-  for(const k of ['kind','local','reuse','proof','hostingName','hostingArtifactId','sourceRunId'])need(scope.outputs[k]==='${{ steps.scope.outputs.'+k+' }}','Forged scope output.')
+  for(const k of ['kind','deployRequested','local','reuse','proof','hostingName','hostingArtifactId','sourceRunId'])need(scope.outputs[k]==='${{ steps.scope.outputs.'+k+' }}','Forged scope output.')
   need(!scope.if&&scope.steps.every(s=>!s.if),'Scope cannot be skipped.')
   need(deploy.environment===(kind==='development'?'development':'production'),'Wrong deployment environment.')
   need(Array.isArray(deploy.needs)&&deploy.needs.includes('scope')&&deploy.needs.includes('verify'),'Deploy requires scope and verify.')
@@ -50,7 +50,7 @@ export function validatePipeline(text,policy,kind){
   {
     need(!rules&&!application,'Production must not rerun common tests.')
     need(verify.needs==='scope','Production build requires source admission.')
-    for(const result of ['success','failure','skipped'])for(const k of ['product','ci','documentation'])for(const reuse of ['true','false'])for(const enabled of ['true','false'])need(evaluate(verify.if,{needs:{scope:{result,outputs:{kind:k,reuse}}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}})===(result==='success'&&k==='product'&&reuse==='true'&&enabled==='true'),'Production build admission is invalid.')
+    for(const result of ['success','failure','skipped'])for(const k of ['product','ci','test','documentation'])for(const requested of ['true','false',''])for(const reuse of ['true','false'])for(const enabled of ['true','false'])need(evaluate(verify.if,{needs:{scope:{result,outputs:{kind:k,reuse,deployRequested:requested}}},vars:{PRODUCTION_APP_DEPLOY_ENABLED:enabled}})===(result==='success'&&['product','ci'].includes(k)&&requested==='true'&&reuse==='true'&&enabled==='true'),'Production build admission is invalid.')
     required(verify,'npx --yes npm@11.19.1 ci');required(verify,'node scripts/prepare-production-release.mjs .production-release')
     need(verify.outputs.digest==='${{ steps.bundle.outputs.digest }}'&&deploy.env.PRODUCTION_RELEASE_DIGEST==='${{ needs.verify.outputs.digest }}','Bundle digest must come from successful builder.')
     const guard=required(deploy,'node scripts/check-production-deployment.mjs --application'),local=required(deploy,'node scripts/check-production-release.mjs local .production-release'),stage=required(deploy,'node scripts/check-production-release.mjs stage .production-release'),pre=required(deploy,'node scripts/check-production-release.mjs predeploy .production-release'),post=required(deploy,'node scripts/check-production-release.mjs cloud .production-release')

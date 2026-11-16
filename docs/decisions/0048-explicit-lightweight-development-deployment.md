@@ -19,6 +19,12 @@ Devは全Functions ZIP/Hosting全ファイルhash照合を外し、対象・保�
 
 ## 移行・検証・切戻し
 
+### 2026-11-16 同一製品のProd再配備を明示する限定経路
+
+本人がS2のProd Linux実証・main統合・Prod配備を明示承認した。CI差分を製品変更へ偽装せず、同一repositoryのowner作成dev→main PRで `- [x] Production redeployment requested` と `Production redeployment: <理由>` を指定した場合だけ、CI分類のまま配備要求を別出力として認める。通常のCI・文書差分は引き続き配備しない。Local記録、成功Dev配備と製品同一性、一意の統合PR・最新成功check・現在本文を照合する。PR本文は既存と同じ人の承認記録で、暗号学的な署名ではない。
+
+push/main・最新main・production環境・enable・WIF・固定成果物・認証前build・公開後全5照合を維持する。手動dispatchや任意branchからのProd実行は追加しない。必要な変更はrouting／workflow／契約回帰と文書に限り、業務仕様・依存・データ・IAMは変えない。包括gateを選定し、有効証拠は失効条件に従って再利用する。切戻しは通常PRでこの限定経路を戻し、通常の製品配備経路は維持する。
+
 [配備手順](../runbooks/application-deployment.md)を正本とする。導入自体は包括7gate＋focused回帰＋独立review。default main登録後、製品不変のmain→dev同期を行う。旧自動配備を復活させる切戻しには外部効果の承認が必要。2026-10-16の追加承認でmain/dev切替とDev実証を完了した。[結果・計測](../operations.md#2026-10-16-軽量dev配備の切替実証)。画面受入れは未実施。
 
 HS試行データを保持し、試行期間を待機理由にしない。バックアップ/PITR/Auth退避の保留、Prod実配備/業務機能/データ変更の対象外を維持する。

@@ -1,5 +1,15 @@
 # Operations
 
+## 2026-11-16 S2 Prod Linux実証の準備
+
+本人がmain統合・Prod配備・Linux実証・実測を追加承認。CIだけの差分は従来配備省略のため、ownerのdev→main PRで明示再配備を求める限定経路を追加した。[手順](runbooks/application-deployment.md#5-prodとの接続)、[判断](decisions/0048-explicit-lightweight-development-deployment.md#2026-11-16-同一製品のprod再配備を明示する限定経路)。差分分類ciは維持し、通常のCI／文書変更は配備しない。scope時の現在本文・Local／Dev証拠・製品同一性・一意の統合PR・最新成功checkを照合し、既存のProd対象・WIF・固定成果物・全5照合を維持する。
+
+追加の実装ファイルはscripts/pipeline.mjs、scripts/lib/pipeline-contract.mjs、.github/workflows/deploy-production.yml、test/documentation-changes.test.mjs。文書は本節、配備手順、ADR0048、技術ロードマップ。独立レビューでコードの残ブロッカーなし。文書の取消し判定時点をscope時と明記した。業務仕様・データ契約・依存・権限・バックアップ設定変更はないためそれらは改版しない。切戻しは通常PRによる配備判定変更の復帰で、データ復元を伴わない。
+
+包括7gateを選定。`npm test`は682成功・既存2skip、exit0（tmp/s2-prod-domain.log）。`npm run build`はexit0（tmp/s2-prod-build.log）。対象回帰`node --test --test-reporter=spec test/documentation-changes.test.mjs test/development-workflow-contract.test.mjs test/production-application.test.mjs`は42成功・exit0。documentation-routingを含み重複実行しない。RulesはS1最終208成功・exit0を再利用（Functions／Rules／Emulator／runner入力不変）。typecheck／Functions構文／seed構文は前節と同じ4ac0348のexit0を再利用。文書・governance／差分確認は記録PRの必須checkと完了報告で確認する。policy／生成物の変更はない。
+
+この段階ではProd配備未実施。既存の本人受入れ済み製品と業務入力一致のままCIだけを追加し、Dev run43858520087の技術確認を参照する。新たな業務画面受入れを実施済みとは記録しない。
+
 ## 2026-11-16 S1・S2のDev反映と実測
 
 本人のGitHub反映・Dev実証承認に基づき、[PR84](https://github.com/shisyamo4131/termite-warranty/pull/84)をdevへ通常merge。候補ecfea661bf38b8749dfd02936017974e7304913cの必須checkは22秒で成功。dev c6da652e8973152b6d31893be5d786a9d662b492と候補のtree一致を`git diff --exit-code HEAD origin/dev`で確認（exit0）し、feature branchをfast-forwardして新controllerの現在dev包含条件を満たした。製品差分・競合なしでLocal証拠を再利用。

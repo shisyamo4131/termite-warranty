@@ -25,6 +25,15 @@ export function reviewedLocal(pr){
   // Conventional owner-reviewed checklist, explicitly not remote execution proof.
   if(pr.user?.id!==ownerId||!/^\s*- \[x\] Local verification reviewed\s*$/im.test(pr.body??'')||!/^Local verification: \S.+$/m.test(pr.body??''))throw Error('Owner PR must reference and review the applicable Local verification record.')
 }
+export function productionRedeploymentRequested(pr,kind){
+  if(kind!=='ci')return false
+  const body=pr.body??'',requests=[...body.matchAll(/^- \[x\] Production redeployment requested\r?$/gm)]
+  if(!requests.length)return false
+  const reasons=[...body.matchAll(/^Production redeployment: (\S[^\r\n]*)\r?$/gm)]
+  if(requests.length!==1||reasons.length!==1||!reasons[0][1].trim()||pr.user?.id!==ownerId||
+    pr.base?.ref!=='main'||pr.head?.ref!=='dev'||pr.base.repo?.id!==repositoryId||pr.head.repo?.id!==repositoryId)throw Error('Explicit owner-reviewed dev-to-main production redeployment and reason required.')
+  return true
+}
 export async function acceptedDeployment(read,pr,candidate,run=git){
   const body=pr.body??''
   if(pr.user?.id!==ownerId||!/^\s*- \[x\] Dev acceptance reviewed\s*$/im.test(body)||!/^Dev acceptance: \S.+$/m.test(body))throw Error('Owner Dev acceptance and its scope are required.')
@@ -54,18 +63,23 @@ export async function resolveScope(read,event,env=process.env,run=git){
   const raw=run('diff','--raw','-z','--no-renames',base,'HEAD','--')
   const kind=raw?classifyDiff(raw):'documentation'
   let pr=event.pull_request
-  const result={kind,reuse:false,local:false,hostingName:'',hostingArtifactId:'',sourceRunId:''}
+  const result={kind,deployRequested:false,reuse:false,local:false,hostingName:'',hostingArtifactId:'',sourceRunId:''}
   if(!pr){
-    if(kind!=='product')return result
+    if(!['product','ci'].includes(kind))return result
     pr=await mergedSourcePR(read,env.GITHUB_SHA,'main')
-    pr=await read('/pulls/'+pr.number)
+    const current=await read('/pulls/'+pr.number)
+    if(current.number!==pr.number||current.merge_commit_sha!==env.GITHUB_SHA||!current.merged_at||
+      current.head?.sha!==pr.head.sha||current.base?.ref!=='main'||current.base.repo?.id!==repositoryId||current.head?.repo?.id!==repositoryId)throw Error('Merged promotion identity changed.')
+    pr=current
+    if(kind==='ci'&&!productionRedeploymentRequested(pr,kind))return result
     await successfulPR(read,pr)
   }
+  const redeploy=productionRedeploymentRequested(pr,kind)
   if(kind!=='documentation')reviewedLocal(pr)
-  if(kind==='product'){
+  if(kind==='product'||redeploy){
     if(pr.base.ref==='main'&&pr.head.ref!=='dev')throw Error('Products must be promoted from dev.')
     if(pr.base.ref==='dev'&&pr.head.ref==='main')throw Error('Main synchronization must not change the Dev product.')
-    Object.assign(result,await acceptedDeployment(read,pr,env.GITHUB_SHA,run),{reuse:true})
+    Object.assign(result,await acceptedDeployment(read,pr,env.GITHUB_SHA,run),{reuse:true,deployRequested:true})
   }
   return result
 }

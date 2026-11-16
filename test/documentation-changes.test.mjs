@@ -175,6 +175,35 @@ test('main push refreshes the merged promotion, checks latest PR result and acce
  assert.equal((await resolveScope(read,e,n,run)).reuse,true)
 })
 
+test('CI redeployment requires an explicit current owner request and existing Local/Dev admission',async()=>{
+ const request='\n- [x] Production redeployment requested\nProduction redeployment: measure reviewed Linux preparation'
+ const promotion={...pr,body:body+request,merged_at:'2026-11-16T00:00:00Z',merge_commit_sha:c,head:{...pr.head,ref:'dev'},base:{...pr.base,ref:'main'}}
+ const e={repository:repo,before:a,after:c,forced:false,deleted:false},n={...env,GITHUB_EVENT_NAME:'push',GITHUB_REF:'refs/heads/main'}
+ const execute=async({current=promotion,path='scripts/pipeline.mjs',failed=false,associated=[promotion],productChanged=false}={})=>{
+  const f=fixture(),latest={...f.r,path:'.github/workflows/deploy-development.yml',event:'pull_request',head_sha:b,head_branch:'dev',conclusion:failed?'failure':'success'}
+  const read=async p=>p==='/commits/'+c+'/pulls?per_page=100'?associated:p==='/pulls/1'?current:p.includes('/actions/workflows/')?{total_count:1,workflow_runs:[latest]}:f.read(p)
+  const run=(...args)=>args[0]==='rev-parse'?c:args[0]==='show'?a+' '+b:args.includes('--raw')?raw(path):productChanged?'app/a.vue\0':''
+  return resolveScope(read,e,n,run)
+ }
+ const result=await execute();assert.equal(result.kind,'ci');assert.equal(result.deployRequested,true);assert.equal(result.reuse,true)
+ for(const current of [{...promotion,body},{...promotion,body:(body+request).replace('[x] Production','[ ] Production')}]){
+  const skipped=await execute({current});assert.equal(skipped.kind,'ci');assert.equal(skipped.deployRequested,false)
+ }
+ for(const path of ['docs/a.md','test/a.mjs'])assert.equal((await execute({path})).deployRequested,false)
+ for(const patch of [
+  {user:{id:0}},{head:{...promotion.head,ref:'feature'}},{base:{...promotion.base,ref:'dev'}},
+  {head:{...promotion.head,repo:{id:0}}},{merge_commit_sha:a},{number:2},{merged_at:null},
+  {body:(body+request).replace('Production redeployment: measure reviewed Linux preparation','Production redeployment: ')},
+  {body:body+request+request},{body:(body+request).replace('[x] Local','[ ] Local')},
+  {body:(body+request).replace('[x] Dev','[ ] Dev')},{body:(body+request).replace('Dev run:','Missing run:')},
+ ])await assert.rejects(execute({current:{...promotion,...patch}}))
+ for(const options of [{failed:true},{associated:[]},{associated:[promotion,promotion]},{productChanged:true}])await assert.rejects(execute(options))
+ // The same CI request is validated by the integration PR check before merging.
+ const run=(...args)=>args[0]==='rev-parse'?c:args[0]==='show'?a+' '+b:args.includes('--raw')?raw('scripts/pipeline.mjs'):''
+ assert.equal((await resolveScope(fixture().read,{repository:repo,pull_request:promotion},env,run)).deployRequested,true)
+ await assert.rejects(resolveScope(fixture().read,{repository:repo,pull_request:{...promotion,head:{...promotion.head,ref:'feature'}}},env,run))
+})
+
 test('real Git compares accepted product through record commits and rejects merge-result product edits',()=>{
  const temporaryRoot=resolve(tmpdir()),root=mkdtempSync(join(temporaryRoot,'termite-diff-test-'))
  const run=(...args)=>execFileSync('git',args,{cwd:root,encoding:'utf8',windowsHide:true}).trimEnd()
