@@ -18,6 +18,8 @@ Functionsを独立したnpm packageとし、そのpackage.jsonとpackage-lock.js
 
 Local/Cloudの同じlockは依存再現性の改善であり、OS、Node patch、Cloud側の実行基盤全体のbyte同一性を保証しない。Cloudがlockを使った証拠と実解決版を確認し、前段の旧候補の実証と区別する。
 
+2026-11-16追記：Dev配備・本人受入れ・Cloud配備ソースlock一致を確認。一時Jobの試験案はFunctions imageがscratch形式でありJob単体実行に不適合だったため、Auth処理前の起動時に失敗し後片付けを完了した。オーナーは未実証を記録してProdへ進める案を明示採用。上記のAuth保存／読戻しと実行中SDK版取得は今回のProd前条件から外し、S4の正式な手動試験入口に引き継ぐ。Local包括検証・Dev実証・本人受入れ・Cloudソースlock照合、Prod既存全5照合は維持する。試験失敗を成功へ変更する決定ではない。
+
 ## 切戻しと境界
 
 変更前のGit版と配備証拠を保持し、コード／package／lock／導入処理を通常PRで切り戻す。データ移行はなく、DB復元・Auth変更・障害復旧モードへの移行を行わない。配備失敗・結果不明時は実状態を読取り、再配備を自動反復しない。新規IAMや未知のデータ操作は別途具体化する。

@@ -2,7 +2,7 @@
 
 ## 2026-11-16 更新のProd反映引継ぎ・依存固定着手
 
-オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。依存固定候補4ac0348のLocal検証・独立レビュー完了。Dev／Prod配備と新候補の本人受入れは未実施。
+オーナーは本チャット（01a1e3b3-f313-7320-8b6f-bacd8cb40550）への作業引継ぎ、依存固定先行、CLI／Admin更新後のProd配備までの実施、および後続の簡素化提案を承認。[工程と完了条件](roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)、[ADR0052](decisions/0052-functions-dependency-lock.md)。依存固定候補4ac0348のLocal検証・独立レビューと、文書追記版39ef967のDev配備・本人受入れ完了。Auth保存／読戻しは実行基盤の不適合で未実証となり、本人の明示判断でS4へ繰延べ、今回のProd前条件から除外。Prodは未反映。
 
 旧チャットはidleを確認し、未commitの試験準備文書2件をレビューして保全。origin/devとの製品差分なしを確認し、主checkoutでcodex/firebase-locked-releaseを作成。引継ぎとロードマップを70fb337へ記録。文書時点の`pwsh -NoProfile -File scripts/check-governance.ps1`と`git diff --check`は各exit0。後続の実装検証を代替しない。
 
@@ -29,6 +29,20 @@ R1設計の独立レビューで、Functions依存を分離する際の配備物
 実Prod設定で生成した配備bundleは140ファイル、revision 4ac0348afb3ae1e958cd75a85a78bab17f8f5870、digest 0a57a848102fe7287a99fb5d0f203e29a77bf8c72e203e72ee5be0143e0cc7be。`stageProductionBundle`による元bundleと別stageの一致確認exit0。`npx --yes npm@11.19.1 ci --prefix tmp/locked-release-prod-stage/functions --ignore-scripts --no-audit --no-fund`は240依存導入・exit0。stageに含まれる環境設定とprojectを指定したESM importで全21export／Admin14.5.1／Functions7.3.2を確認、exit0。最初の環境未指定importは対象guardで拒否（exit1）され、配備物の環境設定を読み込んで確認し直した。handlerは呼び出さずCloud通信・変更なし。これはCloud build／実稼働の証拠を代替しない。
 
 Git外の最終ログはtmp/locked-release-domain-final.log、tmp/locked-release-rules-final.log等。今回の独立reviewで、新候補のDev技術確認後に本人の限定受入れを確認する必要を再確認。旧版の受入れを新しい依存構成の受入れとして転記しない。
+
+### 依存固定候補のDev配備・受入れとAuth試験の判断
+
+39ef967fef94249b6e85c23bcb5819356bce2caeを[Dev run43847062351](https://github.com/shisyamo4131/termite-warranty/actions/runs/43847062351)へ明示配備。全job成功、`gh run watch ... --exit-status`はexit0。run全体216秒（3分36秒）、依存導入3回43／18／19秒、Firebase配備90秒、公開後check2秒。今回の主目的は依存再現性であり、速度改善の因果を主張しない。
+
+独立GET／公開recoveryRuntime確認は配備後と一時試験終了後の各exit0。全21Functions ACTIVE・全21revision更新、Hosting FINALIZED、normal／generation16／runtimeとmarker一致、active operation／operatorLock／authExportLockなし、automation=falseを確認。オーナーは本チャットで新候補39ef967のログイン・一覧・詳細を確認し「問題なし」と回答。登録・変更・採番を伴う実データ試験は行っていない。
+
+Cloud Build efdd579c-99e6-4a58-806f-13e69db760baはSUCCESS。addAppliedWarrantyの配備ソースgeneration1794824221765010をメモリ内で読み、Functions用package-lockのLocalとのbyte一致（SHA-256 6b14bda6c97d7beae033099328154ac316b6a1130b235ab8c8456abb28f2c3ed）とnode_modules混入なしを確認、exit0。稼働revision addappliedwarranty-00053-lihへ100%配信、image digest c75219a64317aa76c7432827e8662ad4ee378b229d441e2757de9c4d0cb71b28。これは稼働プロセス内でのSDK版照会とは区別する。
+
+本人は一時JobによるDev実Auth読取り／非公開object保存・読戻し・削除、7日soft delete保持、Job削除を承認。既存image／SAを使うdev-auth-sdk-verify-20261116を作成し、execution dev-auth-sdk-verify-20261116-qpgfqを1回だけ実行した。作成APIは初回nameフィールドを400拒否し、不在再確認後に余分なフィールドだけ除いて作成。実行は起動時exit82で失敗し、試験コードの結果なし。完全なログ走査を本文非保存の固定分類で確認し、heapsizeのexec.d起動と必要ファイル不在を特定した。
+
+imageのgoogle.run-imageはgoogle-22-full/scratch/nodejs22。Functionsは実行時にbase imageを合成するが、Cloud Run JobではbaseImageUri非対応。既存imageの単純流用という試験案に見落としがあり、launcher引数の修正だけでは解消しない。[公式説明](https://docs.cloud.google.com/functions/docs/securing/execution-environment-security)、[Container仕様](https://docs.cloud.google.com/run/docs/reference/rest/v2/Container)。試験用objectとauthExportLockは独立GETで各404を複数回確認。終了済みexecution・Job UID／etagを照合してJobを削除し、削除operation成功・Job404を確認（exit0）。再実行・IAM追加・既存Functions設定変更なし。Auth保存／読戻しの成功、実行中SDK版取得、物理消去の成功には読み替えない。
+
+オーナーは失敗原因と代案を確認し「未実証を記録してProdへ進む」を明示選択。R3のAuth実試験を今回のProd前条件から外し、S4の正式な手動試験入口で確認する。Local包括検証・Dev配備／本人受入れ・Cloudソースlock照合と、Prod既存全5照合を今回の根拠とする。Auth実復元の既存見送り、新規IAM禁止、通常PRによる切戻しは維持。未確認ログ本文のLocal保存は自動承認審査に拒否されたため実施せず、固定エラー分類だけを取得した。Git外証拠はtmp/locked-release-dev-*.json、tmp/locked-release-probe-cleanup.json等。
 
 ## 2026-11-16 Firebase CLI／Admin SDK更新・Dev照合完了
 
