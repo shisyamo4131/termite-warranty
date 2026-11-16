@@ -2,7 +2,7 @@
 
 ## 2026-11-16 Functions依存固定の移行
 
-[ADR0052](../decisions/0052-functions-dependency-lock.md)に従い、Functionsをroot workspaceから独立させ、Functions用package／lockをLocalとCloudで共用する。移行候補は実装・検証中で、配備成功は[現在地](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)と運用記録を確認する。
+[ADR0052](../decisions/0052-functions-dependency-lock.md)に従い、Functionsをroot workspaceから独立させ、Functions用package／lockをLocalとCloudで共用する。2026-11-16、Dev受入れを経てmain a513137のProd配備・全5照合を完了。[現在地](../roadmaps/technical-remediation.md#2026-11-16-firebase更新のprod反映と保守手順の簡素化)と[実測・残る未実証](../operations.md#firebase更新のprod反映完了2026-11-16)を参照する。
 
 `npx --yes npm@11.19.1 ci`はroot導入後にFunctionsの標準npm ciも実行する。配備ソースにはFunctions用lockを含め、node_modulesは含めない。Devは候補側のFunctions依存、Prodは認証前に配備stageへ同じlockで導入した依存でCLI探索を行う。Cloud buildもこのlockを使う。OS／Node patchを含む実行基盤全体の同一性を保証するものではない。
 
