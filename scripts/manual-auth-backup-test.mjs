@@ -47,8 +47,11 @@ export async function invokeProbeOnce({ url, token, config, fetcher = fetch }) {
   if (text.length > 2048) throw Error('Probe invocation outcome unknown.')
   return verifyProbeResult(JSON.parse(text), config)
 }
-async function command(executable, args, options = {}) {
-  return exec(executable, args, { cwd: root, windowsHide: true, timeout: 600000, maxBuffer: 4 * 1024 * 1024, ...options })
+export async function command(executable, args, options = {}) {
+  const pending = exec(executable, args, { cwd: root, windowsHide: true, timeout: 600000, maxBuffer: 4 * 1024 * 1024, ...options })
+  // These commands are noninteractive; PowerShell scripts can otherwise await EOF.
+  pending.child.stdin.end()
+  return pending
 }
 export async function runManualBackupTest({ account }, { directoryRoot = root, env = process.env, run = command, credentialsOf = deploymentCredentials, fetcher = fetch, revisionOf = cleanRevision, snapshot = deploymentSnapshot, unpack = readSourceZip } = {}) {
   assertDeploymentEnvironment(env)

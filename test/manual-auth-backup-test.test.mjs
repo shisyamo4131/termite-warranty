@@ -5,11 +5,16 @@ import { readFile, mkdir, mkdtemp, writeFile, readdir, access, rm } from 'node:f
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { manualAuthBackupProbe } from '../scripts/lib/manual-auth-backup-probe.mjs'
-import { probeOptions, probeConfig, probeSource, verifyProbeFunction, verifyPrivateService, verifyProbeResult, invokeProbeOnce, runManualBackupTest } from '../scripts/manual-auth-backup-test.mjs'
+import { command, probeOptions, probeConfig, probeSource, verifyProbeFunction, verifyPrivateService, verifyProbeResult, invokeProbeOnce, runManualBackupTest } from '../scripts/manual-auth-backup-test.mjs'
 import { assertPrivateAuthBucket } from '../src/domain/backup-health.mjs'
 
 const sdkVersion = JSON.parse(await readFile(new URL('../functions/package.json', import.meta.url))).dependencies['firebase-admin']
 const config = { ...probeConfig('s4-' + 'a'.repeat(24)), sdkVersion }
+test('noninteractive child receives stdin EOF and returns captured output', async () => {
+  const result = await command(process.execPath, ['-e', "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write('EOF received'))"], { timeout: 5000 })
+  assert.equal(result.stdout, 'EOF received')
+  assert.equal(result.stderr, '')
+})
 function fixture(options = {}) {
   const docs = new Map([
     ['recovery/runtime', { phase: 'normal', generation: 2 }],
