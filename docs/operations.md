@@ -1,10 +1,35 @@
 # Operations
 
+## 2026-11-16 S1・S2のDev反映と実測
+
+本人のGitHub反映・Dev実証承認に基づき、[PR84](https://github.com/shisyamo4131/termite-warranty/pull/84)をdevへ通常merge。候補ecfea661bf38b8749dfd02936017974e7304913cの必須checkは22秒で成功。dev c6da652e8973152b6d31893be5d786a9d662b492と候補のtree一致を`git diff --exit-code HEAD origin/dev`で確認（exit0）し、feature branchをfast-forwardして新controllerの現在dev包含条件を満たした。製品差分・競合なしでLocal証拠を再利用。
+
+[Dev run43858520087](https://github.com/shisyamo4131/termite-warranty/actions/runs/43858520087)はbuild／deploy／後処理すべて成功、`gh run watch 43858520087 --exit-status --interval 30` exit0。両jobはUbuntu26.04.1、候補CLI15.36.0。controller導入なし、候補rootのignore-scripts導入・Functions明示導入、同run成果物受渡し、prepare／配備／checkの成功を実経路で確認した。以下はGitHub Actionsのstep開始終了時刻（秒単位）。
+
+| 工程 | 前回run43847062351 | 今回run43858520087 |
+| --- | ---: | ---: |
+| build jobの依存導入（Functions／Nuxt準備含む） | 43秒 | 54秒 |
+| build | 13秒 | 16秒 |
+| 配備jobの依存導入 | controller18＋候補19＝37秒 | root13＋Functions2＝15秒 |
+| 依存導入合計 | 80秒 | 69秒 |
+| prepare | 4秒 | 4秒 |
+| Firebase配備 | 90秒 | 16秒 |
+| 公開後check | 2秒 | 5秒 |
+| run全体（created_at→updated_at、待ち／後処理含む） | 216秒 | 154秒 |
+
+配備jobの導入は22秒減、全体では62秒減。ただし前回は21Functions更新、今回はCLIがunchanged functionsを省略し、独立読取りでも全21revision不変を確認した。全体短縮を今回の依存導入削減だけの効果としない。build側導入は11秒増えており、runner／cache／サービス負荷を統制した比較でもない。全体時間は上表の列挙工程の単純合計ではない。
+
+配備前後に既存の限定読取り`node tmp/firebase-update-dev-inspect.mjs`、配備後は`--runtime-smoke`も実行し各exit0。公開runtimeとcontrol／markerのnormal・generation16一致、更新／復旧操作／Auth退避lock不在、21Functions ACTIVE・automation=false、Hosting FINALIZEDと公開版更新を確認。workflow checkはpublicEntry／project／appId一致、PITR無効・日次予定0・保護保留を確認。業務データ・Authユーザーの試験更新はしていない。既存本人受入れを新規実施と偽らず、今回の非製品差分では技術確認だけ更新した。
+
+Git外記録はtmp/s1s2-dev-before.json、s1s2-dev-after.json、s1s2-dev-baseline-jobs.json、s1s2-dev-final-jobs.json、s1s2-dev-watch.log。秘密・業務本文を含まない限定出力。この文書差分の必要検証は`pwsh -NoProfile -File scripts/check-governance.ps1`／`git diff --check`で、結果は記録PRの必須checkと完了報告で確認する。文書変更でLocalの製品検証は失効しない。
+
+S1はdev反映済み。S2のDev準備は実証済みだが、Prod Ubuntuのbuild／stage／WIF／全5照合と時間比較は未実証。mainはf64e56f1830ea102536e6bab7dabbc148164a57bのままでmain統合・Prod配備をしていない。バックアップ・IAM・データ・業務仕様は変更なし。Dev保管案は引き続き未採用。下記Local段階の未commit・未push・未配備は当時の記録。
+
 ## 2026-11-16 S1・S2のLocal簡素化
 
 本人の後続指示でS1／S2を実装。基点はc75a51f7deca90c10005e900fe95319ea51b321f、主checkoutの作業差分。独立担当が限定実行のfixture独立性と最終コード差分をレビューし、修正必須の残指摘なし。別担当が[Dev保管・Auth保全の調査](runbooks/backup-recovery.md#2026-11-16-devの保管とauth自動取得調査提案設定変更なし)をレビューした。設定変更はしていない。
 
-S1は登録済み5ファイルだけの反復用入口を既存runnerへ追加。全体／shardのreceiptと区別し、既存の失敗・対象・nonce・後始末検査を維持する。S2はDev controller導入を削除、配備jobのroot postinstallを省略しFunctions導入を明示。ProdはUbuntu・bashへ変更。候補の依存だけから認証ライブラリを解決し、controller側fallbackを拒否する。詳細は[配備手順](runbooks/application-deployment.md#2026-11-16-s1s2簡素化候補local検証済み未配備)。
+S1は登録済み5ファイルだけの反復用入口を既存runnerへ追加。全体／shardのreceiptと区別し、既存の失敗・対象・nonce・後始末検査を維持する。S2はDev controller導入を削除、配備jobのroot postinstallを省略しFunctions導入を明示。ProdはUbuntu・bashへ変更。候補の依存だけから認証ライブラリを解決し、controller側fallbackを拒否する。詳細は[配備手順](runbooks/application-deployment.md#2026-11-16-s1s2簡素化dev反映済みprod未反映)。
 
 変更分類はgovernance-permissions-agents（検証挙動）／build-release-deploy／documentation-only。包括7gateを選定。policyと生成要約、権限・承認境界は変更しない。基点と4ac0348の差分は文書のみで、今回もapp・依存・Functions・seed・Node runtimeは不変。下記3gateは[4ac0348のexit0証拠](#依存固定候補のlocal検証4ac0348)を失効条件に照らして再利用し、不必要な再実行をしない。
 

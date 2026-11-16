@@ -1,12 +1,12 @@
 # Dev／Prod 通常アプリの配備手順
 
-## 2026-11-16 S1／S2簡素化候補（Local検証済み・未配備）
+## 2026-11-16 S1／S2簡素化（Dev反映済み・Prod未反映）
 
 S1は既存の段階検証・有効証拠再利用を維持し、独立した準備を確認した登録済みファイルを `npm run test:rules -- --file <slug>` で実行する入口を追加する。対象と制約は[検証手順](../operations.md#検証の進め方)を参照する。対象試験の成功を包括Rulesゲート成功として扱わない。試験対象を毎回増やして固定全試験を繰り返す運用は追加しない。
 
 S2候補では、Devのcontroller側npm ciを除去し、認証ライブラリは確認済み候補のnode_modulesからだけ解決する。配備jobの候補rootは `ci --ignore-scripts`、Functionsは明示的な独立ciとし、build jobの通常ci・build・domain成果物を維持する。Prodの3jobはUbuntuへ変更し、配備jobのrootのみ `ci --ignore-scripts` とする。Prodの認証前build・固定bundle・stage Functions導入・対象制約・再認証・公開後全5照合は維持する。
 
-構造上の導入回数はDev root3→2／Functions3→2、Prod root2→2／Functions3→2。配備jobで不要なNuxt prepareも省く。実行時間の短縮は未測定で、WindowsでのLocal試験をUbuntuの清浄導入・build・stage探索成功へ読み替えない。Linuxでの実証と新経路の切替は残件。現行配備済み経路について記した下節のcontroller導入は切替前の状態を示す。
+構造上の導入回数はDev root3→2／Functions3→2、Prod root2→2／Functions3→2。配備jobで不要なNuxt prepareも省く。PR84でdevへ統合し、run43858520087でUbuntu上のDev実経路成功を確認した。配備job導入37→15秒、run全体216→154秒。ただし今回はFunctions変更なしで更新省略のため、全体差を準備削減だけの効果とはしない。Prod側は未反映・未実証。[実測と制約](../operations.md#2026-11-16-s1s2のdev反映と実測)。
 
 変更分類は検証挙動・build/release/deploy・文書。包括7gateを選定し、失効した証拠を更新する。Cloud設定・業務仕様・データ形式・依存版は変更しない。切戻しはこのrunner／workflow／helper変更を通常PRで戻す。Dev保護保留の解除は別判断。
 
@@ -65,7 +65,7 @@ gh workflow run deploy-development-manual.yml --ref dev -f source_branch=<改修
 
 例のplaceholderを実値と誤認しない。workflowはdefault branch mainにも登録済みでなければ起動できない。
 
-dev上のcontrollerが同一repository・実branch先頭・現在devを含む候補を確認する。候補のnpm ci、build、Functions domain準備はCloud認証なしのjob。生成物は同run/attemptのGitHub artifactで配備jobへ渡す。配備jobは同じ候補SHAをcheckoutし、そのlockの依存導入を認証前に行う。controller依存導入も残る。buildは再実行しない。
+dev上のcontrollerが同一repository・実branch先頭・現在devを含む候補を確認する。候補のnpm ci、build、Functions domain準備はCloud認証なしのjob。生成物は同run/attemptのGitHub artifactで配備jobへ渡す。配備jobは同じ候補SHAをcheckoutし、そのlockの依存導入を認証前に行う。controller側の依存導入は行わない。候補rootはignore-scriptsで導入し、Functions依存は別途明示導入する。buildは再実行しない。
 
 既存development secretで認証する前に候補とcontrollerが動いていないことを再確認する。既存対象/資格情報・2DB・Hosting・保護保留guardの後、固定project/configを指定し、候補のlockから導入した `candidate/node_modules/firebase-tools/lib/bin/firebase.js` をcontrollerルートから一度実行する。認証前に同じ実行ファイルの `--version` を記録し、候補の固定版と一致を確認する。controller／global CLIへの代替はしない。Functions ACTIVE・保護保留・公開入口/接続先を読取り確認する。全FunctionsソースZIPと全Hostingファイルhash比較は行わない。Rules/索引の公開はCLI成功で確認するため、従来の独立した全5照合と同じ保証ではない。Functions/Rules/索引の変更に必要なDev固有確認は受入れ範囲に含める。
 
