@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomBytes } from 'node:crypto'
 import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
+import { promisify, isDeepStrictEqual } from 'node:util'
 import { developmentTarget } from './development-deployment.mjs'
 import { deploymentCredentials } from './lib/direct-deployment-credentials.mjs'
 import { assertFunctionsLock } from './lib/functions-dependencies.mjs'
@@ -99,7 +99,7 @@ export async function runManualBackupTest({ account }, { directoryRoot = root, e
     await run(process.execPath, [env.npm_execpath, 'exec', '--yes', '--package=npm@11.19.1', '--', 'npm', 'ci', '--prefix', source, '--ignore-scripts', '--no-audit', '--no-fund'], options)
     await sourceHash()
     await credentials.verifyIdentity()
-    if (await revisionOf(directoryRoot) !== revision || JSON.stringify(await snapshot(probeTarget, 'dev', read)) !== JSON.stringify(before)) throw Error('Probe source or Dev baseline changed.')
+    if (await revisionOf(directoryRoot) !== revision || !isDeepStrictEqual(await snapshot(probeTarget, 'dev', read), before)) throw Error('Probe source or Dev baseline changed.')
     if (await read(fnUrl, { missing: true })) throw Error('Temporary Function already exists.')
     phase = 'deploy'; uncertain = true; await record({ status: 'running', config })
     await run(process.execPath, [cli, 'deploy', '--only', `functions:${config.codebase}:${config.functionName}`, ...cliArgs], options)
@@ -133,7 +133,7 @@ export async function runManualBackupTest({ account }, { directoryRoot = root, e
     verifyProbeFunction(await read(fnUrl), config)
     await run(process.execPath, [cli, 'functions:delete', `${config.codebase}:${config.functionName}`, '--region', config.region, '--force', ...cliArgs], options)
     if (await read(fnUrl, { missing: true })) throw Error('Temporary Function still exists.')
-    if (JSON.stringify(await snapshot(probeTarget, 'dev', read)) !== JSON.stringify(before)) throw Error('Dev baseline changed during probe.')
+    if (!isDeepStrictEqual(await snapshot(probeTarget, 'dev', read), before)) throw Error('Dev baseline changed during probe.')
     uncertain = false; phase = 'complete'; await record({ ...result, functionDeleted: true })
     if (result.status !== 'pass') throw Error('Probe completed with a failed check.')
     return { ...result, functionDeleted: true, receipt: join(directory, 'result.json') }

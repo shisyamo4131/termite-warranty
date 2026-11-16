@@ -221,3 +221,19 @@ test('runner refuses changed baseline before any Cloud creation', async t => {
   assert.deepEqual(f.calls, ['ci'])
   await assert.rejects(access(join(f.directoryRoot, 'tmp/manual-auth-backup/dev.lock')))
 })
+test('runner accepts reordered metadata keys at both baseline checks, preserving value and array checks', async t => {
+  for (const change of ['keys', 'value', 'array']) {
+    const f = await runnerFixture(t)
+    let reads = 0
+    f.deps.snapshot = async () => ++reads === 1
+      ? { parameters: { RECOVERY_AUTH_BACKUP_BUCKET: config.bucket }, metadata: { name: 'dev', enabled: true }, order: ['first', 'second'] }
+      : { order: change === 'array' ? ['second', 'first'] : ['first', 'second'], metadata: { enabled: change !== 'value', name: 'dev' }, parameters: { RECOVERY_AUTH_BACKUP_BUCKET: config.bucket } }
+    if (change === 'keys') {
+      assert.equal((await f.execute()).status, 'pass')
+      assert.equal(reads, 3)
+    } else {
+      await assert.rejects(f.execute(), /manualRecoveryRequired=false/)
+      assert.deepEqual(f.calls, ['ci'])
+    }
+  }
+})
