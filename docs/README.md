@@ -1,5 +1,7 @@
 # Documentation Map
 
+2026-11-17：S1〜S5の保守簡素化を完了。Dev Authの実保存・読戻し・削除と一時資源／権限の撤去を確認し、現行手順と履歴を整理。[現在地](roadmaps/technical-remediation.md)・[実証結果](operations.md#2026-11-17-s4実証s5整理完了)。Dev自動保全の有効化・縮小／廃止は別の未決判断。
+
 S3の対象選択配備はDev／ProdのHosting単独配備まで実証済み。`--only`でhosting／functions／firestoreを手動選択し、省略時は全体。実測はDev29.882秒／Prod117.908秒。[手順](runbooks/application-deployment.md)・[検証結果](operations.md#2026-11-17-s3のhosting部分配備実証)。
 
 2026-11-16最新方針：[手元からの直接配備](decisions/0053-direct-application-deployment.md)を採用し、コード統合にはPRを使わず通常pushとし、通常配備をPR／Actionsから切り離す。[現行手順](runbooks/application-deployment.md)と[保守簡素化の現在地](roadmaps/technical-remediation.md)を優先する。PRなしのdev/main通常pushとDev／Prod直接配備の実証を完了。Dev約1分59秒／Prod約3分15秒。[結果・条件](operations.md#2026-11-16-prなし直接配備への切替完了)。以下のActions配備・Linux実証待ちは旧方式の実績／計画。

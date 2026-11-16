@@ -1,5 +1,19 @@
 # Operations
 
+## 2026-11-17 S4実証・S5整理完了
+
+最終試験版99f27d4596500008cca9511887c585cab4f57600で `npm run test:backup:manual -- dev --account <明示account>` がexit0。操作s4-92ef843272907c5623a56575はCloud上のAdmin SDK14.5.1で実Authを取得し、固有objectの新規保存・世代1794872299804658の読戻し・内容一致・世代指定削除・通常読取り404・所有lock解放に成功した。一時private Functionの削除／GET404とDev baseline一致まで同コマンドで確認。Auth本文・hash・tokenはLocalや結果ログに出していない。
+
+本人の追加承認に基づき、Dev試験prefixだけへget/deleteの2権限を30分限定で付与。最初のbinding PUTはHTTP400で拒否され、未付与を読み取り確認後、同じ承認内容・期限のPUTがHTTP200で成功した。初回拒否の原因は未確定。試験後、`node tmp/s4-temporary-iam.mjs revoke` はexit0、追加binding除去、専用role削除状態、元のbucket policyと一致を確認した。恒久権限追加はない。
+
+独立した最終読取りと試験前比較もexit0。Dev既存21 Functions全revision・recovery状態が不変、normal generation16、自動取得無効を維持。試験objectとFunctionは不在。soft delete metadataは2026-11-16T23:38:20.137Zから2026-11-23T23:38:20.137Zまで604800秒の保持を確認（JSTでは11/17 08:38から11/24 08:38）。完全消去ではない。通常バックアップ履歴・Authユーザー・業務データ・Prodを変更していない。Auth復元/import/復元後ログイン、定期処理全体の実証は対象外。
+
+最終コードの検証は対象31件・単体720件成功（既存fixture2skip）、各exit0。typecheck・build・規約check成功と、入力不変のRules208件・Functions構文・seed構文の有効証拠を下記の選定根拠どおり再利用。独立レビューを実装担当と分離し、後続修正にも限定レビュー・失効した試験だけを適用した。S4は入口実装と実保存／読戻し／後片付けをもって完了。
+
+S5も現行入口と過去記録の整理・リンク照合を完了。変更ファイルは `scripts/manual-auth-backup-test.mjs`、`scripts/lib/manual-auth-backup-probe.mjs`、`test/manual-auth-backup-test.test.mjs`、`package.json` と、`README.md`、`governance/README.md`、`docs/README.md`、`docs/operations.md`、`docs/roadmaps/technical-remediation.md`、`docs/runbooks/application-deployment.md`、`docs/runbooks/backup-recovery.md`、`docs/decisions/0053-direct-application-deployment.md`、`CHANGELOG.md`。製品仕様・データ契約・policy・AGENTSの変更はない。Dev保管／縮小／自動保全の方針は未採用の提案として残す。
+
+証拠：tmp/s4-approved-cloud-proof.log、manual-auth-backup/run-OEID9n/result.json、s4-temporary-iam-state.json、s4-dev-final.json、s4-test-final.log。以前の停止を成功へ読み替えず、以下に原因・修正・再検証を保持する。
+
 ## 2026-11-17 S4手動試験入口のLocal検証
 
 既存の固定Functions依存を使うDev限定の非公開HTTP Function方式を実装。[操作・失敗時の扱い](runbooks/backup-recovery.md#dev限定auth保存読戻しの手動試験s4)。通常FunctionsやIAM、依存版、保護設定、業務仕様は変更しない。Cloud実証はまだ未完了。

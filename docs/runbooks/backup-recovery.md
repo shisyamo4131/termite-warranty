@@ -33,9 +33,9 @@ FirestoreバックアップはDBの文書と索引を保存する機能で、Aut
 
 ## Dev限定Auth保存・読戻しの手動試験（S4）
 
-定期取得を有効化せず、手元から `npm run test:backup:manual -- dev --account <ログイン済みメールアドレス>` を実行する。実装・Local検証済み。2026-11-17の実Cloud試験は非公開配備・呼出しに成功したが、保存先権限の事前確認で停止。Auth取得・保存は未実証で、後述の権限判断前に再実行しない。cleanなcommit、Firebase CLIとgcloudの同一明示アカウント、既存権限を前提とする。Prodには使用しない。
+定期取得を有効化せず、手元から `npm run test:backup:manual -- dev --account <ログイン済みメールアドレス>` を実行する。2026-11-17、下記の承認済み一時権限でSDK14.5.1の実保存・読戻し・一致確認・削除を実証し、一時Functionと追加権限も撤去済み。[実績](../operations.md#2026-11-17-s4実証s5整理完了)。再実行には試験prefixのget/delete権限が必要であり、恒久付与はしていない。cleanなcommit、Firebase CLIとgcloudの同一明示アカウント、既存権限を前提とする。Prodには使用しない。
 
-既存Functionsと同じ固定依存から、独立codebaseの非公開HTTP Functionを一時作成する。既存Dev実行アカウントを使い、IAMの追加はしない。実際の配備ソースと非公開設定を確認後、1回だけ呼び出す。実AuthはCloud内で読み、既存の非公開保存先の固有objectへ保存・読戻し・一致確認・世代指定削除を行う。既存Auth export lockと世代を照合し、競合を拒否する。Authユーザー、通常バックアップの履歴、業務データ、自動取得設定は変更しない。
+既存Functionsと同じ固定依存から、独立codebaseの非公開HTTP Functionを一時作成する。既存Dev実行アカウントを使う。試験コマンド自体はIAMを自動追加せず、必要な一時権限は下記の別途承認範囲で準備する。実際の配備ソースと非公開設定を確認後、1回だけ呼び出す。実AuthはCloud内で読み、既存の非公開保存先の固有objectへ保存・読戻し・一致確認・世代指定削除を行う。既存Auth export lockと世代を照合し、競合を拒否する。Authユーザー、通常バックアップの履歴、業務データ、自動取得設定は変更しない。
 
 成功後は試験objectの通常読取りでの不在、所有lockの解放、一時Functionの削除、Devの通常状態・既存Functions・保護設定の不変を確認する。削除objectは既存soft delete設定により7日残る。ビルド・ログ等は既存保持設定に従う。Auth本文・ハッシュ・トークンは手元やログに出さず、`tmp/manual-auth-backup/`には操作ID・段階・結果等のmetadataだけを保存する。
 
@@ -43,11 +43,11 @@ FirestoreバックアップはDBの文書と索引を保存する機能で、Aut
 
 ### 今回の保存先一時権限（2026-11-17承認済み）
 
-実行SAの既存bucket直接付与はobjectCreatorとmetadata読取り用custom role。projectのEditorの現行IAM定義には`storage.objects.get/delete`が含まれず、他の直接付与もAuth hash／Firestore backup読取り用である。Cloud試験はbucket段階で停止し、Auth取得より前に終了した。保存先の公開禁止・統一アクセス・30日lifecycle・7日soft deleteは想定どおり。
+実行SAの既存bucket直接付与はobjectCreatorとmetadata読取り用custom role。projectのEditorの現行IAM定義には`storage.objects.get/delete`が含まれず、他の直接付与もAuth hash／Firestore backup読取り用である。権限追加前のCloud試験はbucket段階で停止し、Auth取得より前に終了した。保存先の公開禁止・統一アクセス・30日lifecycle・7日soft deleteは想定どおり。
 
 本人は本チャットで「一時権限を追加して実証を完了する」を選択した。今回の承認範囲は、Dev bucket `termite-warranty-dev-recovery-auth` に限り、既存SA `1039792105037-compute@developer.gserviceaccount.com` へ **`storage.objects.get` と `storage.objects.delete` の2権限だけ**を一時付与すること。専用custom roleと、`resource.name.startsWith('projects/_/buckets/termite-warranty-dev-recovery-auth/objects/auth/sdk-verification/')` かつ実行開始から30分以内の条件bindingを使う。通常バックアップのprefix、他bucket、Prod、Authユーザー操作は対象外。既存create権限は変更しない。
 
-role IDの未使用と最新policyを確認し、上記だけを追加して1回試験する。試験結果・所有objectの削除を確認後、追加したbindingをetag付きで除去し、専用roleも削除する。結果不明なら再送せず所有資源を照合し、30分で追加権限は失効する。恒久的な権限拡大・Dev自動取得有効化は別判断。新規IAMの追加承認は今回の実証だけであり、恒久付与の承認ではない。bucket全体のtestIamPermissionsはprefix条件の検証に使わず、試験objectのGET404をAuth取得前に確認する。削除権限は付与内容の照合と、保存後の同一世代DELETEで実証する。
+今回の実施ではrole IDの未使用と最新policyを確認し、上記だけを追加して1回試験した。保存・読戻し・削除成功後、追加bindingを除去し、専用roleを削除状態にして元のpolicyとの一致を確認済み。以降は同じ承認範囲を得た場合の手順として読む。試験結果・所有objectの削除を確認後、追加したbindingをetag付きで除去し、専用roleも削除する。結果不明なら再送せず所有資源を照合し、30分で追加権限は失効する。恒久的な権限拡大・Dev自動取得有効化は別判断。新規IAMの追加承認は今回の実証だけであり、恒久付与の承認ではない。bucket全体のtestIamPermissionsはprefix条件の検証に使わず、試験objectのGET404をAuth取得前に確認する。削除権限は付与内容の照合と、保存後の同一世代DELETEで実証する。
 
 ## 2026-11-16 Dev限定SDK実接続試験の準備（実行承認前）
 

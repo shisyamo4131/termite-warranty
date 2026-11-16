@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-17 Dev Auth手動試験・文書整理完了
+
+非公開の一時Functionによる手動試験入口を追加。Admin SDK14.5.1でDev実Authの保存・読戻し・一致確認・削除を実証し、一時Functionと追加権限を撤去。既存Functions・保護設定は不変。削除コピーは既存設定で7日保持。現行のPRなし直接配備手順と過去記録を整理し、S1〜S5を完了。[検証・限界](docs/operations.md#2026-11-17-s4実証s5整理完了)。
+
 ## 2026-11-17 部分配備の実証と現行手順の整理
 
 PRなしの通常push後、Dev／ProdのHosting単独配備を実証。Dev29.882秒／Prod117.908秒、Functionsと保護設定は変更なし。現行の直接配備手順を入口に統一し、過去のActions手順や納品前記録との優先関係を明記。[実測・条件](docs/operations.md#2026-11-17-s3のhosting部分配備実証)。
